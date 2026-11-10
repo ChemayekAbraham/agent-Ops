@@ -21,6 +21,8 @@ import { FunderBoard } from './FunderBoard';
 import { PushQueueCards } from './PushQueueCards';
 import { FundersDashboard } from './cfo/FundersDashboard';
 import { FundersHeadline } from './cfo/FundersHeadline';
+import { FundersBoardCounterCard } from './cfo/FundersBoardCounterCard';
+import { DemotedPanel } from './fundersBoard/DemotedPanel';
 import type { Period as FundersPeriod } from './cfo/cfoApi';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
@@ -39,6 +41,7 @@ import { DeskRules } from './DeskRules';
 import { AccountabilityFold } from './accountability/AccountabilityFold';
 import { EditResponsibilitiesFold } from './ontology/ResponsibilitiesEditor';
 import { AgentsLiveFold } from './agents/AgentsLive';
+import { AgentsDesk } from './agents/AgentsDesk';
 import { FlowPanel } from './flow/FlowPanel';
 import { OntologyTab } from './ontology/OntologyTab';
 
@@ -515,6 +518,9 @@ function DeskView({
     return <CommandCentre feeds={feeds} board={board} tiles={tiles} pipelineCards={checklistOn} />;
   }
 
+  // The Agents desk (E61) draws its own list and agent sheet.
+  if (desk.id === 'agents') return <AgentsDesk board={board} />;
+
   const queueTable = QUEUE_TABLE[desk.id];
   const review: ReviewHook | undefined = stage
     ? {
@@ -639,6 +645,9 @@ function DeskView({
       <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
         <PipelineStrip deskId={desk.id} board={board} />
         {desk.id === 'cfo' && <FundersHeadline board={board} period={fundersPeriod} onPeriodChange={setFundersPeriod} />}
+        {desk.id === 'cfo' && <FundersBoardCounterCard board={board} />}
+        {/* E58: everything taken off the funders board waits here for its level. */}
+        {desk.id === 'coo' && <DemotedPanel board={board} />}
         {intro}
 
         <section className="space-y-3" aria-labelledby="desk-ready">

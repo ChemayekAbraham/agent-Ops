@@ -12,6 +12,7 @@ import { MorningBrief } from './MorningBrief';
 import { PushQueueCards } from './PushQueueCards';
 import { CommandAdditionCards, MoneyLine } from './CommandAdditions';
 import { FlowPanel } from './flow/FlowPanel';
+import { AccountabilityTile } from './accountability/AccountabilityTile';
 
 const num = (v: unknown): number | null =>
   v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v);
@@ -297,7 +298,11 @@ export function CommandCentre({
             <TodayByDesk board={false} enabled />
             <WentAgainstTheSystem board={false} enabled />
           </div>
-          <WhyRequestsBounce board={false} enabled />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <WhyRequestsBounce board={false} enabled />
+            {/* E63: flags by desk and person; a desk opens its people. */}
+            <AccountabilityTile board={false} />
+          </div>
           <CommandAdditionCards board={false} gaps={gaps} enabled />
         </>
       )}

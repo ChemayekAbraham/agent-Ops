@@ -33,10 +33,10 @@ export function CashPositionAccounts({
       color: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
     },
     {
-      name: 'Verified Cash at Bank',
+      name: 'Cash at Bank (Equity, from bank emails)',
       type: 'Corporate Banking',
-      line: 'banked_cash' as const,
-      value: money?.bankedCash ?? 0,
+      line: 'bank' as const,
+      value: money?.bankBalance ?? 0,
       Icon: Landmark,
       color: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
     },
@@ -122,16 +122,16 @@ export function CashPositionAccounts({
                     <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground">
                       Checking
                     </Badge>
-                  ) : row.line === 'banked_cash' ? (
-                    money.bankedInSync ? (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  ) : row.line === 'bank' ? (
+                    money.bankAnchored ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" title={money.bankAnchorNote ?? undefined}>
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        Reconciled
+                        Anchored (CFO-confirmed opening)
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 border border-amber-500/20">
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                        Review variance
+                        From bank emails — not yet anchored
                       </span>
                     )
                   ) : (

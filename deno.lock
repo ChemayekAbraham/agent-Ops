@@ -11371,9 +11371,12 @@
     "packageJson": {
       "dependencies": [
         "npm:@eslint/js@^9.32.0",
+        "npm:@googlemaps/markerclusterer@^2.6.2",
         "npm:@hookform/resolvers@^3.10.0",
         "npm:@lovable.dev/cloud-auth-js@^1.1.2",
         "npm:@lovable.dev/mcp-js@~0.26.1",
+        "npm:@lovable.dev/vite-plugin-dev-server-bridge@^1.0.2",
+        "npm:@lovable.dev/vite-plugin-hmr-gate@^1.8.0",
         "npm:@playwright/test@^1.60.0",
         "npm:@prisma/client@^7.4.2",
         "npm:@radix-ui/react-accordion@^1.2.11",
@@ -11409,6 +11412,7 @@
         "npm:@streamdown/math@^1.0.3",
         "npm:@streamdown/mermaid@^1.0.3",
         "npm:@supabase/supabase-js@2.89.0",
+        "npm:@tailwindcss/container-queries@~0.1.1",
         "npm:@tailwindcss/typography@~0.5.16",
         "npm:@tanstack/react-query@^5.83.0",
         "npm:@tanstack/react-virtual@^3.13.24",

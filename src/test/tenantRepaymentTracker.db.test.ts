@@ -20,6 +20,7 @@ vi.setConfig({ testTimeout: 60_000 });
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8').replace(/\r/g, '');
 const MIG = read('supabase/migrations/20261108090000_cfo_tenant_repayment_tracker.sql');
 const MIG2 = read('supabase/migrations/20261108120000_cfo_tenant_repayment_tracker_money_in.sql');
+const MIG3 = read('supabase/migrations/20261110080243_2e801d30-d147-41c5-ba7c-d0141a5b62bc.sql');
 const RB = read('supabase/rollbacks/20261108090000_cfo_tenant_repayment_tracker.rollback.sql');
 const RB2 = read('supabase/rollbacks/20261108120000_cfo_tenant_repayment_tracker_money_in.rollback.sql');
 
@@ -42,7 +43,8 @@ create type public.app_role as enum ('cfo', 'super_admin', 'manager', 'financial
 create table public.user_roles (user_id uuid, role public.app_role, enabled boolean default true);
 create function public.has_role(p_user uuid, p_role public.app_role) returns boolean language sql stable as
   $$ select exists (select 1 from public.user_roles where user_id = p_user and role = p_role and enabled) $$;
-create table public.profiles (id uuid primary key, full_name text, phone text);
+create table public.profiles (id uuid primary key, full_name text, phone text, tenant_status text, last_active_at timestamptz);
+create table public.tenant_idle_states (rent_request_id uuid, tenant_id uuid, state text, days_idle integer, last_collection_at timestamptz, updated_at timestamptz);
 create table public.landlords (id uuid primary key, name text);
 create table public.rent_requests (id uuid primary key, tenant_id uuid, agent_id uuid, landlord_id uuid, status text,
   rent_amount numeric, access_fee numeric, request_fee numeric, total_repayment numeric, amount_repaid numeric default 0,
@@ -95,7 +97,7 @@ create function public.am_plan_arrears(p_rent_request_ids uuid[], p_as_at date) 
 // plan helper: obligation = rent + 300,000 access fee + 20,000 request fee
 async function plan(db: PGlite, n: number, o: { status: string; rent?: number; repaid?: number; funded: string }) {
   const rent = o.rent ?? 1_000_000;
-  await db.query(`insert into public.profiles values ($1, $2, $3) on conflict do nothing`, [T(n), `Tenant ${n}`, `+25670000${String(n).padStart(4, '0')}`]);
+  await db.query(`insert into public.profiles (id,full_name,phone) values ($1, $2, $3) on conflict do nothing`, [T(n), `Tenant ${n}`, `+25670000${String(n).padStart(4, '0')}`]);
   await db.query(`insert into public.rent_requests (id, tenant_id, agent_id, landlord_id, status, rent_amount, access_fee, request_fee, total_repayment,
       amount_repaid, daily_repayment, duration_days, funded_at, created_at) values ($1, $2, $3, $4, $5, $6, 300000, 20000, $7, $8, 44000, 30, $9, $9)`,
     [P(n), T(n), AGENT, LL, o.status, rent, rent + 320000, o.repaid ?? 0, o.funded]);
@@ -128,7 +130,7 @@ beforeAll(async () => {
   await db.exec(`
     insert into public.user_roles values ('${CFO}', 'cfo', true), ('${SA}', 'super_admin', true), ('${MGR}', 'manager', true),
       ('${FINOPS}', 'financial_ops', true), ('${CEO}', 'ceo', true);
-    insert into public.profiles values ('${AGENT}', 'Agent A', '+256700000001'), ('${OPS}', 'Ops Person', '+256700000002'), ('${CFO}', 'The CFO', null);
+    insert into public.profiles (id,full_name,phone) values ('${AGENT}', 'Agent A', '+256700000001'), ('${OPS}', 'Ops Person', '+256700000002'), ('${CFO}', 'The CFO', null);
     insert into public.landlords values ('${LL}', 'Landlord L');`);
 
   // 1 clean: two receipts = obligation, completed, ledger postings present (current scheme)
@@ -147,7 +149,7 @@ beforeAll(async () => {
 
   // 3 Wasajja Simon shape: 4,000,000 + 1,320,000 + 20,000 = 5,340,000; one 820,000 receipt; balance cut 5,340,000 -> 820,000 by an
   //   approved edit mirrored in landlord_payment_edits; amount_repaid raised by the approval; status completed
-  await db.query(`insert into public.profiles values ($1, 'Tenant 3', '+256781604060')`, [T(3)]);
+  await db.query(`insert into public.profiles (id,full_name,phone) values ($1, 'Tenant 3', '+256781604060')`, [T(3)]);
   await db.query(`insert into public.rent_requests (id, tenant_id, agent_id, landlord_id, status, rent_amount, access_fee, request_fee, total_repayment,
       amount_repaid, daily_repayment, duration_days, funded_at, created_at) values ($1, $2, $3, $4, 'completed', 4000000, 1320000, 20000, 5340000,
       5340000, 178000, 30, '2026-10-08 12:10+03', '2026-10-08 09:48+03')`, [P(3), T(3), AGENT, LL]);
@@ -204,6 +206,7 @@ beforeAll(async () => {
 
   await db.exec(MIG);
   await db.exec(MIG2);
+  await db.exec(MIG3);
 }, 120_000);
 afterAll(async () => { await db?.close(); });
 
@@ -237,6 +240,79 @@ describe('balances come from verified collections', () => {
     const r = byPlan(await register(), 9);
     expect([num(r.verified_collected), num(r.calc_outstanding), num(r.progress_pct)]).toEqual([1_400_000, 0, 100]);
     expect(r.exceptions).toEqual(expect.arrayContaining(['collected_more_than_owed', 'receipts_exceed_recorded']));
+  });
+});
+
+describe('approved evidence-only reporting corrections', () => {
+  async function isolated(run: () => Promise<void>) {
+    await db.exec('BEGIN');
+    try { await run(); } finally { await db.exec('ROLLBACK'); }
+  }
+  const change = (n: number, amount: number) => db.query(`insert into public.rent_amount_change_log (rent_request_id,old_total_repayment,new_total_repayment,old_amount_repaid,new_amount_repaid,changed_at)
+    values ($1,1320000,1320000,0,$2,'2026-10-14 11:21:14.299006+00') returning id`,[P(n),amount]);
+  const repayment = (n: number, amount: number, tenant = T(n)) => db.query(`insert into public.repayments (rent_request_id,tenant_id,amount,created_at)
+    values ($1,$2,$3,'2026-10-14 11:21:14.299006+00')`,[P(n),tenant,amount]);
+  it('recognizes a UGX 7,000 receipt already counted on rent_requests Money In, without adding cash twice', async () => isolated(async () => {
+    await receipt(db,6,7000,'2026-10-14 11:21:14.299006+00');
+    await leg(db,6,'tenant_repayment','cash_in',7000,'2026-10-14 11:21:13.898765+00','rent_requests');
+    const before = await snapshot();
+    const row = byPlan(await register(),6);
+    expect([num(row.verified_collected), row.receipts_not_posted]).toEqual([7000,0]);
+    const detail = await asUser(CFO,()=>db.query<Row>(`select public.get_cfo_tenant_repayment_detail($1) d`,[P(6)]));
+    expect(detail.rows[0].d.receipts[0].ledger_posted).toBe(true);
+    expect(await snapshot()).toBe(before);
+  }));
+  it('recognizes the UGX 14,000 and UGX 4,900 payment-backed edit shapes without changing collected totals', async () => isolated(async () => {
+    for (const [n,amount] of [[6,14000],[12,4900]]) {
+      await change(n,amount);await repayment(n,amount);
+      await leg(db,n,'tenant_repayment','cash_in',amount,'2026-10-14 11:21:13.898765+00','rent_requests');
+    }
+    const before=await snapshot();const rows=await register();
+    for (const [n,amount] of [[6,14000],[12,4900]]) {
+      const row=byPlan(rows,n);
+      expect(num(row.verified_collected)).toBe(amount);
+      expect(num(row.unreceipted_repaid_increase)).toBe(0);
+      expect(row.exceptions).not.toContain('manual_balance_reduction');
+    }
+    expect(await snapshot()).toBe(before);
+  }));
+  it('retains the warning for repeated equal repayments or a different tenant', async () => isolated(async () => {
+    await change(6,14000);await repayment(6,14000);await repayment(6,14000);
+    await leg(db,6,'tenant_repayment','cash_in',14000,'2026-10-14 11:21:13.898765+00','rent_requests');
+    expect(num(byPlan(await register(),6).unreceipted_repaid_increase)).toBe(14000);
+    await change(12,4900);await repayment(12,4900,T(6));
+    await leg(db,12,'tenant_repayment','cash_in',4900,'2026-10-14 11:21:13.898765+00','rent_requests');
+    expect(num(byPlan(await register(),12).unreceipted_repaid_increase)).toBe(4900);
+  }));
+  it('does not accept a reversed Money In group as new payment-change evidence', async () => isolated(async () => {
+    await change(6,14000);await repayment(6,14000);
+    await leg(db,6,'tenant_repayment','cash_in',14000,'2026-10-14 11:21:13.898765+00','rent_requests');
+    await db.exec(`insert into public.general_ledger (source_table,source_id,transaction_group_id,ledger_scope,direction,category,amount,created_at,transaction_date)
+       select source_table,source_id,transaction_group_id,'platform','cash_out',category,amount,created_at,transaction_date from public.general_ledger where source_id='${P(6)}' and amount=14000`);
+    const row=byPlan(await register(),6);
+    expect([num(row.unreceipted_repaid_increase),num(row.verified_collected)]).toEqual([14000,0]);
+  }));
+  it('does not widen timing or accept payment changes before the October cutoff', async () => isolated(async () => {
+    await change(6,14000);await repayment(6,14000);
+    await leg(db,6,'tenant_repayment','cash_in',14000,'2026-10-14 11:21:12+00','rent_requests');
+    expect(num(byPlan(await register(),6).unreceipted_repaid_increase)).toBe(14000);
+    await db.exec(`update public.rent_amount_change_log set changed_at='2026-09-30 12:00+03' where rent_request_id='${P(6)}';
+      update public.repayments set created_at='2026-09-30 12:00+03' where rent_request_id='${P(6)}'`);
+    expect(num(byPlan(await register(),6).unreceipted_repaid_increase)).toBe(14000);
+  }));
+  it('keeps activity plan-specific and lists the same tenant’s other plans without mixing their totals', async () => isolated(async () => {
+    await db.exec(`update public.rent_requests set tenant_id='${T(6)}' where id='${P(12)}';
+      insert into public.tenant_idle_states values ('${P(6)}','${T(6)}','warn',3,'2026-10-14 12:00+03',now()),('${P(12)}','${T(6)}','healthy',0,now(),now())`);
+    const d=(await asUser(CFO,()=>db.query<Row>(`select public.get_cfo_tenant_repayment_detail($1) d`,[P(6)]))).rows[0].d;
+    expect(d.tenant_context.rent_request_id).toBe(P(6));
+    expect(d.tenant_context.plan_activity.state).toBe('warn');
+    expect(d.tenant_context.other_plans.map((p: Row)=>p.rent_request_id)).toEqual([P(12)]);
+    expect(num(d.plan.verified_collected)).toBe(0);
+  }));
+  it('does not grant private evidence helpers to signed-in or anonymous clients', async () => {
+    const rows=(await db.query<Row>(`select has_function_privilege('authenticated','public._cfo_tracker_direct_receipt(uuid)','EXECUTE') receipt,
+      has_function_privilege('anon','public._cfo_tracker_payment_change(uuid)','EXECUTE') change`)).rows;
+    expect(rows[0]).toEqual({receipt:false,change:false});
   });
 });
 

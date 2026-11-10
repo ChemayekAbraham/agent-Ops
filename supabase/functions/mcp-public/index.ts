@@ -141,7 +141,7 @@ function installCallerCapture() {
   const deno = g.Deno;
   const originalServe = deno?.serve;
   if (!deno || typeof originalServe !== "function") return;
-  deno.serve = ((...args) => {
+  deno.serve = (...args) => {
     const wrapped = args.map(
       (arg) => typeof arg === "function" ? (request, info) => {
         const caller = callerFromRequest(request, info);
@@ -151,7 +151,7 @@ function installCallerCapture() {
       } : arg
     );
     return originalServe.apply(deno, wrapped);
-  });
+  };
   void (async () => {
     try {
       const mod = await import(

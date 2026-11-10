@@ -1,4 +1,7 @@
+import { useNavigate } from 'react-router-dom';
+import { Gauge } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DESK_LINKS, useCanOpenDesk } from '@/pages/desk/deskLink';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LANDLORD_OPS_SECTIONS, type LandlordOpsNavItem } from './landlordOpsNav';
 
@@ -11,6 +14,10 @@ interface SidebarProps {
 
 export function LandlordOpsSidebar({ activePath, onNavigate, badges = {}, className }: SidebarProps) {
   const cleanActive = activePath.replace(/^\//, '').replace(/^landlord-ops\/?/, '');
+  const navigate = useNavigate();
+  // The Landlord Ops desk, as the COO dashboard links its desk; only for people the desk lets in.
+  const showDesk = useCanOpenDesk('landlord-ops');
+  const desk = DESK_LINKS['landlord-ops'];
 
   return (
     <nav className={cn('w-full lg:w-60 shrink-0 border-r border-border bg-card flex flex-col h-full text-sm lg:text-xs select-none', className)}>
@@ -65,6 +72,19 @@ export function LandlordOpsSidebar({ activePath, onNavigate, badges = {}, classN
                     </button>
                   );
                 })}
+                {idx === 0 && showDesk && (
+                  <button
+                    type="button"
+                    data-desk-link="landlord-ops"
+                    onClick={() => navigate(desk.route)}
+                    className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2.5 font-medium transition-all group text-left lg:min-h-0 lg:px-2.5 lg:py-1.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <Gauge className="h-4 w-4 shrink-0 transition-colors text-muted-foreground group-hover:text-foreground" />
+                      <span className="truncate">{desk.label}</span>
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
           ))}

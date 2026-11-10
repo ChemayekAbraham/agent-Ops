@@ -1,0 +1,365 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Maximize, Radio, X } from 'lucide-react';
+import logo from '@/assets/welile-logo.png';
+import { loadBoardDisplay, loadBoardList } from '@/lib/boardDisplayClient';
+import {
+  BOARD_IDLE_MS,
+  BOARD_PANEL_IDLE_MS,
+  BOARD_PERIODS,
+  BOARD_PERIOD_LABELS,
+  BOARD_POLL_MS,
+  BOARD_PULSE_MS,
+  BOARD_RETRY_MS,
+  type BoardFeed,
+  type BoardList,
+  type BoardMetric,
+  type BoardPeriod,
+  boardDays,
+  boardDisplayToken,
+  boardIsStale,
+  boardMoney,
+  boardUpdatedText,
+  isBoardLinkError,
+  kampalaClock,
+  kampalaDate,
+  readBoardPeriod,
+  storeBoardPeriod,
+} from '@/lib/boardDisplay';
+
+/**
+ * The boardroom screen (/b/:code, /board/:code): a 16:9 TV display of the
+ * funders' board totals, public behind a token. It boots on its own from
+ * main.tsx — no sign-in, no app shell, no pop-ups. A light board: one period
+ * toggle above three big tiles (posted, sold, waiting); a tap on a tile lists
+ * the requests behind it. Never names, phones or request ids: readBoardFeed
+ * and readBoardList whitelist their contracts.
+ */
+
+const METRICS: { key: BoardMetric; title: string; caption: string }[] = [
+  { key: 'posted', title: 'Rent requests posted', caption: "From the COO to the funders' board" },
+  { key: 'sold', title: 'Rent requests sold', caption: 'Partner took it and money released to the landlord' },
+  { key: 'waiting', title: 'Waiting for funder', caption: 'Posted and not yet sold' },
+];
+const safeStorage = () => {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+};
+
+/** A number that pulses for 0.8 s when it changes (not on its first appearance). */
+function ChangedNumber({ value, money = false }: { value: number | null; money?: boolean }) {
+  const previous = useRef(value);
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    if (previous.current === value) return;
+    const had = previous.current != null;
+    previous.current = value;
+    if (!had) return;
+    setPulse(true);
+    const timer = window.setTimeout(() => setPulse(false), BOARD_PULSE_MS);
+    return () => window.clearTimeout(timer);
+  }, [value]);
+  const text = value == null ? '—' : money ? boardMoney(value) : value.toLocaleString('en-GB');
+  return <span className={pulse ? 'board-number board-number-changed' : 'board-number'} data-changed={pulse || undefined}>{text}</span>;
+}
+
+/**
+ * The requests behind one tile: a side panel on a wide screen, a bottom sheet
+ * on a narrow one (CSS decides). Close button and Esc; closes itself after a
+ * minute with no touch so the room is back on the tiles; refreshes every 30 s
+ * while open. Only ref, area, rent, dates and status ever reach it.
+ */
+function ListPanel({ token, period, kind, onClose }: { token: string; period: BoardPeriod; kind: BoardMetric; onClose: () => void }) {
+  const [list, setList] = useState<BoardList | null>(null);
+  const [error, setError] = useState('');
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const title = METRICS.find((m) => m.key === kind)?.title ?? kind;
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number;
+    const controller = new AbortController();
+    async function refresh() {
+      try {
+        const data = await loadBoardList(token, period, kind, controller.signal);
+        if (!cancelled) {
+          setList(data);
+          setError('');
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error && err.message ? err.message : 'This list is temporarily unavailable.');
+      }
+      if (!cancelled) timer = window.setTimeout(refresh, BOARD_POLL_MS);
+    }
+    void refresh();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [token, period, kind]);
+
+  // Esc closes; any touch, key or scroll restarts the one-minute auto-close.
+  useEffect(() => {
+    closeRef.current?.focus();
+    let timer = window.setTimeout(onClose, BOARD_PANEL_IDLE_MS);
+    const touched = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(onClose, BOARD_PANEL_IDLE_MS);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else touched();
+    };
+    const events = ['pointerdown', 'pointermove', 'wheel', 'touchstart', 'scroll'] as const;
+    events.forEach((e) => window.addEventListener(e, touched, { passive: true, capture: true }));
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, touched, { capture: true }));
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="board-panel-wrap" role="dialog" aria-modal="true" aria-label={title}>
+      <button type="button" className="board-panel-backdrop" aria-label="Close" tabIndex={-1} onClick={onClose} />
+      <section className={`board-panel board-${kind}`}>
+        <header className="board-panel-header">
+          <div>
+            <h2>{title}</h2>
+            <p data-board-list-summary>
+              {BOARD_PERIOD_LABELS[period]}
+              {list && (
+                <>
+                  {' · '}
+                  <strong>
+                    {list.count.toLocaleString('en-GB')} {list.count === 1 ? 'request' : 'requests'}
+                  </strong>
+                  {' · '}
+                  <strong>{boardMoney(list.ugx)}</strong>
+                </>
+              )}
+              {list && list.shown < list.count && <> · newest {list.shown.toLocaleString('en-GB')} of {list.count.toLocaleString('en-GB')}</>}
+            </p>
+          </div>
+          <button ref={closeRef} type="button" className="board-panel-close" onClick={onClose} aria-label="Close">
+            <X aria-hidden="true" />
+          </button>
+        </header>
+        {error && <p role="alert" className="board-panel-error">{error}</p>}
+        {!list ? (
+          !error && <p className="board-panel-empty">Loading…</p>
+        ) : list.rows.length === 0 ? (
+          <p className="board-panel-empty">Nothing in this period</p>
+        ) : (
+          <ul className="board-list" aria-label={title}>
+            {list.rows.map((r, i) => (
+              <li key={`${r.ref}-${i}`} className="board-list-row" data-board-row>
+                <div className="board-list-top">
+                  <span className="board-list-ref">{r.ref}</span>
+                  <span className="board-list-area">{r.area ?? '—'}</span>
+                  <strong className="board-list-rent">{r.rent == null ? '—' : boardMoney(r.rent)}</strong>
+                </div>
+                <div className="board-list-meta">
+                  <span>Posted {kampalaDate(r.posted_at)}</span>
+                  <span>{boardDays(r.days_since_posted)} since posted</span>
+                  {r.status_label && <span className="board-list-status">{r.status_label}</span>}
+                  {kind === 'sold' && <span data-board-released>Money released {kampalaDate(r.money_released_at)}</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+export default function BoardDisplay() {
+  const token = boardDisplayToken(window.location.pathname, window.location.search);
+  const [feed, setFeed] = useState<BoardFeed | null>(null);
+  const [error, setError] = useState<{ text: string; link: boolean } | null>(null);
+  const [lastGood, setLastGood] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const [idle, setIdle] = useState(false);
+  const [period, setPeriodState] = useState<BoardPeriod>(() => readBoardPeriod(safeStorage()));
+  const [open, setOpen] = useState<BoardMetric | null>(null);
+  const setPeriod = (p: BoardPeriod) => {
+    setPeriodState(p);
+    storeBoardPeriod(safeStorage(), p);
+  };
+  const close = useCallback(() => setOpen(null), []);
+
+  // Not for search engines.
+  useEffect(() => {
+    const existing = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    const oldContent = existing?.content;
+    const robots = existing ?? document.createElement('meta');
+    robots.name = 'robots';
+    robots.content = 'noindex,nofollow';
+    if (!existing) document.head.appendChild(robots);
+    const title = document.title;
+    document.title = 'Welile — Ops Command Centre';
+    return () => {
+      document.title = title;
+      if (existing) existing.content = oldContent ?? '';
+      else robots.remove();
+    };
+  }, []);
+
+  // Every 30 s; after an error, again in 60 s. The last totals stay up unless the link itself is refused.
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number;
+    const controller = new AbortController();
+    async function refresh() {
+      let delay = BOARD_POLL_MS;
+      try {
+        const data = await loadBoardDisplay(token, controller.signal);
+        if (!cancelled) {
+          setFeed(data);
+          setLastGood(Date.now());
+          setError(null);
+        }
+      } catch (err) {
+        delay = BOARD_RETRY_MS;
+        if (!cancelled) {
+          const link = isBoardLinkError(err);
+          setError({ text: err instanceof Error && err.message ? err.message : 'This display is temporarily unavailable.', link });
+          if (link) setFeed(null);
+        }
+      }
+      if (!cancelled) timer = window.setTimeout(refresh, delay);
+    }
+    void refresh();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [token]);
+
+  // The clock, and the cursor and buttons hide after 3 s without input.
+  useEffect(() => {
+    const clock = window.setInterval(() => setNow(Date.now()), 1_000);
+    let timer: number;
+    const active = () => {
+      setIdle(false);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setIdle(true), BOARD_IDLE_MS);
+    };
+    active();
+    const events = ['pointermove', 'pointerdown', 'keydown'] as const;
+    events.forEach((e) => window.addEventListener(e, active));
+    return () => {
+      window.clearInterval(clock);
+      window.clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, active));
+    };
+  }, []);
+
+  // Keep the screen awake while the display is visible.
+  useEffect(() => {
+    let disposed = false;
+    let lock: { release(): Promise<void>; released: boolean } | undefined;
+    let acquiring = false;
+    const wake = navigator as Navigator & { wakeLock?: { request(type: 'screen'): Promise<{ release(): Promise<void>; released: boolean }> } };
+    async function acquire() {
+      if (disposed || document.visibilityState !== 'visible' || !wake.wakeLock || acquiring || (lock && !lock.released)) return;
+      acquiring = true;
+      try {
+        const next = await wake.wakeLock.request('screen');
+        if (disposed) await next.release();
+        else lock = next;
+      } catch {
+        /* Some TV browsers have no wake lock. */
+      } finally {
+        acquiring = false;
+      }
+    }
+    void acquire();
+    document.addEventListener('visibilitychange', acquire);
+    return () => {
+      disposed = true;
+      document.removeEventListener('visibilitychange', acquire);
+      void lock?.release().catch(() => {});
+    };
+  }, []);
+
+  const stale = boardIsStale(lastGood, now);
+  const fatal = !!error && (error.link || !feed);
+
+  return (
+    <main className={`board-display ${idle ? 'board-idle' : ''}`} data-board-state={fatal ? 'error' : feed ? 'live' : 'connecting'}>
+      <header className="board-topbar">
+        <div className="board-brand">
+          <img src={logo} alt="Welile" />
+          <div>
+            <h1>Ops Command Centre</h1>
+            <p>{feed?.display.label || 'Boardroom display'}</p>
+          </div>
+        </div>
+        {feed && !fatal && (
+          <div className={`board-live ${stale ? 'text-warning' : 'text-success'}`} data-stale={stale || undefined}>
+            <Radio aria-hidden="true" />
+            <div>
+              <strong>{boardUpdatedText(feed.generated_at)}</strong>
+              {error && <span role="alert">{error.text} · trying again in 60 s</span>}
+            </div>
+          </div>
+        )}
+        <div className="board-clock" aria-label="Time in Kampala">
+          <strong>{kampalaClock(now)}</strong>
+          <span>Kampala</span>
+        </div>
+        <button
+          type="button"
+          className="board-fullscreen"
+          aria-label="Full screen"
+          title="Full screen"
+          onClick={() => {
+            void document.documentElement.requestFullscreen?.().catch(() => {});
+          }}
+        >
+          <Maximize aria-hidden="true" />
+        </button>
+      </header>
+
+      {fatal && error ? (
+        <section className="board-message" role="alert">
+          <h2>{error.text}</h2>
+          <p>Trying again every 60 seconds.</p>
+        </section>
+      ) : !feed ? (
+        <section className="board-message">
+          <h2>Connecting to the command centre…</h2>
+        </section>
+      ) : (
+        <>
+          <div className="board-periods" role="group" aria-label="Period">
+            {BOARD_PERIODS.map((p) => (
+              <button key={p} type="button" aria-pressed={period === p} className="board-period" onClick={() => setPeriod(p)}>
+                {BOARD_PERIOD_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          <section className="board-hero" aria-label={`Rent requests · ${BOARD_PERIOD_LABELS[period]}`}>
+            {METRICS.map(({ key, title, caption }) => (
+              <button key={key} type="button" aria-haspopup="dialog" className={`board-tile board-${key}`} data-metric={key} onClick={() => setOpen(key)}>
+                <span className="board-tile-when">{BOARD_PERIOD_LABELS[period]}</span>
+                <h2>{title}</h2>
+                <div className="board-hero-count"><ChangedNumber key={period} value={feed.headline[period][key].n} /></div>
+                <div className="board-hero-money"><ChangedNumber key={period} value={feed.headline[period][key].ugx} money /></div>
+                <p>{caption}</p>
+              </button>
+            ))}
+          </section>
+        </>
+      )}
+      {open && feed && !fatal && <ListPanel token={token} period={period} kind={open} onClose={close} />}
+    </main>
+  );
+}

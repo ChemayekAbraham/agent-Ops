@@ -10,6 +10,7 @@ import ScreenLoader from '@/components/common/ScreenLoader';
 import { toast } from 'sonner';
 import { FALLBACK_ROUTE, NO_ROLES_ROUTE } from '@/lib/roleFallback';
 import { preloadLandingRoles } from '@/lib/preloadRoleDashboards';
+import { PROXY_DASHBOARD_ROUTE, isPersonaLanding, resolveProxyLanding } from '@/lib/proxyLanding';
 
 /**
  * Catch-all redirect for the legacy `/dashboard` URL.
@@ -166,17 +167,45 @@ export default function DashboardRedirect() {
             return has;
           }, () => null)
         : null;
+
+    // Proxy agents who have never collected rent land on the proxy dashboard instead of the agent, funder, tenant
+    // or landlord one (see proxyLanding). Asked now so it runs alongside the lookups below; every landing that is
+    // not an explicit choice waits for it. A newer run of this effect cancels the older run's landing.
+    const proxyLanding = resolveProxyLanding(user.id);
+    let cancelled = false;
+    const cancel = () => { cancelled = true; };
+    const land = (target: AppRole, why: string) => {
+      if (!isPersonaLanding(target)) {
+        explain(target, why);
+        navigate(roleToSlug(target), { replace: true });
+        return;
+      }
+      proxyLanding.then((toProxy) => {
+        if (cancelled) return;
+        if (toProxy) {
+          try {
+            toast.message('Opened proxy agent dashboard', {
+              description: 'You are a verified proxy agent with no rent collections yet. Choose a different home screen in Settings → Roles → Home Screen.',
+              duration: 4500,
+            });
+          } catch { /* the notice is optional; the landing is not */ }
+          navigate(PROXY_DASHBOARD_ROUTE, { replace: true });
+          return;
+        }
+        explain(target, why);
+        navigate(roleToSlug(target), { replace: true });
+      });
+    };
+
     const goAgent = () => {
-      explain('agent', 'You hold the agent role and have posted a rent request before. Turn this off in Settings → Roles → Home Screen.');
-      navigate(roleToSlug('agent'), { replace: true });
+      land('agent', 'You hold the agent role and have posted a rent request before. Turn this off in Settings → Roles → Home Screen.');
     };
     const fallback = () => {
       const honored = role && roles.includes(role) ? role : roles[0];
       const why = honored === role
         ? 'Continuing where you last left off.'
         : `Defaulted to your first available role (${honored}).`;
-      explain(honored, why);
-      navigate(roleToSlug(honored), { replace: true });
+      land(honored, why);
     };
 
     // Server-side fallback: if no local routing prefs are saved, ask the
@@ -206,10 +235,11 @@ export default function DashboardRedirect() {
         if (handled) return;
         runAgentAutoRule();
       });
-      return;
+      return cancel;
     }
 
     runAgentAutoRule();
+    return cancel;
 
     function runAgentAutoRule() {
     // Re-read: the server prefs above may have run while the lookup finished,

@@ -12,6 +12,7 @@ import type {
 import { amountRange, matchesReadyPlanSearch, placeCase, toNumber } from './utils';
 import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 import { useFunderEmptyHousesAllowed } from '@/hooks/useFunderEmptyHousesSwitch';
+import { fetchFundersBoardHeadline } from '@/lib/fundersBoard';
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -84,12 +85,19 @@ export function useFunderNewMarketSummary() {
     queryFn: async () => {
       if (!allowed) return { houseCount: 0, totalRentNeeded: 0, avgMonthlyRent: 0, districts: [] };
       await requireUserSession();
-      const { data, error } = await supabase.rpc('empty_house_opportunity_summary');
+      const [{ data, error }, board] = await Promise.all([
+        supabase.rpc('empty_house_opportunity_summary'),
+        fetchFundersBoardHeadline(),
+      ]);
       if (error) throw error;
       const raw = asRecord(data);
-      const houseCount = toNumber(raw.house_count);
-      const totalRentNeeded = toNumber(raw.total_rent_needed);
-      const avgMonthlyRent = toNumber(raw.avg_monthly_rent) || (houseCount > 0 ? totalRentNeeded / houseCount : 0);
+      // E58: the funders board headline wins while its switch is on; otherwise the old source.
+      const useBoard = board?.on === true;
+      const houseCount = useBoard ? board.houses_waiting : toNumber(raw.house_count);
+      const totalRentNeeded = useBoard ? board.amount_needed_ugx : toNumber(raw.total_rent_needed);
+      const avgMonthlyRent = useBoard
+        ? board.avg_monthly_rent
+        : toNumber(raw.avg_monthly_rent) || (houseCount > 0 ? totalRentNeeded / houseCount : 0);
       const districts = (Array.isArray(raw.districts) ? raw.districts : [])
         .map((entry) => asRecord(entry))
         .map((entry) => {

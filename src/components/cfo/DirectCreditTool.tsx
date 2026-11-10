@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Send, ArrowUpRight, ArrowDownLeft, TrendingUp, TrendingDown, Minus, Info, ChevronDown, Banknote, Phone, Building2, AlertTriangle } from 'lucide-react';
+import { Loader2, Send, ArrowUpRight, ArrowDownLeft, TrendingUp, TrendingDown, Minus, Info, ChevronDown, Banknote, Phone, Building2, AlertTriangle, ShieldCheck, Wallet, Check, Sparkles } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -882,81 +882,115 @@ export function DirectCreditTool() {
   const ImpactIcon = impactInfo?.icon;
 
   return (
-    <Card className="rounded-2xl border-border/60 shadow-sm">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-base flex items-center gap-2">
-          {isCredit ? <ArrowUpRight className="h-4 w-4 text-emerald-600" /> : <ArrowDownLeft className="h-4 w-4 text-destructive" />}
-          CFO Wallet Adjustment
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Move money between the platform and user wallets securely.
-        </p>
+    <Card className="rounded-3xl border border-border/70 bg-card shadow-sm overflow-hidden transition-all">
+      <CardHeader className="p-5 sm:p-6 pb-5 border-b border-border/60 bg-gradient-to-r from-card via-card to-muted/20">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3.5">
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1 shadow-xs transition-colors ${
+              isCredit
+                ? 'bg-emerald-500/10 text-emerald-600 ring-emerald-500/20'
+                : operation === 'debit'
+                  ? 'bg-rose-500/10 text-rose-600 ring-rose-500/20'
+                  : 'bg-amber-500/10 text-amber-600 ring-amber-500/20'
+            }`}>
+              {isCredit ? (
+                <ArrowUpRight className="h-5 w-5" />
+              ) : operation === 'debit' ? (
+                <ArrowDownLeft className="h-5 w-5" />
+              ) : (
+                <Banknote className="h-5 w-5" />
+              )}
+            </div>
+            <div>
+              <CardTitle className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+                CFO Wallet Payout & Standing Orders
+              </CardTitle>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                Execute direct wallet credits, operational debits, outbound withdrawals, and automated standing orders.
+              </p>
+            </div>
+          </div>
+          <Badge variant="outline" className="hidden sm:inline-flex text-[11px] font-medium py-1 px-2.5 rounded-full border-border/70 bg-background/50 self-start sm:self-auto gap-1.5 text-muted-foreground shrink-0">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+            Ledger Protected
+          </Badge>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          <Button
+      <CardContent className="p-5 sm:p-6 space-y-5">
+        <div className="p-1 rounded-2xl bg-muted/40 border border-border/60 grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+          <button
             type="button"
-            variant={isCredit ? 'default' : 'outline'}
-            className={`h-11 w-full rounded-xl text-sm font-semibold ${isCredit ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' : ''}`}
             onClick={() => handleOperationChange('credit')}
+            className={`relative flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+              isCredit
+                ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-600/30'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
+            }`}
           >
-            <ArrowUpRight className="h-4 w-4 mr-1.5 shrink-0" />
+            <ArrowUpRight className="h-4 w-4 shrink-0" />
             <span className="truncate">{CFO_PAYOUT_LABELS.credit}</span>
-          </Button>
-          <Button
+          </button>
+          <button
             type="button"
-            variant={operation === 'debit' ? 'default' : 'outline'}
-            className={`h-11 w-full rounded-xl text-sm font-semibold ${operation === 'debit' ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground shadow-sm' : ''}`}
             onClick={() => handleOperationChange('debit')}
+            className={`relative flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+              operation === 'debit'
+                ? 'bg-rose-600 text-white shadow-sm ring-1 ring-rose-600/30'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
+            }`}
           >
-            <ArrowDownLeft className="h-4 w-4 mr-1.5 shrink-0" />
+            <ArrowDownLeft className="h-4 w-4 shrink-0" />
             <span className="truncate">{CFO_PAYOUT_LABELS.debit}</span>
-          </Button>
-          <Button
+          </button>
+          <button
             type="button"
-            variant={operation === 'withdraw' ? 'default' : 'outline'}
-            className={`h-11 w-full rounded-xl text-sm font-semibold ${operation === 'withdraw' ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-sm' : ''}`}
             onClick={() => handleOperationChange('withdraw')}
+            className={`relative flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+              operation === 'withdraw'
+                ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-600/30'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
+            }`}
           >
-            <Banknote className="h-4 w-4 mr-1.5 shrink-0" />
-            <span className="truncate">Withdraw</span>
-          </Button>
+            <Banknote className="h-4 w-4 shrink-0" />
+            <span className="truncate">Outbound Withdraw</span>
+          </button>
         </div>
 
-
         {operation === 'withdraw' && (
-          <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-[11px] text-orange-800 flex gap-2">
-            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/20 p-4 text-xs text-amber-900 dark:text-amber-200 flex gap-3 shadow-xs">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+            </div>
             <div>
-              <div className="font-semibold">Expense-Only Withdrawal</div>
-              <div className="opacity-90 mt-0.5">
-                Only categories marked as <strong>Expense</strong> can fund a real outbound payment
-                (Cash, Mobile Money, Bank). Revenue and Neutral categories are blocked.
+              <div className="font-semibold text-sm text-amber-900 dark:text-amber-100">Expense-Only Outbound Withdrawal</div>
+              <div className="opacity-90 mt-0.5 leading-relaxed">
+                Only categories marked as <strong>Expense</strong> can fund real outbound payments
+                (Cash, Mobile Money, Bank). Revenue and Neutral categories are blocked to prevent accounting imbalances.
               </div>
             </div>
           </div>
         )}
 
-        <div>
-          <Label htmlFor="payout-category" className="flex items-center gap-1.5 mb-1.5">
+        <div className="space-y-2">
+          <Label htmlFor="payout-category" className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
             Payout Category
             <span className="text-destructive">*</span>
           </Label>
           <Select value={selectedCategoryId} onValueChange={handleCategoryChange}>
-            <SelectTrigger id="payout-category" className="h-10 w-full text-sm">
+            <SelectTrigger id="payout-category" className="h-11 w-full text-sm rounded-xl border-border/70 bg-background hover:bg-muted/20">
               <SelectValue placeholder="Select a category..." />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-xl shadow-lg border-border/70">
               {availableCategories.map((cat) => {
                 const impactLabel = IMPACT_CONFIG[cat.impact].label;
                 const pending = pendingByCategory[cat.id] ?? 0;
                 return (
-                  <SelectItem key={cat.id} value={cat.id}>
+                  <SelectItem key={cat.id} value={cat.id} className="rounded-lg py-2">
                     <span className="flex items-center gap-1.5">
-                      <span>{cat.label}</span>
-                      <span className="text-muted-foreground">— {impactLabel}</span>
+                      <span className="font-medium">{cat.label}</span>
+                      <span className="text-muted-foreground text-xs">— {impactLabel}</span>
                       {pending > 0 && (
-                        <span className="text-primary font-medium">
+                        <span className="text-primary font-bold text-xs ml-1">
                           • {pending} ready
                         </span>
                       )}
@@ -967,7 +1001,11 @@ export function DirectCreditTool() {
             </SelectContent>
           </Select>
           {availableCategories.some((cat) => (pendingByCategory[cat.id] ?? 0) > 0) && (
-            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-primary" />
+                Waiting for approval:
+              </span>
               {availableCategories
                 .filter((cat) => (pendingByCategory[cat.id] ?? 0) > 0)
                 .map((cat) => (
@@ -977,20 +1015,21 @@ export function DirectCreditTool() {
                     onClick={() => handleCategoryChange(cat.id)}
                     className="focus:outline-none"
                   >
-                    <Badge variant="default" className="text-[10px] px-2 py-0.5 gap-1 cursor-pointer hover:opacity-90">
+                    <Badge variant="outline" className="text-xs px-2.5 py-1 gap-1.5 cursor-pointer rounded-xl border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-semibold transition-colors">
                       {cat.label}
-                      <span className="font-bold">{pendingByCategory[cat.id]}</span>
+                      <span className="bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                        {pendingByCategory[cat.id]}
+                      </span>
                     </Badge>
                   </button>
                 ))}
-              <span className="text-[10px] text-muted-foreground">waiting for your approval</span>
             </div>
           )}
         </div>
 
         {hasSubCategories && (
-          <div>
-            <Label htmlFor="payout-subcategory" className="flex items-center gap-1.5 mb-1.5">
+          <div className="space-y-2">
+            <Label htmlFor="payout-subcategory" className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
               Subcategory
               <span className="text-destructive">*</span>
             </Label>
@@ -999,7 +1038,7 @@ export function DirectCreditTool() {
                 id="payout-subcategory"
                 value={selectedSubCategoryId}
                 onChange={(e) => setSelectedSubCategoryId(e.target.value)}
-                className="flex h-10 w-full appearance-none rounded-lg border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground transition-colors ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary/50"
+                className="flex h-11 w-full appearance-none rounded-xl border border-border/70 bg-background px-3.5 py-2 pr-10 text-sm text-foreground transition-colors ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary/50"
               >
                 <option value="">Select a subcategory...</option>
                 {selectedCategory?.subCategories?.map((sub) => (
@@ -1008,7 +1047,7 @@ export function DirectCreditTool() {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             </div>
           </div>
         )}
@@ -1016,34 +1055,38 @@ export function DirectCreditTool() {
         {/* Category Impact Explanation */}
 
         {selectedCategory && impactInfo && ImpactIcon && !isQueueCategory && !needsSubCategory && (
-          <div className={`rounded-lg border p-3 text-xs space-y-1.5 ${impactInfo.color}`}>
-            <div className="flex items-center gap-2 font-semibold">
-              <ImpactIcon className="h-4 w-4" />
-              Financial Impact: {impactInfo.label}
+          <div className={`rounded-2xl border p-4 text-xs space-y-2.5 shadow-2xs ${impactInfo.color}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-sm">
+                <ImpactIcon className="h-4 w-4" />
+                Financial Impact: {impactInfo.label}
+              </div>
+              {selectedSubCategory && (
+                <Badge variant="outline" className="text-[10px] font-medium border-current/20 bg-background/50">
+                  📂 {selectedSubCategory.label}
+                </Badge>
+              )}
             </div>
-            <p className="opacity-80">{selectedCategory.description}</p>
-            {selectedSubCategory && (
-              <p className="font-medium">📂 Subcategory: {selectedSubCategory.label}</p>
+            <p className="opacity-90 leading-relaxed">{selectedCategory.description}</p>
+            <div className="pt-2 border-t border-current/15 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+              <div><span className="font-semibold opacity-70">Wallet entry:</span> <span className="font-medium">{selectedCategory.walletCategory.replace(/_/g, ' ')}</span></div>
+              <div><span className="font-semibold opacity-70">Platform entry:</span> <span className="font-medium">{selectedCategory.platformCategory.replace(/_/g, ' ')}</span></div>
+            </div>
+            {selectedCategory.impact === 'expense' && (
+              <div className="text-[11px] font-medium text-orange-800 dark:text-orange-300 pt-0.5">
+                📉 Recorded as platform expense — reduces net platform earnings.
+              </div>
             )}
-            <div className="pt-1 border-t border-current/10 space-y-0.5 text-[10px]">
-              <p><span className="font-medium">Wallet entry:</span> {selectedCategory.walletCategory.replace(/_/g, ' ')}</p>
-              <p><span className="font-medium">Platform entry:</span> {selectedCategory.platformCategory.replace(/_/g, ' ')}</p>
-              {selectedCategory.impact === 'expense' && (
-                <p className="font-medium text-orange-700">
-                  📉 This payout is a platform expense — reduces platform earnings.
-                </p>
-              )}
-              {selectedCategory.impact === 'revenue' && (
-                <p className="font-medium text-emerald-700">
-                  ✅ This payout earns money for the platform — recorded as platform income.
-                </p>
-              )}
-              {selectedCategory.impact === 'neutral' && (
-                <p className="font-medium">
-                  ➖ This is a balance adjustment — no effect on profit or loss.
-                </p>
-              )}
-            </div>
+            {selectedCategory.impact === 'revenue' && (
+              <div className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300 pt-0.5">
+                ✅ Recorded as platform income — recognized as platform revenue.
+              </div>
+            )}
+            {selectedCategory.impact === 'neutral' && (
+              <div className="text-[11px] font-medium opacity-80 pt-0.5">
+                ➖ Balance sheet adjustment — zero impact on profit or loss.
+              </div>
+            )}
           </div>
         )}
 
@@ -1051,8 +1094,8 @@ export function DirectCreditTool() {
         {isRentDisbursement && (
           <>
             {locationRecipients.length > 0 && (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs space-y-1">
-                <p className="font-semibold">
+              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-xs space-y-1 shadow-2xs">
+                <p className="font-semibold text-sm">
                   Showing {locationRecipients.length} tenant{locationRecipients.length === 1 ? '' : 's'} selected by location/category
                 </p>
                 <p className="text-muted-foreground">
@@ -1060,7 +1103,7 @@ export function DirectCreditTool() {
                 </p>
                 <button
                   type="button"
-                  className="text-primary hover:underline"
+                  className="text-primary hover:underline font-semibold pt-1 inline-block"
                   onClick={() => setLocationRecipients([])}
                 >
                   Show the full queue again
@@ -1096,8 +1139,8 @@ export function DirectCreditTool() {
         {(!isQueueCategory || (locationRecipients.length > 0 && !isRentDisbursement)) && selectedCategoryId && !needsSubCategory && (
           <>
             {locationRecipients.length > 0 && (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs space-y-1">
-                <p className="font-semibold">
+              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-xs space-y-1 shadow-2xs">
+                <p className="font-semibold text-sm">
                   {locationRecipients.length} recipients selected by location/category
                 </p>
                 <p className="text-muted-foreground">
@@ -1105,7 +1148,7 @@ export function DirectCreditTool() {
                 </p>
                 <button
                   type="button"
-                  className="text-primary hover:underline"
+                  className="text-primary hover:underline font-semibold pt-1 inline-block"
                   onClick={() => setLocationRecipients([])}
                 >
                   Clear list and pay a single user
@@ -1122,17 +1165,19 @@ export function DirectCreditTool() {
 
             {/* ── Wallet Routing v2: Recipient Type (REQUIRED) ── */}
             {selectedUser && (
-              <div>
-                <Label className="flex items-center gap-1.5 mb-1.5">
-                  Recipient Type
-                  <span className="text-destructive">*</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    Recipient Type
+                    <span className="text-destructive">*</span>
+                  </Label>
                   {selectedCategory && selectedCategory.recipientLock !== 'either' && (
-                    <Badge variant="outline" className="ml-1 text-[9px] px-1.5 py-0 h-4">
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 rounded-full border-border/70 text-muted-foreground bg-muted/40">
                       Auto-set by category
                     </Badge>
                   )}
-                </Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -1140,20 +1185,34 @@ export function DirectCreditTool() {
                       setRecipientType('user');
                     }}
                     disabled={selectedCategory?.recipientLock === 'operational_wallet'}
-                    className={`text-left rounded-lg border p-3 transition ${
+                    className={`group relative text-left rounded-2xl border p-4 transition-all duration-200 ${
                       recipientType === 'user'
-                        ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
-                        : 'border-border hover:border-emerald-300 hover:bg-emerald-50/40'
-                    } ${selectedCategory?.recipientLock === 'operational_wallet' ? 'opacity-40 cursor-not-allowed hover:bg-transparent hover:border-border' : ''}`}
+                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/25 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'border-border/70 bg-card hover:border-emerald-300/80 hover:bg-emerald-50/20'
+                    } ${selectedCategory?.recipientLock === 'operational_wallet' ? 'opacity-40 cursor-not-allowed hover:bg-transparent hover:border-border/70' : ''}`}
                   >
-                    <div className="text-sm font-semibold text-emerald-700">User Wallet</div>
-                    <div className="text-[11px] text-emerald-700/80 mt-0.5">
-                      Money belongs to the recipient. Lands in <strong>Withdrawable</strong> — they can cash out immediately.
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className={`h-7 w-7 rounded-lg flex items-center justify-center font-bold ${
+                          recipientType === 'user' ? 'bg-emerald-600 text-white' : 'bg-emerald-500/10 text-emerald-600'
+                        }`}>
+                          <Wallet className="h-4 w-4" />
+                        </div>
+                        <span className="text-sm font-bold text-foreground">User Wallet</span>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 border-emerald-300/40 bg-emerald-100/50 dark:bg-emerald-900/40">
+                        Withdrawable
+                      </Badge>
                     </div>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                      Use for: payroll, agent commissions, ROI, refunds, personal payouts.
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Money belongs to recipient. Lands in <strong>Withdrawable Available Balance</strong> for immediate payout.
+                    </p>
+                    <div className="text-[10px] text-muted-foreground/90 mt-2 flex items-center gap-1.5 font-medium">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                      Payroll, agent commissions, returns, refunds, personal payouts.
                     </div>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -1161,63 +1220,90 @@ export function DirectCreditTool() {
                       setRecipientType('operational_wallet');
                     }}
                     disabled={selectedCategory?.recipientLock === 'user'}
-                    className={`text-left rounded-lg border p-3 transition ${
+                    className={`group relative text-left rounded-2xl border p-4 transition-all duration-200 ${
                       recipientType === 'operational_wallet'
-                        ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-200'
-                        : 'border-border hover:border-amber-300 hover:bg-amber-50/40'
-                    } ${selectedCategory?.recipientLock === 'user' ? 'opacity-40 cursor-not-allowed hover:bg-transparent hover:border-border' : ''}`}
+                        ? 'border-amber-500 bg-amber-50/70 dark:bg-amber-950/25 ring-2 ring-amber-500/20 shadow-xs'
+                        : 'border-border/70 bg-card hover:border-amber-300/80 hover:bg-amber-50/20'
+                    } ${selectedCategory?.recipientLock === 'user' ? 'opacity-40 cursor-not-allowed hover:bg-transparent hover:border-border/70' : ''}`}
                   >
-                    <div className="text-sm font-semibold text-amber-700">Operational Wallet</div>
-                    <div className="text-[11px] text-amber-700/80 mt-0.5">
-                      Company-controlled funds. Lands in <strong>Float</strong> — <em>NOT</em> withdrawable by the recipient.
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className={`h-7 w-7 rounded-lg flex items-center justify-center font-bold ${
+                          recipientType === 'operational_wallet' ? 'bg-amber-600 text-white' : 'bg-amber-500/10 text-amber-600'
+                        }`}>
+                          <Building2 className="h-4 w-4" />
+                        </div>
+                        <span className="text-sm font-bold text-foreground">Operational Wallet</span>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 border-amber-300/40 bg-amber-100/50 dark:bg-amber-900/40">
+                        Float Only
+                      </Badge>
                     </div>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                      Use for: rent disbursement, agent float top-up, treasury movements.
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Company-controlled funds. Lands in <strong>Float balance</strong> — <em>cannot</em> be cashed out by recipient.
+                    </p>
+                    <div className="text-[10px] text-muted-foreground/90 mt-2 flex items-center gap-1.5 font-medium">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                      Rent disbursement, agent float top-up, operational movements.
                     </div>
                   </button>
                 </div>
                 {selectedCategory && selectedCategory.recipientLock !== 'either' ? (
-                  <p className="text-[10px] text-muted-foreground mt-1.5">
-                    🔒 Locked by category — “{selectedCategory.label}” is{' '}
+                  <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+                    <span>🔒</span> Locked by category — “{selectedCategory.label}” is{' '}
                     {selectedCategory.recipientLock === 'user'
                       ? 'money owed to the recipient (Withdrawable).'
                       : 'company-controlled float (Operational).'}
                   </p>
                 ) : (
-                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                  <p className="text-[11px] text-muted-foreground mt-1">
                     Withdrawability is determined by who receives the money — not by the category.
                   </p>
                 )}
               </div>
             )}
 
-            <div>
-              <Label>Amount (UGX)</Label>
-              <Input type="number" placeholder="50000" value={amount} onChange={e => setAmount(e.target.value)} />
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {[10000, 50000, 100000, 200000, 500000].map(v => (
-                  <Button key={v} size="sm" variant="outline" className="text-xs h-7" onClick={() => setAmount(String(v))}>
-                    {(v / 1000).toFixed(0)}K
-                  </Button>
-                ))}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="payout-amount" className="text-xs font-semibold text-foreground">
+                  Amount (UGX) <span className="text-destructive">*</span>
+                </Label>
+                {amt > 0 && (
+                  <span className="text-xs font-bold font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                    UGX {amt.toLocaleString()}
+                  </span>
+                )}
+              </div>
+              <div className="relative flex items-center">
+                <div className="pointer-events-none absolute left-3 z-10 flex items-center justify-center h-8 px-2.5 rounded-lg bg-muted text-foreground font-bold text-xs border border-border/70 shadow-2xs">
+                  UGX
+                </div>
+                <Input
+                  id="payout-amount"
+                  type="number"
+                  placeholder="0"
+                  value={amount}
+                  onChange={e => setAmount(e.target.value)}
+                  className="pl-20 h-14 rounded-2xl text-xl sm:text-2xl font-bold tracking-tight text-foreground bg-background border-border/80 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary shadow-xs"
+                />
               </div>
             </div>
 
             {/* ── Payout Method + Recipient Details (Withdraw only) ── */}
             {operation === 'withdraw' && (
-              <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-3">
+              <div className="space-y-4 rounded-2xl border border-amber-200/80 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/20 p-4">
                 <div>
-                  <Label className="flex items-center gap-1.5 mb-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs font-semibold text-foreground mb-2">
                     Payout Method <span className="text-destructive">*</span>
                   </Label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-2.5">
                     <button
                       type="button"
                       onClick={() => setPayoutMethod('cash')}
-                      className={`rounded-lg border p-2 text-xs font-medium transition flex flex-col items-center gap-1 ${
+                      className={`rounded-xl border p-3 text-xs font-semibold transition-all duration-200 flex flex-col items-center gap-1.5 ${
                         payoutMethod === 'cash'
-                          ? 'border-orange-500 bg-card ring-2 ring-orange-200'
-                          : 'border-border bg-card hover:border-orange-300'
+                          ? 'border-amber-500 bg-background text-amber-700 dark:text-amber-300 ring-2 ring-amber-500/20 shadow-xs'
+                          : 'border-border/70 bg-background/60 text-muted-foreground hover:border-amber-300 hover:text-foreground'
                       }`}
                     >
                       <Banknote className="h-4 w-4" />
@@ -1226,10 +1312,10 @@ export function DirectCreditTool() {
                     <button
                       type="button"
                       onClick={() => setPayoutMethod('mobile_money')}
-                      className={`rounded-lg border p-2 text-xs font-medium transition flex flex-col items-center gap-1 ${
+                      className={`rounded-xl border p-3 text-xs font-semibold transition-all duration-200 flex flex-col items-center gap-1.5 ${
                         payoutMethod === 'mobile_money'
-                          ? 'border-orange-500 bg-card ring-2 ring-orange-200'
-                          : 'border-border bg-card hover:border-orange-300'
+                          ? 'border-amber-500 bg-background text-amber-700 dark:text-amber-300 ring-2 ring-amber-500/20 shadow-xs'
+                          : 'border-border/70 bg-background/60 text-muted-foreground hover:border-amber-300 hover:text-foreground'
                       }`}
                     >
                       <Phone className="h-4 w-4" />
@@ -1238,10 +1324,10 @@ export function DirectCreditTool() {
                     <button
                       type="button"
                       onClick={() => setPayoutMethod('bank_transfer')}
-                      className={`rounded-lg border p-2 text-xs font-medium transition flex flex-col items-center gap-1 ${
+                      className={`rounded-xl border p-3 text-xs font-semibold transition-all duration-200 flex flex-col items-center gap-1.5 ${
                         payoutMethod === 'bank_transfer'
-                          ? 'border-orange-500 bg-card ring-2 ring-orange-200'
-                          : 'border-border bg-card hover:border-orange-300'
+                          ? 'border-amber-500 bg-background text-amber-700 dark:text-amber-300 ring-2 ring-amber-500/20 shadow-xs'
+                          : 'border-border/70 bg-background/60 text-muted-foreground hover:border-amber-300 hover:text-foreground'
                       }`}
                     >
                       <Building2 className="h-4 w-4" />
@@ -1251,34 +1337,36 @@ export function DirectCreditTool() {
                 </div>
 
                 {payoutMethod === 'cash' && (
-                  <div>
-                    <Label>Pickup Details <span className="text-destructive">*</span></Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-foreground">Pickup Details <span className="text-destructive">*</span></Label>
                     <Input
                       placeholder="e.g. Welile HQ Reception, Nakasero — collected by Jane Doe"
                       value={pickupLocation}
                       onChange={(e) => setPickupLocation(e.target.value)}
+                      className="h-10 rounded-xl border-border/70"
                     />
                   </div>
                 )}
 
                 {payoutMethod === 'mobile_money' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="col-span-2">
-                      <Label>MoMo Number <span className="text-destructive">*</span></Label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="col-span-2 space-y-1.5">
+                      <Label className="text-xs font-semibold text-foreground">MoMo Number <span className="text-destructive">*</span></Label>
                       <Input
                         type="tel"
                         placeholder="07XX XXX XXX"
                         value={momoNumber}
                         onChange={(e) => setMomoNumber(e.target.value)}
+                        className="h-10 rounded-xl border-border/70"
                       />
                     </div>
-                    <div>
-                      <Label>Provider <span className="text-destructive">*</span></Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-foreground">Provider <span className="text-destructive">*</span></Label>
                       <div className="relative">
                         <select
                           value={momoProvider}
                           onChange={(e) => setMomoProvider(e.target.value as 'MTN' | 'Airtel')}
-                          className="flex h-10 w-full appearance-none rounded-lg border border-border bg-background px-3 py-2 pr-10 text-sm"
+                          className="flex h-10 w-full appearance-none rounded-xl border border-border/70 bg-background px-3 py-2 pr-10 text-sm"
                         >
                           <option value="MTN">MTN</option>
                           <option value="Airtel">Airtel</option>
@@ -1286,26 +1374,27 @@ export function DirectCreditTool() {
                         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       </div>
                     </div>
-                    <div>
-                      <Label>Account Name <span className="text-destructive">*</span></Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-foreground">Account Name <span className="text-destructive">*</span></Label>
                       <Input
                         placeholder="Registered MoMo name"
                         value={momoName}
                         onChange={(e) => setMomoName(e.target.value)}
+                        className="h-10 rounded-xl border-border/70"
                       />
                     </div>
                   </div>
                 )}
 
                 {payoutMethod === 'bank_transfer' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="col-span-2">
-                      <Label>Bank Name <span className="text-destructive">*</span></Label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="col-span-2 space-y-1.5">
+                      <Label className="text-xs font-semibold text-foreground">Bank Name <span className="text-destructive">*</span></Label>
                       <div className="relative">
                         <select
                           value={bankName}
                           onChange={(e) => setBankName(e.target.value)}
-                          className="flex h-10 w-full appearance-none rounded-lg border border-border bg-background px-3 py-2 pr-10 text-sm"
+                          className="flex h-10 w-full appearance-none rounded-xl border border-border/70 bg-background px-3 py-2 pr-10 text-sm"
                         >
                           <option value="">Select bank...</option>
                           {UGANDA_BANKS.map((b) => (
@@ -1315,20 +1404,22 @@ export function DirectCreditTool() {
                         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       </div>
                     </div>
-                    <div>
-                      <Label>Account Number <span className="text-destructive">*</span></Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-foreground">Account Number <span className="text-destructive">*</span></Label>
                       <Input
                         placeholder="0123456789"
                         value={bankAccountNumber}
                         onChange={(e) => setBankAccountNumber(e.target.value)}
+                        className="h-10 rounded-xl border-border/70"
                       />
                     </div>
-                    <div>
-                      <Label>Account Name <span className="text-destructive">*</span></Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-foreground">Account Name <span className="text-destructive">*</span></Label>
                       <Input
                         placeholder="Account holder full name"
                         value={bankAccountName}
                         onChange={(e) => setBankAccountName(e.target.value)}
+                        className="h-10 rounded-xl border-border/70"
                       />
                     </div>
                   </div>
@@ -1336,8 +1427,15 @@ export function DirectCreditTool() {
               </div>
             )}
 
-            <div>
-              <Label>Reason (min 20 chars)</Label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-foreground">Audit Reason</Label>
+                <span className={`text-[11px] font-medium transition-colors ${
+                  reason.trim().length >= 20 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
+                }`}>
+                  {reason.trim().length}/20 characters minimum
+                </span>
+              </div>
               <Textarea
                 placeholder={
                   operation === 'withdraw'
@@ -1349,8 +1447,8 @@ export function DirectCreditTool() {
                 value={reason}
                 onChange={e => setReason(e.target.value)}
                 rows={2}
+                className="rounded-xl border-border/70 focus-visible:ring-primary/20 text-sm"
               />
-              <p className="text-[10px] text-muted-foreground mt-1">{reason.length}/20 characters minimum</p>
             </div>
 
             {/* Automation Toggle (credit only) */}
@@ -1370,33 +1468,48 @@ export function DirectCreditTool() {
 
             {/* Summary before submit */}
             {selectedCategory && amt > 0 && selectedUser && recipientType && (
-              <div className="rounded-lg bg-muted/30 border p-3 text-xs space-y-1">
-                <p className="font-bold text-sm flex items-center gap-1.5">
-                  <Info className="h-3.5 w-3.5" />
-                  Double-Entry Summary
-                </p>
-                <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 overflow-x-auto">
-                  <span className="text-muted-foreground">Entry 1:</span>
-                  <span>
-                    {isCredit ? '↗ Credit' : '↘ Debit'} UGX {amt.toLocaleString()} {isCredit ? 'to' : 'from'}{' '}
-                    <span className="font-medium">{selectedUser.full_name}</span>'s wallet
-                    <Badge variant="outline" className="ml-1 text-[8px] px-1">{selectedCategory.walletCategory.replace(/_/g, ' ')}</Badge>
+              <div className="rounded-2xl bg-muted/30 border border-border/70 p-4 text-xs space-y-2.5 shadow-2xs">
+                <div className="flex items-center justify-between pb-1 border-b border-border/50">
+                  <p className="font-bold text-sm flex items-center gap-2 text-foreground">
+                    <Info className="h-4 w-4 text-primary" />
+                    Double-Entry Summary
+                  </p>
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    Balanced
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 overflow-x-auto text-xs">
+                  <span className="text-muted-foreground font-medium">Entry 1:</span>
+                  <span className="font-medium text-foreground flex items-center flex-wrap gap-1">
+                    <span className={isCredit ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>
+                      {isCredit ? '↗ Credit' : '↘ Debit'}
+                    </span>{' '}
+                    UGX {amt.toLocaleString()} {isCredit ? 'to' : 'from'}{' '}
+                    <span className="font-bold underline decoration-primary/30 underline-offset-2">{selectedUser.full_name}</span>'s wallet
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-md">
+                      {selectedCategory.walletCategory.replace(/_/g, ' ')}
+                    </Badge>
                   </span>
-                  <span className="text-muted-foreground">Entry 2:</span>
-                  <span>
-                    {isCredit ? '↘ Debit' : '↗ Credit'} UGX {amt.toLocaleString()} {isCredit ? 'from' : 'to'} platform
-                    <Badge variant="outline" className="ml-1 text-[8px] px-1">{selectedCategory.platformCategory.replace(/_/g, ' ')}</Badge>
+                  <span className="text-muted-foreground font-medium">Entry 2:</span>
+                  <span className="font-medium text-foreground flex items-center flex-wrap gap-1">
+                    <span className={isCredit ? 'text-rose-600 font-bold' : 'text-emerald-600 font-bold'}>
+                      {isCredit ? '↘ Debit' : '↗ Credit'}
+                    </span>{' '}
+                    UGX {amt.toLocaleString()} {isCredit ? 'from' : 'to'} platform
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-md">
+                      {selectedCategory.platformCategory.replace(/_/g, ' ')}
+                    </Badge>
                   </span>
                   {selectedSubCategory && (
                     <>
-                      <span className="text-muted-foreground">Tag:</span>
-                      <span>📂 {selectedSubCategory.label}</span>
+                      <span className="text-muted-foreground font-medium">Tag:</span>
+                      <span className="font-medium text-foreground">📂 {selectedSubCategory.label}</span>
                     </>
                   )}
                   {automateEnabled && (
                     <>
-                      <span className="text-muted-foreground">Recurrence:</span>
-                      <span>🔁 {describeSchedule(automateConfig)}</span>
+                      <span className="text-muted-foreground font-medium">Recurrence:</span>
+                      <span className="font-medium text-foreground">🔁 {describeSchedule(automateConfig)}</span>
                     </>
                   )}
                 </div>
@@ -1404,12 +1517,12 @@ export function DirectCreditTool() {
                   const bucket = RECIPIENT_BUCKET[recipientType as RecipientType];
                   const meta = BUCKET_LABEL[bucket];
                   return (
-                    <div className={`mt-2 rounded-md border p-2 text-[11px] ${meta.tone}`}>
-                      <div className="font-semibold">
+                    <div className={`mt-2 rounded-xl border p-3 text-[11px] ${meta.tone}`}>
+                      <div className="font-bold flex items-center gap-1.5">
                         💼 Lands in: {meta.name} bucket
                       </div>
-                      <div className="opacity-80 mt-0.5">{meta.note}</div>
-                      <div className="opacity-70 mt-1 italic">
+                      <div className="opacity-85 mt-0.5">{meta.note}</div>
+                      <div className="opacity-75 mt-1 italic">
                         Only Available Balance can be withdrawn.
                       </div>
                     </div>
@@ -1420,12 +1533,12 @@ export function DirectCreditTool() {
 
             <CfoApprovalGate>
             <Button
-              className={`w-full ${
+              className={`w-full h-12 rounded-xl text-base font-semibold shadow-md active:scale-[0.99] transition-all ${
                 operation === 'withdraw'
-                  ? 'bg-orange-600 hover:bg-orange-700'
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20'
                   : isCredit
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-destructive hover:bg-destructive/90'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                    : 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/20'
               }`}
               onClick={() => {
                 // Float (Operational Wallet) credits — e.g. Agent Float / Rent
@@ -1439,7 +1552,7 @@ export function DirectCreditTool() {
               }}
               disabled={mutation.isPending || !selectedUser || !amount || reason.trim().length < 20 || !selectedCategoryId || !recipientType}
             >
-              {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+              {mutation.isPending ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="h-5 w-5 mr-2" />}
               {operation === 'withdraw'
                 ? `Withdraw UGX ${amt.toLocaleString()} → ${selectedUser?.full_name || '...'}`
                 : locationRecipients.length > 1

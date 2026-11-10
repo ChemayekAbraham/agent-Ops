@@ -1,3 +1,24 @@
+# Tenant Repayment Tracker exception investigation
+- [x] Reproduce the displayed 243 exceptions across 208 tenants and compare plan-specific receipts, repayments, edits and Tenant Operations activity sources.
+- [x] Prepare the case register and evidence-backed reporting proposal without financial or production data changes.
+- [x] Apply the approved reporting-only migration, full-register pagination and exact-plan investigation/activity links; financial records unchanged.
+- [x] Run reporting, pagination, permissions and preservation tests plus all project safeguards; revalidate the five live source-evidence matches.
+- [ ] Verify the five corrected warnings and complete register through an authorized CFO screen; external unmanaged authentication prevents signed-in checks.
+- [ ] Resolve remaining evidence gaps; requires case-specific payment/adjustment evidence and approved scope, never money movement or ledger edits.
+
+# R&D monthly project planning
+- [x] Confirm requested d572009ed0 is already included; do not reapply its migration or publish.
+- [x] Add account-scoped device-saved monthly budgets and targets for each R&D project, separate from cash position and approved finance budgets.
+- [x] Test save/reopen, month/project separation, zero budgets and storage failures; 27 tests and all guards passed.
+- [ ] Verify recording through the signed-in /rd screen; external unmanaged authentication prevents an authenticated browser check.
+
+# Boardroom display and reminder deployment
+- [x] Confirm pushed commit 24ae17b868 is included and reminder sources match it unchanged.
+- [x] Deploy partner/proxy promissory reminders from unchanged pushed sources; 7 helper tests passed. Deployment tool reports source hashes, not numeric versions.
+- [x] Add an isolated public totals-only boardroom display with polling and TV controls.
+- [x] Test display privacy, refresh/retry behavior and TV/mobile rendering; 8 display tests passed, no extra account requests or horizontal overflow.
+- [ ] Verify real board totals with an enabled display link; no valid display token was supplied. Real invalid-link message verified.
+
 # Signages CFO disbursement
 - [ ] Change verified installations to Awaiting CFO, with activation only after CFO disbursement.
 - [ ] Connect Pay Agent, Pay Owner and Batch Pay Agents to authorized, duplicate-safe payments.

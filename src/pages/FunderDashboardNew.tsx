@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Bookmark, Calculator, Fingerprint, HelpCircle, Home, ListFilter, Loader2, SlidersHorizontal, Wallet, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppRole, useAuth } from '@/hooks/useAuth';
+import { FEATURE_FUNDERS_BOARD_TAGS, useFeaturePreview } from '@/hooks/useFeaturePreview';
 import { useProfile } from '@/hooks/useProfile';
 import DashboardHeader from '@/components/DashboardHeader';
 import { UserAvatar } from '@/components/UserAvatar';
@@ -58,6 +59,7 @@ const SEARCH_DEBOUNCE_MS = 350;
 export default function FunderDashboardNew() {
   const navigate = useNavigate();
   const { user, roles, signOut, switchRole } = useAuth();
+  const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
 
@@ -547,6 +549,7 @@ export default function FunderDashboardNew() {
                       onSave={() => toggleSave(entry.category, id)}
                       onSelect={() => toggleSelect(entry.category, entry.item)}
                       onDetail={() => openDetail(entry.category, entry.item)}
+                      boardTagsOn={boardTagsOn}
                     />
                   );
                 })}

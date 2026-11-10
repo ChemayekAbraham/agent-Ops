@@ -17,6 +17,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Pencil, CalendarCheck, CalendarClock, PhoneCall, FileText } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatDueBy, noteDueByMessage } from '@/lib/promissoryNoteDraft';
 
 interface NoteRow {
   id: string;
@@ -84,6 +86,8 @@ export function AgentPromissoryNotesSection({ agentId }: { agentId: string }) {
   const [amount, setAmount] = useState('');
   const [recorded, setRecorded] = useState('');
   const [due, setDue] = useState('');
+  // Latest promised date allowed (31 Dec 2026 while Partner Returns is off); the database enforces it too.
+  const { noteDueBy } = usePartnerReturnPolicy();
   const [followUp, setFollowUp] = useState('not_started');
   const [followedOn, setFollowedOn] = useState('');
   const [followNote, setFollowNote] = useState('');
@@ -122,6 +126,7 @@ export function AgentPromissoryNotesSection({ agentId }: { agentId: string }) {
     const amt = Number(amount);
     if (!Number.isFinite(amt) || amt <= 0) { toast.error('Enter a valid amount'); return; }
     if (recorded && due && due < recorded) { toast.error('The promised date cannot be before the date recorded'); return; }
+    if (noteDueBy && due && (!recorded || recorded <= noteDueBy) && due > noteDueBy) { toast.error(`The promised date must be on or before ${formatDueBy(noteDueBy)}`); return; }
     const statusChanged = followUp !== (editing.follow_up_status ?? 'not_started');
     const noteChanged = followNote.trim() !== (editing.follow_up_note ?? '');
     const autoToday = new Date().toISOString().slice(0, 10);
@@ -150,7 +155,7 @@ export function AgentPromissoryNotesSection({ agentId }: { agentId: string }) {
       await qc.invalidateQueries({ queryKey: ['agent-promissory-notes-tile', agentId] });
       await qc.invalidateQueries({ queryKey: ['agent-promissory-notes'] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not update the note');
+      toast.error(err instanceof Error ? noteDueByMessage(err.message) ?? err.message : 'Could not update the note');
     } finally {
       setSaving(false);
     }
@@ -255,7 +260,7 @@ export function AgentPromissoryNotesSection({ agentId }: { agentId: string }) {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ops-pn-due">Date promised</Label>
-                <Input id="ops-pn-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+                <Input id="ops-pn-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} max={noteDueBy ?? undefined} />
               </div>
             </div>
             <div className="space-y-1.5">

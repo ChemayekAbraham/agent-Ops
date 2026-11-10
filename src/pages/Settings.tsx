@@ -40,6 +40,8 @@ import { joinPersonName, splitPersonName, validatePersonNameParts, type PersonNa
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import NameCompletionReminder from '@/components/notifications/NameCompletionReminder';
 import { OtpVerificationStep } from '@/components/auth/OtpVerificationStep';
+import { AGENT_VERIFICATION_PATH, useAgentVerifiedState } from '@/hooks/useAgentVetting';
+import { VerifiedAvatarRing } from '@/components/agent-vetting/VerifiedAvatarRing';
 
 
 const DiagnosticsSection = lazy(() => import('@/components/settings/DiagnosticsSection'));
@@ -216,6 +218,37 @@ const ACCOUNT_TABS: { id: AccountTab; label: string; helper: string; icon: typeo
   { id: 'access', label: 'Sign-in', helper: 'Linked accounts and sign-in methods', icon: ShieldCheck },
   { id: 'vault', label: 'Vault', helper: 'Offline PDF documents', icon: Lock },
 ];
+
+export function AgentVerificationSettingsEntry() {
+  const state = useAgentVerifiedState();
+  const navigate = useNavigate();
+  if (state !== 'verified' && state !== 'unverified') return null;
+  const verified = state === 'verified';
+  const details = (
+    <>
+      {verified ? (
+        <VerifiedAvatarRing state="verified" size="lg">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted"><ShieldCheck className="h-5 w-5 text-foreground" strokeWidth={1.5} /></span>
+        </VerifiedAvatarRing>
+      ) : <ShieldCheck className="h-6 w-6 shrink-0 text-foreground" strokeWidth={1.5} />}
+      <span className="min-w-0 flex-1">
+        <span className="block text-base font-normal">Agent verification</span>
+        <span className="mt-0.5 block whitespace-normal break-words text-xs text-muted-foreground">{verified ? 'Verified by Welile' : 'Not verified yet — verify to add tenants and post Rent Plan requests.'}</span>
+      </span>
+    </>
+  );
+  if (verified) return (
+    <Button variant="ghost" onClick={() => navigate(AGENT_VERIFICATION_PATH)} className="h-auto min-h-[64px] w-full justify-start gap-4 rounded-none px-0 py-4 text-left whitespace-normal hover:bg-muted/30">
+      {details}<ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+    </Button>
+  );
+  return (
+    <div className="py-4">
+      <div className="flex items-start gap-4">{details}</div>
+      <Button onClick={() => navigate(AGENT_VERIFICATION_PATH)} className="mt-3 min-h-11 w-full sm:w-auto sm:ml-10">Verify my account</Button>
+    </div>
+  );
+}
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -549,6 +582,7 @@ export default function Settings() {
         {!openSection ? (
           <div className="min-h-[calc(100vh-9rem)]">
             <div className="divide-y divide-border/60">
+              <AgentVerificationSettingsEntry />
               {visibleSections.map(({ id, label, helper, icon: Icon }) => (
                 <button
                   key={id}

@@ -8,6 +8,7 @@ import { formatDynamic } from '@/lib/currencyFormat';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useMountedOnce } from '@/hooks/useMountedOnce';
 import { useAuth } from '@/hooks/useAuth';
+import { FEATURE_FUNDERS_BOARD_TAGS, useFeaturePreview } from '@/hooks/useFeaturePreview';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
@@ -51,6 +52,8 @@ export interface FeedEntry {
  * section's own handlers: a view only arranges them, it computes nothing.
  */
 export interface FunderListingsViewApi {
+  /** E59: funders board tags are on for this viewer (switch or preview row). */
+  boardTagsOn: boolean;
   searchInput: string;
   setSearchInput: (value: string) => void;
   filters: FunderNewFilters;
@@ -106,6 +109,7 @@ export function FunderHouseListingsSection({
   onResultCountChange?: (count: number) => void;
 } = {}) {
   const { user } = useAuth();
+  const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
   const location = useFunderNewLocation();
@@ -340,6 +344,7 @@ export function FunderHouseListingsSection({
 
   const viewApi: FunderListingsViewApi | null = view
     ? {
+        boardTagsOn,
         searchInput,
         setSearchInput,
         filters,
@@ -567,6 +572,7 @@ export function FunderHouseListingsSection({
                   onSave={() => toggleSave(entry.category, id)}
                   onSelect={() => toggleSelect(entry.category, entry.item)}
                   onDetail={() => openDetail(entry.category, entry.item)}
+                  boardTagsOn={boardTagsOn}
                 />
               );
             })}

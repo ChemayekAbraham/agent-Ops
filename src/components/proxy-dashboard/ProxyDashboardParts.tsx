@@ -149,13 +149,13 @@ export function ProxyTargetCard({ title, done, target, remainingText, expectedFr
   return (
     <Card className={cn(CARD, 'p-4')}>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-muted-foreground">{title}</p>
-        <StatusPill tone={st.tone}>{st.label}</StatusPill>
+        <p className="min-w-0 truncate text-sm font-medium text-muted-foreground">{title}</p>
+        <StatusPill tone={st.tone} className="max-w-[60%] truncate">{st.label}</StatusPill>
       </div>
-      <p className="mt-2 text-2xl font-bold tabular-nums">{done} <span className="text-sm font-medium text-muted-foreground">/ {target}</span></p>
+      <p className="mt-2 truncate text-2xl font-bold tabular-nums">{done} <span className="text-sm font-medium text-muted-foreground">/ {target}</span></p>
       <Progress value={pct} className="mt-2 h-1.5" />
       <div className="mt-1.5 flex justify-between gap-2 text-xs text-muted-foreground">
-        <span>{left > 0 ? `${left} more to go` : 'Done'}</span>
+        <span className="min-w-0 truncate">{left > 0 ? `${left} more to go` : 'Done'}</span>
         {remainingText && <span className="shrink-0">{remainingText}</span>}
       </div>
     </Card>

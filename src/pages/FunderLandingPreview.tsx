@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { AlertTriangle, Crosshair, Home, Loader2, Search } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { FEATURE_FUNDERS_BOARD_TAGS, useFeaturePreview } from '@/hooks/useFeaturePreview';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useMountedOnce } from '@/hooks/useMountedOnce';
 import type { AppRole } from '@/hooks/useAuth';
@@ -78,6 +79,7 @@ export default function FunderLandingPreview() {
   const reduceMotion = useReducedMotion() ?? false;
   const navigate = useNavigate();
   const { user, roles, signOut, switchRole } = useAuth();
+  const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
   const summary = useFunderNewMarketSummary();
@@ -708,6 +710,7 @@ export default function FunderLandingPreview() {
                       onSave={() => toggleSave(entry.category, id)}
                       onSelect={() => toggleSelect(entry.category, entry.item)}
                       onDetail={() => openDetail(entry.category, entry.item)}
+                      boardTagsOn={boardTagsOn}
                     />
                   </motion.div>
                 );

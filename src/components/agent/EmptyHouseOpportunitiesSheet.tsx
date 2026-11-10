@@ -25,6 +25,8 @@ import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 import { EmptyHouseDetailSheet, housePlace, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatDueBy, noteDueByMessage } from '@/lib/promissoryNoteDraft';
 
 
 const PAGE_SIZE = 20;
@@ -160,6 +162,8 @@ export function EmptyHouseOpportunitiesSheet({
   // Partner mode only: "Promise a date" holds the houses for 7 days.
   const [promisedDate, setPromisedDate] = useState('');
   const [fulfilmentDueOn, setFulfilmentDueOn] = useState('');
+  // Latest fulfilment date allowed (31 Dec 2026 while Partner Returns is off); the database enforces it too.
+  const { noteDueBy } = usePartnerReturnPolicy();
   const [fundingNow, setFundingNow] = useState(false);
 
 
@@ -344,6 +348,7 @@ export function EmptyHouseOpportunitiesSheet({
     if (phoneNumber.trim() && !isValidPhone(phoneNumber)) out.push('Phone number (10 digits)');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) out.push('Valid email');
     if (!fulfilmentDueOn) out.push('Fulfil by date');
+    else if (noteDueBy && fulfilmentDueOn > noteDueBy) out.push(`Fulfil by date on or before ${formatDueBy(noteDueBy)}`);
     return out;
   };
 
@@ -427,7 +432,7 @@ export function EmptyHouseOpportunitiesSheet({
       const raw = String((err as { message?: string })?.message || 'Failed to create note');
       const msg = raw.includes('HOUSES_UNAVAILABLE')
         ? 'Some selected houses are no longer empty. Refresh the list and pick again.'
-        : raw;
+        : noteDueByMessage(raw) ?? raw;
       setErrorMsg(msg);
       toast.error(msg);
       if (raw.includes('HOUSES_UNAVAILABLE')) { setSelected({}); void refetch(); }
@@ -763,6 +768,7 @@ export function EmptyHouseOpportunitiesSheet({
                       type="date"
                       value={fulfilmentDueOn}
                       onChange={(e) => setFulfilmentDueOn(e.target.value)}
+                      max={noteDueBy ?? undefined}
                       className="mt-0.5 h-9 text-xs"
                     />
                   </div>

@@ -4,11 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_FILTERS, adjustmentChange, computeKpis, csvTable, exceptionLabel, filterRows, sortRows, type RepaymentPlanRow,
 } from '@/lib/tenantRepaymentTracker';
-import { normaliseRow } from '@/hooks/useTenantRepaymentTracker';
+import { normaliseRow, loadTenantRepaymentRegister } from '@/hooks/useTenantRepaymentTracker';
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), downloadCsv: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc } }));
 vi.mock('@/lib/csvExport', () => ({ downloadCsv: mocks.downloadCsv }));
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'cfo-test' } }) }));
 
 import TenantRepaymentTracker from '@/components/cfo/tenant-repayments/TenantRepaymentTracker';
 
@@ -108,9 +109,14 @@ function renderPage() {
 describe('Tenant Repayment Tracker page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState({}, '', '/cfo/dashboard?section=tenant-repayment-tracker');
+    const response = (data: unknown) => {
+      const value = Promise.resolve({ data, error: null });
+      return Object.assign(value, { range: () => Object.assign(value, { abortSignal: () => value }), abortSignal: () => value });
+    };
     mocks.rpc.mockImplementation((fn: string) => {
-      if (fn === 'get_cfo_tenant_repayment_register') return Promise.resolve({ data: ROWS, error: null });
-      if (fn === 'get_cfo_tenant_repayment_detail') return Promise.resolve({ data: {
+      if (fn === 'get_cfo_tenant_repayment_register') return response(ROWS);
+      if (fn === 'get_cfo_tenant_repayment_detail') return response({
         as_at: '2026-11-07T10:00:00Z', plan: wasajja, repayment_records: [],
         money_in: [{ at: '2026-10-26T06:27:20Z', category: 'tenant_repayment_collected', direction: 'cash_in', amount: 820000, reference: 'MI-820',
           group: 'g1', description: 'Tenant rent allocation settled for landlord Mafabi Nasser', counted: true }],
@@ -118,7 +124,7 @@ describe('Tenant Repayment Tracker page', () => {
           agent: 'IAN MUHWEZI', path: 'agent collection', reversed: false, reversed_at: null, ledger_posted: true, ledger_checked: true, counted: false, notes: null }],
         adjustments: [{ at: '2026-10-25T06:13:24Z', kind: 'Tenant balance edit', status: 'approved', by: 'Nankambo sharimah', approved_by: 'SARAH ANGWEN',
           reason: 'system bal correction', old_outstanding: 5340000, new_outstanding: 820000, reduction: 4520000 }],
-        ledger: [] }, error: null });
+        ledger: [] });
       return Promise.resolve({ data: null, error: { message: 'unexpected' } });
     });
   });
@@ -157,7 +163,9 @@ describe('Tenant Repayment Tracker page', () => {
   it('opening a plan shows obligation, receipts with references and who changed the balance', async () => {
     renderPage();
     await screen.findByText('Active plans');
-    fireEvent.click(within(screen.getAllByTestId('tracker-row').find((r) => r.textContent?.includes('Wasajja'))!).getByText('Wasajja Simon'));
+    const target = screen.getAllByTestId('tracker-row').find((r) => r.textContent?.includes('Wasajja'));
+    if (!target) throw new Error('Expected plan row');
+    fireEvent.click(within(target).getByText('Wasajja Simon'));
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_tenant_repayment_detail', { p_rent_request_id: wasajja.rent_request_id }));
     const sheet = await screen.findByRole('dialog');
     expect(within(sheet).getByText('Total repayment obligation')).toBeTruthy();
@@ -176,9 +184,45 @@ describe('Tenant Repayment Tracker page', () => {
   });
 
   it('a non-CFO sees the database refusal, not data', async () => {
-    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'Not authorized: the Tenant Repayment Tracker is for the CFO', code: '42501' } });
+    mocks.rpc.mockImplementation(() => ({ range: () => ({ abortSignal: () => Promise.resolve({ data: null, error: { message: 'Not authorized: the Tenant Repayment Tracker is for the CFO', code: '42501' } }) }) }));
     renderPage();
     expect((await screen.findByRole('alert')).textContent).toMatch(/Not authorized/);
     expect(screen.queryByTestId('tracker-row')).toBeNull();
+  });
+
+  it('an investigation link loads the exact plan instead of the tenant’s other plan', async () => {
+    window.history.replaceState({}, '', `/cfo/dashboard?section=tenant-repayment-tracker&repayment_plan=${wasajja.rent_request_id}`);
+    renderPage();
+    await screen.findByRole('dialog');
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_tenant_repayment_detail', { p_rent_request_id: wasajja.rent_request_id }));
+    expect(mocks.rpc).not.toHaveBeenCalledWith('get_cfo_tenant_repayment_detail', { p_rent_request_id: base.rent_request_id });
+  });
+});
+
+describe('complete register loading', () => {
+  it('loads beyond the 1,000 row API limit with exact non-overlapping ranges', async () => {
+    const pages = Array.from({ length: 1003 }, (_, n) => ({ ...base, rent_request_id: `plan-${n}`, verified_collected: n, exceptions: n === 1002 ? ['receipt_not_in_ledger'] : [] }));
+    const ranges: number[][] = [];
+    mocks.rpc.mockImplementation(() => ({ range: (from: number, to: number) => {
+      ranges.push([from, to]);
+      return Promise.resolve({ data: pages.slice(from, to + 1), error: null });
+    } }));
+    const result = await loadTenantRepaymentRegister();
+    expect(ranges).toEqual([[0, 499], [500, 999], [1000, 1499]]);
+    expect(result.rows).toHaveLength(1003);
+    expect(result.rows[1002].verified_collected).toBe(1002);
+    expect(computeKpis(result.rows).plansWithExceptions).toBe(1);
+  });
+
+  it('does not return partial totals after a later page fails', async () => {
+    mocks.rpc.mockImplementation(() => ({ range: (from: number) => Promise.resolve(from === 0
+      ? { data: Array.from({ length: 500 }, (_, n) => ({ ...base, rent_request_id: `plan-${n}` })), error: null }
+      : { data: null, error: new Error('Page unavailable') }) }));
+    await expect(loadTenantRepaymentRegister()).rejects.toThrow('Page unavailable');
+  });
+
+  it('rejects overlapping pages instead of silently mixing snapshots', async () => {
+    mocks.rpc.mockImplementation(() => ({ range: () => Promise.resolve({ data: [base, base], error: null }) }));
+    await expect(loadTenantRepaymentRegister()).rejects.toThrow('register changed');
   });
 });

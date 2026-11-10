@@ -40,6 +40,11 @@ import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
+import { kampalaTodayYmd, kampalaYmd } from '@/lib/kampalaDays';
+import { Calendar as DateCalendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format, parseISO } from 'date-fns';
+import { inLunchAllowanceRange, lunchAllowancePeriods, lunchAllowanceRange, type LunchAllowancePeriod } from './lunchAllowancePeriod';
 
 interface Row {
   id: string;
@@ -56,6 +61,9 @@ interface Row {
 /** Tracker of Lunch Allowance payments made through CFO Send Money. */
 export function LunchAllowanceTracker() {
   const [to, setTo] = useState('');
+  const [period, setPeriod] = useState<LunchAllowancePeriod>('all');
+  const [customDate, setCustomDate] = useState(kampalaTodayYmd);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [reversing, setReversing] = useState<Row | null>(null);
   const [reason, setReason] = useState('');
@@ -107,15 +115,20 @@ export function LunchAllowanceTracker() {
     },
   });
 
+  const periodRange = lunchAllowanceRange(period, kampalaTodayYmd(), customDate);
+  const rangeStart = periodRange?.start;
+  const rangeEnd = periodRange?.end;
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (data?.list ?? []).filter((r) => {
-      const d = r.created_at.slice(0, 10);
-      if (to && d > to) return false;
+      const range = rangeStart && rangeEnd ? { start: rangeStart, end: rangeEnd } : null;
+      if (!inLunchAllowanceRange(r.created_at, range)) return false;
+      const d = kampalaYmd(r.created_at);
+      if (to && (!d || d > to)) return false;
       if (q && !(data?.names[r.target_user_id] ?? '').toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [data, to, search]);
+  }, [data, to, search, rangeStart, rangeEnd]);
 
   const reversedIds = useMemo(() => {
     const set = new Set<string>();
@@ -156,8 +169,8 @@ export function LunchAllowanceTracker() {
 
   const signed = (r: Row) => (r.operation === 'debit' ? -1 : 1) * Number(r.amount);
   const total = filtered.reduce((s, r) => s + signed(r), 0);
-  const monthKey = new Date().toISOString().slice(0, 7);
-  const thisMonth = (data?.list ?? []).filter((r) => r.created_at.startsWith(monthKey)).reduce((s, r) => s + signed(r), 0);
+  const periodLabel = period === 'custom' ? format(parseISO(customDate), 'dd MMM yyyy')
+    : to ? `Up to ${to}` : lunchAllowancePeriods.find((item) => item.value === period)?.label ?? 'All time';
 
   const perStaff = useMemo(() => {
     const m = new Map<string, { total: number; count: number; last: string }>();
@@ -184,7 +197,7 @@ export function LunchAllowanceTracker() {
     doc.setFontSize(14);
     doc.text('Welile - Lunch Allowance', 14, 16);
     doc.setFontSize(9);
-    const range = to ? `Up to ${to}` : 'All time';
+    const range = periodRange ? `${periodRange.start} to ${periodRange.end}` : to ? `Up to ${to}` : 'All time';
     doc.text(`Period: ${range}${search ? ` | Staff: ${search}` : ''} | Generated ${fmtDate(new Date().toISOString())}`, 14, 22);
     doc.text(`Total: ${formatUGX(total)} | Staff paid: ${perStaff.length} | Payments: ${filtered.length}`, 14, 27);
     autoTable(doc, {
@@ -247,6 +260,42 @@ export function LunchAllowanceTracker() {
         </div>
       </header>
 
+      <section aria-label="Payment period" className="space-y-2">
+        <Tabs value={period} onValueChange={(value) => {
+          const selected = lunchAllowancePeriods.find((item) => item.value === value);
+          if (!selected) return;
+          setPeriod(selected.value); setTo(''); setPage(1);
+          setCalendarOpen(selected.value === 'custom');
+        }}>
+          <TabsList aria-label="Payment period" className="h-auto flex w-full flex-wrap justify-start gap-1 sm:w-fit">
+            {lunchAllowancePeriods.map((item) => (
+              <TabsTrigger key={item.value} value={item.value} className="text-xs px-3 py-2"
+                onClick={() => { if (item.value === 'custom') setCalendarOpen(true); }}>
+                {item.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        {period === 'custom' && (
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2" aria-label="Select payment date">
+                <Calendar className="h-4 w-4" />
+                {format(parseISO(customDate), 'dd MMM yyyy')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+              <DateCalendar mode="single" selected={parseISO(customDate)} defaultMonth={parseISO(customDate)}
+                onSelect={(date) => {
+                  if (!date) return;
+                  setCustomDate(format(date, 'yyyy-MM-dd')); setTo(''); setPage(1); setCalendarOpen(false);
+                }} initialFocus className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+        )}
+        {periodRange && <p className="text-xs text-muted-foreground">{periodRange.start} – {periodRange.end} · Kampala time</p>}
+      </section>
+
       {/* KPI Metric Strip */}
       <section aria-label="Lunch Allowance summary" className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         <div className="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-2xs transition-all hover:border-border">
@@ -275,17 +324,17 @@ export function LunchAllowanceTracker() {
               <Calendar className="h-4 w-4" />
             </div>
             <span className="rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              Active Month
+              Selected Period
             </span>
           </div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
-            This Month
+            {periodLabel}
           </p>
-          <p className="mt-1 text-base lg:text-lg font-bold tabular-nums tracking-tight text-foreground truncate" title={formatUGX(thisMonth)}>
-            {formatUGX(thisMonth)}
+          <p className="mt-1 text-base lg:text-lg font-bold tabular-nums tracking-tight text-foreground truncate" title={formatUGX(total)}>
+            {formatUGX(total)}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground/85 truncate">
-            Disbursed in {new Date().toLocaleString('en-GB', { month: 'long', year: 'numeric' })}
+            {periodRange ? `${periodRange.start} – ${periodRange.end}` : to ? `Through ${to}` : 'All recorded payments'}
           </p>
         </div>
 
@@ -351,18 +400,18 @@ export function LunchAllowanceTracker() {
               <Input
                 type="date"
                 value={to}
-                onChange={(e) => { setTo(e.target.value); setPage(1); }}
+                onChange={(e) => { setTo(e.target.value); setPeriod('all'); setPage(1); }}
                 className="h-8 w-36 text-xs bg-background"
                 aria-label="Filter up to date"
               />
             </div>
 
-            {(to || search) && (
+            {(to || search || period !== 'all') && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => { setTo(''); setSearch(''); setPage(1); }}
+                onClick={() => { setTo(''); setSearch(''); setPeriod('all'); setPage(1); }}
               >
                 Clear
               </Button>

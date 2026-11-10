@@ -3,7 +3,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, RefreshCw, CalendarClock } from 'lucide-react';
+import { Calendar, RefreshCw, CalendarClock, Sparkles } from 'lucide-react';
 
 export type PayoutFrequency = 'daily' | 'weekly' | 'monthly' | 'interval';
 
@@ -24,7 +24,7 @@ interface PayoutAutomationToggleProps {
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const FREQUENCIES: { value: PayoutFrequency; label: string; hint: string }[] = [
-  { value: 'daily', label: 'Daily', hint: 'Pays out automatically every day.' },
+  { value: 'daily', label: 'Daily', hint: 'Pays out automatically every weekday (EAT).' },
   { value: 'weekly', label: 'Weekly', hint: 'Pays out once a week on the chosen weekday.' },
   { value: 'monthly', label: 'Monthly', hint: 'Pays out once a month on the chosen day.' },
   { value: 'interval', label: 'Every N days', hint: 'Pays out repeatedly after a fixed number of days.' },
@@ -49,91 +49,104 @@ export function PayoutAutomationToggle({ enabled, onToggle, config, onConfigChan
   const activeHint = FREQUENCIES.find(f => f.value === config.frequency)?.hint;
 
   return (
-    <div className="rounded-lg border p-3 space-y-3 bg-muted/20">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <RefreshCw className="h-4 w-4 text-primary" />
-          <Label className="text-xs font-semibold cursor-pointer">Automate this payout (standing order)</Label>
+    <div className={`rounded-2xl border transition-all ${
+      enabled
+        ? 'border-primary/30 bg-primary/[0.03] shadow-xs'
+        : 'border-border/70 bg-muted/20 hover:border-border'
+    } p-4 space-y-3.5`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${
+            enabled ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+          }`}>
+            <RefreshCw className={`h-4 w-4 ${enabled ? 'text-primary' : ''}`} />
+          </div>
+          <div>
+            <Label className="text-sm font-semibold cursor-pointer text-foreground block">
+              Automate this payout (standing order)
+            </Label>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Repeat this payout automatically on a recurring schedule with instant SMS notifications.
+            </p>
+          </div>
         </div>
         <Switch checked={enabled} onCheckedChange={onToggle} />
       </div>
 
       {enabled && (
-        <div className="space-y-3 pl-6">
-          <p className="text-[10px] text-muted-foreground">
-            The system repeats this exact payout automatically, moving money from the company to the user's wallet.
-            The receiver gets an SMS each time.
-          </p>
+        <div className="pt-3 border-t border-border/60 space-y-3.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-primary shrink-0" />
+              <Label className="text-xs font-medium text-foreground">Frequency:</Label>
+              <Select value={config.frequency} onValueChange={(v) => update({ frequency: v as PayoutFrequency })}>
+                <SelectTrigger className="w-36 h-8 text-xs font-medium rounded-lg">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FREQUENCIES.map(f => (
+                    <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
-            <Label className="text-xs">How often:</Label>
-            <Select value={config.frequency} onValueChange={(v) => update({ frequency: v as PayoutFrequency })}>
-              <SelectTrigger className="w-36 h-7 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {FREQUENCIES.map(f => (
-                  <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {config.frequency === 'monthly' && (
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Label className="text-xs font-medium text-foreground">Day of month:</Label>
+                <Select value={String(config.dayOfMonth)} onValueChange={(v) => update({ dayOfMonth: Number(v) })}>
+                  <SelectTrigger className="w-24 h-8 text-xs font-medium rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                      <SelectItem key={d} value={String(d)} className="text-xs">{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {config.frequency === 'weekly' && (
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Label className="text-xs font-medium text-foreground">Day of week:</Label>
+                <Select value={String(config.dayOfWeek)} onValueChange={(v) => update({ dayOfWeek: Number(v) })}>
+                  <SelectTrigger className="w-36 h-8 text-xs font-medium rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WEEKDAYS.map((d, i) => (
+                      <SelectItem key={d} value={String(i)} className="text-xs">{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {config.frequency === 'interval' && (
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Label className="text-xs font-medium text-foreground">Every</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={config.intervalDays}
+                  onChange={(e) => update({ intervalDays: Math.max(1, Math.min(365, Number(e.target.value) || 1)) })}
+                  className="w-16 h-8 text-xs text-center rounded-lg"
+                />
+                <span className="text-xs text-muted-foreground">day(s)</span>
+              </div>
+            )}
           </div>
 
-          {config.frequency === 'monthly' && (
-            <div className="flex items-center gap-2">
-              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-              <Label className="text-xs">Day of month:</Label>
-              <Select value={String(config.dayOfMonth)} onValueChange={(v) => update({ dayOfMonth: Number(v) })}>
-                <SelectTrigger className="w-20 h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
-                    <SelectItem key={d} value={String(d)} className="text-xs">{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {config.frequency === 'weekly' && (
-            <div className="flex items-center gap-2">
-              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-              <Label className="text-xs">Day of week:</Label>
-              <Select value={String(config.dayOfWeek)} onValueChange={(v) => update({ dayOfWeek: Number(v) })}>
-                <SelectTrigger className="w-32 h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {WEEKDAYS.map((d, i) => (
-                    <SelectItem key={d} value={String(i)} className="text-xs">{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {config.frequency === 'interval' && (
-            <div className="flex items-center gap-2">
-              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-              <Label className="text-xs">Every</Label>
-              <Input
-                type="number"
-                min={1}
-                max={365}
-                value={config.intervalDays}
-                onChange={(e) => update({ intervalDays: Math.max(1, Math.min(365, Number(e.target.value) || 1)) })}
-                className="w-16 h-7 text-xs"
-              />
-              <span className="text-xs text-muted-foreground">day(s)</span>
-            </div>
-          )}
-
-          {activeHint && <p className="text-[10px] text-muted-foreground italic">{activeHint}</p>}
-          {config.frequency === 'monthly' && (
-            <p className="text-[10px] text-muted-foreground italic">Max day is 28 to stay consistent across all months.</p>
-          )}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-background/60 p-2.5 rounded-xl border border-border/40">
+            <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span>Schedule: <strong className="text-foreground">{describeSchedule(config)}</strong></span>
+            {activeHint && <span className="text-muted-foreground">· {activeHint}</span>}
+          </div>
         </div>
       )}
     </div>

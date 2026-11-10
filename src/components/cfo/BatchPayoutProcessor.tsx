@@ -1,28 +1,23 @@
 import { withUuidIds } from '@/lib/isUuid';
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Layers, Loader2, CheckCircle2, Banknote } from 'lucide-react';
+import { Layers, Loader2, CheckCircle2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { excludePartnerReservedPlans } from '@/lib/partnerReservedPlans';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
-import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 
+export const NEEDS_FUNDER_PICK = "Needs a funder's pick on the funders' dashboard";
+
+/**
+ * COO-approved requests that no funder has picked yet. This used to batch-fund
+ * them from Welile money (the CFO float-funding function); the database now refuses
+ * any move into funded without a funder's pick (E60_FUNDERS_ONLY), so it is a
+ * read-only list. Plans a partner self-funds are paid by Partner Ops approval
+ * and stay out of it, as before.
+ */
 export function BatchPayoutProcessor() {
-  const { user } = useAuth();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [batchRef, setBatchRef] = useState('');
-  const qc = useQueryClient();
-
   const { data: pending, isLoading } = useQuery({
     queryKey: ['batch-payout-pending'],
     queryFn: async () => {
@@ -34,7 +29,7 @@ export function BatchPayoutProcessor() {
       if (error) throw error;
 
       // Plans a partner is self-funding are disbursed by Partner Ops approval,
-      // not by the company float — keep them out of this queue.
+      // not by the company float — keep them out of this list.
       const rows = await excludePartnerReservedPlans(data || []);
 
       const userIds = [...new Set(rows.map(r => r.tenant_id))];
@@ -50,55 +45,6 @@ export function BatchPayoutProcessor() {
   });
 
   const items = pending || [];
-  const selectedItems = items.filter(i => selected.has(i.id));
-  const totalSelected = selectedItems.reduce((s, i) => s + i.amount, 0);
-  const allSelected = items.length > 0 && selected.size === items.length;
-
-  const toggleAll = () => {
-    if (allSelected) setSelected(new Set());
-    else setSelected(new Set(items.map(i => i.id)));
-  };
-
-  const toggle = (id: string) => {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelected(next);
-  };
-
-  const batchApprove = useMutation({
-    mutationFn: async () => {
-      if (!batchRef.trim()) throw new Error('Enter a batch reference');
-      for (const id of selected) {
-        const { error } = await supabase.functions.invoke('fund-agent-landlord-float', {
-          body: { rent_request_id: id, notes: `Batch: ${batchRef}` },
-        });
-        if (error) {
-          throw new Error(`${id.slice(0, 8)}: ${await extractFromErrorObject(error, 'Funding failed')}`);
-        }
-      }
-
-      await supabase.from('audit_logs').insert({
-        user_id: user?.id,
-        action_type: 'cfo_batch_payout_processed',
-        table_name: 'rent_requests',
-        record_id: batchRef,
-        metadata: {
-          batch_reference: batchRef,
-          count: selected.size,
-          rent_request_ids: Array.from(selected),
-        },
-      });
-    },
-    onSuccess: () => {
-      toast.success(`${selected.size} payouts processed`);
-      setSelected(new Set());
-      setBatchRef('');
-      qc.invalidateQueries({ queryKey: ['batch-payout-pending'] });
-      qc.invalidateQueries({ queryKey: ['cfo-actions-log'] });
-    },
-    onError: (e: any) => toast.error(e.message || 'Batch failed'),
-  });
 
   return (
     <Card>
@@ -106,8 +52,12 @@ export function BatchPayoutProcessor() {
         <CardTitle className="text-base flex items-center gap-2">
           <Layers className="h-4 w-4 text-primary" />
           Batch Payout Processor
-          {items.length > 0 && <Badge variant="outline" className="text-[10px] ml-1">{items.length} awaiting</Badge>}
+          {items.length > 0 && <Badge variant="outline" className="text-[10px] ml-1">{items.length} waiting for a funder</Badge>}
         </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Welile does not fund tenants directly (E60). A tenant is paid once a funder, or Welile&rsquo;s own funder account, selects
+          them on the funders&rsquo; dashboard.
+        </p>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -115,50 +65,22 @@ export function BatchPayoutProcessor() {
         ) : items.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-success" />
-            <p className="font-medium">No Pending Payouts</p>
-            <p className="text-xs">All disbursements have been processed</p>
+            <p className="font-medium">Nothing waiting</p>
+            <p className="text-xs">No COO-approved request is waiting for a funder&rsquo;s pick</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {/* Select all */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
-                Select all ({items.length})
-              </label>
-              {selected.size > 0 && (
-                <Badge className="bg-primary/10 text-primary border-primary/30">
-                  {selected.size} selected · {formatUGX(totalSelected)}
-                </Badge>
-              )}
-            </div>
-
-            {/* List */}
-            <div className="space-y-1 max-h-[300px] overflow-y-auto">
-              {items.map(item => (
-                <div key={item.id} className={cn('flex items-center gap-3 p-2 rounded-lg border text-sm', selected.has(item.id) && 'bg-primary/5 border-primary/20')}>
-                  <Checkbox checked={selected.has(item.id)} onCheckedChange={() => toggle(item.id)} />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{item.tenant_name}</p>
-                    <p className="text-xs text-muted-foreground">{format(new Date(item.created_at), 'dd MMM yyyy')}</p>
-                  </div>
-                  <p className="font-mono font-bold text-xs">{formatUGX(item.amount)}</p>
+          <div className="space-y-1 max-h-[300px] overflow-y-auto">
+            {items.map(item => (
+              <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg border text-sm" data-needs-pick={item.id}>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{item.tenant_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(item.created_at), 'dd MMM yyyy')} · {NEEDS_FUNDER_PICK}
+                  </p>
                 </div>
-              ))}
-            </div>
-
-            {/* Batch actions */}
-            {selected.size > 0 && (
-              <CfoApprovalGate>
-              <div className="flex items-center gap-2 pt-2 border-t">
-                <Input placeholder="Batch reference (e.g. MoMo-2024-01)" value={batchRef} onChange={e => setBatchRef(e.target.value)} className="h-8 text-sm flex-1" />
-                <Button size="sm" onClick={() => batchApprove.mutate()} disabled={batchApprove.isPending || !batchRef.trim()}>
-                  {batchApprove.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Banknote className="h-3 w-3 mr-1" />}
-                  Disburse ({selected.size})
-                </Button>
+                <p className="font-mono font-bold text-xs">{formatUGX(item.amount)}</p>
               </div>
-              </CfoApprovalGate>
-            )}
+            ))}
           </div>
         )}
       </CardContent>

@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { useWeeklyChampionTeam } from '@/hooks/useAgentCollectionLeague';
 
@@ -96,11 +95,7 @@ export function WeeklyChampionTeamDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-2xl border border-border/60 bg-muted/40 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Collected</p>
-            <p className="mt-1 text-lg font-bold tabular-nums">{formatUGX(team.collected_amount)}</p>
-          </div>
+        <div>
           <div className="rounded-2xl border border-border/60 bg-muted/40 p-3">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Of target</p>
             <p className="mt-1 flex items-center gap-1 text-lg font-bold tabular-nums">
@@ -150,7 +145,14 @@ export function WeeklyChampionTeamDialog() {
                     {style.label} · {c.payments} payment{c.payments === 1 ? '' : 's'}
                   </p>
                 </div>
-                <p className="shrink-0 text-sm font-bold tabular-nums">{formatUGX(c.collected_amount)}</p>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-bold tabular-nums">
+                    {team.collected_amount > 0
+                      ? `${((c.collected_amount / team.collected_amount) * 100).toFixed(1)}%`
+                      : '—'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">of team collections</p>
+                </div>
               </div>
             );
           })}

@@ -26,7 +26,7 @@ import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
-import { promissoryFulfilmentError } from '@/lib/promissoryNoteDraft';
+import { noteDueByMessage, promissoryFulfilmentError } from '@/lib/promissoryNoteDraft';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { PromissoryPlanMatcher } from '@/components/agent/PromissoryPlanMatcher';
 import { normalizeWa } from '@/lib/whatsapp';
@@ -63,7 +63,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
   const queryClient = useQueryClient();
   // Agent screen: quote the PUBLIC new-partner rate (15 while the switch has never been on), never a
   // per-person rate. The note itself is stamped by the database (stamp_promissory_note_return_rate).
-  const { newContractRate } = usePartnerReturnPolicy();
+  const { newContractRate, noteDueBy } = usePartnerReturnPolicy();
   const newRatePct = formatRatePct(newContractRate);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -182,13 +182,13 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
 
     if (!(Number(amount) > 0)) errs.promise.push('Promised amount');
     if (!recordedOn) errs.promise.push('Date recorded');
-    const fulfilmentError = promissoryFulfilmentError(recordedOn, fulfilmentDueOn);
+    const fulfilmentError = promissoryFulfilmentError(recordedOn, fulfilmentDueOn, noteDueBy);
     if (fulfilmentError) errs.promise.push(fulfilmentError);
 
     if (supportMode === 'self' && selectedPlanIds.length === 0 && selectedHouseIds.length === 0) errs.tenants.push('At least one house or tenant rent plan');
 
     return errs;
-  }, [nameValidation, whatsappNumber, phoneNumber, email, amount, recordedOn, fulfilmentDueOn, supportMode, selectedPlanIds, selectedHouseIds]);
+  }, [nameValidation, whatsappNumber, phoneNumber, email, amount, recordedOn, fulfilmentDueOn, noteDueBy, supportMode, selectedPlanIds, selectedHouseIds]);
 
   const currentStepHasErrors = stepErrors[currentStep.key].length > 0;
   const showStepErrors = attemptedStep === stepIndex && currentStepHasErrors;
@@ -273,7 +273,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
     if (submitting) return;
     setErrorMsg(null);
     setAttemptedStep(stepIndex);
-    const fulfilmentError = promissoryFulfilmentError(recordedOn, fulfilmentDueOn);
+    const fulfilmentError = promissoryFulfilmentError(recordedOn, fulfilmentDueOn, noteDueBy);
     if (currentStepHasErrors || fulfilmentError) {
       const msg = fulfilmentError && !currentStepHasErrors
         ? fulfilmentError
@@ -358,7 +358,11 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
         'Failed to create note',
       );
       console.error('[PromissoryNoteDialog] create failed:', err);
-      if (raw.includes('PLANS_UNAVAILABLE')) {
+      if (noteDueByMessage(raw)) {
+        const msg = noteDueByMessage(raw) as string;
+        setErrorMsg(msg);
+        toast.error(msg);
+      } else if (raw.includes('PLANS_UNAVAILABLE')) {
         setSelectedPlanIds([]);
         const msg = 'Some selected plans are no longer available. Selection cleared — try again or create the note without plans.';
         setErrorMsg(msg);
@@ -680,12 +684,13 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
               onChange={(e) => setFulfilmentDueOn(e.target.value)}
               type="date"
               min={recordedOn || todayIso}
+              max={noteDueBy ?? undefined}
               className="h-11 text-xs"
             />
           </div>
         </div>
-        {showStepErrors && promissoryFulfilmentError(recordedOn, fulfilmentDueOn) && (
-          <p className="text-[11px] text-destructive">{promissoryFulfilmentError(recordedOn, fulfilmentDueOn)}</p>
+        {showStepErrors && promissoryFulfilmentError(recordedOn, fulfilmentDueOn, noteDueBy) && (
+          <p className="text-[11px] text-destructive">{promissoryFulfilmentError(recordedOn, fulfilmentDueOn, noteDueBy)}</p>
         )}
 
         {parsedAmount > 0 && (

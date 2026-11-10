@@ -63,10 +63,19 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
+// --- Proxy landing mock -------------------------------------------------
+// The lookup itself is tested in src/lib/proxyLanding.test.ts.
+let proxyLandingAnswer = false;
+const resolveProxyLandingMock = vi.fn(async (_userId: string) => proxyLandingAnswer);
+vi.mock('@/lib/proxyLanding', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/proxyLanding')>('@/lib/proxyLanding');
+  return { ...actual, resolveProxyLanding: (userId: string) => resolveProxyLandingMock(userId) };
+});
+
 // --- helpers ------------------------------------------------------------
 const flush = async () => {
-  // Let any pending promise + setTimeout(0) chains resolve.
-  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  // Let any pending promise + setTimeout(0) chains resolve (the proxy landing check adds a step).
+  await act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); });
 };
 
 beforeEach(() => {
@@ -80,6 +89,8 @@ beforeEach(() => {
   rentRequestsCount = 0;
   rentRequestsError = null;
   serverPrefs = null;
+  proxyLandingAnswer = false;
+  resolveProxyLandingMock.mockClear();
   try { localStorage.clear(); } catch {}
   // Seed an explicit (empty-overrides) prefs blob so DashboardRedirect
   // does NOT attempt the server-side fallback path unless a test wants it.
@@ -283,5 +294,89 @@ describe('DashboardRedirect — roles not loaded vs. no roles', () => {
     await flush();
     expect(mockNavigate).toHaveBeenCalledWith('/select-role', { replace: true, state: { reason: 'no-roles' } });
     expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard/agent', expect.anything());
+  });
+});
+
+describe('DashboardRedirect — proxy agents with no collections', () => {
+  const PROXY = '/dashboard/agent/proxy';
+
+  it('lands on the proxy dashboard instead of the last-used persona (funder)', async () => {
+    proxyLandingAnswer = true;
+    authState.role = 'supporter';
+    render(<MemoryRouter initialEntries={['/dashboard']}><DashboardRedirect /></MemoryRouter>);
+    await flush();
+    expect(resolveProxyLandingMock).toHaveBeenCalledWith('u1');
+    expect(mockNavigate).toHaveBeenCalledWith(PROXY, { replace: true });
+    expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard/funder', expect.anything());
+  });
+
+  it('wins over the agent auto rule (posted rent requests, never collected)', async () => {
+    proxyLandingAnswer = true;
+    rentRequestsCount = 3;
+    render(<MemoryRouter initialEntries={['/dashboard']}><DashboardRedirect /></MemoryRouter>);
+    await flush();
+    expect(mockNavigate).toHaveBeenCalledWith(PROXY, { replace: true });
+    expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard/agent', expect.anything());
+  });
+
+  it('also applies when the agent rule is switched off', async () => {
+    proxyLandingAnswer = true;
+    agentAutoDefaultDisabled = true;
+    render(<MemoryRouter initialEntries={['/dashboard']}><DashboardRedirect /></MemoryRouter>);
+    await flush();
+    expect(mockNavigate).toHaveBeenCalledWith(PROXY, { replace: true });
+  });
+
+  it('a proxy agent who has collected (answer false) keeps the normal landing', async () => {
+    proxyLandingAnswer = false;
+    rentRequestsCount = 3;
+    render(<MemoryRouter initialEntries={['/dashboard']}><DashboardRedirect /></MemoryRouter>);
+    await flush();
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard/agent', { replace: true });
+    expect(mockNavigate).not.toHaveBeenCalledWith(PROXY, expect.anything());
+  });
+
+  it('an explicit URL slug still wins', async () => {
+    proxyLandingAnswer = true;
+    render(<MemoryRouter initialEntries={['/dashboard/funder']}><DashboardRedirect /></MemoryRouter>);
+    await flush();
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard/funder', { replace: true });
+    expect(mockNavigate).not.toHaveBeenCalledWith(PROXY, expect.anything());
+  });
+
+  it('the Home Screen choice in Settings still wins', async () => {
+    proxyLandingAnswer = true;
+    preferredDefault = 'agent';
+    render(<MemoryRouter initialEntries={['/dashboard']}><DashboardRedirect /></MemoryRouter>);
+    await flush();
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard/agent', { replace: true });
+    expect(mockNavigate).not.toHaveBeenCalledWith(PROXY, expect.anything());
+  });
+
+  it('a home screen saved on another device still wins', async () => {
+    localStorage.removeItem('welile_app_preferences');
+    serverPrefs = { defaultRole: 'supporter' };
+    proxyLandingAnswer = true;
+    render(<MemoryRouter initialEntries={['/dashboard']}><DashboardRedirect /></MemoryRouter>);
+    await flush();
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard/funder', { replace: true });
+    expect(mockNavigate).not.toHaveBeenCalledWith(PROXY, expect.anything());
+  });
+
+  it('a staff landing (employee) is never replaced', async () => {
+    proxyLandingAnswer = true;
+    authState.roles = ['employee', 'supporter'];
+    authState.role = 'employee';
+    render(<MemoryRouter initialEntries={['/dashboard']}><DashboardRedirect /></MemoryRouter>);
+    await flush();
+    expect(mockNavigate).not.toHaveBeenCalledWith(PROXY, expect.anything());
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('navigates exactly once', async () => {
+    proxyLandingAnswer = true;
+    render(<MemoryRouter initialEntries={['/dashboard']}><DashboardRedirect /></MemoryRouter>);
+    await flush();
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
 });

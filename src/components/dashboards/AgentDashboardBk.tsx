@@ -76,7 +76,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { Info, UsersRound } from 'lucide-react';
+import { Info, UsersRound, LayoutGrid } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Wallet, Landmark, LayoutDashboard, ChevronRight, Loader2 } from 'lucide-react';
 import { HandCoins, Receipt } from 'lucide-react';
@@ -105,7 +105,7 @@ import { useMyProxyAgentStatus } from '@/hooks/useProxyAgentApproval';
 
 import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
-import { useAgentVerifiedState } from '@/hooks/useAgentVetting';
+import { useAgentSignupVerifyRedirect, useAgentVerifiedState } from '@/hooks/useAgentVetting';
 import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
 import { RankEarningsCard } from '@/components/agent/RankEarningsCard';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
@@ -320,6 +320,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   const authenticatedReady = useAuthenticatedAudience();
   // Agent Ops approval (agent vetting), never profiles.verified.
   const agentVerifiedState = useAgentVerifiedState();
+  // New agent signups are sent to verification until they have started it.
+  useAgentSignupVerifyRedirect();
   // Behaviour telemetry tracking
   useTrackSection('agent-overview', 'agent');
   const { data: myEliteRank } = useMyEliteRank();
@@ -772,6 +774,11 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     const params = new URLSearchParams(window.location.search);
     if (params.get('section') === 'cash-payouts') {
       setCashPayoutsOpen(true);
+    }
+    // Deep-link: /dashboard/agent?section=wallet opens the wallet sheet
+    // (used by the Proxy earnings "Withdraw" button).
+    if (params.get('section') === 'wallet') {
+      setShowWallet(true);
     }
   }, []);
 
@@ -1832,6 +1839,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 ...(parentAgentInfo?.parent_agent_id
                   ? [{ icon: UsersRound, label: 'My Parent Agent', onClick: () => setParentAgentOpen(true) }]
                   : []),
+                { icon: LayoutGrid, label: 'More', onClick: () => setMenuOpen(true) },
               ].map((a) => (
                 <button
                   key={a.label}

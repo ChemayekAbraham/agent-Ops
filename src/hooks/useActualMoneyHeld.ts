@@ -16,11 +16,21 @@ export interface ActualMoneyHeld {
   cashAtHand: number;
   /** Alias of `cashAtHand`, named for the caption it is shown under. */
   custodyNotConfirmedBanked: number;
-  /** Verified cash deposits explicitly marked as banked by Financial Ops. */
+  /**
+   * Cumulative total of verified cash deposits that Financial Ops marked as banked. This is a running sum of
+   * deposits INTO the bank and is never reduced by money paid out, so it is NOT a bank balance (CFO review
+   * 9 Nov 2026: 4.36B against an emailed Equity balance of tens of millions).
+   */
   bankedCash: number;
-  /** Email-derived Bayo Mercy account balance (reference/comparison only). */
+  /** Equity account balance from bank emails since the reconciliation cutoff (credits in less debits out). */
   bankReconciliation: number;
-  /** MTN + Airtel + banked cash. Custody is excluded until banking is verified. */
+  /** Bank balance used in Money We Have: the email-derived Equity balance. */
+  bankBalance: number;
+  /** True when a confirmed balance (fin_bank_anchors) exists at the date the bank-email count starts from. */
+  bankAnchored: boolean;
+  /** Plain-language description of that anchor, e.g. "opening balance UGX 0 on 07 Oct 2026, confirmed by the CFO". */
+  bankAnchorNote: string | null;
+  /** MTN + Airtel + bank balance (email-derived). Custody is excluded until banking is verified. */
   total: number;
 
   /** Number of verified banked deposits behind `bankedCash`. */
@@ -61,10 +71,13 @@ export function useActualMoneyHeld(enabled = true) {
     staleTime: 15_000,
     refetchInterval: 30_000,
     queryFn: async (): Promise<ActualMoneyHeld> => {
-      const [phoneRes, cashRes, bankRes, w, verification] = await Promise.all([
+      const [phoneRes, cashRes, bankRes, anchorRes, w, verification] = await Promise.all([
         supabase.rpc('get_phone_platform_reconciliation' as any),
         supabase.rpc('get_cash_at_hand_total' as any),
         supabase.rpc('get_money_at_bank_reconciliation' as any),
+        // Confirmed bank balance at the email-count start date (CFO, 10 Nov 2026). Optional: a failure here only
+        // means the bank line is shown as not anchored.
+        supabase.rpc('fin_bank_anchor', { p_account_key: 'equity' }),
         // The enclosing query owns retries; do not multiply retry budgets.
         queryClient.fetchQuery({ ...cfoWalletTotalsOptions(), retry: false }),
         (async () => {
@@ -121,6 +134,15 @@ export function useActualMoneyHeld(enabled = true) {
       const bankReconciliation = Number(b.money_at_bank_total ?? 0);
       const { banked, finOpsBankedCash, bankedLastMovementAt } = verification;
 
+      const anchor = (anchorRes?.error ? null : (anchorRes?.data ?? null)) as
+        { anchor_at?: string; balance?: number | string; source?: string } | null;
+      const cutoff = (b.email_cutoff_at as string | undefined) ?? null;
+      const bankAnchored = !!(anchor?.anchor_at && cutoff
+        && Math.abs(new Date(anchor.anchor_at).getTime() - new Date(cutoff).getTime()) < 1000);
+      const bankAnchorNote = bankAnchored && anchor?.anchor_at
+        ? `opening balance UGX ${Number(anchor.balance ?? 0).toLocaleString('en-US')} on ${new Date(anchor.anchor_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Kampala' })}, ${anchor.source === 'bank_statement' ? 'per bank statement' : 'confirmed by the CFO'}`
+        : null;
+
       const bankedDifference = finOpsBankedCash - bankedCash;
 
       return {
@@ -130,10 +152,14 @@ export function useActualMoneyHeld(enabled = true) {
         bankedCash,
         bankReconciliation,
         custodyNotConfirmedBanked: cashAtHand,
+        bankBalance: bankReconciliation,
+        bankAnchored,
+        bankAnchorNote,
         // Custody cash is NOT company cash we can spend: no verified banking
         // event exists for it, so it is reported under its own caption and kept
-        // out of every "Money We Have" / available-cash figure.
-        total: mtn + airtel + bankedCash,
+        // out of every "Money We Have" / available-cash figure. The bank line is the
+        // email-derived Equity balance, not the cumulative banked-deposit total.
+        total: mtn + airtel + bankReconciliation,
 
         bankedCashCount: Number(b.banked_cash_reference_count ?? banked.length),
         bankedComputedAt: (b.computed_at as string | undefined) ?? null,

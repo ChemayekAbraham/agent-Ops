@@ -133,6 +133,8 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
+    // Set once this call has posted the pre-debit, so a later refusal can say so.
+    let debitedThisCall = false;
     if (!existingDebit && !fundedFromFloatByRpc && !fundedFromPayroll) {
 
       // Funding source = OPERATIONAL FLOAT (never withdrawable).
@@ -202,6 +204,7 @@ Deno.serve(async (req) => {
           error: `Wallet deduction failed: ${msg}. Portfolio was NOT activated.`,
         }, 500);
       }
+      debitedThisCall = true;
     } else if (fundedFromPayroll) {
       console.log("[approve-pending-portfolio] Staff salary reinvestment portfolio", portfolioId, "— funded by payroll; no wallet debit.");
     } else if (fundedFromFloatByRpc) {
@@ -229,6 +232,15 @@ Deno.serve(async (req) => {
         return json({
           error: `Approval was blocked by a permission gate: ${msg}. Signed in as ${caller.email ?? caller.id}.`,
         }, 403);
+      }
+      // Coded guards (E60_SELF_APPROVAL, …) go back exactly as the database said them. The
+      // RPC rolled back; only a pre-debit this call already posted (rent-pool path) remains,
+      // and then the operator is told so after the server's own words.
+      if (/^E\d+_[A-Z_]+:/.test(msg)) {
+        if (debitedThisCall) {
+          return json({ error: `${msg} The partner's wallet was debited before this refusal. Contact operations.` }, 500);
+        }
+        return json({ error: msg }, msg.startsWith("E60_SELF_APPROVAL") ? 403 : 409);
       }
       if (msg.includes("INVALID_STATUS")) return json({ error: "This portfolio is not awaiting approval." }, 409);
       if (msg.includes("PORTFOLIO_NOT_FOUND")) return json({ error: "Portfolio not found." }, 404);

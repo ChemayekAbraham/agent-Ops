@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Download, RefreshCw, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -11,7 +12,7 @@ import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts';
 import {
-  type CfoWeeklyReport, prettyCategory, pctChange, deriveRisksAndActions,
+  type CfoWeeklyReport, type WeeklyAccountLine, prettyCategory, pctChange, deriveRisksAndActions, weekOptions,
 } from '@/lib/cfoWeeklyReport';
 import { generateCfoWeeklyReportPdf } from '@/lib/cfoWeeklyReportPdf';
 
@@ -24,7 +25,9 @@ const fmtShort = (n: number) => {
   if (v >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
   return String(Math.round(n));
 };
-const day = (d: string) => (d ? format(new Date(d), 'dd MMM yyyy') : '—');
+/** Calendar date (YYYY-MM-DD) without a time-zone shift. */
+const dateOnly = (d: string) => (d ? format(new Date(`${d}T12:00:00`), 'EEE dd MMM yyyy') : '—');
+const marginText = (m: number, revenue: number) => (revenue > 0 && Math.abs(m) < 1000 ? `${m}%` : 'n/m');
 
 function Delta({ current, previous }: { current: number; previous: number }) {
   const p = pctChange(current, previous);
@@ -93,19 +96,50 @@ function CompareTable({ rows, labelHead }: { rows: { label: string; cur: number;
   );
 }
 
+function AccountTable({ lines, empty }: { lines: WeeklyAccountLine[]; empty: string }) {
+  if (!lines.length) return <p className="text-xs text-muted-foreground">{empty}</p>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-left text-muted-foreground border-b border-border">
+            <th className="py-2 font-medium">Account</th>
+            <th className="py-2 font-medium text-right">Opening</th>
+            <th className="py-2 font-medium text-right">Closing</th>
+            <th className="py-2 font-medium text-right">Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l) => (
+            <tr key={l.account_code} className="border-b border-border/50 last:border-0">
+              <td className="py-2 pr-2"><span className="text-muted-foreground">{l.account_code}</span> {l.label}</td>
+              <td className="py-2 text-right tabular-nums text-muted-foreground">{fmt(l.opening)}</td>
+              <td className="py-2 text-right tabular-nums">{fmt(l.closing)}</td>
+              <td className={`py-2 text-right tabular-nums ${l.closing - l.opening >= 0 ? '' : 'text-destructive'}`}>{fmt(l.closing - l.opening)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /**
  * General Weekly CFO Report — a reporting layer over `get_cfo_weekly_report`.
  * Every figure comes straight from the ledger-backed RPC; nothing is computed twice.
  */
 export default function CFOWeeklyReportPanel() {
   const [exporting, setExporting] = useState(false);
+  const weeks = useMemo(() => weekOptions(12), []);
+  // Default: the last completed Monday-to-Sunday week.
+  const [weekStart, setWeekStart] = useState<string>(() => weeks[1].value);
 
   const { data: report, isLoading, isFetching, refetch, error } = useQuery({
-    queryKey: ['cfo-weekly-report'],
+    queryKey: ['cfo-weekly-report', weekStart],
     queryFn: async (): Promise<CfoWeeklyReport> => {
-      const { data, error: rpcError } = await (supabase as any).rpc('get_cfo_weekly_report');
+      const { data, error: rpcError } = await supabase.rpc('get_cfo_weekly_report', { p_week_start: weekStart });
       if (rpcError) throw rpcError;
-      return data as CfoWeeklyReport;
+      return data as unknown as CfoWeeklyReport;
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -114,7 +148,7 @@ export default function CFOWeeklyReportPanel() {
 
   const chartData = useMemo(
     () => (report?.daily_flow ?? []).map((d) => ({
-      label: format(new Date(d.day), 'dd MMM'),
+      label: format(new Date(`${d.day}T12:00:00`), 'dd MMM'),
       inflow: d.inflow,
       outflow: d.outflow,
       net: d.net,
@@ -130,7 +164,7 @@ export default function CFOWeeklyReportPanel() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `weekly-cfo-report-${format(new Date(report.period.to), 'yyyy-MM-dd')}.pdf`;
+      a.download = `weekly-cfo-report-${report.period.week_start}-to-${report.period.week_end}.pdf`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
       toast.success('Weekly CFO report downloaded');
@@ -169,10 +203,23 @@ export default function CFOWeeklyReportPanel() {
         <div>
           <h2 className="text-lg font-bold tracking-tight">General Weekly CFO Report</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {day(report.period.from)} – {day(report.period.to)} · compared with {day(report.previous_period.from)} – {day(report.previous_period.to)}
+            {dateOnly(report.period.week_start)} – {dateOnly(report.period.week_end)} (Monday to Sunday, Kampala time) · compared with {dateOnly(report.previous_period.week_start)} – {dateOnly(report.previous_period.week_end)}
           </p>
+          {!report.period.complete && (
+            <Badge variant="outline" className="mt-1 text-[10px]">Week in progress: figures to {format(new Date(report.period.to), 'dd MMM, HH:mm')}</Badge>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={weekStart} onValueChange={setWeekStart}>
+            <SelectTrigger className="h-9 w-[250px] rounded-xl text-xs" aria-label="Reporting week">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {weeks.map((w) => (
+                <SelectItem key={w.value} value={w.value} className="text-xs">{w.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="sm" className="h-9 rounded-xl gap-2 text-xs" onClick={() => refetch()} disabled={isFetching}>
             {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Refresh
@@ -187,8 +234,8 @@ export default function CFOWeeklyReportPanel() {
       {/* Executive summary */}
       <SectionCard title="Executive Summary" subtitle={report.basis}>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5">
-          <Metric label="Opening cash" value={fmt(cash.opening_cash)} caption={day(report.period.from)} />
-          <Metric label="Closing cash" value={fmt(cash.closing_cash)} caption={day(report.period.to)} />
+          <Metric label="Opening cash" value={fmt(cash.opening_cash)} caption={`Monday ${dateOnly(report.period.week_start)}, 00:00`} />
+          <Metric label="Closing cash" value={fmt(cash.closing_cash)} caption={report.period.complete ? `End of Sunday ${dateOnly(report.period.week_end)}` : `To ${format(new Date(report.period.to), 'dd MMM, HH:mm')}`} />
           <Metric
             label="Net cash movement"
             value={fmt(cash.net_change)}
@@ -198,19 +245,20 @@ export default function CFOWeeklyReportPanel() {
           <Metric label="Cash legs recorded" value={String(cf.legs)} caption={`${cf.prev_legs} last week`} />
           <Metric label="Revenue" value={fmt(pnl.revenue)} tone="text-emerald-600" caption={<Delta current={pnl.revenue} previous={pnl.prev_revenue} />} />
           <Metric label="Expenses" value={fmt(pnl.expenses)} tone="text-orange-600" caption={<Delta current={pnl.expenses} previous={pnl.prev_expenses} />} />
-          <Metric label="Net result" value={fmt(pnl.net_result)} tone={pnl.net_result >= 0 ? 'text-emerald-600' : 'text-destructive'} caption={`Margin ${pnl.net_margin}% (was ${pnl.prev_net_margin}%)`} />
-          <Metric label="Net working capital" value={fmt(position.net_working_capital)} caption="Cash + receivables − obligations" />
+          <Metric label="Net result" value={fmt(pnl.net_result)} tone={pnl.net_result >= 0 ? 'text-emerald-600' : 'text-destructive'} caption={`Margin ${marginText(pnl.net_margin, pnl.revenue)} (was ${marginText(pnl.prev_net_margin, pnl.prev_revenue)})`} />
+          <Metric label="Net working capital" value={fmt(position.net_working_capital)} caption="Current assets − current liabilities" />
         </div>
       </SectionCard>
 
       {/* Position */}
-      <SectionCard title="Position at Period End" subtitle="Same definitions as the CFO Home cards">
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-x-6 gap-y-5">
+      <SectionCard title="Position at Period End" subtitle="Cash on the CFO Home treasury card basis; obligations from the Statement of Financial Position">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-x-6 gap-y-5">
           <Metric label="Money we have" value={fmt(position.money_we_have)} tone="text-emerald-600" caption="A1 + A5" />
           <Metric label="Money in treasury / platform" value={fmt(position.money_in_treasury)} tone="text-indigo-600" caption="Cash held outside the bank" />
           <Metric label="Money in bank" value={fmt(position.money_in_bank)} tone="text-sky-600" caption="Net banked cash" />
-          <Metric label="Money we owe" value={fmt(position.money_we_owe)} tone="text-orange-600" caption="Wallet obligations" />
-          <Metric label="Money we can use" value={fmt(position.money_we_can_use)} tone="text-blue-600" caption="After obligations" />
+          <Metric label="Landlord float pool" value={fmt(position.landlord_pool)} caption="A21 + A22, held for landlords" />
+          <Metric label="Money we owe" value={fmt(position.money_we_owe)} tone="text-orange-600" caption="Current liabilities" />
+          <Metric label="Money we can use" value={fmt(position.money_we_can_use)} tone="text-blue-600" caption="Cash after current liabilities" />
         </div>
       </SectionCard>
 
@@ -224,6 +272,8 @@ export default function CFOWeeklyReportPanel() {
             { label: 'Money in treasury / platform', cur: cash.closing_treasury, prev: cash.opening_treasury },
             { label: 'A1 cash and bank', cur: cash.closing_a1, prev: cash.opening_a1 },
             { label: 'A5 cash in transit', cur: cash.closing_a5, prev: cash.opening_a5 },
+            { label: 'Landlord float pool (A21 + A22)', cur: cash.closing_pool, prev: cash.opening_pool },
+            { label: 'Total including landlord pool', cur: cash.closing_incl_pool, prev: cash.opening_incl_pool },
           ]}
         />
         <p className={`text-[11px] mt-3 ${Math.abs(reconVariance) < 1 ? 'text-emerald-600' : 'text-destructive'}`}>
@@ -237,7 +287,7 @@ export default function CFOWeeklyReportPanel() {
       </SectionCard>
 
       {/* Cash flow */}
-      <SectionCard title="Cash Flow" subtitle="Inflows and outflows against the previous 7-day period">
+      <SectionCard title="Cash Flow" subtitle="Inflows and outflows against the previous Monday-to-Sunday week">
         <CompareTable
           labelHead="Cash flow"
           rows={[
@@ -265,30 +315,47 @@ export default function CFOWeeklyReportPanel() {
       </SectionCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SectionCard title="Revenue Performance" subtitle={`Total ${fmt(pnl.revenue)} this week`}>
+        <SectionCard title="Revenue Performance" subtitle={`Total ${fmt(pnl.revenue)} this week · revenue accounts (R)`}>
           <CompareTable
             labelHead="Revenue category"
-            rows={report.revenue_lines.slice(0, 12).map((l) => ({ label: prettyCategory(l.category), cur: l.amount, prev: l.prev_amount }))}
+            rows={report.revenue_lines.slice(0, 12).map((l) => ({ label: `${l.account_code} · ${prettyCategory(l.category)}`, cur: l.amount, prev: l.prev_amount }))}
           />
         </SectionCard>
-        <SectionCard title="Expense Performance" subtitle={`Total ${fmt(pnl.expenses)} this week`}>
+        <SectionCard
+          title="Expense Performance"
+          subtitle={`Total ${fmt(pnl.expenses)} this week · expense accounts (X)${pnl.float_restatement ? ` · includes ${fmt(pnl.float_restatement)} float restatement (X6)` : ''}`}
+        >
           <CompareTable
             labelHead="Expense category"
-            rows={report.expense_lines.slice(0, 12).map((l) => ({ label: prettyCategory(l.category), cur: l.amount, prev: l.prev_amount }))}
+            rows={report.expense_lines.slice(0, 12).map((l) => ({ label: `${l.account_code} · ${prettyCategory(l.category)}`, cur: l.amount, prev: l.prev_amount }))}
           />
         </SectionCard>
       </div>
 
       {/* Receivables & payables */}
-      <SectionCard title="Receivables & Payables" subtitle="Position at the end of the reporting week">
+      <SectionCard title="Receivables & Payables" subtitle="Balance-sheet accounts: opening (Monday 00:00) and closing (end of the week)">
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
-          <Metric label="Tenant arrears outstanding" value={fmt(receivables.tenant_outstanding)} caption="Active rent plans" />
-          <Metric label="Agent advances outstanding" value={fmt(receivables.advances_outstanding)} caption={`${receivables.advances_active_count} active advance(s)`} />
-          <Metric label="Total receivables" value={fmt(receivables.total)} tone="text-amber-600" caption="Tenant + advances" />
-          <Metric label="Wallet obligations" value={fmt(payables.wallet_total)} tone="text-orange-600" caption={`Withdrawable ${fmt(payables.wallet_withdrawable)} · float ${fmt(payables.wallet_float)}`} />
+          <Metric label="Rent Plan receivables" value={fmt(receivables.tenant_outstanding)} caption={<Delta current={receivables.tenant_outstanding} previous={receivables.opening_tenant_outstanding} />} />
+          <Metric label="Agent advances receivable" value={fmt(receivables.advances_outstanding)} caption={`A10 + A11 + A20 · ${receivables.advances_active_count} active advance(s)`} />
+          <Metric label="Total receivables" value={fmt(receivables.total)} tone="text-amber-600" caption={`Includes ${fmt(receivables.other)} in other receivable accounts`} />
+          <Metric label="Current liabilities" value={fmt(payables.total)} tone="text-orange-600" caption={`Wallet custody (L1) ${fmt(payables.wallet_total)}`} />
+          <Metric label="Supporter capital held (L2)" value={fmt(payables.supporter_capital)} caption="Non-current; not in current liabilities" />
           <Metric label="Pending wallet operations" value={fmt(payables.pending_operations_amount)} caption={`${payables.pending_operations_count} pending`} />
-          <Metric label="Net working capital" value={fmt(position.net_working_capital)} tone={position.net_working_capital >= 0 ? undefined : 'text-destructive'} caption="Cash + receivables − obligations" />
         </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-5">
+          <div>
+            <p className="text-xs font-medium mb-1">Receivable accounts</p>
+            <AccountTable lines={receivables.lines} empty="No receivable balances." />
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-1">Current liability accounts</p>
+            <AccountTable lines={payables.lines} empty="No current liability balances." />
+          </div>
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-3">
+          Net working capital {fmt(position.net_working_capital)} = current assets {fmt(position.current_assets)} − current liabilities {fmt(position.current_liabilities)}
+          {' '}(opening {fmt(position.opening_net_working_capital)}), as on the Statement of Financial Position.
+        </p>
       </SectionCard>
 
       {/* Movements */}

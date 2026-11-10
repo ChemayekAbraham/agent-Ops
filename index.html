@@ -403,6 +403,11 @@
           window.Symbol && Array.from && Object.assign && window.WeakMap);
         if (!ok) { showBanner(); return; }
 
+        // The boardroom screen (/b/:code, /board/:code) is a TV display: no
+        // version nag or watchdog banner over it. The hard failures above still
+        // show, since there the board cannot run at all.
+        if (/^\/(b|board)(\/|$)/.test(window.location.pathname)) return;
+
         // 2.5) PROACTIVE old-WebView / old-Chrome detection. Show the banner
         //      BEFORE the app crashes to a blank screen. Many budget Android
         //      phones (Tecno, Infinix, itel) ship an outdated Android System
