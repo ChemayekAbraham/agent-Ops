@@ -123,18 +123,27 @@ Deno.serve(async (req) => {
     } else {
       const { data: rows } = await adminClient
         .from("general_ledger")
-        .select("amount, direction, wallet_bucket, category, classification")
+        .select("amount, direction, wallet_bucket, category, classification, reference_id")
         .eq("user_id", targetUserId)
-        .eq("ledger_scope", "wallet");
+        .eq("ledger_scope", "wallet")
+        .eq("wallet_bucket", "float")
+        .limit(20000);
       if (Array.isArray(rows)) {
         let net = 0;
         for (const r of rows as Array<{
           amount: number; direction: string; wallet_bucket: string | null;
-          category: string; classification: string | null;
+          category: string; classification: string | null; reference_id: string | null;
         }>) {
           const cls = r.classification;
+          // A previous acknowledged move fills the overdraft with an
+          // admin_correction CREDIT (reference FLTFILL-…). It must count here,
+          // otherwise the same shortfall is "filled" again on every move.
+          const isOverdraftFill =
+            cls === "admin_correction" && r.category === "system_balance_correction" &&
+            (r.direction === "cash_in" || r.direction === "credit") &&
+            typeof r.reference_id === "string" && r.reference_id.startsWith("FLTFILL-");
           const okCls =
-            cls === null || cls === "production" ||
+            cls === null || cls === "production" || isOverdraftFill ||
             (cls === "admin_correction" && r.category === "system_balance_correction" &&
               (r.direction === "debit" || r.direction === "cash_out"));
           if (!okCls) continue;
