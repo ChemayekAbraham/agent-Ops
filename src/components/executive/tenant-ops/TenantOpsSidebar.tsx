@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronDown, ChevronRight, Gauge } from 'lucide-react';
+import { DESK_LINKS, useCanOpenDesk } from '@/pages/desk/deskLink';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,6 +27,9 @@ export function TenantOpsSidebar({ active, onSelect, badges = {}, className }: P
   const { roles } = useAuth();
   // Entries restricted to other roles (Awareness Calls: Tenant Ops, COO, CEO, super admin) are not shown to people who cannot open them.
   const nav = useMemo(() => visibleTenantOpsNav(roles), [roles]);
+  const navigate = useNavigate();
+  // The Tenant Ops desk, as the COO dashboard links its desk; only for people the desk lets in.
+  const showDesk = useCanOpenDesk('tenant-ops');
   const [open, setOpen] = useState<Record<string, boolean>>(() => ({
     verification: true,
     tools: true,
@@ -56,7 +61,8 @@ export function TenantOpsSidebar({ active, onSelect, badges = {}, className }: P
             const expanded = !!open[key];
 
             return (
-              <li key={key} className="pb-2">
+              <Fragment key={key}>
+              <li className="pb-2">
                 {!item.children?.length ? (
                   <button
                     type="button"
@@ -120,6 +126,21 @@ export function TenantOpsSidebar({ active, onSelect, badges = {}, className }: P
                 )}
                 {!isLast && <div className="mt-2 h-px bg-border/60" />}
               </li>
+              {index === 0 && showDesk && (
+                <li className="pb-2">
+                  <button
+                    type="button"
+                    data-desk-link="tenant-ops"
+                    onClick={() => navigate(DESK_LINKS['tenant-ops'].route)}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-3 text-sm font-medium transition-colors lg:px-2.5 lg:py-2 lg:text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                  >
+                    <Gauge className="h-5 w-5 shrink-0 lg:h-4 lg:w-4" />
+                    <span className="truncate">{DESK_LINKS['tenant-ops'].label}</span>
+                  </button>
+                  <div className="mt-2 h-px bg-border/60" />
+                </li>
+              )}
+              </Fragment>
             );
           })}
         </ul>

@@ -3,7 +3,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Users, ArrowUpRight, Clock, CheckCircle2, XCircle, AlertCircle, Info, Hourglass, Download, X, CheckSquare, Eye, RotateCcw, Trash2, Share2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Search, Loader2, Users, ArrowUpRight, Clock, CheckCircle2, XCircle, AlertCircle, Info, Hourglass, Download, X, CheckSquare, Eye, RotateCcw, Trash2, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAgentOnboardedPortfolios, fetchAgentPayoutRoutes, fetchAgentPayoutDestination, fetchAgentProxyWithdrawals } from '@/lib/agentPartnerPortfolios';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ProxyRecentPayouts } from '@/components/agent/ProxyRecentPayouts';
+import { kampalaYmd, kampalaTodayYmd } from '@/lib/kampalaDays';
 
 interface PartnerBalance {
   partnerId: string;
@@ -93,7 +95,7 @@ const COMPLETED_PROXY_WITHDRAWAL_STATUSES = [
 // available; the partner simply needs the agent to re-request a payout.
 const TERMINAL_UNPAID_STATUSES = ['rejected', 'expired', 'cancelled'] as const;
 
-type FilterMode = 'all' | 'inflight' | 'reattempt' | 'fresh';
+type FilterMode = 'all' | 'inflight' | 'reattempt' | 'fresh' | 'earlier';
 
 // Stable card key — one card per PORTFOLIO (a partner can hold several
 // portfolios with different payout methods that each carry their own ROI
@@ -203,6 +205,8 @@ export function ProxyPartnerFunds() {
   const [cancelReason, setCancelReason] = useState('');
   // Dismissal state
   const [dismissals, setDismissals] = useState<Dismissal[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [hiddenSearch, setHiddenSearch] = useState('');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
@@ -963,7 +967,9 @@ export function ProxyPartnerFunds() {
         if (partner.available <= 50 && partner.inFlightAmount <= 50) return false;
         const dKey = `${partner.partnerId}-${partner.portfolioId || 'none'}`;
         const d = dismissalMap[dKey];
-        if (d) return false;
+        // A hide applies only to the payout it was made on: a CFO approval
+        // that arrives AFTER the hide is a new payout and must show again.
+        if (d && !(partner.latestAt && d.dismissed_at && partner.latestAt > d.dismissed_at)) return false;
         return true;
       })
       .sort((a, b) => {
@@ -1365,10 +1371,25 @@ export function ProxyPartnerFunds() {
             {dismissals.length === 0 && (
               <p className="text-sm text-muted-foreground py-6 text-center">No hidden cards.</p>
             )}
+            {dismissals.length > 0 && (
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={hiddenSearch}
+                  onChange={(e) => setHiddenSearch(e.target.value)}
+                  placeholder="Search hidden cards"
+                  className="h-9 pl-8 text-sm"
+                  aria-label="Search hidden cards"
+                />
+              </div>
+            )}
             {dismissals.map(d => {
               const restoreKey = `${d.partner_id}-${d.portfolio_id || 'none'}`;
               const profile = profiles[d.partner_id];
               const portfolio = d.portfolio_id ? portfolioMap[d.portfolio_id] : null;
+              const hq = hiddenSearch.trim().toLowerCase();
+              if (hq && ![profile?.full_name, profile?.phone, dismissalNames[d.partner_id], portfolio?.account_name, portfolio?.portfolio_code, d.reason, String(d.snapshot_amount)]
+                .some((v) => (v || '').toString().toLowerCase().includes(hq))) return null;
               return (
                 <div key={restoreKey} className="flex items-center justify-between rounded-md border border-border/50 px-3 py-2">
                   <div className="min-w-0">
@@ -1477,8 +1498,23 @@ export function ProxyPartnerFunds() {
     toast.success(`Downloaded ${rows.length} partner${rows.length === 1 ? '' : 's'}`);
   };
 
+  // Main list shows only payouts approved today (Kampala). Older unsettled
+  // payouts move to the "Earlier days" pill so they stay reachable.
+  const todayYmd = kampalaTodayYmd();
+  const isToday = (p: PartnerBalance) => !!p.latestAt && kampalaYmd(p.latestAt) === todayYmd;
+  const earlierCount = partnerBalances.filter((p) => {
+    const k = classify(p).kind;
+    return !isToday(p) && k !== 'inflight' && k !== 'active';
+  }).length;
+  const todayCount = partnerBalances.filter((p) => {
+    const k = classify(p).kind;
+    return isToday(p) && k !== 'inflight' && k !== 'active';
+  }).length;
+
   const visibleBalances = partnerBalances.filter((p) => {
     const c = classify(p);
+    if (filterMode === 'earlier') return !isToday(p) && c.kind !== 'inflight' && c.kind !== 'active';
+    if (filterMode === 'all' && !isToday(p)) return false;
     // Optimistic removal: the instant Caro submits a withdrawal for THIS
     // portfolio card (before realtime / settlement catches up) drop it from the
     // default All view. Scoped to the card so a sibling portfolio stays.
@@ -1490,6 +1526,11 @@ export function ProxyPartnerFunds() {
     if (filterMode === 'reattempt') return c.kind === 'reattempt';
     if (filterMode === 'fresh') return c.kind === 'fresh';
     return true;
+  }).filter((p) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return [p.partnerName, p.partnerPhone, p.portfolioCode, p.accountName, String(p.totalReturns)]
+      .some((v) => (v || '').toString().toLowerCase().includes(q));
   });
 
   return (
@@ -1499,6 +1540,17 @@ export function ProxyPartnerFunds() {
         <span className="font-medium text-foreground"> withdrawable now</span>.
       </p>
 
+      <div className="relative px-1">
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search partner name, phone, portfolio or amount"
+          className="h-9 pl-9 text-sm"
+          aria-label="Search proxy partners"
+        />
+      </div>
+
       <div className="flex flex-wrap gap-1.5 px-1">
         <Button
           size="sm"
@@ -1506,7 +1558,16 @@ export function ProxyPartnerFunds() {
           className="h-7 text-xs gap-1"
           onClick={() => setFilterMode('all')}
         >
-          All ({partnerBalances.length - inFlightCount})
+          Today ({todayCount})
+        </Button>
+        <Button
+          size="sm"
+          variant={filterMode === 'earlier' ? 'default' : 'outline'}
+          className="h-7 text-xs gap-1"
+          onClick={() => setFilterMode('earlier')}
+          disabled={earlierCount === 0}
+        >
+          Earlier days ({earlierCount})
         </Button>
         <Button
           size="sm"

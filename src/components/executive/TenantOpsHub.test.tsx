@@ -37,6 +37,11 @@ vi.mock('@/components/tenant-ops-workspace/WorkspaceShell', () => ({
 }));
 
 vi.mock('@/components/ops/AgentInactiveAlertBanner', () => ({ AgentInactiveAlertBanner: () => null }));
+// The desk entry (deskLink) reads roles and desk access; it has its own tests (src/pages/desk/__tests__/deskLinks.test.tsx).
+vi.mock('@/pages/desk/deskLink', () => ({
+  DESK_LINKS: new Proxy({}, { get: (_t, k) => ({ label: `${String(k)} desk`, route: `/desk/${String(k)}` }) }),
+  useCanOpenDesk: () => false,
+}));
 vi.mock('@/components/ops/BehaviorDrawer', () => ({ BehaviorDrawer: () => null }));
 vi.mock('@/components/ops/TenantPhoneDuplicatePanel', () => ({ TenantPhoneDuplicatePanel: () => null }));
 vi.mock('@/components/ops/WelileHomesAdminPanel', () => ({ WelileHomesAdminPanel: () => null }));

@@ -1,6 +1,8 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, type QueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { rpc } from './reviewApi';
 import { runMove, type MoveResult } from './deskActions';
+import { SEND_BACK_STAGES, SUGGESTED_OFFICE, sendBackTo } from './sendBackApi';
 import type { CheckEntry, Decision, Stage } from './reviewTypes';
 
 /**
@@ -173,6 +175,32 @@ export function useDeskBoard(stage: Stage, enabled = true, scope?: BoardScope) {
   });
 }
 
+/**
+ * Take a request off a desk's board straight away (every cached scope), so a
+ * card that has left the desk never lingers until the next refetch.
+ */
+export function removeFromBoard(queryClient: QueryClient, stage: Stage, requestId: string) {
+  queryClient.setQueriesData<Board>({ queryKey: ['desk-feed', 'board', stage] }, (b) => {
+    if (!b) return b;
+    const gone = b.rows.find((r) => r.id === requestId);
+    if (!gone) return b;
+    const counts = { ...b.counts };
+    const n = counts[gone.decision];
+    if (typeof n === 'number') counts[gone.decision] = Math.max(0, n - 1);
+    return { ...b, counts, rows: b.rows.filter((r) => r.id !== requestId) };
+  });
+}
+
+/**
+ * E64: a pass at Agent / Tenant / Landlord Ops was moved by the server. Drop the
+ * card, say where it went ("Sent to the COO"), and refetch the board.
+ */
+export function afterServerPass(queryClient: QueryClient, stage: Stage, requestId: string, message: string) {
+  removeFromBoard(queryClient, stage, requestId);
+  toast.success(message);
+  void queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
+}
+
 /* ───────────────────────── one push ───────────────────────── */
 
 export type PushOutcome =
@@ -209,10 +237,30 @@ export function moveFor(row: BoardRow, stage: Stage, userId: string, override?: 
   });
 }
 
-/** Exactly what the drawer does: record the review, then run the move. */
+/**
+ * True when this push is a send-back that goes through `pipeline_send_back_to`
+ * (E63) — the system's reject too (E64): it goes to the agent in the field,
+ * which the server records as rejected, with the server's reason and note.
+ */
+export function isSendBackPush(p: Pick<BoardPush, 'decision'> | null | undefined, stage: Stage): boolean {
+  return (p?.decision === 'send_back' || p?.decision === 'reject') && SEND_BACK_STAGES.has(stage);
+}
+
+/**
+ * Exactly what the drawer does: record the review, then run the move.
+ *
+ * A send-back at Agent / Tenant / Landlord Ops or the COO is one server call,
+ * `pipeline_send_back_to`, to the field agent with the server's reason code
+ * and note (E63) — it records the review and moves the request together, so
+ * it never leaves a review without a move.
+ */
 export async function pushRow(row: BoardRow, stage: Stage, userId: string, override?: PushOverride): Promise<PushOutcome> {
   const p = effectivePush(row, override);
   if (!p) return { kind: 'review_failed', message: 'Nothing to push on this row.' };
+  if (isSendBackPush(p, stage)) {
+    const out = await sendBackTo({ requestId: row.id, stage, to: SUGGESTED_OFFICE, reasonCode: p.reason_code, note: p.note });
+    return out.ok ? { kind: 'moved', message: out.message } : { kind: 'review_failed', message: out.message };
+  }
   const { error } = await rpc('pipeline_record_review', {
     p_request_id: row.id,
     p_stage: stage,
@@ -306,7 +354,7 @@ export const GROUP_LABEL: Record<BoardDecision, string> = {
   pass: 'Pass',
   transfer: 'Transfer',
   send_back: 'Send back',
-  reject: 'Reject',
+  reject: 'Send back to agent',
   wait: 'Wait',
   waiting: 'Waiting',
   complete: 'Complete',
@@ -391,7 +439,8 @@ export function primaryLabel(row: BoardRow, stage: Stage): string | null {
     case 'send_back':
       return 'Send back';
     case 'reject':
-      return 'Reject';
+      // E64: the system's reject opens "Send back", the agent in the field picked.
+      return 'Send back';
     case 'call_again':
       return 'Call again';
     case 'call':

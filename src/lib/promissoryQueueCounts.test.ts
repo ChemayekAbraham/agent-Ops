@@ -38,5 +38,9 @@ describe('promissoryFulfilmentError', () => {
     expect(promissoryFulfilmentError('2026-10-29', '')).toBe('Fulfil by date');
     expect(promissoryFulfilmentError('2026-10-29', '2026-10-28')).toMatch(/on or after/);
     expect(promissoryFulfilmentError('2026-10-29', '2026-11-15')).toBeNull();
+    expect(promissoryFulfilmentError('2026-11-10', '2027-01-15', '2026-12-31')).toMatch(/on or before 31 Dec 2026/);
+    expect(promissoryFulfilmentError('2026-11-10', '2026-12-31', '2026-12-31')).toBeNull();
+    // A note recorded after the deadline is not limited.
+    expect(promissoryFulfilmentError('2027-01-05', '2027-02-01', '2026-12-31')).toBeNull();
   });
 });

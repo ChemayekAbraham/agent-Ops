@@ -21,6 +21,9 @@ export interface PublicReturnPolicy {
   cutoffAt: string | null;
   enabledAt: string | null;
   updatedAt: string | null;
+  /** Latest fulfilment date (YYYY-MM-DD) a promissory note may carry, or null = no limit. Set to
+   *  2026-12-31 while the switch is off (owner, 2026-11-10); cleared at switch-on. */
+  noteDueBy: string | null;
 }
 
 /** Partner staff who may see a named person's rate. Mirrors partner_rate_visible_to_caller and
@@ -133,6 +136,7 @@ export function parsePublicPolicy(raw: unknown): PublicReturnPolicy | null {
     cutoffAt: isoOrNull(o.cutoff_at),
     enabledAt: isoOrNull(o.enabled_at),
     updatedAt: isoOrNull(o.updated_at),
+    noteDueBy: typeof o.note_due_by === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.note_due_by) ? o.note_due_by : null,
   };
 }
 

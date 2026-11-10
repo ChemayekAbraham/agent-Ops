@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,15 +27,19 @@ import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
 import { readableError } from './reviewApi';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
+import { passMovesOnServer } from './deskActions';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
 import { TransferPicker } from './TransferPicker';
+import { SUGGESTED_OFFICE, SendBackSheet, isSendBackRow } from './sendBack';
+import { LandlordOpsCard } from './LandlordOpsCard';
 import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
 import { useTenantHealthMany, type TenantHealth } from './paymentHealth';
 import { useConcernsSummary, type ConcernSummary } from './concerns';
 import {
   GROUP_LABEL,
   PUSHABLE,
+  afterServerPass,
   boardKey,
   boardLimit,
   flagsChip,
@@ -75,7 +79,7 @@ import {
  * What the drawer opens on: a decision, "Wait on…", the call button ready
  * (`call`), the intake form (`complete`), or the photo review tab (`photos`).
  */
-export type DrawerStart = Decision | 'wait' | 'call' | 'complete' | 'photos';
+export type DrawerStart = Decision | 'wait' | 'call' | 'complete' | 'photos' | 'concern';
 
 /** What the board already knows about the row, so the drawer need not ask again. */
 export type DrawerContext = { itemsMissing?: string[] | null; waitSuggest?: WaitSuggest | null };
@@ -224,7 +228,6 @@ function BoardRowLine({
         <>
           <span>Landlord {row.landlord ?? '—'}</span>
           {call('landlord')}
-          <span aria-hidden>·</span>
         </>
       )}
       <span style={{ overflowWrap: 'anywhere' }}>{row.agent ?? 'No agent'}</span>
@@ -238,6 +241,32 @@ function BoardRowLine({
       {!waitingLine && reason.text && <span title={reason.title}>{reason.text}</span>}
     </>
   );
+
+  if (layout === 'card' && stage === 'landlord_ops') {
+    return (
+      <LandlordOpsCard
+        row={row}
+        stage={stage}
+        canAct={canAct}
+        board={board}
+        primary={primary ? { label: primary.label, onClick: primary.onClick, variant: primary.variant, disabled: primary.disabled, title: primary.title } : null}
+        health={health}
+        onOpen={onOpen}
+        extraMenu={(close) =>
+          others
+            .filter((d) => d !== 'send_back')
+            .map((d) => (
+              <MenuItem key={d} disabled={!canAct} title={canAct ? 'Opens the review so you can give a reason' : NEEDS_ROLE} onClick={() => { close(); onOpen(row.id, d); }}>
+                {DECISION_LABEL[d]}…
+              </MenuItem>
+            ))
+        }
+        waitingLine={waitingLine ? <span className={waitUp ? statusText.bad : undefined}>{waitingLine}{w?.note ? ` — ${w.note}` : ''}</span> : null}
+        noteLine={noteLine}
+        needsRoleTitle={NEEDS_ROLE}
+      />
+    );
+  }
 
   if (layout === 'card') {
     return (
@@ -502,6 +531,9 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   const [notes, setNotes] = useState<Record<string, RowNote>>({});
   const [pushAll, setPushAll] = useState<BoardDecision | null>(null);
   const [picker, setPicker] = useState<BoardRow | null>(null);
+  // E63: a suggested send-back opens the send-back sheet, prefilled with the server's suggestion.
+  const [sendBack, setSendBack] = useState<BoardRow | null>(null);
+  const closeSendBack = useCallback(() => setSendBack(null), []);
 
   const data = q.data;
   const rows = useMemo(() => (data?.rows ?? []).filter((r) => !only || r.decision === only), [data, only]);
@@ -541,6 +573,11 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
       onOpen(row.id, drawerStartFor(row.decision), { itemsMissing: row.items_missing ?? null, waitSuggest: row.wait_suggest });
       return;
     }
+    // Send back (E63), and the system's reject (E64): choose or confirm the office, reason and note, then one server call.
+    if (isSendBackRow(row.decision, stage)) {
+      setSendBack(row);
+      return;
+    }
     // No push values: the drawer asks for what is missing.
     if (row.decision !== 'wait' && !row.push) {
       onOpen(row.id, row.decision === 'waiting' ? undefined : (row.decision as Decision));
@@ -553,10 +590,22 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
       setNote(row.id, { kind: r.ok ? 'ok' : 'bad', text: r.ok ? r.message : readableError({ message: r.message }) });
     } else {
       const out = await pushRow(row, stage, user.id);
+      const serverPass = !!row.push && passMovesOnServer(stage, row.push.decision);
+      if (out.kind === 'moved' && serverPass) {
+        // E64: the review moved it. The card goes; the toast says where.
+        clear(row.id);
+        mark(row.id, { kind: 'moved', message: out.message });
+        afterServerPass(queryClient, stage, row.id, out.message);
+        setBusy(null);
+        return;
+      }
       if (out.kind === 'moved') {
         clear(row.id);
         mark(row.id, { kind: 'moved', message: out.message });
         setNote(row.id, { kind: 'ok', text: out.message });
+      } else if (serverPass && out.kind === 'review_failed') {
+        // The server's own words, as-is.
+        setNote(row.id, { kind: 'bad', text: out.message });
       } else failed(row, out.kind, out.message);
     }
     setBusy(null);
@@ -652,8 +701,8 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
               {/* Sticky while its rows scroll past; below md it sits under the 56 px header bar. */}
               <h3
                 data-group-head={g.decision}
-                className="text-sm font-semibold text-foreground"
-                style={{ position: 'sticky', top: card ? 56 : 0, zIndex: 5, margin: 0, padding: '6px 0', background: 'hsl(var(--background))' }}
+                className="desk-sticky-head text-sm font-semibold text-foreground"
+                style={{ position: 'sticky', top: card ? 56 : 0, zIndex: 5, margin: card ? '0 -6px 8px' : '0 0 4px', padding: card ? '8px 6px' : '6px 0' }}
               >
                 {groupHeading(g.decision, stage)} · {fmt('int', rows.filter((r) => r.decision === g.decision).length)}
               </h3>
@@ -699,6 +748,21 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
           defaultNote={picker.push?.note ?? picker.why ?? ''}
           onClose={() => setPicker(null)}
           onConfirm={(agentId, note) => pickTransfer(picker, agentId, note)}
+        />
+      )}
+
+      {sendBack && (
+        <SendBackSheet
+          requestId={sendBack.id}
+          stage={stage}
+          tenant={sendBack.tenant}
+          initial={{ to: SUGGESTED_OFFICE, reasonCode: sendBack.push?.reason_code ?? null, note: sendBack.push?.note ?? sendBack.why ?? null }}
+          onDone={(message) => {
+            clear(sendBack.id);
+            mark(sendBack.id, { kind: 'moved', message });
+            setNote(sendBack.id, { kind: 'ok', text: message });
+          }}
+          onClose={closeSendBack}
         />
       )}
 

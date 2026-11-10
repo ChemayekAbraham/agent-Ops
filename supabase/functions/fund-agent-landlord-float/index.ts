@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     // Fetch the rent request
     const { data: request, error: reqErr } = await serviceClient
       .from('rent_requests')
-      .select('id, tenant_id, agent_id, landlord_id, rent_amount, daily_repayment, duration_days, status, assigned_agent_id')
+      .select('id, tenant_id, agent_id, landlord_id, rent_amount, daily_repayment, duration_days, status, assigned_agent_id, supporter_id, self_funding_partner_id')
       .eq('id', rent_request_id)
       .single()
 
@@ -65,6 +65,42 @@ Deno.serve(async (req) => {
         )
       }
       throw new Error(`Invalid status: ${request.status}. Expected approved or coo_approved.`)
+    }
+
+    // E60: Welile does not fund tenants directly. Same rule as the database
+    // trigger trg_e60_funders_only_watch (and its pipeline_guard:funders_only
+    // switch): a funder (supporter_id), a self-funding partner, or a confirmed
+    // partner claim must have picked the request. Checked HERE, before any
+    // allocation is written, so a refusal can never leave an agent's float
+    // credited for a request that stays unfunded. The server's words go back
+    // unchanged.
+    const picked =
+      !!(request as any).supporter_id ||
+      !!(request as any).self_funding_partner_id ||
+      !!(
+        await serviceClient
+          .from('partner_self_plan_claims')
+          .select('id')
+          .eq('rent_request_id', rent_request_id)
+          .eq('status', 'confirmed')
+          .limit(1)
+          .maybeSingle()
+      ).data
+    if (!picked) {
+      const { data: switchOn, error: switchErr } = await serviceClient.rpc('_pipeline_switch_on', {
+        p_key: 'pipeline_guard:funders_only',
+      })
+      // If the switch cannot be read, refuse: the trigger would refuse too.
+      if (switchErr || switchOn !== false) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error:
+              "E60_FUNDERS_ONLY: Welile does not fund tenants directly. A funder, or Welile's own funder account, must select this tenant on the funders dashboard.",
+          }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
     }
 
     const bonusAgentId = request.assigned_agent_id || request.agent_id
@@ -210,9 +246,26 @@ Deno.serve(async (req) => {
       .eq('id', rent_request_id)
 
     if (updateErr) {
+      // The request did not move to funded: undo what this call credited, so the
+      // agent's float never holds money for an unfunded request. (A resumed
+      // allocation from an earlier attempt is left as it was.)
+      if (allocation?.id && !existingAllocation) {
+        await serviceClient
+          .from('agent_landlord_float_allocations')
+          .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .eq('id', allocation.id)
+        if (existingFloat) {
+          await serviceClient
+            .from('agent_landlord_float')
+            .update({ total_funded: existingFloat.total_funded || 0, updated_at: new Date().toISOString() })
+            .eq('id', existingFloat.id)
+        }
+      }
       // Business guards raised by DB triggers (e.g. LANDLORD_NOT_VERIFIED) should reach
       // the operator as plain, actionable text — not wrapped in internal prefixes.
+      // Coded guards (E60_FUNDERS_ONLY, …) go back exactly as the database said them.
       const raw = updateErr.message || 'Unknown error'
+      if (/^E\d+_[A-Z_]+:/.test(raw)) throw new Error(raw)
       const guard = raw.match(/LANDLORD_NOT_VERIFIED:\s*(.+)$/)
       if (guard) throw new Error(guard[1].trim())
       throw new Error(`Failed to update request: ${raw}`)

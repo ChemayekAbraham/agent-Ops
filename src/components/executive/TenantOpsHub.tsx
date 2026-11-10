@@ -4,7 +4,8 @@ import { useState, useEffect, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Sparkles, History, MapPin, Home, BarChart3, FileText, Loader2, ArrowLeft, Layers } from 'lucide-react';
+import { Sparkles, History, MapPin, Home, BarChart3, FileText, Loader2, ArrowLeft, Layers, Gauge } from 'lucide-react';
+import { DESK_LINKS, useCanOpenDesk } from '@/pages/desk/deskLink';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { TenantOpsDashboardV2 } from './TenantOpsDashboardV2';
 import { TenantOpsGeoCommandCenter } from './tenant-ops/TenantOpsGeoCommandCenter';
@@ -51,6 +52,9 @@ export function TenantOpsHub() {
   // until both have actually resolved.
   const { roles } = useAuth();
   const { data: workspaceFlagOn } = useWorkspaceEnabled();
+  // The Tenant Ops desk, as the COO dashboard links its desk. Classic carries it in its sidebar;
+  // the other modes have no sidebar, so it sits with the tools below the switcher.
+  const showDesk = useCanOpenDesk('tenant-ops');
   const canShowWorkspace = workspaceFlagOn === true && (roles ?? []).some((r) => WORKSPACE_ROLES.includes(r as string));
 
   // URL wins over the stored preference so deep links land on the right mode.
@@ -166,6 +170,21 @@ export function TenantOpsHub() {
             </Button>
           ))}
         </div>
+
+        {mode !== 'classic' && showDesk && (
+          <div className="flex sm:justify-start">
+            <Button
+              variant="outline"
+              size="sm"
+              data-desk-link="tenant-ops"
+              onClick={() => navigate(DESK_LINKS['tenant-ops'].route)}
+              className="gap-1.5 w-full sm:w-auto min-w-0"
+            >
+              <Gauge className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate text-[11px] sm:text-xs">{DESK_LINKS['tenant-ops'].label}</span>
+            </Button>
+          </div>
+        )}
 
         {/* Secondary tools — in Classic these live in the sidebar instead; Workspace has its own complete nav/shell, same reason */}
         {mode !== 'classic' && mode !== 'workspace' && (

@@ -1,4 +1,4 @@
-import { Bookmark, Check, ChevronRight, Clock, Home, Navigation, Sprout } from 'lucide-react';
+import { Check, ChevronRight, Clock, Home, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -20,20 +20,19 @@ import { FundersBoardTag, boardTagFor } from './FundersBoardTag';
 export function FunderNewHouseCard({
   category,
   item,
-  saved,
   selected,
   distance,
-  onSave,
   onSelect,
   onDetail,
   boardTagsOn = false,
 }: {
   category: FunderNewCategory;
   item: FunderNewEmptyHouse | FunderNewReadyPlan;
-  saved: boolean;
+  /** No longer shown on the card (the save button was removed); kept so callers still compile. */
+  saved?: boolean;
   selected: boolean;
   distance: FunderNewDistance | null;
-  onSave: () => void;
+  onSave?: () => void;
   onSelect: () => void;
   onDetail: () => void;
   /** E59 board tags: the page passes the funders_board_tags switch (useFeaturePreview). */
@@ -68,8 +67,8 @@ export function FunderNewHouseCard({
               width="14"
               height="14"
               viewBox="0 0 24 24"
-              fill="#8024D1"
-              stroke="#8024D1"
+              fill="#16A34A"
+              stroke="#16A34A"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -104,22 +103,6 @@ export function FunderNewHouseCard({
           )}
         </button>
 
-        <button
-          type="button"
-          onClick={onSave}
-          aria-label={saved ? `Remove ${title} from saved homes` : `Save ${title} for later`}
-          aria-pressed={saved}
-          className={cn(
-            'absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/95 text-foreground shadow-sm ring-1 ring-border backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            saved && 'border border-emerald-600 bg-emerald-500 text-white ring-emerald-600',
-          )}
-        >
-          {saved ? (
-            <Check className="h-4 w-4 text-white" aria-hidden />
-          ) : (
-            <Bookmark className="h-4 w-4" aria-hidden />
-          )}
-        </button>
       </div>
 
         <div className="space-y-3 p-4">
@@ -159,7 +142,7 @@ export function FunderNewHouseCard({
               {monthlyReturn === null ? 'Support this home' : <>Earn <span className="font-semibold text-primary">{formatDynamic(monthlyReturn)}</span> monthly</>}
             </p>
           </div>
-          <span className="inline-flex flex-none items-center gap-0.5 text-xs font-semibold text-primary" aria-hidden>
+          <span className="inline-flex flex-none items-center gap-0.5 text-xs font-semibold text-foreground" aria-hidden>
             Details
             <ChevronRight className="h-4 w-4" />
           </span>
@@ -170,15 +153,23 @@ export function FunderNewHouseCard({
           {coords ? (
             <Button
               variant="outline"
-              className="h-11 w-[20%] min-w-[44px] flex-none rounded-lg border-primary p-0 text-primary hover:border-primary hover:bg-primary/5 hover:text-primary"
+              className="h-11 w-[24%] min-w-[56px] flex-none flex-col gap-0.5 rounded-lg border-primary p-0 text-primary hover:border-primary hover:bg-primary/5 hover:text-primary"
               onClick={() => {
                 window.open(`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`, '_blank', 'noopener,noreferrer');
               }}
               aria-label={`Open Google Maps location for ${title}`}
               title="Open in Google Maps"
             >
-              <Navigation className="h-4 w-4 text-primary" aria-hidden />
-              <span className="sr-only">Open in Google Maps</span>
+              <svg viewBox="0 0 24 24" className="!h-5 !w-5" aria-hidden>
+                <path
+                  d="M12 1.5a8 8 0 0 0-8 8c0 5.6 6.6 11.8 7.3 12.5a1 1 0 0 0 1.4 0c.7-.7 7.3-6.9 7.3-12.5a8 8 0 0 0-8-8Z"
+                  fill="#EA4335"
+                  stroke="#B3261E"
+                  strokeWidth="1"
+                />
+                <circle cx="12" cy="9.5" r="3" fill="#8C1D18" />
+              </svg>
+              <span className="text-[10px] font-semibold leading-none">Location</span>
             </Button>
           ) : null}
           <Button
@@ -193,11 +184,7 @@ export function FunderNewHouseCard({
             onClick={onSelect}
             aria-pressed={selected}
           >
-            {selected ? (
-              <Check className="h-4 w-4 text-white" aria-hidden />
-            ) : (
-              <Sprout className="h-4 w-4" aria-hidden />
-            )}
+            {selected ? <Check className="h-4 w-4 text-white" aria-hidden /> : null}
             {selected ? 'Selected' : isEmpty ? 'Pending verification' : 'Fund this House'}
           </Button>
 

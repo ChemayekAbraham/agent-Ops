@@ -70,8 +70,14 @@ export function FunderV3Home({
               </div>
             </div>
             <p data-testid="fv3-home-summary" className="mt-4 border-t border-border/50 pt-3 fv3-t-xs font-medium leading-snug text-muted-foreground">
-              <span className="font-bold text-green-600 dark:text-green-400">{openHouses.toLocaleString()}</span> {openHouses === 1 ? 'house' : 'houses'} waiting
-              {avgRentLabel ? <> · avg <span className="font-bold text-foreground">{avgRentLabel}</span>/mo</> : null}
+              {summaryLoading ? (
+                <span aria-busy>Houses waiting …</span>
+              ) : (
+                <>
+                  <span className="font-bold text-green-600 dark:text-green-400">{openHouses.toLocaleString()}</span> {openHouses === 1 ? 'house' : 'houses'} waiting
+                  {avgRentLabel ? <> · avg <span className="font-bold text-foreground">{avgRentLabel}</span>/mo</> : null}
+                </>
+              )}
             </p>
           </section>
           {footer}

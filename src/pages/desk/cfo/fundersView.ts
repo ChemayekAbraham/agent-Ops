@@ -1,11 +1,16 @@
 import { clockTime } from '../deskPrefs';
 import type { FundersDashboard, FundersRow } from './cfoApi';
 
-/** On the board this long and Welile funds it. */
-export const WELILE_DUE_DAYS = 7;
+/**
+ * Unsold this long and Partner Ops follows it up (rule PO-7D). It used to mean
+ * "Welile funds it" (PO-2, retired with E60: Welile funds only through its own
+ * funder account, by selecting on the funders' dashboard).
+ */
+export const UNSOLD_FOLLOW_UP_DAYS = 7;
+export const UNSOLD_7D_LABEL = 'Unsold 7+ days · Partner Ops follow-up';
 
-export function isWelileDue(row: Pick<FundersRow, 'days_on_board'>): boolean {
-  return Number(row.days_on_board ?? 0) >= WELILE_DUE_DAYS;
+export function isUnsold7d(row: Pick<FundersRow, 'days_on_board'>): boolean {
+  return Number(row.days_on_board ?? 0) >= UNSOLD_FOLLOW_UP_DAYS;
 }
 
 /**
@@ -23,7 +28,7 @@ export function fundedSplitText(f: FundersDashboard['funded']): string {
 export type Rank = 'grade' | 'oldest';
 
 /**
- * Day-7 rows (Welile to fund) first; within each group ascending by the
+ * Rows unsold 7+ days (Partner Ops follow-up) first; within each group ascending by the
  * server's rank, and a row with no rank goes last, in the order it came.
  */
 export function sortRows(rows: FundersRow[], rank: Rank): FundersRow[] {
@@ -31,7 +36,7 @@ export function sortRows(rows: FundersRow[], rank: Rank): FundersRow[] {
   return rows
     .map((r, i) => ({ r, i }))
     .sort((a, b) => {
-      const due = Number(isWelileDue(b.r)) - Number(isWelileDue(a.r));
+      const due = Number(isUnsold7d(b.r)) - Number(isUnsold7d(a.r));
       if (due !== 0) return due;
       const x = a.r[key];
       const y = b.r[key];
@@ -43,11 +48,6 @@ export function sortRows(rows: FundersRow[], rank: Rank): FundersRow[] {
       return Number(x) - Number(y) || a.i - b.i;
     })
     .map(({ r }) => r);
-}
-
-/** Welile may fund a row only when the server allows it and no funder holds it. */
-export function canFundRow(row: Pick<FundersRow, 'held'>, canFundWelile: boolean): boolean {
-  return canFundWelile && !row.held;
 }
 
 /** "Held until 14:05", Kampala time. Null when the row is not held. */

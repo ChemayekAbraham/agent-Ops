@@ -28,6 +28,7 @@ const OTP_MAX_PER_HOUR = 5;
 const OTP_MAX_PER_DAY = 10;
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
+const PROMPT_CHECK_DELAY_MS = 3000;
 
 type OtpSendRecord = { phone: string; at: number };
 
@@ -206,9 +207,12 @@ export default function PhoneCollectionGate() {
       }
       setChecked(true);
     }
-    void check();
+    // Non-blocking prompt: wait until the dashboard's own requests have gone
+    // out, instead of competing with them right after sign-in.
+    const timer = window.setTimeout(() => { void check(); }, PROMPT_CHECK_DELAY_MS);
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
   }, [user?.id, user?.email]);
 
