@@ -303,7 +303,7 @@ export async function pushRow(row: BoardRow, stage: Stage, userId: string, overr
     p_decision: p.decision,
     p_reason_code: p.reason_code,
     p_note: p.note,
-    p_target_agent_id: p.decision === 'transfer' ? p.target_agent_id : null,
+    p_target_agent_id: null, // a transfer went through transferThenPass above
   });
   if (error) return { kind: 'review_failed', message: asIs(error) };
   const moved = await moveFor(row, stage, userId, override);

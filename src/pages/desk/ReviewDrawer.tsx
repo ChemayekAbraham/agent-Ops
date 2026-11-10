@@ -405,7 +405,7 @@ export function ReviewDrawer({
         p_decision: decision,
         p_reason_code: against ? reasonCode : reasonCode || null,
         p_note: note.trim() || null,
-        p_target_agent_id: decision === 'transfer' ? targetAgentId : null,
+        p_target_agent_id: null, // a transfer went through transferThenPass above
       });
       if (recErr) throw recErr;
 
