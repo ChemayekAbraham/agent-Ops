@@ -77,6 +77,10 @@ export interface StatementOfFinancialPosition {
     balanced: boolean;
   };
   reconciliation?: Reconciliation;
+  /** fin_balance_sheet only: ledger vs operational records, and plain-language disclosures. */
+  subledger_ties?: { key: string; label: string; ledger: number; operational: number; difference: number }[];
+  subledger_ties_basis?: string;
+  disclosures?: string[];
   balance_check: {
     total_assets: number;
     total_liabilities_and_equity: number;
@@ -684,7 +688,8 @@ export default function BalanceSheetPanel() {
     setLoading(true);
     try {
       const asAtIso = endOfDay(date).toISOString();
-      const { data: res, error } = await (supabase as any).rpc('get_statement_of_financial_position', {
+      // fin_balance_sheet = the same statement as get_statement_of_financial_position, plus sub-ledger ties.
+      const { data: res, error } = await (supabase as any).rpc('fin_balance_sheet', {
         p_as_at: asAtIso,
       });
       if (error) throw error;
@@ -1192,6 +1197,42 @@ export default function BalanceSheetPanel() {
               />
             </div>
           </div>
+
+          {data.subledger_ties && data.subledger_ties.length > 0 && (
+            <div className="rounded-lg border border-border p-3 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Ledger vs operational records</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b border-border">
+                      <th className="py-1.5 font-medium">Balance</th>
+                      <th className="py-1.5 font-medium text-right">Ledger</th>
+                      <th className="py-1.5 font-medium text-right">Operational</th>
+                      <th className="py-1.5 font-medium text-right">Difference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.subledger_ties.map((t) => (
+                      <tr key={t.key} className="border-b border-border/50 last:border-0">
+                        <td className="py-1.5 pr-2">{t.label}</td>
+                        <td className="py-1.5 text-right font-mono tabular-nums">{formatUGX(t.ledger)}</td>
+                        <td className="py-1.5 text-right font-mono tabular-nums">{formatUGX(t.operational)}</td>
+                        <td className={`py-1.5 text-right font-mono tabular-nums ${Math.abs(t.difference) >= 1 ? 'text-destructive' : 'text-emerald-600'}`}>
+                          {formatUGX(t.difference)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {data.subledger_ties_basis && (
+                <p className="text-[11px] text-amber-700 dark:text-amber-400">{data.subledger_ties_basis}</p>
+              )}
+              {data.disclosures?.map((d) => (
+                <p key={d} className="text-[11px] text-muted-foreground">{d}</p>
+              ))}
+            </div>
+          )}
 
           {(data.trial_balance || data.reconciliation) && (
             <div className="rounded-lg border border-border p-3 space-y-3">

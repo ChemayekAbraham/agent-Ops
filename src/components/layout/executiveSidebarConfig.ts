@@ -242,6 +242,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Financial Reports', icon: BookOpen, id: 'statements' },
         { label: 'Weekly CFO Report', icon: FileText, id: 'weekly-report' },
+        { label: 'Accounting Health', icon: ShieldCheck, id: 'accounting-health' },
         { label: 'Revenue & Expenses', icon: TrendingUp, id: 'revenue-expenses' },
         { label: 'Merchant Requisition Report', icon: FileText, id: 'merchant-requisition-report' },
         { label: 'Approved Requisitions', icon: FileText, id: 'approved-requisitions' },

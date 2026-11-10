@@ -16,11 +16,17 @@ export interface ActualMoneyHeld {
   cashAtHand: number;
   /** Alias of `cashAtHand`, named for the caption it is shown under. */
   custodyNotConfirmedBanked: number;
-  /** Verified cash deposits explicitly marked as banked by Financial Ops. */
+  /**
+   * Cumulative total of verified cash deposits that Financial Ops marked as banked. This is a running sum of
+   * deposits INTO the bank and is never reduced by money paid out, so it is NOT a bank balance (CFO review
+   * 9 Nov 2026: 4.36B against an emailed Equity balance of tens of millions).
+   */
   bankedCash: number;
-  /** Email-derived Bayo Mercy account balance (reference/comparison only). */
+  /** Equity account balance from bank emails since the reconciliation cutoff (credits in less debits out). */
   bankReconciliation: number;
-  /** MTN + Airtel + banked cash. Custody is excluded until banking is verified. */
+  /** Bank balance used in Money We Have: the email-derived Equity balance (not yet anchored to a statement). */
+  bankBalance: number;
+  /** MTN + Airtel + bank balance (email-derived). Custody is excluded until banking is verified. */
   total: number;
 
   /** Number of verified banked deposits behind `bankedCash`. */
@@ -130,10 +136,12 @@ export function useActualMoneyHeld(enabled = true) {
         bankedCash,
         bankReconciliation,
         custodyNotConfirmedBanked: cashAtHand,
+        bankBalance: bankReconciliation,
         // Custody cash is NOT company cash we can spend: no verified banking
         // event exists for it, so it is reported under its own caption and kept
-        // out of every "Money We Have" / available-cash figure.
-        total: mtn + airtel + bankedCash,
+        // out of every "Money We Have" / available-cash figure. The bank line is the
+        // email-derived Equity balance, not the cumulative banked-deposit total.
+        total: mtn + airtel + bankReconciliation,
 
         bankedCashCount: Number(b.banked_cash_reference_count ?? banked.length),
         bankedComputedAt: (b.computed_at as string | undefined) ?? null,

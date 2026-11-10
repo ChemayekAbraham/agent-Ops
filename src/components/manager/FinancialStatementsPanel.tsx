@@ -19,6 +19,8 @@ import { CheckCircle2, AlertTriangle } from 'lucide-react';
 
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 import BalanceSheetPanel from '@/components/cfo/BalanceSheetPanel';
+import FinIncomeStatementSection from '@/components/cfo/FinIncomeStatementSection';
+import { useFinIncomeStatement, buildFinIncomeRows } from '@/hooks/useFinIncomeStatement';
 import BudgetApprovalPanel from '@/components/cfo/BudgetApprovalPanel';
 import {
   useStatementOfCashFlows,
@@ -414,12 +416,18 @@ function CashFlowSection({ d, error }: { d: StatementOfCashFlows | null; error?:
           <span>Cash and cash equivalents at end of period</span>
           <span className="font-mono text-primary">{formatUGX(d.closing_cash)}</span>
         </div>
+        {Math.abs(d.unexplained_difference ?? 0) >= 1 && (
+          <CashFlowRow
+            label="Movement not explained by counterpart entries (not allocated to any activity)"
+            value={d.unexplained_difference ?? 0}
+          />
+        )}
         <div className={cn('flex items-center gap-1.5 pt-1 text-[11px]', d.reconciles ? 'text-success' : 'text-destructive')}>
           {d.reconciles ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
           <span>
             {d.reconciles
-              ? 'Opening cash + net increase / (decrease) = closing cash, and closing cash equals the cash accounts on the Balance Sheet.'
-              : 'Opening cash + net movement does not tie to closing cash — review the ledger.'}
+              ? 'Operating + investing + financing activities explain the whole movement, and closing cash equals the cash accounts on the Balance Sheet.'
+              : `The activities explain ${formatUGX(d.explained_net_change ?? d.net_change - d.unreconciled_residual)} of the ${formatUGX(d.net_change)} movement; the rest comes from one-sided or unbalanced ledger entries (${d.unexplained_groups_count ?? 0} groups).`}
           </span>
         </div>
         {/* Explicit tie-out to the Balance Sheet cash accounts. Each account is
@@ -432,7 +440,7 @@ function CashFlowSection({ d, error }: { d: StatementOfCashFlows | null; error?:
           {(d.cash_accounts ?? []).map((a) => (
             <CashFlowRow key={a.code} label={`${a.code} ${a.label}`} value={a.closing} indent={1} />
           ))}
-          <CashFlowRow label="Total Balance Sheet cash accounts (A1 + A2)" value={d.balance_sheet_cash} weight="group" />
+          <CashFlowRow label="Total Balance Sheet cash accounts" value={d.balance_sheet_cash} weight="group" />
           <CashFlowRow
             label="Difference: closing cash less Balance Sheet cash accounts"
             value={d.closing_cash - d.balance_sheet_cash}
@@ -442,16 +450,16 @@ function CashFlowSection({ d, error }: { d: StatementOfCashFlows | null; error?:
             {d.ties_to_balance_sheet ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
             <span>
               {d.ties_to_balance_sheet
-                ? 'Closing cash equals A1 + A2 exactly — zero unexplained difference.'
-                : 'Closing cash does not equal A1 + A2 — review the cash account mapping.'}
+                ? 'Closing cash equals the Balance Sheet cash accounts exactly.'
+                : 'Closing cash does not equal the Balance Sheet cash accounts — review the cash account list.'}
             </span>
           </div>
         </div>
         {Math.abs(d.unreconciled_residual) >= 1 && (
           <p className="text-[10px] text-muted-foreground">
-            {formatUGX(Math.abs(d.unreconciled_residual))} of the period movement comes from historic single-sided
-            ledger postings with no counterpart leg. It is disclosed on its own line inside Other Operating Activities
-            rather than spread across real business lines.
+            {formatUGX(Math.abs(d.unreconciled_residual))} of the period movement is not explained by the counterpart
+            entries (one-sided or unbalanced ledger groups). It is not added to any activity line; the statement data
+            lists the groups concerned.
           </p>
         )}
       </div>
@@ -738,6 +746,8 @@ function FinancialStatementsPanelInner() {
   const drillCtx = useMemo<DrillContextValue>(() => ({ open: setDrillLabel }), []);
 
   const { data: cashFlow, error: cashFlowError } = useStatementOfCashFlows(drillDates.start, drillDates.end);
+  // Income Statement from the revenue and expense accounts (fin_income_statement); replaces the browser P&L.
+  const { data: finIncome, error: finIncomeError, loading: finIncomeLoading } = useFinIncomeStatement(drillDates.start, drillDates.end);
 
   useEffect(() => {
     generate();
@@ -792,29 +802,12 @@ function FinancialStatementsPanelInner() {
     const period = data.incomeStatement.period;
 
     if (activeTab === 'income') {
-      const d = data.incomeStatement;
-      const pnlRows = buildManagementPnl(d, previousData?.incomeStatement);
-      rows.push(['WELILE — Management P&L', period, previousData?.incomeStatement.period ?? 'Previous period', '', '']);
-      rows.push(['', '', '', '', '']);
-      pnlRows.forEach(row => {
-        if (row.kind === 'section' || row.kind === 'group') {
-          rows.push([row.label.toUpperCase(), '', '', '', '']);
-          return;
-        }
-        const current = row.current ?? 0;
-        const previous = row.previous;
-        const change = previous === undefined ? '' : current - previous;
-        const pct = previous === undefined ? '' : pnlChangePercent(current, previous);
-        rows.push([row.label, row.percentage ? `${current.toFixed(1)}%` : current, previous === undefined ? '' : row.percentage ? `${previous.toFixed(1)}%` : previous, change === '' ? '' : row.percentage ? `${Number(change).toFixed(1)} pp` : change, pct === null || pct === '' ? '' : `${Number(pct).toFixed(1)}%`]);
-      });
-      rows.push(['', '', '', '', '']);
-      rows.push(['SUPPORTING SCHEDULE — REVENUE RECOGNITION', '', '', '', '']);
-      buildRevenueRecognitionRows(d, previousData?.incomeStatement).forEach(row => {
-        const current = row.current ?? 0;
-        const previous = row.previous;
-        const change = previous === undefined ? '' : current - previous;
-        const pct = previous === undefined ? '' : pnlChangePercent(current, previous);
-        rows.push([row.label, row.percentage ? `${current.toFixed(1)}%` : current, previous === undefined ? '' : row.percentage ? `${previous.toFixed(1)}%` : previous, change === '' ? '' : row.percentage ? `${Number(change).toFixed(1)} pp` : change, pct === null || pct === '' ? '' : `${Number(pct).toFixed(1)}%`]);
+      if (!finIncome || finIncomeLoading) { toast.error('Income statement is still loading'); return; }
+      rows.push(['WELILE — Income Statement', period, '']);
+      rows.push(['All amounts in UGX; revenue and expense accounts of the General Ledger', '', '']);
+      rows.push(['', '', '']);
+      buildFinIncomeRows(finIncome).forEach(row => {
+        rows.push([row.kind === 'section' ? row.label.toUpperCase() : row.kind === 'line' ? `  ${row.label}` : row.label, '', row.amount ?? '']);
       });
     } else if (activeTab === 'cashflow') {
       if (!cashFlow) { toast.error('Cash flow statement is still loading'); return; }
@@ -874,9 +867,7 @@ function FinancialStatementsPanelInner() {
       rows.push(['Request Fee Income', '', d.totalRequestFeeIncome]);
     }
 
-    const headers = activeTab === 'income'
-      ? ['Account', 'Current Period', 'Previous Period', 'Change', 'Change %']
-      : ['Item', 'Sub-item', 'Amount (UGX)'];
+    const headers = ['Item', 'Sub-item', 'Amount (UGX)'];
     exportToCSV({ headers, rows }, `welile-${activeTab}-${format(new Date(), 'yyyy-MM-dd')}`);
     toast.success('CSV exported');
   };
@@ -942,69 +933,20 @@ function FinancialStatementsPanelInner() {
       };
 
       if (activeTab === 'income') {
-        const d = data.incomeStatement;
-        const pnlRows = buildManagementPnl(d, previousData?.incomeStatement);
-        const columns = [margin, 128, 174, 220, pw - margin];
+        if (!finIncome || finIncomeLoading) { toast.error('Income statement is still loading'); setSharing(false); return; }
         pdf.setFontSize(7);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(90, 90, 90);
-        ['ACCOUNT', 'CURRENT PERIOD', 'PREVIOUS PERIOD', 'CHANGE', 'CHANGE %'].forEach((label, index) =>
-          pdf.text(label, columns[index], y, { align: index === 0 ? 'left' : 'right' }));
-        y += 5;
-        pdf.setDrawColor(190, 190, 190);
-        pdf.line(margin, y - 3, pw - margin, y - 3);
-        pnlRows.forEach(row => {
+        pdf.setTextColor(120, 120, 120);
+        pdf.text('Revenue and expense accounts of the General Ledger (fin_income_statement). All amounts in UGX.', margin, y);
+        y += 6;
+        buildFinIncomeRows(finIncome).forEach(row => {
           if (y > 190) { pdf.addPage(); y = 18; }
-          if (row.kind === 'section' || row.kind === 'group') {
-            pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(row.kind === 'section' ? 8 : 7);
-            pdf.setTextColor(row.kind === 'section' ? 37 : 55, row.kind === 'section' ? 99 : 55, row.kind === 'section' ? 235 : 55);
-            pdf.text(row.label.toUpperCase(), margin, y);
-            y += row.kind === 'section' ? 6 : 5;
-            return;
-          }
-          const current = row.current ?? 0;
-          const previous = row.previous;
-          const change = previous === undefined ? undefined : current - previous;
-          const pct = previous === undefined ? undefined : pnlChangePercent(current, previous);
-          const bold = row.kind === 'highlight' || row.kind === 'subtotal' || row.kind === 'margin';
-          pdf.setFont('helvetica', bold ? 'bold' : 'normal');
-          pdf.setFontSize(bold ? 7.5 : 7);
+          const strong = row.kind !== 'line';
+          pdf.setFont('helvetica', strong ? 'bold' : 'normal');
+          pdf.setFontSize(row.kind === 'section' ? 8 : 7);
           pdf.setTextColor(30, 30, 30);
-          pdf.text(row.label, row.kind === 'detail' ? margin + 4 : margin, y);
-          const values = [
-            row.percentage ? `${current.toFixed(1)}%` : pnlValue(current),
-            previous === undefined ? '—' : row.percentage ? `${previous.toFixed(1)}%` : pnlValue(previous),
-            change === undefined ? '—' : row.percentage ? `${change.toFixed(1)} pp` : pnlValue(change),
-            pct === undefined || pct === null ? '—' : `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`,
-          ];
-          values.forEach((value, index) => pdf.text(value, columns[index + 1], y, { align: 'right' }));
-          if (row.kind === 'highlight') {
-            pdf.setDrawColor(180, 180, 180);
-            pdf.line(margin, y + 1.5, pw - margin, y + 1.5);
-          }
-          y += 5;
-        });
-        y += 3;
-        addSection('Supporting Schedule — Revenue Recognition');
-        buildRevenueRecognitionRows(d, previousData?.incomeStatement).forEach(row => {
-          const current = row.current ?? 0;
-          const previous = row.previous;
-          const change = previous === undefined ? undefined : current - previous;
-          const pct = previous === undefined ? undefined : pnlChangePercent(current, previous);
-          if (y > 190) { pdf.addPage(); y = 18; }
-          pdf.setFont('helvetica', row.kind === 'subtotal' || row.kind === 'margin' ? 'bold' : 'normal');
-          pdf.setFontSize(7);
-          pdf.setTextColor(30, 30, 30);
-          pdf.text(row.label, row.kind === 'detail' ? margin + 4 : margin, y);
-          const values = [
-            row.percentage ? `${current.toFixed(1)}%` : pnlValue(current),
-            previous === undefined ? '—' : row.percentage ? `${previous.toFixed(1)}%` : pnlValue(previous),
-            change === undefined ? '—' : row.percentage ? `${change.toFixed(1)} pp` : pnlValue(change),
-            pct === undefined || pct === null ? '—' : `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`,
-          ];
-          values.forEach((value, index) => pdf.text(value, columns[index + 1], y, { align: 'right' }));
-          y += 5;
+          pdf.text(row.kind === 'section' ? row.label.toUpperCase() : row.label, row.kind === 'line' ? margin + 4 : margin, y);
+          if (row.amount !== null) pdf.text(pnlValue(row.amount), pw - margin, y, { align: 'right' });
+          y += row.kind === 'section' ? 6 : 5;
         });
       } else if (activeTab === 'cashflow') {
         if (!cashFlow) { toast.error('Cash flow statement is still loading'); setSharing(false); return; }
@@ -1228,7 +1170,7 @@ function FinancialStatementsPanelInner() {
             </div>
 
             {/* Active Statement */}
-            {activeTab === 'income' && data && <IncomeStatementSection d={data.incomeStatement} previous={previousData?.incomeStatement} />}
+            {activeTab === 'income' && <FinIncomeStatementSection d={finIncome} error={finIncomeError} />}
             {activeTab === 'cashflow' && data && <CashFlowSection d={cashFlow} error={cashFlowError} />}
             {activeTab === 'movement' && <ComprehensiveCashMovement />}
             {activeTab === 'balance' && <BalanceSheetPanel />}
