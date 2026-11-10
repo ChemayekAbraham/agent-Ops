@@ -129,6 +129,8 @@ describe('DRAFT: inbound payments routed by CFO Direct Credit to non-agents\' fl
       .toEqual({ A1: 2100000, A2: 500000, A8: -500000, L1: 0, L2: 2100000 }); // only the agent's credit stays as float
     const legs = await q(`select ledger_scope, count(*)::int n from public.general_ledger where idempotency_key like 'acct_corr_202611_cfo_routed:%' group by 1`);
     expect(legs).toEqual([{ ledger_scope: 'platform', n: 8 }]);
+    const tags = await q(`select distinct source_table from public.general_ledger where idempotency_key like 'acct_corr_202611_cfo_routed:%'`);
+    expect(tags).toEqual([{ source_table: 'general_ledger' }]); // never a wallet-correction tool tag (enforce_wallet_correction_evidence)
     expect((await q(`select count(*)::int n from public.money_in_report_exclusions`))[0].n).toBe(2);
     const r = await q(`select transaction_group_id g from public.sofp_ledger_legs(now()) where not is_legacy_counterpart group by 1 having abs(sum(dr - cr)) > 0.5`);
     expect(r).toEqual([]);

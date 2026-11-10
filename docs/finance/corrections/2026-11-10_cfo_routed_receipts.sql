@@ -18,6 +18,9 @@
 -- 13 credits, UGX 14,720,000. Not included: 2 receipt-routed credits whose float was not used for the payer's own
 -- portfolio (1,100,000), 1 to a deleted account (4,000,000), 6 credits without an inbound receipt (manual allocations).
 -- Runs at REPEATABLE READ so the money-safety checks compare one snapshot plus this batch's own writes.
+-- Legs are tagged source_table 'general_ledger' / source_id = the corrected credit's wallet leg: this is a platform-only
+-- accounting correction evidenced in accounting_correction_register, not a CFO wallet-tool entry (the first run, tagged
+-- 'cfo_direct_credit', was refused by enforce_wallet_correction_evidence; nothing was posted).
 -- Rollback: the same groups with directions swapped (see the end of this file).
 begin isolation level repeatable read;
 
@@ -88,19 +91,19 @@ begin
     v_td := case when v_mode = 'original' then r.orig_date else v_mode::timestamptz end;
     v_grp := public.create_ledger_transaction(jsonb_build_array(
       jsonb_build_object('ledger_scope', 'platform', 'direction', 'cash_in', 'amount', r.amount, 'category', 'verified_bank_cash_recognised',
-        'source_table', 'cfo_direct_credit', 'reference_id', r.orig_group::text, 'currency', 'UGX',
+        'source_table', 'general_ledger', 'source_id', r.wallet_leg::text, 'reference_id', r.orig_group::text, 'currency', 'UGX',
         'transaction_date', v_td, 'classification', 'production',
         'description', format('Correction (accounting only, no money moved): inbound payment routed by CFO Direct Credit %s (UGX %s, used for the payer''s own portfolio) was received on the company''s mobile-money line; records it as cash.', r.ref, r.amount)),
       jsonb_build_object('ledger_scope', 'platform', 'direction', 'cash_in', 'amount', r.amount, 'category', 'agent_float_deposit',
-        'source_table', 'cfo_direct_credit', 'reference_id', r.orig_group::text, 'currency', 'UGX',
+        'source_table', 'general_ledger', 'source_id', r.wallet_leg::text, 'reference_id', r.orig_group::text, 'currency', 'UGX',
         'transaction_date', v_td, 'classification', 'production',
         'description', format('Correction (accounting only, no money moved): reverses the float-cycle credit booked for routed payment %s, which was the payer''s own money, not agent float.', r.ref)),
       jsonb_build_object('ledger_scope', 'platform', 'direction', 'cash_out', 'amount', r.amount, 'category', 'cash_custody_payable',
-        'source_table', 'cfo_direct_credit', 'reference_id', r.orig_group::text, 'currency', 'UGX',
+        'source_table', 'general_ledger', 'source_id', r.wallet_leg::text, 'reference_id', r.orig_group::text, 'currency', 'UGX',
         'transaction_date', v_td, 'classification', 'production',
         'description', format('Correction (accounting only, no money moved): payer''s money held for them until it funded their portfolio (closed by the existing portfolio payment). Credit %s.', r.ref)),
       jsonb_build_object('ledger_scope', 'platform', 'direction', 'cash_out', 'amount', r.amount, 'category', 'agent_float_cash_offset',
-        'source_table', 'cfo_direct_credit', 'reference_id', r.orig_group::text, 'currency', 'UGX',
+        'source_table', 'general_ledger', 'source_id', r.wallet_leg::text, 'reference_id', r.orig_group::text, 'currency', 'UGX',
         'transaction_date', v_td, 'classification', 'production',
         'description', format('Correction (accounting only, no money moved): reverses the agent-float debit for routed payment %s; the money was received by the company, not held by an agent.', r.ref))),
       idempotency_key := c_batch || ':' || r.wallet_leg::text);
