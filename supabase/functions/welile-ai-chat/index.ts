@@ -2,7 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildNexaPublicGuideReply, isFinancialAccessQuery, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
 import { extractInquiryLeadDetails, buildSignupPersuasionPitch, buildInquirySignupResult } from '../_shared/nexaSignup.ts';
-import { buildNexaSystemPrompt, wantsHuman, validMessages, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from "../_shared/nexa.ts";
+import { buildNexaSystemPrompt, groundReply, wantsHuman, validMessages, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from "../_shared/nexa.ts";
 import { buildNexaToolDefs, runNexaTool, normalizePortfolioRow, isPortfolioOrReturnsQuestion, type PortfolioReader, type MyRateReader } from "../_shared/nexaTools.ts";
 import { cachedPublicPolicy, readQuoteRate } from "../_shared/partnerReturnPolicy.ts";
 import { requestPortfolioOtp, verifyPortfolioOtp, portfolioIdFromSession, auditPortfolioAccess, sha256Hex } from "../_shared/nexaPortfolioAccess.ts";
@@ -125,6 +125,7 @@ Deno.serve(async req => {
     const convo:any[]=[{role:'system',content:buildNexaSystemPrompt(verifiedRoles,isStaff(verifiedRoles),publicRate)+signupSafety+knowledgeContext(knowledge ?? [])},...messages];
     const toolDefs=buildNexaToolDefs({publicRate,ownRate:!!readMyRate});
     let finalText='';
+    let toolBacked=false; // true once any server tool returned data this request
     for(let round=0;round<=MAX_TOOL_ROUNDS;round++) {
       const response=await fetch('https://ai.gateway.lovable.dev/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:'google/gemini-3-flash-preview',messages:convo,tools:toolDefs,tool_choice:round===MAX_TOOL_ROUNDS?'none':'auto',stream:false})});
       if(!response.ok) return errorFor(response.status);
@@ -135,10 +136,12 @@ Deno.serve(async req => {
       convo.push({role:'assistant',content:msg.content ?? '',tool_calls:calls});
       for(const c of calls) {
         const result=await runNexaTool(String(c?.function?.name ?? ''),String(c?.function?.arguments ?? ''),readPortfolios,(tool,reason)=>recordAccessAlert(admin,{userId,phone:callerPhone,channel,roles:verifiedRoles,attemptedResource:tool,userMessage:question.content,reason}),{defaultRate:publicRate,readMyRate});
+        if(result && typeof result==='object' && !('error' in (result as Record<string,unknown>))) toolBacked=true;
         convo.push({role:'tool',tool_call_id:c.id,content:JSON.stringify(result)});
       }
     }
     if(!finalText.trim()) return errorFor(503);
+    finalText=groundReply(finalText,toolBacked);
     return sse(finalText+(signup?pitch:''),signup);
   } catch { return json({error:'Unable to answer right now'},500); }
 });
