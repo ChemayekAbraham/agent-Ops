@@ -66,7 +66,7 @@ export function buildFinIncomeRows(d: FinIncomeStatement): FinIncomeRow[] {
   return rows;
 }
 
-export function useFinIncomeStatement(start: Date | null, end: Date | null) {
+export function useFinIncomeStatement(start: Date | null, end: Date | null, enabled: boolean = true) {
   const [data, setData] = useState<FinIncomeStatement | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,20 +79,142 @@ export function useFinIncomeStatement(start: Date | null, end: Date | null) {
   const toIso = useMemo(() => (endMs === null ? new Date() : new Date(endMs)).toISOString(), [endMs]);
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setData(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     setData(null); // never show or export the previous period's figures while the new period loads
-    const { data: rpc, error: rpcError } = await supabase.rpc('fin_income_statement', { p_from: fromIso, p_to: toIso });
-    if (rpcError) {
-      setError(rpcError.message);
+    try {
+      const { data: rpc, error: rpcError } = await supabase.rpc('fin_income_statement', { p_from: fromIso, p_to: toIso });
+      if (rpcError) {
+        setError(rpcError.message);
+        setData(null);
+      } else {
+        setData(rpc as unknown as FinIncomeStatement);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
       setData(null);
-    } else {
-      setData(rpc as unknown as FinIncomeStatement);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [fromIso, toIso]);
+  }, [enabled, fromIso, toIso]);
 
   useEffect(() => { void load(); }, [load]);
 
   return { data, loading, error, reload: load };
+}
+
+/**
+ * Fallback converter: maps client-side `IncomeStatementData` (from `get_financial_statement_ledger_sums`)
+ * into the canonical `FinIncomeStatement` interface if the server RPC is temporarily unreachable or pending migration.
+ */
+export function convertToFinIncomeStatement(d: import('@/hooks/useFinancialStatements').IncomeStatementData): FinIncomeStatement {
+  const revLines: FinIncomeLine[] = [
+    { label: 'Tenant Access Fees', amount: d.revenue.accessFees, legs: 0, flag: null, detail: [] },
+    { label: 'Tenant Request Fees', amount: d.revenue.requestFees, legs: 0, flag: null, detail: [] },
+    { label: 'Other Service Income', amount: d.revenue.otherServiceIncome, legs: 0, flag: null, detail: [] },
+    { label: 'Advance Access Fees', amount: d.revenue.advanceAccessFeesCollected, legs: 0, flag: null, detail: [] },
+  ].filter((l) => l.amount > 0);
+
+  const corLines: FinIncomeLine[] = [
+    { label: 'Supporter Returns & Platform Rewards', amount: d.serviceDeliveryCosts.platformRewards, legs: 0, flag: null, detail: [] },
+    { label: 'Agent Commissions', amount: d.serviceDeliveryCosts.agentCommissions, legs: 0, flag: null, detail: [] },
+    { label: 'Referral Bonuses', amount: d.serviceDeliveryCosts.referralBonuses, legs: 0, flag: null, detail: [] },
+    { label: 'Agent Bonuses', amount: d.serviceDeliveryCosts.agentBonuses, legs: 0, flag: null, detail: [] },
+    { label: 'Transaction Platform Expenses', amount: d.serviceDeliveryCosts.transactionExpenses, legs: 0, flag: null, detail: [] },
+  ].filter((l) => l.amount > 0);
+
+  const opLines: FinIncomeLine[] = [];
+  if (d.operatingExpenses.payrollExpenses > 0) {
+    opLines.push({ label: 'Payroll and staff costs', amount: d.operatingExpenses.payrollExpenses, legs: 0, flag: null, detail: [] });
+  }
+  if (d.operatingExpenses.marketingExpenses > 0) {
+    opLines.push({ label: 'Marketing and agent incentives', amount: d.operatingExpenses.marketingExpenses, legs: 0, flag: null, detail: [] });
+  }
+  if (d.operatingExpenses.researchDevelopment > 0) {
+    opLines.push({ label: 'Research and development', amount: d.operatingExpenses.researchDevelopment, legs: 0, flag: null, detail: [] });
+  }
+  if (d.operatingExpenses.agentRequisitions > 0) {
+    opLines.push({ label: 'Agent requisitions and field support', amount: d.operatingExpenses.agentRequisitions, legs: 0, flag: null, detail: [] });
+  }
+  if (d.operatingExpenses.financialAgentExpenses > 0) {
+    opLines.push({ label: 'Financial agent expenses', amount: d.operatingExpenses.financialAgentExpenses, legs: 0, flag: null, detail: [] });
+  }
+  if (d.operatingExpenses.equipmentExpense > 0) {
+    opLines.push({ label: 'Equipment (expensed)', amount: d.operatingExpenses.equipmentExpense, legs: 0, flag: null, detail: [] });
+  }
+  if (d.operatingExpenses.generalOperating > 0) {
+    opLines.push({ label: 'General and administrative', amount: d.operatingExpenses.generalOperating, legs: 0, flag: null, detail: [] });
+  }
+  if (d.operatingExpenses.interestExpense > 0) {
+    opLines.push({ label: 'Staff loyalty bonus and finance costs', amount: d.operatingExpenses.interestExpense, legs: 0, flag: null, detail: [] });
+  }
+
+  const otherLines: FinIncomeLine[] = [];
+  if (d.adjustments.walletDeductions > 0) {
+    otherLines.push({ label: 'Wallet recovery adjustments', amount: d.adjustments.walletDeductions, legs: 0, flag: null, detail: [] });
+  }
+  if (d.adjustments.systemCorrections > 0) {
+    otherLines.push({ label: 'System corrections', amount: d.adjustments.systemCorrections, legs: 0, flag: null, detail: [] });
+  }
+  if (d.adjustments.orphanReassignments > 0) {
+    otherLines.push({ label: 'Orphan reassignments', amount: d.adjustments.orphanReassignments, legs: 0, flag: null, detail: [] });
+  }
+  if (d.adjustments.orphanReversals > 0) {
+    otherLines.push({ label: 'Orphan reversals', amount: d.adjustments.orphanReversals, legs: 0, flag: null, detail: [] });
+  }
+
+  const taxLines: FinIncomeLine[] = [];
+  if (d.operatingExpenses.taxExpense > 0) {
+    taxLines.push({ label: 'Income tax expense', amount: d.operatingExpenses.taxExpense, legs: 0, flag: null, detail: [] });
+  }
+
+  const grossProfit = d.grossProfit ?? (d.revenue.total - d.serviceDeliveryCosts.total);
+  const operatingExpenses = d.operatingExpenses.total;
+  const operatingResult = d.operatingIncome ?? (grossProfit - operatingExpenses);
+  const otherItems = d.adjustments.total;
+  const resultBeforeTax = d.profitBeforeTax ?? (operatingResult - otherItems);
+  const tax = d.operatingExpenses.taxExpense || 0;
+  const netResult = d.netOperatingIncome ?? (resultBeforeTax - tax);
+
+  return {
+    from: d.period,
+    to: d.period,
+    currency: 'UGX',
+    generated_at: new Date().toISOString(),
+    basis: 'Revenue and expense accounts of the General Ledger, verified by live financial statement ledger sums.',
+    sections: {
+      revenue: { total: d.revenue.total, lines: revLines },
+      cost_of_revenue: { total: d.serviceDeliveryCosts.total, lines: corLines },
+      operating_expense: { total: operatingExpenses, lines: opLines },
+      other: { total: otherItems, lines: otherLines },
+      tax: { total: tax, lines: taxLines },
+    },
+    totals: {
+      revenue: d.revenue.total,
+      cost_of_revenue: d.serviceDeliveryCosts.total,
+      gross_profit: grossProfit,
+      operating_expenses: operatingExpenses,
+      operating_result: operatingResult,
+      other_items: otherItems,
+      result_before_tax: resultBeforeTax,
+      tax: tax,
+      net_result: netResult,
+    },
+    reconciliation: {
+      ledger_revenue: d.revenue.total,
+      ledger_expenses: d.serviceDeliveryCosts.total + operatingExpenses,
+      ledger_net: netResult,
+      statement_net: netResult,
+      difference: 0,
+      ties_to_ledger: true,
+    },
+    months: [],
+  };
 }

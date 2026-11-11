@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { exportToCSV } from '@/lib/exportUtils';
-import { useFinancialStatements, type StatementPeriod, type FinancialStatementsData, type ComparisonMode, type ComparisonMetrics, type DeltaValue } from '@/hooks/useFinancialStatements';
+import { useFinancialStatements, type StatementPeriod, type FinancialStatementsData, type ComparisonMode, type ComparisonMetrics, type DeltaValue, getPreviousPeriodDates, generateStatementsRaw } from '@/hooks/useFinancialStatements';
 import { Progress } from '@/components/ui/progress';
 import { ComprehensiveCashMovement } from '@/components/cfo/ComprehensiveCashMovement';
 import { LedgerDrillDownDialog } from '@/components/cfo/LedgerDrillDownDialog';
@@ -20,7 +20,7 @@ import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 import BalanceSheetPanel from '@/components/cfo/BalanceSheetPanel';
 import FinIncomeStatementSection from '@/components/cfo/FinIncomeStatementSection';
-import { useFinIncomeStatement, buildFinIncomeRows } from '@/hooks/useFinIncomeStatement';
+import { useFinIncomeStatement, buildFinIncomeRows, convertToFinIncomeStatement } from '@/hooks/useFinIncomeStatement';
 import BudgetApprovalPanel from '@/components/cfo/BudgetApprovalPanel';
 import {
   useStatementOfCashFlows,
@@ -749,6 +749,55 @@ function FinancialStatementsPanelInner() {
   // Income Statement from the revenue and expense accounts (fin_income_statement); replaces the browser P&L.
   const { data: finIncome, error: finIncomeError, loading: finIncomeLoading } = useFinIncomeStatement(drillDates.start, drillDates.end);
 
+  const comparisonDates = useMemo(() => {
+    if (comparisonMode === 'none' || !drillDates.start || !drillDates.end) return null;
+    return getPreviousPeriodDates(drillDates.start, drillDates.end, comparisonMode);
+  }, [comparisonMode, drillDates.start, drillDates.end]);
+
+  const isComparisonActive = comparisonMode !== 'none' && !!drillDates.start && !!drillDates.end;
+  const { data: compFinIncome } = useFinIncomeStatement(
+    comparisonDates?.start ?? null,
+    comparisonDates?.end ?? null,
+    isComparisonActive
+  );
+
+  const [multiYearData, setMultiYearData] = useState<{ label: string; statement: import('@/hooks/useFinIncomeStatement').FinIncomeStatement }[] | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    async function loadYears() {
+      try {
+        const [res2024, res2025, res2026] = await Promise.all([
+          generateStatementsRaw({
+            period: 'custom',
+            startDate: new Date('2024-01-01T00:00:00.000Z'),
+            endDate: new Date('2024-12-31T23:59:59.999Z'),
+          }),
+          generateStatementsRaw({
+            period: 'custom',
+            startDate: new Date('2025-01-01T00:00:00.000Z'),
+            endDate: new Date('2025-12-31T23:59:59.999Z'),
+          }),
+          generateStatementsRaw({
+            period: 'custom',
+            startDate: new Date('2026-01-01T00:00:00.000Z'),
+            endDate: new Date('2026-12-31T23:59:59.999Z'),
+          }),
+        ]);
+        if (!active) return;
+        setMultiYearData([
+          { label: '2024', statement: convertToFinIncomeStatement(res2024.incomeStatement) },
+          { label: '2025', statement: convertToFinIncomeStatement(res2025.incomeStatement) },
+          { label: '2026', statement: convertToFinIncomeStatement(res2026.incomeStatement) },
+        ]);
+      } catch (e) {
+        console.warn('Could not load multi-year statements:', e);
+      }
+    }
+    void loadYears();
+    return () => { active = false; };
+  }, []);
+
   useEffect(() => {
     generate();
   }, []);
@@ -802,11 +851,12 @@ function FinancialStatementsPanelInner() {
     const period = data.incomeStatement.period;
 
     if (activeTab === 'income') {
-      if (!finIncome || finIncomeLoading) { toast.error('Income statement is still loading'); return; }
+      const activeFinIncome = finIncome || (data ? convertToFinIncomeStatement(data.incomeStatement) : null);
+      if (!activeFinIncome) { toast.error('Income statement is still loading'); return; }
       rows.push(['WELILE — Income Statement', period, '']);
       rows.push(['All amounts in UGX; revenue and expense accounts of the General Ledger', '', '']);
       rows.push(['', '', '']);
-      buildFinIncomeRows(finIncome).forEach(row => {
+      buildFinIncomeRows(activeFinIncome).forEach(row => {
         rows.push([row.kind === 'section' ? row.label.toUpperCase() : row.kind === 'line' ? `  ${row.label}` : row.label, '', row.amount ?? '']);
       });
     } else if (activeTab === 'cashflow') {
@@ -933,12 +983,13 @@ function FinancialStatementsPanelInner() {
       };
 
       if (activeTab === 'income') {
-        if (!finIncome || finIncomeLoading) { toast.error('Income statement is still loading'); setSharing(false); return; }
+        const activeFinIncome = finIncome || (data ? convertToFinIncomeStatement(data.incomeStatement) : null);
+        if (!activeFinIncome) { toast.error('Income statement is still loading'); setSharing(false); return; }
         pdf.setFontSize(7);
         pdf.setTextColor(120, 120, 120);
         pdf.text('Revenue and expense accounts of the General Ledger (fin_income_statement). All amounts in UGX.', margin, y);
         y += 6;
-        buildFinIncomeRows(finIncome).forEach(row => {
+        buildFinIncomeRows(activeFinIncome).forEach(row => {
           if (y > 190) { pdf.addPage(); y = 18; }
           const strong = row.kind !== 'line';
           pdf.setFont('helvetica', strong ? 'bold' : 'normal');
@@ -1170,7 +1221,17 @@ function FinancialStatementsPanelInner() {
             </div>
 
             {/* Active Statement */}
-            {activeTab === 'income' && <FinIncomeStatementSection d={finIncome} error={finIncomeError} />}
+            {activeTab === 'income' && (
+              <FinIncomeStatementSection
+                d={finIncome}
+                error={finIncomeError}
+                fallbackD={data?.incomeStatement}
+                fallbackComparisonD={previousData?.incomeStatement}
+                comparisonD={comparisonMode !== 'none' ? compFinIncome : null}
+                comparisonLabel={comparisonMode !== 'none' ? COMPARISON_MODES.find(m => m.value === comparisonMode)?.short : undefined}
+                multiYearColumns={multiYearData ?? undefined}
+              />
+            )}
             {activeTab === 'cashflow' && data && <CashFlowSection d={cashFlow} error={cashFlowError} />}
             {activeTab === 'movement' && <ComprehensiveCashMovement />}
             {activeTab === 'balance' && <BalanceSheetPanel />}

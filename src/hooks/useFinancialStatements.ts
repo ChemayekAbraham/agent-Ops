@@ -483,7 +483,7 @@ function formatPeriodLabel(filters: StatementFilters): string {
 }
 
 // Standalone generation function (no React state) — used for comparison periods
-async function generateStatementsRaw(activeFilters: StatementFilters): Promise<FinancialStatementsData> {
+export async function generateStatementsRaw(activeFilters: StatementFilters): Promise<FinancialStatementsData> {
       const { start, end } = getPeriodDates(activeFilters.period);
       const startDate = activeFilters.startDate || start;
       const endDate = activeFilters.endDate || end;
@@ -1467,7 +1467,7 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       return result;
 }
 
-function getPreviousPeriodDates(
+export function getPreviousPeriodDates(
   currentStart: Date,
   currentEnd: Date,
   mode: ComparisonMode
