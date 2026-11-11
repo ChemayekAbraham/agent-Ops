@@ -40,6 +40,7 @@ import { SmsProvidersPaidCard } from '@/components/cfo/SmsProvidersPaidCard';
 import { MoneyReceivedCard } from '@/components/cfo/MoneyReceivedCard';
 import { HeroCard, PercentageCurve } from '@/components/cfo/HeroCard';
 import { computeCashPosition } from '@/lib/cashPosition';
+import { financeReportErrorMessage } from '@/lib/heavyFinanceReportQueue';
 
 
 
@@ -80,7 +81,7 @@ export function CFOOverviewDashboard({
   const {
     platformCash, position, positionError, liabilities, receivables,
     todayCashFlow, platformCashLoading, platformCashError, refetchPlatformCash, positionLoading,
-    receivablesLoading, receivablesError,
+    receivablesLoading, receivablesError, refetchPosition,
   } = useCFOOverviewData({
     cashDetails: activeBreakdown === 'cash' || activeBreakdown === 'wallets',
     cashVisible: showCashPosition,
@@ -304,6 +305,15 @@ export function CFOOverviewDashboard({
           onToggle={() => toggleSection('position')}
           hideHeader={cashPositionOnly}
         >
+          {positionError && (
+            <div role="alert" className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 p-3 text-xs text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{financeReportErrorMessage(positionError)}</span>
+              <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => { void refetchPosition(); }}>
+                Try again
+              </Button>
+            </div>
+          )}
           {/* Four across and two down on wide screens; two across on tablets
               and one on phones, because below ~1280px the UGX amounts stop
               fitting on one line inside a quarter of the page. */}
@@ -598,7 +608,8 @@ export function CFOOverviewDashboard({
         loading={platformCashLoading}
         loadError={platformCashError}
         reconciliationReady={!positionLoading && !positionError && !!position}
-        onRetry={() => { void refetchPlatformCash(); void queryClient.invalidateQueries({ queryKey: ['cfo-overview-position'] }); }}
+        reconciliationNote={positionError ? financeReportErrorMessage(positionError) : null}
+        onRetry={() => { void refetchPlatformCash(); void refetchPosition(); }}
         onOpenChange={(o) => !o && setActiveBreakdown(null)}
         totalCash={totalCash}
         a1={platformCash?.a1 ?? 0}

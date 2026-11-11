@@ -333,11 +333,8 @@ function IncomeStatementSection({ d, previous }: { d: FinancialStatementsData['i
 
 // ─────────────────────────────────────────────────────────────
 // Statement of Cash Flows — corporate presentation.
-// Sourced entirely from public.get_statement_of_cash_flows(), which derives
-// cash from the General Ledger cash accounts (A1 Cash & Bank, A2 Float with
-// Agents) via ledger_account_map / cash_flow_line_map. Internal wallet
-// transfers, platform mirror legs, custody movements and reclassifications
-// are eliminated inside the RPC and never reach these totals.
+// Figures come from public.fin_cash_flow(), and only while this tab is open.
+// public.get_statement_of_cash_flows() is not called from the app.
 // ─────────────────────────────────────────────────────────────
 
 function CashFlowRow({ label, value, indent = 0, weight = 'normal' }: { label: string; value: number; indent?: number; weight?: 'normal' | 'group' | 'section' }) {
@@ -384,12 +381,17 @@ function CashFlowStatementSectionBlock({ title, section }: { title: string; sect
   );
 }
 
-function CashFlowSection({ d, error }: { d: StatementOfCashFlows | null; error?: string | null }) {
+function CashFlowSection({ d, error, onRetry }: { d: StatementOfCashFlows | null; error?: string | null; onRetry?: () => void }) {
   if (error) {
     return (
       <div className="flex items-start gap-2 rounded-md border border-destructive/40 p-3 text-xs text-destructive">
         <AlertTriangle className="h-4 w-4 shrink-0" />
-        <span>Could not build the cash flow statement: {error}</span>
+        <div className="space-y-2">
+          <span>Could not build the cash flow statement: {error}</span>
+          {onRetry && (
+            <button type="button" className="block underline" onClick={onRetry}>Try again</button>
+          )}
+        </div>
       </div>
     );
   }
@@ -745,9 +747,18 @@ function FinancialStatementsPanelInner() {
   );
   const drillCtx = useMemo<DrillContextValue>(() => ({ open: setDrillLabel }), []);
 
-  const { data: cashFlow, error: cashFlowError } = useStatementOfCashFlows(drillDates.start, drillDates.end);
+  const { data: cashFlow, error: cashFlowError, reload: reloadCashFlow } = useStatementOfCashFlows(
+    drillDates.start,
+    drillDates.end,
+    { enabled: activeTab === 'cashflow' },
+  );
   // Income Statement from the revenue and expense accounts (fin_income_statement); replaces the browser P&L.
-  const { data: finIncome, error: finIncomeError, loading: finIncomeLoading } = useFinIncomeStatement(drillDates.start, drillDates.end);
+  // Loaded only while the Income tab is open, so it does not run beside the cash-flow or balance-sheet statements.
+  const { data: finIncome, error: finIncomeError, loading: finIncomeLoading, reload: reloadIncome } = useFinIncomeStatement(
+    drillDates.start,
+    drillDates.end,
+    { enabled: activeTab === 'income' },
+  );
 
   useEffect(() => {
     generate();
@@ -1170,8 +1181,12 @@ function FinancialStatementsPanelInner() {
             </div>
 
             {/* Active Statement */}
-            {activeTab === 'income' && <FinIncomeStatementSection d={finIncome} error={finIncomeError} />}
-            {activeTab === 'cashflow' && data && <CashFlowSection d={cashFlow} error={cashFlowError} />}
+            {activeTab === 'income' && (
+              <FinIncomeStatementSection d={finIncome} error={finIncomeError} onRetry={() => { void reloadIncome(); }} />
+            )}
+            {activeTab === 'cashflow' && data && (
+              <CashFlowSection d={cashFlow} error={cashFlowError} onRetry={() => { void reloadCashFlow(); }} />
+            )}
             {activeTab === 'movement' && <ComprehensiveCashMovement />}
             {activeTab === 'balance' && <BalanceSheetPanel />}
             {activeTab === 'volume' && data && <FacilitatedVolumeSection d={data.facilitatedVolume} cm={comparisonMetrics} />}

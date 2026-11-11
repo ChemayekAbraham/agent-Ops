@@ -9,12 +9,25 @@ const money = (v: number) => (v < 0 ? `(${formatUGX(Math.abs(v))})` : formatUGX(
  * Income Statement rendered from `fin_income_statement` (revenue and expense accounts only).
  * Presentation only: every amount comes from the server.
  */
-export default function FinIncomeStatementSection({ d, error }: { d: FinIncomeStatement | null; error?: string | null }) {
+export default function FinIncomeStatementSection({
+  d,
+  error,
+  onRetry,
+}: {
+  d: FinIncomeStatement | null;
+  error?: string | null;
+  onRetry?: () => void;
+}) {
   if (error) {
     return (
       <div className="flex items-start gap-2 rounded-md border border-destructive/40 p-3 text-xs text-destructive">
         <AlertTriangle className="h-4 w-4 shrink-0" />
-        <span>Could not build the income statement: {error}</span>
+        <div className="space-y-2">
+          <span>Could not build the income statement: {error}</span>
+          {onRetry && (
+            <button type="button" className="block underline" onClick={onRetry}>Try again</button>
+          )}
+        </div>
       </div>
     );
   }
