@@ -21,6 +21,7 @@ import { SignaturePad } from '@/components/shared/SignaturePad';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 import { preflightSignup, attachSignupUser } from '@/lib/signupGuard';
+import { rememberCoSupportCode, takeCoSupportReturnPath } from '@/lib/coSupport';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 
@@ -1206,6 +1207,8 @@ export default function FunderOnboarding() {
         sessionStorage.removeItem('welile.funder.referrer_id');
       }
     } catch { /* non-fatal */ }
+    // Co-support: ?cosupport=<code> brings the new partner back to the invitation after sign-up.
+    rememberCoSupportCode(window.location.search);
   }, []);
 
 
@@ -1238,7 +1241,7 @@ export default function FunderOnboarding() {
 
   useEffect(() => {
     // Don't auto-redirect while showing the success modal — its own timer handles it.
-    if (user && !showSuccess && !isSubmitting) navigate('/dashboard/funder');
+    if (user && !showSuccess && !isSubmitting) navigate(takeCoSupportReturnPath() ?? '/dashboard/funder');
   }, [user, navigate, showSuccess, isSubmitting]);
 
   const valid = isValid(step, form);
@@ -1481,7 +1484,7 @@ export default function FunderOnboarding() {
         setIsSubmitting(false);
         setShowSuccess(true);
         setTimeout(() => {
-          navigate('/dashboard/funder');
+          navigate(takeCoSupportReturnPath() ?? '/dashboard/funder');
         }, 3000);
       } catch (err: any) {
         console.error('Signup failed:', err);
