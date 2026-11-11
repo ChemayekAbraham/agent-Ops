@@ -18,7 +18,7 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
-  expandLandlordFloat, CARRIED_FORWARD_LABEL, UNMATCHED_HISTORIC_POSTINGS_LABEL,
+  expandLandlordFloat, assetSourceLabel, CARRIED_FORWARD_LABEL, UNMATCHED_HISTORIC_POSTINGS_LABEL,
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -354,7 +354,33 @@ const ALWAYS_SHOWN_PRODUCTS: Record<string, { key: string; label: string; from: 
 };
 
 
-function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
+/**
+ * The ledger accounts that make up a receivables line, each with its plain source name and account code. They add up
+ * exactly to the Balance Sheet figure; zero balances are left out.
+ */
+function LedgerSources({ lines, total }: { lines: PositionLine[]; total: number }) {
+  const shown = lines.filter(l => Math.round(l.value) !== 0);
+  if (shown.length === 0) return null;
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Recorded in the ledger</p>
+      <div className="rounded-md border border-border/60 p-2 space-y-1.5">
+        {shown.map(l => (
+          <div key={`${l.label}-${l.source ?? ''}`} className="flex items-start justify-between gap-3">
+            <span className="text-[11px] text-foreground">{assetSourceLabel(l)}</span>
+            <span className={cn('font-mono text-[11px] shrink-0', l.value < 0 ? 'text-destructive' : '')}>{fmtAmount(l.value)}</span>
+          </div>
+        ))}
+        <div className="flex items-start justify-between gap-3 border-t border-border/60 pt-1.5">
+          <span className="text-[11px] font-semibold">Total on the Balance Sheet</span>
+          <span className="font-mono text-[11px] font-semibold shrink-0">{fmtAmount(total)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReceivablesDetail({ categoryKey, ledgerTotal }: { categoryKey: string; ledgerTotal?: number }) {
   const { data, isLoading, error } = useReceivablesBreakdown(true);
   const category = (data?.categories ?? []).find(c => c.key === categoryKey);
 
@@ -411,6 +437,13 @@ function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
                   </div>
                 </div>
               ))}
+              {ledgerTotal !== undefined && Math.round(total - ledgerTotal) !== 0 && (
+                <p className="border-t border-border/60 pt-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                  Differs from the ledger by {fmtAmount(total - ledgerTotal)}. The Balance Sheet uses the ledger figure
+                  above; the operational records can still show items the ledger has settled, reversed or not yet
+                  recognised.
+                </p>
+              )}
             </div>
           )}
       </div>
@@ -585,11 +618,14 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
               )}
 
               {receivablesKey && (
+                <LedgerSources lines={drill.lines ?? []} total={drill.value} />
+              )}
+              {receivablesKey && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Breakdown
+                    Operational records (comparison)
                   </p>
-                   <ReceivablesDetail categoryKey={receivablesKey} />
+                   <ReceivablesDetail categoryKey={receivablesKey} ledgerTotal={drill.value} />
                 </div>
               )}
               {drill.note && (
