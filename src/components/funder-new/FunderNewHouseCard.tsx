@@ -199,14 +199,13 @@ export function FunderNewHouseCard({
           )}
 
         </div>
-        {/* Co-support: Rent Plans only, never empty houses. */}
-        {isEmpty ? null : (
-          <CoSupportStartButton
-            rentRequestId={(item as FunderNewReadyPlan).rent_request_id}
-            planAmount={amount}
-            showExplanation={false}
-          />
-        )}
+        {/* Co-support: Rent Plans and verified empty houses (house hook). */}
+        <CoSupportStartButton
+          rentRequestId={isEmpty ? null : (item as FunderNewReadyPlan).rent_request_id}
+          houseId={isEmpty ? (item as FunderNewEmptyHouse).house_id : null}
+          planAmount={amount}
+          showExplanation={false}
+        />
       </div>
     </article>
   );

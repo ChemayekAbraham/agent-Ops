@@ -50,16 +50,27 @@ export default function CoSupportInvite() {
     return shell(<p className="text-sm text-foreground">{coSupportErrorMessage(error)}</p>);
   }
 
+  const isHouse = preview.kind === 'house';
+  const lead = preview.lead_first_name ?? 'your partner';
+
   if (preview.your_role === 'lead') {
     return shell(
       <>
-        <h1 className="text-lg font-bold">Your shared Rent Plan</h1>
+        <h1 className="text-lg font-bold">{isHouse ? 'Your shared house' : 'Your shared Rent Plan'}</h1>
         <ul><CoSupportInviteRow invite={preview as Invite} /></ul>
         <Button variant="outline" className="w-full" asChild><Link to="/dashboard/funder">Go to my dashboard</Link></Button>
       </>,
     );
   }
 
+  if (result?.ok && (isHouse || result.kind === 'house')) {
+    return shell(
+      <>
+        <h1 className="text-lg font-bold">You and {lead} have shared this house. Partner Ops will approve it. Your half stays held until then.</h1>
+        <Button className="w-full" asChild><Link to="/dashboard/funder">Go to my dashboard</Link></Button>
+      </>,
+    );
+  }
   if (result?.ok) {
     return shell(
       <>
@@ -81,8 +92,11 @@ export default function CoSupportInvite() {
   const header = (
     <>
       <h1 className="text-lg font-bold leading-snug">
-        {preview.lead_first_name ?? 'A partner'} wants to support {preview.tenant_first_name ?? 'a tenant'}'s Rent Plan with you
+        {isHouse
+          ? `${preview.lead_first_name ?? 'A partner'} wants to support an empty house with you`
+          : `${preview.lead_first_name ?? 'A partner'} wants to support ${preview.tenant_first_name ?? 'a tenant'}'s Rent Plan with you`}
       </h1>
+      {isHouse && preview.house_title ? <p className="text-sm font-semibold">{preview.house_title}</p> : null}
       <div className="overflow-hidden rounded-lg border bg-muted">
         {preview.house_image_url ? (
           <img src={preview.house_image_url} alt="House" className="aspect-[16/9] w-full object-cover" />

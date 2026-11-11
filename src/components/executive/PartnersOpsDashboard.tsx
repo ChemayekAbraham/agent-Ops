@@ -49,6 +49,7 @@ import { MaturityRequestsQueue } from './MaturityRequestsQueue';
 import { InvitedPortfoliosPanel } from './InvitedPortfoliosPanel';
 import { PendingPortfoliosQueue } from './PendingPortfoliosQueue';
 import { PendingVettingTable } from './PendingVettingTable';
+import { CoSupportStaffList } from '@/components/co-support/CoSupportStaffList';
 import { PortfolioRenewalsPanel } from './PortfolioRenewalsPanel';
 import { SelfManagedNearingPayouts } from './SelfManagedNearingPayouts';
 import { PartnerOpsSidebar } from './partner-ops/PartnerOpsSidebar';
@@ -299,6 +300,7 @@ export function PartnersOpsDashboard() {
       case 'portfolios.pending': return (
         <div className="space-y-6">
           <PendingVettingTable />
+          <CoSupportStaffList />
           <PendingPartnerRequests />
         </div>
       );

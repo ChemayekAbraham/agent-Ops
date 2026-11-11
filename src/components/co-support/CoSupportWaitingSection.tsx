@@ -25,12 +25,13 @@ import { CoSupportCountdown, CoSupportShareSheet } from './CoSupportShareSheet';
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const QUIET: CoSupportInvite['status'][] = ['cancelled', 'replaced', 'funded_alone', 'plan_unavailable'];
 
-const QUIET_NOTE: Record<string, string> = {
-  cancelled: 'You stopped sharing this Rent Plan.',
-  replaced: 'You sent a new link for this Rent Plan.',
-  funded_alone: 'You paid the full amount for this Rent Plan.',
-  plan_unavailable: 'This Rent Plan is no longer available.',
-};
+const quietNote = (status: string, what: string): string =>
+  ({
+    cancelled: `You stopped sharing this ${what}.`,
+    replaced: `You sent a new link for this ${what}.`,
+    funded_alone: `You paid the full amount for this ${what}.`,
+    plan_unavailable: `This ${what} is no longer available.`,
+  })[status] ?? 'This invitation is closed.';
 
 /** One row of section 3; also used on the invitation page when the viewer is the sender. */
 export function CoSupportInviteRow({ invite }: { invite: CoSupportInvite }) {
@@ -39,6 +40,8 @@ export function CoSupportInviteRow({ invite }: { invite: CoSupportInvite }) {
   const fundAlone = useFundCoSupportAlone();
   const [share, setShare] = useState<CoSupportInvite | null>(null);
   const [confirmFull, setConfirmFull] = useState(false);
+  const isHouse = invite.kind === 'house';
+  const what = isHouse ? 'house' : 'Rent Plan';
   const busy = cancel.isPending || reinvite.isPending || fundAlone.isPending;
   const onError = (error: unknown) => toast.error(coSupportErrorMessage(error));
 
@@ -49,11 +52,11 @@ export function CoSupportInviteRow({ invite }: { invite: CoSupportInvite }) {
     );
   const doCancel = () => cancel.mutate(invite.id, { onSuccess: () => toast.success('Sharing stopped. Your half is free again.'), onError });
   const doFundAlone = () =>
-    fundAlone.mutate(invite.id, { onSuccess: () => toast.success('You now support the full Rent Plan.'), onError });
+    fundAlone.mutate(invite.id, { onSuccess: () => toast.success(isHouse ? 'You now support the full house. Partner Ops will approve it.' : 'You now support the full Rent Plan.'), onError });
 
   const title = (
     <p className="text-sm font-semibold text-foreground">
-      {invite.tenant_first_name ?? 'Tenant'}
+      {isHouse ? invite.house_title ?? 'Empty house' : invite.tenant_first_name ?? 'Tenant'}
       {invite.city ? <span className="font-normal text-muted-foreground"> · {invite.city}</span> : null}
     </p>
   );
@@ -91,7 +94,11 @@ export function CoSupportInviteRow({ invite }: { invite: CoSupportInvite }) {
   } else if (invite.status === 'completed') {
     body = (
       <div className="space-y-0.5">
-        <p className="text-sm text-foreground">Supported with {invite.partner_first_name ?? 'your partner'}</p>
+        <p className="text-sm text-foreground">
+          {isHouse && invite.awaiting_partner_ops
+            ? 'Waiting for Partner Ops'
+            : `Supported with ${invite.partner_first_name ?? 'your partner'}`}
+        </p>
         {invite.your_monthly_rent_profit_share != null ? (
           <p className="text-sm text-foreground">
             Your Rent Profit Share: <span className="font-semibold text-primary">{formatUGX(invite.your_monthly_rent_profit_share)}</span> a month
@@ -100,7 +107,7 @@ export function CoSupportInviteRow({ invite }: { invite: CoSupportInvite }) {
       </div>
     );
   } else {
-    body = <p className="text-sm text-muted-foreground">{QUIET_NOTE[invite.status] ?? 'This invitation is closed.'}</p>;
+    body = <p className="text-sm text-muted-foreground">{quietNote(invite.status, what)}</p>;
   }
 
   return (

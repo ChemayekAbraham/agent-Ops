@@ -3,7 +3,7 @@ import { Loader2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useCreateCoSupport } from '@/hooks/useCoSupport';
+import { useCreateCoSupport, useCreateCoSupportHouse } from '@/hooks/useCoSupport';
 import { coSupportErrorMessage, type CoSupportInvite } from '@/lib/coSupport';
 import { CoSupportShareSheet } from './CoSupportShareSheet';
 
@@ -11,28 +11,35 @@ import { CoSupportShareSheet } from './CoSupportShareSheet';
 export const CO_SUPPORT_MIN_PLAN_AMOUNT = 100_000;
 
 /**
- * Section 1: "Support with a partner" on a Rent Plan (never on empty houses).
+ * Sections 1 and 6: "Support with a partner" on a Rent Plan or a verified empty house.
  * `planAmount` is the amount the partner pays for the whole plan; the button is
  * hidden under UGX 100,000. Halves come from the server after the tap.
  */
 export function CoSupportStartButton({
   rentRequestId,
+  houseId,
   planAmount,
   className,
   showExplanation = true,
 }: {
-  rentRequestId: string | null | undefined;
+  rentRequestId?: string | null;
+  /** Verified empty house: shared through the house hook instead. */
+  houseId?: string | null;
   planAmount: number;
   className?: string;
   showExplanation?: boolean;
 }) {
-  const create = useCreateCoSupport();
+  const createPlan = useCreateCoSupport();
+  const createHouse = useCreateCoSupportHouse();
+  const isHouse = !!houseId;
+  const create = isHouse ? createHouse : createPlan;
+  const targetId = isHouse ? houseId : rentRequestId;
   const [invite, setInvite] = useState<CoSupportInvite | null>(null);
 
-  if (!rentRequestId || !(Number(planAmount) >= CO_SUPPORT_MIN_PLAN_AMOUNT)) return null;
+  if (!targetId || !(Number(planAmount) >= CO_SUPPORT_MIN_PLAN_AMOUNT)) return null;
 
   const start = () =>
-    create.mutate(rentRequestId, {
+    create.mutate(targetId, {
       onSuccess: (data) => setInvite(data),
       onError: (error) => toast.error(coSupportErrorMessage(error)),
     });
@@ -46,6 +53,7 @@ export function CoSupportStartButton({
       {showExplanation ? (
         <p className="text-xs text-muted-foreground">
           You pay half and a partner pays half. We hold your half for 48 hours while they decide.
+          {isHouse ? ' Partner Ops then approve the house.' : ''}
         </p>
       ) : null}
       <CoSupportShareSheet invite={invite} open={!!invite} onOpenChange={(o) => !o && setInvite(null)} />

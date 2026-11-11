@@ -33,8 +33,11 @@ export function CoSupportShareSheet({
 }) {
   if (!invite) return null;
   const url = invite.code ? coSupportShareUrl(invite.code) : null;
+  const isHouse = invite.kind === 'house';
   const text = url
     ? coSupportShareText({
+        kind: invite.kind,
+        houseTitle: invite.house_title,
         tenantFirstName: invite.tenant_first_name,
         city: invite.city,
         partnerShare: invite.partner_share,
@@ -57,7 +60,7 @@ export function CoSupportShareSheet({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Support with a partner</DialogTitle>
-          <DialogDescription>Send this link to the partner who will support this Rent Plan with you.</DialogDescription>
+          <DialogDescription>Send this link to the partner who will support this {isHouse ? 'empty house' : 'Rent Plan'} with you.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="overflow-hidden rounded-lg border bg-muted">
@@ -70,7 +73,7 @@ export function CoSupportShareSheet({
             )}
           </div>
           <p className="text-sm font-semibold text-foreground">
-            {invite.tenant_first_name ?? 'Tenant'}
+            {isHouse ? invite.house_title ?? 'Empty house' : invite.tenant_first_name ?? 'Tenant'}
             {invite.city ? <span className="font-normal text-muted-foreground"> · {invite.city}</span> : null}
           </p>
           <p className="text-sm text-foreground">
