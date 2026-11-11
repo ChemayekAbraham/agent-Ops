@@ -27,6 +27,7 @@ const CREDITS: [string, string, number, string][] = [
   ['216a42c4-1730-4d34-ba3a-e36c3d9ebe27', 'PAY-MTU3BP2T-SXR8', 5517000, '2026-09-09 12:44:27+00'],
   ['15463227-5dbf-4210-96d5-42d9ca4f7bed', 'PAY-MUY7COJU-Q0HB', 4700000, '2026-10-07 14:27:59+00'],
   ['2ddd50d8-12a9-43ce-bff9-a6e0b7688605', 'PAY-MWAKJFVB-80M6', 12596400, '2026-11-10 10:50:06+00'],
+  ['8a4017e5-653c-441a-aa34-136dfc3c60bc', 'PAY-MUY1CVKD-8SJ9', 9000000, '2026-10-07 11:40:10+00'], // R&D, James Katongole
 ];
 const AGENT = '99890a2e-b842-4d44-8516-e2eafe0711ff';
 
@@ -40,12 +41,12 @@ create table public.general_ledger (
 create table public.ledger_account_map (id uuid default gen_random_uuid(), ledger_scope text, category text, wallet_bucket text,
   account_code text, debit_when text, notes text);
 insert into public.ledger_account_map (ledger_scope, category, wallet_bucket, account_code, debit_when) values
- ('platform','payroll_expense',null,'X1','cash_out'), ('platform','landlord_receivable_obligation',null,'L4','cash_in'),
+ ('platform','payroll_expense',null,'X1','cash_out'), ('platform','research_development_expense',null,'X1','cash_out'), ('platform','landlord_receivable_obligation',null,'L4','cash_in'),
  ('bridge','landlord_receivable_created',null,'A6','cash_in');
 create table public.merchandise_recovery_plans (id uuid, item_name text);
 create function public.agent_product_category(p text) returns text language sql immutable as $$ select 'other'::text $$;
 create function public.ledger_category_allowlist_base() returns text[] language sql immutable as
-  $$ select array['payroll_expense','wallet_deposit','landlord_receivable_created','landlord_receivable_obligation'] $$;
+  $$ select array['payroll_expense','research_development_expense','wallet_deposit','landlord_receivable_created','landlord_receivable_obligation'] $$;
 create table public.accounting_correction_register (
   id uuid primary key default gen_random_uuid(), batch text not null, correction_item text not null, action text not null,
   source_table text not null, source_id uuid not null, original_group_id uuid, original_leg_ids uuid[], correction_group_id uuid,
@@ -76,7 +77,7 @@ insert into public.general_ledger (transaction_group_id, transaction_date, ledge
 const SEED = CREDITS.map(([leg, ref, amt, td], i) => `
   insert into public.general_ledger (id, transaction_group_id, transaction_date, ledger_scope, category, direction, amount, wallet_bucket, user_id, reference_id, source_table, description) values
    (gen_random_uuid(), '00000000-0000-0000-0000-0000000008${i}0', '${td}', 'wallet', 'wallet_deposit', 'cash_in', ${amt}, 'withdrawable', '${AGENT}', '${ref}', 'cfo_direct_credit', 'Requisition credit'),
-   ('${leg}', '00000000-0000-0000-0000-0000000008${i}0', '${td}', 'platform', 'payroll_expense', 'cash_out', ${amt}, null, '${AGENT}', '${ref}', 'cfo_direct_credit', 'Welile Homes Rent');`).join('\n');
+   ('${leg}', '00000000-0000-0000-0000-0000000008${i}0', '${td}', 'platform', '${ref === 'PAY-MUY1CVKD-8SJ9' ? 'research_development_expense' : 'payroll_expense'}', 'cash_out', ${amt}, null, '${AGENT}', '${ref}', 'cfo_direct_credit', 'Welile Homes Rent');`).join('\n');
 
 let db: PGlite;
 const q = async <T = any>(sql: string) => (await db.query<T>(sql)).rows;
@@ -119,12 +120,14 @@ describe('Welile Homes landlord floats -> L4 (draft)', () => {
       .toEqual([{ account_code: 'L4', debit_when: 'cash_out' }]);
   });
 
-  it('batch: 15 lines, L4 settled by 23,709,400 and payroll expense reduced by the same; A6, wallets unchanged', async () => {
+  it('batch: 16 lines, L4 settled by 32,709,400; X1 reduced by the same (payroll 23,709,400 + R&D 9,000,000)', async () => {
     await db.exec(BATCH);
-    const reg = await q(`select count(*)::int n, sum(amount)::numeric s from public.accounting_correction_register where batch = 'acct_corr_202611_wh_float_l4'`);
-    expect(reg[0].n).toBe(15); expect(Number(reg[0].s)).toBe(23709400);
-    expect(await acct('L4') - before.L4).toBe(23709400);   // debit: obligation settled
-    expect(await acct('X1') - before.X1).toBe(-23709400);  // expense removed
+    const reg = await q(`select correction_item, count(*)::int n, sum(amount)::numeric s from public.accounting_correction_register where batch = 'acct_corr_202611_wh_float_l4' group by 1 order by 1`);
+    expect(reg.map((x: any) => [x.correction_item, x.n, Number(x.s)])).toEqual([['WH2', 15, 23709400], ['WH3', 1, 9000000]]);
+    expect(await acct('L4') - before.L4).toBe(32709400);   // debit: obligation settled
+    expect(await acct('X1') - before.X1).toBe(-32709400);  // expense removed
+    const cats = await q(`select category, sum(amount)::numeric s from public.general_ledger where idempotency_key like 'acct_corr_202611_wh_float_l4:%' and direction = 'cash_in' group by 1 order by 1`);
+    expect(cats.map((x: any) => [x.category, Number(x.s)])).toEqual([['payroll_expense', 23709400], ['research_development_expense', 9000000]]);
     expect(await acct('A6')).toBe(before.A6);
     expect(await acct('L1')).toBe(before.L1);
     expect(JSON.stringify(await q(`select * from public.general_ledger where ledger_scope = 'wallet' order by id`))).toBe(walletBefore);
@@ -140,6 +143,7 @@ describe('Welile Homes landlord floats -> L4 (draft)', () => {
     expect(m['PAY-MUY7COJU-Q0HB']).toEqual([4700000, 3755000]);   // Mukambya 945,000 left out
     expect(m['PAY-MWAKJFVB-80M6']).toEqual([12596400, 11170400]); // Mukambya 1,260,000 + Namudde 166,000 left out
     expect(m['PAY-MSYHRPIM-5HAT']).toEqual([135000, 0]);
+    expect(m['PAY-MUY1CVKD-8SJ9']).toEqual([9000000, 0]); // its R&D side is checked in the batch test
   });
 
   it('every correction group balances in the production resolver, dated to its original credit', async () => {

@@ -12,19 +12,24 @@
 -- Per requisition line (landlord), one balanced group dated to the original credit:
 --   DR L4 wh_landlord_float_settled (cash_out) - settles that landlord's payout obligation
 --   CR X1 payroll_expense           (cash_in)  - removes the rent from staff costs
--- Only amounts within each landlord's recognised L4 obligation are included (15 lines, UGX 23,709,400).
+-- Only amounts within each landlord's recognised L4 obligation are included (15 lines, UGX 23,709,400), plus
+-- (CFO, 12 Nov 2026) the 9,000,000 landlord float paid through James Katongole on 7 Oct 2026, booked as R&D expense:
+-- no landlord list exists, so it settles the overall Welile Homes obligation and is registered as WH3 with
+-- 'landlords to be identified' (CR X1 research_development_expense). Total 16 lines, UGX 32,709,400.
 -- NOT included, awaiting CFO decision (UGX 3,766,000): Anthony Mukambya 3,465,000 (no subscription, no obligation);
 -- Namudde Maureen 166,000 above her 4,800,000 obligation; "Buzzi" 135,000 (requisition 92325DB5, landlord unidentified).
--- Effect: L4 -23,709,400 (obligation settled); X1 payroll expense -23,709,400; cash, wallets, A6 unchanged.
+-- Effect: L4 -32,709,400 (obligation settled); X1 -32,709,400 (payroll 23,709,400, R&D 9,000,000); cash, wallets, A6 unchanged.
 -- Runs at REPEATABLE READ. Rollback: the same groups with directions swapped (see the end of this file).
 begin isolation level repeatable read;
 
-create temp table _orig (leg uuid primary key, ref text not null, amount numeric not null) on commit drop;
+create temp table _orig (leg uuid primary key, ref text not null, amount numeric not null, cat text not null default 'payroll_expense') on commit drop;
 insert into _orig values
   ('64646e28-0606-41c2-9a62-8642d692f3c3', 'PAY-MSRFPGPV-3OV7',  4527000),  -- 13 Aug, req AF19FEA7
   ('216a42c4-1730-4d34-ba3a-e36c3d9ebe27', 'PAY-MTU3BP2T-SXR8',  5517000),  -- 09 Sep, SRQ-00051
   ('15463227-5dbf-4210-96d5-42d9ca4f7bed', 'PAY-MUY7COJU-Q0HB',  4700000),  -- 07 Oct, SRQ-00226
   ('2ddd50d8-12a9-43ce-bff9-a6e0b7688605', 'PAY-MWAKJFVB-80M6', 12596400);  -- 10 Nov, SRQ-00471
+insert into _orig values
+  ('8a4017e5-653c-441a-aa34-136dfc3c60bc', 'PAY-MUY1CVKD-8SJ9',  9000000, 'research_development_expense');  -- 07 Oct, James Katongole
 create temp table _l (leg uuid not null, landlord text not null, amount numeric not null, primary key (leg, landlord)) on commit drop;
 insert into _l values
   ('64646e28-0606-41c2-9a62-8642d692f3c3', 'Ndaula Thomas',    3294000),
@@ -41,9 +46,10 @@ insert into _l values
   ('2ddd50d8-12a9-43ce-bff9-a6e0b7688605', 'Babirye Patricia',  270000),
   ('2ddd50d8-12a9-43ce-bff9-a6e0b7688605', 'Mwesige Banarbus',  756000),
   ('2ddd50d8-12a9-43ce-bff9-a6e0b7688605', 'Mukama Michael',   3110400),
-  ('2ddd50d8-12a9-43ce-bff9-a6e0b7688605', 'Simon Kidugudu',   4250000);
+  ('2ddd50d8-12a9-43ce-bff9-a6e0b7688605', 'Simon Kidugudu',   4250000),
+  ('8a4017e5-653c-441a-aa34-136dfc3c60bc', 'Landlords to be identified (via James Katongole)', 9000000);
 create temp table _expected (n int not null, amount numeric not null) on commit drop;
-insert into _expected values (15, 23709400);
+insert into _expected values (16, 32709400);
 
 do $corr$
 declare
@@ -68,7 +74,7 @@ begin
                   g.reference_id, (select sum(l.amount) from _l l where l.leg = o.leg) lines
              from _orig o left join public.general_ledger g on g.id = o.leg
   loop
-    if not r.found or r.ledger_scope <> 'platform' or r.category <> 'payroll_expense' or r.direction <> 'cash_out'
+    if not r.found or r.ledger_scope <> 'platform' or r.category <> r.cat or r.direction <> 'cash_out'
        or r.gl_amount <> r.amount or r.source_table <> 'cfo_direct_credit' or r.reference_id <> r.ref then
       raise exception 'STOP: credit % no longer matches the evidence', r.ref;
     end if;
@@ -79,7 +85,7 @@ begin
   select count(*), coalesce(sum(amount), 0) into s_wallet_legs, s_wallet_sum from public.general_ledger where ledger_scope = 'wallet';
 
   -- 3. One balanced platform-only group per requisition line, dated to the original credit.
-  for r in select l.leg, l.landlord, l.amount, o.ref, g.transaction_group_id orig_group, g.transaction_date
+  for r in select l.leg, l.landlord, l.amount, o.ref, o.cat, g.transaction_group_id orig_group, g.transaction_date
              from _l l join _orig o on o.leg = l.leg join public.general_ledger g on g.id = l.leg
             order by g.transaction_date, l.landlord
   loop
@@ -88,15 +94,17 @@ begin
         'source_table', 'general_ledger', 'source_id', r.leg::text, 'reference_id', r.ref, 'currency', 'UGX',
         'transaction_date', r.transaction_date, 'classification', 'production',
         'description', format('Correction (accounting only, no money moved): CFO-approved Welile Homes landlord float of UGX %s to %s (%s) settles the landlord payout obligation.', r.amount, r.landlord, r.ref)),
-      jsonb_build_object('ledger_scope', 'platform', 'direction', 'cash_in', 'amount', r.amount, 'category', 'payroll_expense',
+      jsonb_build_object('ledger_scope', 'platform', 'direction', 'cash_in', 'amount', r.amount, 'category', r.cat,
         'source_table', 'general_ledger', 'source_id', r.leg::text, 'reference_id', r.ref, 'currency', 'UGX',
         'transaction_date', r.transaction_date, 'classification', 'production',
-        'description', format('Correction (accounting only, no money moved): the same UGX %s for %s was booked as payroll expense; it is landlord rent, not a staff cost.', r.amount, r.landlord))),
+        'description', format('Correction (accounting only, no money moved): the same UGX %s for %s was booked as %s; it is landlord rent, not an operating cost.', r.amount, r.landlord, replace(r.cat, '_', ' ')))),
       idempotency_key := c_batch || ':' || r.leg::text || ':' || lower(replace(r.landlord, ' ', '_')));
     insert into public.accounting_correction_register (batch, correction_item, action, source_table, source_id, original_group_id,
       original_leg_ids, correction_group_id, amount, before_value, after_value, detail, created_by)
-    values (c_batch, 'WH2', 'wh_float_to_l4:' || lower(replace(r.landlord, ' ', '_')), 'general_ledger', r.leg, r.orig_group, array[r.leg], v_grp,
-      r.amount, r.amount, 0, jsonb_build_object('landlord', r.landlord, 'requisition_payment', r.ref, 'agent', 'Grace Paul Ochieng',
+    values (c_batch, case when r.cat = 'payroll_expense' then 'WH2' else 'WH3' end,
+      'wh_float_to_l4:' || lower(replace(r.landlord, ' ', '_')), 'general_ledger', r.leg, r.orig_group, array[r.leg], v_grp,
+      r.amount, r.amount, 0, jsonb_build_object('landlord', r.landlord, 'requisition_payment', r.ref,
+        'paid_through', case when r.cat = 'payroll_expense' then 'Grace Paul Ochieng' else 'James Katongole' end,
         'basis', 'CFO 12 Nov 2026: approved Welile Homes landlord float'), c_cfo);
   end loop;
 
