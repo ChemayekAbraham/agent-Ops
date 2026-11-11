@@ -145,7 +145,7 @@ export function FunderNewHouseCard({
               {monthlyReturn === null ? 'Support this home' : <>Earn <span className="font-semibold text-primary">{formatDynamic(monthlyReturn)}</span> monthly</>}
             </p>
           </div>
-          <span className="inline-flex flex-none items-center gap-0.5 text-xs font-semibold text-foreground" aria-hidden>
+          <span className="inline-flex flex-none items-center gap-0.5 text-xs font-semibold text-primary" aria-hidden>
             Details
             <ChevronRight className="h-4 w-4" />
           </span>
