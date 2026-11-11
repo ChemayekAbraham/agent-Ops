@@ -4,8 +4,9 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
 import type { ReactNode } from 'react';
 
-const rpc = vi.hoisted(() => vi.fn());
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc } }));
+const supabase = vi.hoisted(() => ({ rest: {}, rpc: vi.fn() }));
+const rpc = supabase.rpc;
+vi.mock('@/integrations/supabase/client', () => ({ supabase }));
 
 import {
   HEAVY_FINANCE_REPORTS,
@@ -73,6 +74,15 @@ describe('heavy finance report queue', () => {
     expect(rpc.mock.calls[0]).toEqual(['get_platform_cash_summary']);
     gate.resolve({ data: { total_revenue: 1 }, error: null });
     await expect(Promise.all([first, second])).resolves.toEqual([{ total_revenue: 1 }, { total_revenue: 1 }]);
+  });
+
+  it('keeps the Supabase client context when calling a report', async () => {
+    rpc.mockImplementation(function (this: typeof supabase) {
+      expect(this.rest).toBeDefined();
+      return Promise.resolve({ data: { sheet: 1 }, error: null });
+    });
+
+    await expect(runHeavyFinanceReport('fin_balance_sheet', { p_as_at: '2026-11-01' })).resolves.toEqual({ sheet: 1 });
   });
 
   it('shares one in-flight request for the same statement and arguments', async () => {
