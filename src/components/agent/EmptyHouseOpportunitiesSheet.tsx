@@ -1167,7 +1167,7 @@ export function EmptyHouseOpportunitiesSheet({
                     <p className="text-sm font-bold">{formatUGX(rentTotal)}</p>
                   </div>
                   <Button className="h-10 gap-1.5 text-xs font-semibold" onClick={() => setStep('checkout')}>
-                    Checkout <ArrowRight className="h-4 w-4" />
+                    Create <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
