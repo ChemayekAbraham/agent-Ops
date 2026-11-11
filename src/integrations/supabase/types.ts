@@ -13733,6 +13733,7 @@ export type Database = {
           declined_by: string | null
           expires_at: string
           gross_amount: number
+          house_id: string | null
           id: string
           invitee_commitment_id: string | null
           invitee_id: string | null
@@ -13745,7 +13746,7 @@ export type Database = {
           lead_rent: number
           lead_share: number
           rent_amount: number
-          rent_request_id: string
+          rent_request_id: string | null
           replaces_id: string | null
           status: string
           updated_at: string
@@ -13760,6 +13761,7 @@ export type Database = {
           declined_by?: string | null
           expires_at: string
           gross_amount: number
+          house_id?: string | null
           id?: string
           invitee_commitment_id?: string | null
           invitee_id?: string | null
@@ -13772,7 +13774,7 @@ export type Database = {
           lead_rent: number
           lead_share: number
           rent_amount: number
-          rent_request_id: string
+          rent_request_id?: string | null
           replaces_id?: string | null
           status?: string
           updated_at?: string
@@ -13787,6 +13789,7 @@ export type Database = {
           declined_by?: string | null
           expires_at?: string
           gross_amount?: number
+          house_id?: string | null
           id?: string
           invitee_commitment_id?: string | null
           invitee_id?: string | null
@@ -13799,12 +13802,33 @@ export type Database = {
           lead_rent?: number
           lead_share?: number
           rent_amount?: number
-          rent_request_id?: string
+          rent_request_id?: string | null
           replaces_id?: string | null
           status?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "co_support_invites_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "house_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_property_base"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
+          },
           {
             foreignKeyName: "co_support_invites_rent_request_id_fkey"
             columns: ["rent_request_id"]
@@ -42725,6 +42749,7 @@ export type Database = {
         Row: {
           activated_at: string | null
           cancelled_at: string | null
+          co_support_id: string | null
           commitment_id: string | null
           created_at: string
           funding_tag: string
@@ -42750,6 +42775,7 @@ export type Database = {
         Insert: {
           activated_at?: string | null
           cancelled_at?: string | null
+          co_support_id?: string | null
           commitment_id?: string | null
           created_at?: string
           funding_tag?: string
@@ -42775,6 +42801,7 @@ export type Database = {
         Update: {
           activated_at?: string | null
           cancelled_at?: string | null
+          co_support_id?: string | null
           commitment_id?: string | null
           created_at?: string
           funding_tag?: string
@@ -42798,6 +42825,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "partner_supported_houses_co_support_id_fkey"
+            columns: ["co_support_id"]
+            isOneToOne: false
+            referencedRelation: "co_support_invites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "partner_supported_houses_commitment_id_fkey"
             columns: ["commitment_id"]
@@ -78201,6 +78235,14 @@ export type Database = {
       }
       _co_support_first_name: { Args: { p_user: string }; Returns: string }
       _co_support_fmt: { Args: { p_amount: number }; Returns: string }
+      _co_support_house_lead_checks: {
+        Args: { p_house_id: string; p_lead: string }
+        Returns: Json
+      }
+      _co_support_house_problem: {
+        Args: { p_house_id: string }
+        Returns: string
+      }
       _co_support_invite_json: {
         Args: { p_invite_id: string; p_viewer: string }
         Returns: Json
@@ -78224,11 +78266,29 @@ export type Database = {
         }
         Returns: Json
       }
+      _co_support_open_house_half: {
+        Args: {
+          p_gross: number
+          p_invite_id: string
+          p_partner: string
+          p_rent: number
+          p_role: string
+        }
+        Returns: Json
+      }
+      _co_support_pair_pending_portfolios: {
+        Args: { p_portfolio_id: string }
+        Returns: string[]
+      }
       _co_support_plan_problem: {
         Args: { p_partner: string; p_rent_request_id: string }
         Returns: string
       }
       _co_support_require_partner: {
+        Args: { p_uid: string }
+        Returns: undefined
+      }
+      _co_support_require_partner_house: {
         Args: { p_uid: string }
         Returns: undefined
       }
@@ -83758,6 +83818,7 @@ export type Database = {
       co_support_accept: { Args: { p_code: string }; Returns: Json }
       co_support_cancel: { Args: { p_invite_id: string }; Returns: Json }
       co_support_create: { Args: { p_rent_request_id: string }; Returns: Json }
+      co_support_create_house: { Args: { p_house_id: string }; Returns: Json }
       co_support_decline: { Args: { p_code: string }; Returns: Json }
       co_support_fund_alone: { Args: { p_invite_id: string }; Returns: Json }
       co_support_integrity_check: {
@@ -83778,6 +83839,7 @@ export type Database = {
         Args: { p_invite_id: string; p_reason: string }
         Returns: Json
       }
+      co_support_staff_list: { Args: { p_limit?: number }; Returns: Json }
       collect_due_agent_advance_installment: {
         Args: { p_agent_id: string }
         Returns: number
