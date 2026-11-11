@@ -67,6 +67,9 @@ export default function WelileSchoolsHome() {
     if (fromLink) { setRole(fromLink); writeStoredSchoolsRole(fromLink); }
   }, [location.search]);
 
+  // Back leaves Welile Schools: agents to their dashboard, other signed-in people to theirs, visitors to the home page.
+  const backTarget = canWorkAsSchoolAgent(roles) ? '/dashboard/agent' : user ? '/dashboard' : '/';
+
   const choose = (r: SchoolsRole) => { setRole(r); writeStoredSchoolsRole(r); window.scrollTo({ top: 0 }); };
   const restart = () => { clearStoredSchoolsRole(); setRole(null); window.scrollTo({ top: 0 }); };
 
@@ -74,7 +77,7 @@ export default function WelileSchoolsHome() {
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-xl items-center gap-2 px-3 py-2">
-          <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Back" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}>
+          <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Back" onClick={() => navigate(backTarget)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <WelileSchoolsBrand />
