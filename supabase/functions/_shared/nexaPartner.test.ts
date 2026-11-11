@@ -8,7 +8,8 @@ import { normalizePortfolioCode, requestPortfolioOtp, GENERIC_SENT } from "./nex
 Deno.test("a new partner gets the rate passed in (10% here), simple", () => {
   const r = estimateSupporterReturns({ amount: 1_000_000, months: 12 }, 10) as any;
   assertEquals(r.monthlyRatePercent, 10); assertEquals(r.totalReturns, 1_200_000);
-  assert(r.disclaimer.includes("not guaranteed") && r.disclaimer.includes("capital is at risk"));
+  assertEquals(r.disclaimer, "New partners earn a 15% Rent profit share per month for 12 months. Your principal and Rent profit share are guaranteed as set out in your partnership agreement.");
+  assert(!r.disclaimer.includes("Returns") && !r.disclaimer.includes("\u2014"));
 });
 Deno.test("switch off: the public rate 15 gives today's figures", () => {
   const r = estimateSupporterReturns({ amount: 1_000_000, months: 12 }, 15) as any;
@@ -54,7 +55,8 @@ Deno.test("prompt: supporter section, firewall, tenant priority only for tenants
   // No rate history and no fixed rate: the live public rate is passed in (none here -> no figure).
   assert(!sup.includes("20% per month") && !sup.includes("15% per month") && !sup.includes("10% per month"));
   assert(sup.includes("give no figures"));
-  assert(buildNexaSystemPrompt(["supporter"], false, 15).includes("New partners earn 15% a month in Returns"));
+  assert(buildNexaSystemPrompt(["supporter"], false, 15).includes("New partners earn a 15% Rent profit share per month for 12 months."));
+  assert(!buildNexaSystemPrompt(["supporter"], false, 15).includes("illustrative, not guaranteed"));
   assert(buildNexaSystemPrompt([], false).includes("Priority #1: Tenant Support"));
   assert(buildNexaSystemPrompt(["tenant"], false).includes("Priority #1: Tenant Support"));
   assert(!buildNexaSystemPrompt(["manager"], true).includes("this caller is NOT Welile staff"));
