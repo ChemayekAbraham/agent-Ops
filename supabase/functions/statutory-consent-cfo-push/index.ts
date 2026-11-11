@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { sendPushToSubscription, type PushPayload } from "../_shared/webPushSend.ts";
+import { removeDeadSubscriptions, sendPushToSubscription, settledPushResults, type PushPayload } from "../_shared/webPushSend.ts";
 
 // Sends the ONE-TIME web push to the CFO when a payroll run is paid and the
 // statutory-ID list for that run is ready. Takes NO input. Each notice is
@@ -39,6 +39,7 @@ serve(async (req) => {
           requireInteraction: true,
         } as unknown as PushPayload;
         const results = await Promise.allSettled(subs.map((s) => sendPushToSubscription(s, payload)));
+        await removeDeadSubscriptions(supabase, settledPushResults(subs, results), 'statutory-consent-cfo-push');
         ok = results.some((r) => r.status === "fulfilled" && r.value.ok);
       } else noDevice += 1;
       await supabase.from("cfo_statutory_consent_notices")

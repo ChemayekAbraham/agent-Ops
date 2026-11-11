@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 import { maySendRequisitionSms } from "../_shared/requisitionSmsPolicy.ts";
 import { creditRequisitionWallet } from "../_shared/requisitionWalletCredit.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +42,7 @@ Deno.serve(async (req) => {
     );
 
     const token = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (userErr || !userData?.user) {
       return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }

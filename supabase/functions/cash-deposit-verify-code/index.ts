@@ -22,6 +22,7 @@ import {
   renderCashDepositReceipt,
 } from "../_shared/cashDepositReceiptPdf.ts";
 import { redactSmsCodes } from "../_shared/redactSmsCodes.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -279,7 +280,7 @@ Deno.serve(async (req) => {
     // ── Auth ──
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
-    const { data: authData, error: authErr } = await admin.auth.getUser(token);
+    const { data: authData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authErr || !authData?.user) {
       return json(401, { error: "Unauthorized" });
     }

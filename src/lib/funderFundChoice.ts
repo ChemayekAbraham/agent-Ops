@@ -84,8 +84,9 @@ export async function recordOffplatformRentPayment(input: OffplatformPaymentInpu
 }
 
 export async function uploadCashReceiptPhoto(rentRequestId: string, file: File): Promise<string | null> {
-  const { data: auth } = await supabase.auth.getUser();
-  const uid = auth.user?.id;
+  // Only the current session's id is needed: read it locally (no /auth/v1/user call).
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
   if (!uid) return null;
   const path = `${uid}/${rentRequestId}-${Date.now()}.jpg`;
   const { error } = await supabase.storage.from('funder-offplatform-receipts').upload(path, file, {

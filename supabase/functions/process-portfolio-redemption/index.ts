@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { rateEmailTarget, rateOrNull, readConfirmedLoginEmails, rowRateIsPublic } from "../_shared/partnerReturnPolicy.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userErr } = await admin.auth.getUser(token);
+    const { data: { user }, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (userErr || !user) return json({ error: "Unauthorized" }, 401);
 
     // Only ops roles may process a redemption

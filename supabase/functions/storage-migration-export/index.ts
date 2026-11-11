@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 // Read-only Storage export for the PDPO migration (doc 237). Lets a manager/cto copy the files in
 // the app's Storage buckets to another Supabase project without holding a service key:
@@ -30,7 +31,7 @@ Deno.serve(async (req) => {
 
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return json({ error: "unauthorized" }, 401);
-  const { data: userRes, error: userErr } = await supabase.auth.getUser(token);
+  const { data: userRes, error: userErr } = await (bearerHasSub(token) ? supabase.auth.getUser(token) : noUserResult());
   if (userErr || !userRes?.user) return json({ error: "unauthorized" }, 401);
   const { data: roleRows } = await supabase.from("user_roles").select("role").eq("user_id", userRes.user.id);
   const roles = (roleRows ?? []).map((r: { role: string }) => r.role);

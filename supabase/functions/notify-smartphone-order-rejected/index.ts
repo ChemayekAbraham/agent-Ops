@@ -4,6 +4,7 @@
 // rejection, which has already happened by the time this runs.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
     );
 
     const token = auth.replace("Bearer ", "");
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
 
     const { sale_id } = await req.json().catch(() => ({ sale_id: null }));

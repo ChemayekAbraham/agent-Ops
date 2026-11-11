@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { formatRatePct, monthlyReturnFor, readRentRewardRates, singleRate } from "../_shared/partnerReturnPolicy.ts";
 import { sendSMS, formatPhoneInternational } from "../_shared/sendSmsMultiProvider.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 // Best-effort SMS through the shared multi-provider sender (logged, idempotent).
 // Never throws: a failed text must not undo a funding.
@@ -52,7 +53,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const { data: { user }, error: userError } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),

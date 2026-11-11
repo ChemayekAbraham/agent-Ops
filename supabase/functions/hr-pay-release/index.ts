@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 import { isPlaceholderRecipient } from "../_shared/recipientMailbox.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -200,7 +201,7 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const { data: { user }, error: userError } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (userError || !user) return json({ error: 'Unauthorized' }, 401);
 
     // 4. Authorise by POSITION via rpc, running as the caller (never user_roles)

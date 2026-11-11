@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { readStaffRequisitionReceipts, rememberRequisitionReceiptPath } from "../_shared/requisitionReceiptRead.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,7 +44,7 @@ Deno.serve(async (req) => {
     );
 
     const token = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
-    const { data: userData, error: authErr } = await admin.auth.getUser(token);
+    const { data: userData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authErr || !userData?.user) return json({ error: "not_authenticated" }, 401);
     const userId = userData.user.id;
 

@@ -22,6 +22,7 @@ import {
 } from "../_shared/smsDeliveryLog.ts";
 import { parsePayoutConfirmationSms } from "./smsParser.ts";
 import { extractProofFieldsFromImage } from "./proofVision.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 /** Digit-tail normalizer: collapses carrier prefixes (MP/AT) + separators so
  *  "MP40781351736", "40781351736" and "40781351-736" all compare equal.
@@ -338,7 +339,7 @@ Deno.serve(async (req) => {
       const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
         global: { headers: { Authorization: authHeader } },
       });
-      const { data: { user: u }, error: authErr } = await userClient.auth.getUser();
+      const { data: { user: u }, error: authErr } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
       if (authErr || !u) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,

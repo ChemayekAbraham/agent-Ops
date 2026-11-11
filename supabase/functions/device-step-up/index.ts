@@ -24,6 +24,7 @@ import { sendSMS, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 import { logOtpUsage } from "../_shared/otpUsageLog.ts";
 import { sendNewDeviceAlert, sessionIdFromJwt } from "../_shared/newDeviceAlert.ts";
 import { resolveTrustedClientIp } from "../_shared/resolveClientIp.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,7 +83,7 @@ Deno.serve(async (req) => {
         ? json({ error: "Not signed in", signed_out: true }, 200)
         : json({ error: "Not signed in" }, 401);
     if (!token) return notSignedIn();
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     const user = userData?.user;
     if (userErr || !user) return notSignedIn();
 

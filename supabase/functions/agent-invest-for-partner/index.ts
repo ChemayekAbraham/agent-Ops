@@ -9,6 +9,7 @@ import {
   readConfirmedLoginEmails,
   storedRate,
 } from "../_shared/partnerReturnPolicy.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,7 +49,7 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user: agent }, error: agentError } = await userClient.auth.getUser();
+    const { data: { user: agent }, error: agentError } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (agentError || !agent) return errorResponse("Unauthorized", 401);
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);

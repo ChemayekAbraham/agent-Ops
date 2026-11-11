@@ -23,6 +23,7 @@ import {
   confirmDeclarationConsent,
   linkBorrowerProfile,
 } from "../_shared/nationalIdDeclaration.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,7 +106,7 @@ Deno.serve(async (req) => {
 
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     if (!token) return err("Sign in to continue", 401);
-    const { data: authData, error: authErr } = await admin.auth.getUser(token);
+    const { data: authData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authErr || !authData?.user) return err("Sign in to continue", 401);
     const userId = authData.user.id;
 

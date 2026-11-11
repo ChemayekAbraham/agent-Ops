@@ -7,6 +7,7 @@ import { buildNexaToolDefs, runNexaTool, normalizePortfolioRow, isPortfolioOrRet
 import { cachedPublicPolicy, readQuoteRate } from "../_shared/partnerReturnPolicy.ts";
 import { requestPortfolioOtp, verifyPortfolioOtp, portfolioIdFromSession, auditPortfolioAccess, sha256Hex } from "../_shared/nexaPortfolioAccess.ts";
 import { knowledgeScopesFor, filterKnowledgeForAudience, isStaff, recordAccessAlert, channelFrom } from "../_shared/nexaAccess.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 const MAX_TOOL_ROUNDS = 3;
 const corsHeaders = { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
 const json = (data: unknown, status=200) => new Response(JSON.stringify(data), {status,headers:{...corsHeaders,"Content-Type":"application/json"}});
@@ -56,7 +57,7 @@ Deno.serve(async req => {
     // The caller check and the public Returns policy are read in parallel. The policy is the PUBLIC
     // new-partner rate (60 s isolate cache, display only); null = unknown, so replies give no figure.
     const jwt=auth?.startsWith('Bearer ') ? auth.slice(7) : null;
-    const [userRes, policy]=await Promise.all([jwt ? admin.auth.getUser(jwt) : Promise.resolve(null), cachedPublicPolicy(admin)]);
+    const [userRes, policy]=await Promise.all([jwt ? (bearerHasSub(jwt) ? admin.auth.getUser(jwt) : noUserResult()) : Promise.resolve(null), cachedPublicPolicy(admin)]);
     const publicRate=policy?.newContractRate ?? null;
     if(jwt) {
       if(!userRes || userRes.error || !userRes.data.user) return json({error:'Please sign in again'},401);

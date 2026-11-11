@@ -3,6 +3,7 @@
 // Returns null if OK, or a Response (403) if the operation is paused.
 
 type GuardOp = "credit" | "debit" | "any";
+import { bearerHasSub, noUserResult } from "./bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,7 +29,7 @@ export async function checkTreasuryGuard(
         userId = v;
       } else {
         const token = v.replace(/^Bearer\s+/i, "");
-        const { data: userData } = await adminClient.auth.getUser(token);
+        const { data: userData } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
         userId = userData?.user?.id ?? null;
       }
       if (userId) {

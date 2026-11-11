@@ -22,6 +22,7 @@
 // the diagnostic survives without creating a financial record.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,7 +63,7 @@ Deno.serve(async (req) => {
     if (!authHeader) return json({ error: 'Missing auth' }, 401);
     const token = authHeader.replace('Bearer ', '');
 
-    const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
     if (userErr || !userData.user) return json({ error: 'Unauthorized' }, 401);
     recordedBy = userData.user.id;
 

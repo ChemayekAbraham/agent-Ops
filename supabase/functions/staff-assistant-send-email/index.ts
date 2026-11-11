@@ -6,6 +6,7 @@ import {
   DEFAULT_MAX_EMAILS_PER_DAY,
   handleStaffAssistantSendEmail,
 } from "./handler.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -104,7 +105,7 @@ Deno.serve(async (req) => {
       const {
         data: { user },
         error,
-      } = await userClient.auth.getUser(token);
+      } = await (bearerHasSub(token) ? userClient.auth.getUser(token) : noUserResult());
       if (error || !user) return null;
       // Take sender name and email strictly from public.profiles — NEVER from user.user_metadata
       const { data: profile } = await userClient
