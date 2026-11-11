@@ -2,7 +2,7 @@ import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, Handshake, ChevronDown } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, ChevronDown } from 'lucide-react';
 import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershipPanel';
 import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
 import { supabase } from '@/integrations/supabase/client';
@@ -190,11 +190,6 @@ export default function AgentWelileSchools() {
 
         {locked && user && (
           <>
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label="School gate mode">
-              <Button variant={mode === 'gate' ? 'default' : 'outline'} aria-pressed={mode === 'gate'} className="min-h-12 gap-1 whitespace-normal" onClick={() => setMode('gate')}><LogIn className="h-4 w-4 shrink-0" />🚪 Daily Gate Log (IN / OUT)</Button>
-              <Button variant={mode === 'register' ? 'default' : 'outline'} aria-pressed={mode === 'register'} className="min-h-12 gap-1 whitespace-normal" onClick={() => setMode('register')}><GraduationCap className="h-4 w-4 shrink-0" />➕ Register New Person / Asset</Button>
-              <Button variant={mode === 'partner' ? 'default' : 'outline'} aria-pressed={mode === 'partner'} className="col-span-2 min-h-12 gap-1 whitespace-normal" onClick={() => setMode('partner')}><Handshake className="h-4 w-4 shrink-0" />School Fees partnership</Button>
-            </div>
             {mode === 'partner' ? (
               <SchoolPartnershipPanel school={locked} />
             ) : mode === 'gate' ? (
