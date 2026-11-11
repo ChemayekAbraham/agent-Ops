@@ -16,7 +16,7 @@ import {
 
 const ALL_TRUE: T4Facts = {
   photos: true, landlord: true, rent: true, gps: true, familySize: true, work: true, lcLetter: true,
-  tenantName: true, tenantId: true, openRequest: true,
+  tenantName: true, idFront: true, idBack: true, openRequest: true,
   plan: true, tenantPhone: true, house: true, tenantPhoto: true, lc1: true, payoutDay: true, consent: true,
   note: true, resubmitsLeft: true,
 };
@@ -24,9 +24,9 @@ const gateKeys = (m: ReturnType<typeof t4Missing>) => m.filter((i) => i.group ==
 const formKeys = (m: ReturnType<typeof t4Missing>) => m.filter((i) => i.group === 'form').map((i) => i.key);
 
 describe('t4Missing: the Agent Ops gate, the same in every mode', () => {
-  it('lists the live gate items in its order: SC basics, SC-2, LC1, full name, ID, open request', () => {
+  it('lists the gate items in order: SC basics, SC-2, LC1 letter, full name, ID front and back photos (DOCS-1), open request', () => {
     expect(GATE_ITEMS).toEqual([
-      'photos', 'landlord', 'rent', 'gps', 'familySize', 'work', 'lcLetter', 'tenantName', 'tenantId', 'openRequest',
+      'photos', 'landlord', 'rent', 'gps', 'familySize', 'work', 'lcLetter', 'tenantName', 'idFront', 'idBack', 'openRequest',
     ]);
     for (const mode of ['new', 'resubmit'] as const) {
       expect(gateKeys(t4Missing(mode, {}))).toEqual([...GATE_ITEMS]);
@@ -34,7 +34,7 @@ describe('t4Missing: the Agent Ops gate, the same in every mode', () => {
   });
 
   it('a renewal skips family size and work, as SC-2 does, and so does a resubmitted renewal', () => {
-    const expected = ['photos', 'landlord', 'rent', 'gps', 'lcLetter', 'tenantName', 'tenantId', 'openRequest'];
+    const expected = ['photos', 'landlord', 'rent', 'gps', 'lcLetter', 'tenantName', 'idFront', 'idBack', 'openRequest'];
     expect(gateKeys(t4Missing('renewal', {}))).toEqual(expected);
     expect(gateKeys(t4Missing('resubmit', {}, 'renewal'))).toEqual(expected);
   });
@@ -47,14 +47,25 @@ describe('t4Missing: the Agent Ops gate, the same in every mode', () => {
   });
 
   it('names the items in plain words', () => {
-    const labels = t4Missing('resubmit', { ...ALL_TRUE, photos: false, lcLetter: false, tenantName: false, tenantId: false }).map((i) => i.label);
+    const labels = t4Missing('resubmit', { ...ALL_TRUE, photos: false, lcLetter: false, tenantName: false, idFront: false, idBack: false }).map((i) => i.label);
     expect(labels).toEqual([
       'At least 3 house photos',
-      'LC1 letter photo (or the LC1 confirmed by phone)',
+      'LC1 letter photo',
       'Tenant’s full name (2 or more names)',
-      'Tenant’s ID: type the NIN',
+      'National ID photo — front',
+      'National ID photo — back',
     ]);
   });
+});
+
+describe('DOCS-1: ID front, ID back and LC1 letter photos in every mode', () => {
+  for (const mode of ['new', 'resubmit', 'renewal'] as const) {
+    it(`${mode}: each missing photo is listed on its own`, () => {
+      expect(t4Missing(mode, { ...ALL_TRUE, idFront: false }).map((i) => i.key)).toEqual(['idFront']);
+      expect(t4Missing(mode, { ...ALL_TRUE, idBack: false }).map((i) => i.key)).toEqual(['idBack']);
+      expect(t4Missing(mode, { ...ALL_TRUE, lcLetter: false }).map((i) => i.key)).toEqual(['lcLetter']);
+    });
+  }
 });
 
 describe('the three new gate items', () => {

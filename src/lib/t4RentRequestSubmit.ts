@@ -22,6 +22,8 @@ import { OPEN_REQUEST_STATUSES, type TenantIdFields } from '@/lib/t4RentRequest'
 
 type UntypedRpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
 const rpc: UntypedRpc = (fn, args) => (supabase.rpc as unknown as UntypedRpc).call(supabase, fn, args);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const untypedFrom = (table: string): any => (supabase.from as unknown as (t: string) => unknown).call(supabase, table);
 
 const errorText = (e: unknown): string => {
   if (e instanceof Error) return e.message;
@@ -234,6 +236,8 @@ export interface RequestOnFile {
   gps: { lat: number; lng: number } | null;
   lcLetter: boolean;
   lc1PhoneConfirmed: boolean;
+  /** DOCS-1 documents already stored on the request. */
+  docs: Partial<Record<DocKind, StoredDoc>>;
   familySize: number | null;
   workBusiness: string | null;
   workLocation: string | null;
@@ -243,8 +247,9 @@ export interface RequestOnFile {
 export async function loadRequestOnFile(requestId: string): Promise<RequestOnFile | null> {
   try {
     const [req, intake] = await Promise.all([
-      supabase.from('rent_requests')
-        .select('tenant_id, landlord_id, rent_amount, house_image_urls, request_latitude, request_longitude, lc_letter_path')
+      // Untyped: nin_photo_back_* (E75) is not in the generated types yet.
+      untypedFrom('rent_requests')
+        .select('tenant_id, landlord_id, rent_amount, house_image_urls, request_latitude, request_longitude, lc_letter_path, lc_letter_bucket, nin_photo_path, nin_photo_bucket, nin_photo_back_path, nin_photo_back_bucket')
         .eq('id', requestId).maybeSingle(),
       supabase.from('pipeline_intake_details')
         .select('family_size, work_business, work_location, lc1_phone_confirmation')
@@ -253,6 +258,8 @@ export async function loadRequestOnFile(requestId: string): Promise<RequestOnFil
     const r = req.data as {
       tenant_id?: string | null; landlord_id?: string | null; rent_amount?: number | null; house_image_urls?: unknown;
       request_latitude?: number | null; request_longitude?: number | null; lc_letter_path?: string | null;
+      lc_letter_bucket?: string | null; nin_photo_path?: string | null; nin_photo_bucket?: string | null;
+      nin_photo_back_path?: string | null; nin_photo_back_bucket?: string | null;
     } | null;
     if (!r) return null;
     const i = intake.data as { family_size?: number | null; work_business?: string | null; work_location?: string | null; lc1_phone_confirmation?: string | null } | null;
@@ -264,6 +271,11 @@ export async function loadRequestOnFile(requestId: string): Promise<RequestOnFil
       gps: r.request_latitude != null && r.request_longitude != null ? { lat: Number(r.request_latitude), lng: Number(r.request_longitude) } : null,
       lcLetter: !!r.lc_letter_path?.trim(),
       lc1PhoneConfirmed: !!i?.lc1_phone_confirmation?.trim(),
+      docs: {
+        ...(r.nin_photo_path?.trim() ? { id_front: { bucket: r.nin_photo_bucket || 'tenant-ids', path: r.nin_photo_path } } : {}),
+        ...(r.nin_photo_back_path?.trim() ? { id_back: { bucket: r.nin_photo_back_bucket || 'tenant-ids', path: r.nin_photo_back_path } } : {}),
+        ...(r.lc_letter_path?.trim() ? { lc1_letter: { bucket: r.lc_letter_bucket || 'lc-letters', path: r.lc_letter_path } } : {}),
+      },
       familySize: i?.family_size ?? null,
       workBusiness: i?.work_business ?? null,
       workLocation: i?.work_location ?? null,
@@ -306,4 +318,69 @@ export async function finishRenewalIntake(
     if (!noted.ok) out.lc1NoteError = noted.message;
   }
   return out;
+}
+
+// ----- DOCS-1 (E75): ID front, ID back and LC1 letter on every request -----
+export type DocKind = 'id_front' | 'id_back' | 'lc1_letter';
+export interface StoredDoc { bucket: string; path: string }
+/** A document to attach: a new photo to upload, or one already stored. */
+export type DocSource = File | StoredDoc | null | undefined;
+
+export const DOC_KINDS: DocKind[] = ['id_front', 'id_back', 'lc1_letter'];
+const DOC_BUCKET: Record<DocKind, string> = { id_front: 'tenant-ids', id_back: 'tenant-ids', lc1_letter: 'lc-letters' };
+const DOC_FILE: Record<DocKind, string> = { id_front: 'national_id', id_back: 'national_id_back', lc1_letter: 'lc_letter' };
+export const DOC_LABEL: Record<DocKind, string> = {
+  id_front: 'National ID front photo',
+  id_back: 'National ID back photo',
+  lc1_letter: 'LC1 letter photo',
+};
+
+/** Stores a new document photo under the agent and request. Throws the storage error. */
+export async function uploadDocument(agentId: string, requestId: string, kind: DocKind, file: File): Promise<StoredDoc> {
+  let upload = file;
+  try {
+    upload = (await optimizeImage(file, { maxWidth: 2000, maxHeight: 2000, quality: 0.85, format: 'image/jpeg' })).file;
+  } catch { /* keep the original */ }
+  const ext = (upload.name.split('.').pop() || 'jpg').toLowerCase();
+  const bucket = DOC_BUCKET[kind];
+  const path = `${agentId}/${requestId}/${DOC_FILE[kind]}_${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from(bucket).upload(path, upload, { cacheControl: '86400', upsert: false, contentType: upload.type });
+  if (error) throw new Error(error.message);
+  return { bucket, path };
+}
+
+/** Links a stored document to the request (request_attach_document). Returns the server's error, or null. */
+export async function attachDocument(requestId: string, kind: DocKind, doc: StoredDoc): Promise<string | null> {
+  try {
+    const { error } = await rpc('request_attach_document', {
+      p_request_id: requestId, p_kind: kind, p_bucket: doc.bucket, p_path: doc.path,
+    });
+    return error ? errorText(error) || 'The document was not attached.' : null;
+  } catch (e) {
+    return errorText(e);
+  }
+}
+
+/**
+ * Uploads any new photos and attaches each document to the request. Returns the
+ * problems, each with the server's own message.
+ */
+export async function attachT4Documents(
+  agentId: string,
+  requestId: string,
+  docs: Partial<Record<DocKind, DocSource>>,
+): Promise<string[]> {
+  const problems: string[] = [];
+  for (const kind of DOC_KINDS) {
+    const src = docs[kind];
+    if (!src) continue;
+    try {
+      const stored = src instanceof File ? await uploadDocument(agentId, requestId, kind, src) : src;
+      const e = await attachDocument(requestId, kind, stored);
+      if (e) problems.push(`${DOC_LABEL[kind]}: ${e}`);
+    } catch (e) {
+      problems.push(`${DOC_LABEL[kind]}: ${errorText(e)}`);
+    }
+  }
+  return problems;
 }

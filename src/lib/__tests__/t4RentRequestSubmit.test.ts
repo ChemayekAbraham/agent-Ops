@@ -13,7 +13,7 @@ vi.mock('@/lib/captureGps', () => ({
   isGpsRequiredError: (m: unknown) => /gps/i.test(String(m ?? '')),
 }));
 
-import { finishRenewalIntake, postRenewal, resubmitT4Request } from '@/lib/t4RentRequestSubmit';
+import { attachT4Documents, finishRenewalIntake, postRenewal, resubmitT4Request } from '@/lib/t4RentRequestSubmit';
 
 const calls = () => mocks.rpc.mock.calls.map(([fn, args]) => [fn, args]);
 
@@ -106,5 +106,38 @@ describe('renewal', () => {
     mocks.rpc.mockClear();
     await finishRenewalIntake('agent-1', 'new-req', null, 'LC1 is away until Friday');
     expect(calls()).toEqual([['agent_note_lc1_missing', { p_request_id: 'new-req', p_reason: 'LC1 is away until Friday' }]]);
+  });
+});
+
+describe('DOCS-1: attachT4Documents', () => {
+  it('uploads new photos to tenant-ids / lc-letters, then attaches each with request_attach_document', async () => {
+    const front = new File(['f'], 'front.jpg', { type: 'image/jpeg' });
+    const letter = new File(['l'], 'letter.png', { type: 'image/png' });
+    const problems = await attachT4Documents('agent-1', 'req-1', {
+      id_front: front,
+      id_back: { bucket: 'tenant-ids', path: 'tenant-1/old/national_id_back.jpg' },
+      lc1_letter: letter,
+    });
+    expect(problems).toEqual([]);
+    expect(mocks.upload).toHaveBeenCalledTimes(2);
+    expect(calls()).toEqual([
+      ['request_attach_document', { p_request_id: 'req-1', p_kind: 'id_front', p_bucket: 'tenant-ids', p_path: expect.stringMatching(/^agent-1\/req-1\/national_id_\d+\.jpg$/) }],
+      // Already stored: attached as it is, no upload.
+      ['request_attach_document', { p_request_id: 'req-1', p_kind: 'id_back', p_bucket: 'tenant-ids', p_path: 'tenant-1/old/national_id_back.jpg' }],
+      ['request_attach_document', { p_request_id: 'req-1', p_kind: 'lc1_letter', p_bucket: 'lc-letters', p_path: expect.stringMatching(/^agent-1\/req-1\/lc_letter_\d+\.png$/) }],
+    ]);
+  });
+
+  it('returns each failure with the server’s message as-is and keeps going', async () => {
+    mocks.upload.mockResolvedValueOnce({ error: { message: 'new row violates row-level security policy' } });
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'DOC_KIND_UNKNOWN: id_back' } });
+    const problems = await attachT4Documents('agent-1', 'req-1', {
+      id_front: new File(['f'], 'front.jpg', { type: 'image/jpeg' }),
+      id_back: { bucket: 'tenant-ids', path: 'x/back.jpg' },
+    });
+    expect(problems).toEqual([
+      'National ID front photo: new row violates row-level security policy',
+      'National ID back photo: DOC_KIND_UNKNOWN: id_back',
+    ]);
   });
 });

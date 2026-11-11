@@ -60,6 +60,7 @@ import {
 } from '@/lib/t4RentRequest';
 import {
   attachRenewalPhotos,
+  attachT4Documents,
   findOpenRequest,
   finishRenewalIntake,
   loadRequestOnFile,
@@ -68,6 +69,8 @@ import {
   resubmitT4Request,
   saveTenantProfile,
   type T4IntakeOutcome,
+  type DocKind,
+  type StoredDoc,
   type TenantRecord,
 } from '@/lib/t4RentRequestSubmit';
 import { cn } from '@/lib/utils';
@@ -168,7 +171,7 @@ type StepId =
   | 'type' | 'rent' | 'plan'
   | 'tenantPhone' | 'tenantName' | 'nationalId' | 'language' | 'smartphone'
   | 'familySize' | 'work' | 'workLocation'
-  | 'landlord' | 'house' | 'location' | 'address' | 'category' | 'photos' | 'tenantPhoto' | 'gps'
+  | 'landlord' | 'house' | 'location' | 'address' | 'category' | 'photos' | 'tenantPhoto' | 'idFront' | 'idBack' | 'gps'
   | 'lc1' | 'lc1Phone' | 'lc1Name' | 'lc1Village' | 'city' | 'lcLetter' | 'payoutDay'
   | 'days' | 'note'
   | 'review';
@@ -178,24 +181,24 @@ const ALL_STEPS: StepId[] = [
   'type', 'rent', 'plan',
   'tenantPhone', 'tenantName', 'nationalId', 'language', 'smartphone',
   'familySize', 'work', 'workLocation',
-  'landlord', 'house', 'location', 'address', 'category', 'photos', 'tenantPhoto', 'gps',
+  'landlord', 'house', 'location', 'address', 'category', 'photos', 'tenantPhoto', 'idFront', 'idBack', 'gps',
   'lc1', 'lc1Phone', 'lc1Name', 'lc1Village', 'city', 'lcLetter', 'payoutDay', 'review',
 ];
 
 /** Resubmit: what a rejected request can change, the T4 intake, and a note for the reviewer. */
 const RESUBMIT_STEPS: StepId[] = [
   'rent', 'days', 'tenantName', 'tenantPhone', 'nationalId', 'language', 'smartphone',
-  'familySize', 'work', 'workLocation', 'landlord', 'category', 'photos', 'gps', 'lcLetter', 'note', 'review',
+  'familySize', 'work', 'workLocation', 'landlord', 'category', 'photos', 'idFront', 'idBack', 'gps', 'lcLetter', 'note', 'review',
 ];
 /**
  * Renewal: same tenant, house and landlord. The Agent Ops gate still needs the
  * full name, a tenant ID, 3+ house photos, GPS and the LC1 letter; each is
  * prefilled from what is on file and asked only when it is missing.
  */
-const RENEWAL_STEPS: StepId[] = ['tenantName', 'nationalId', 'photos', 'gps', 'lcLetter', 'review'];
+const RENEWAL_STEPS: StepId[] = ['tenantName', 'nationalId', 'photos', 'idFront', 'idBack', 'gps', 'lcLetter', 'review'];
 /** The question that fixes each checklist item. */
 const ITEM_STEP: Partial<Record<T4ItemKey, StepId>> = {
-  plan: 'type', rent: 'rent', tenantPhone: 'tenantPhone', tenantName: 'tenantName', tenantId: 'nationalId',
+  plan: 'type', rent: 'rent', tenantPhone: 'tenantPhone', tenantName: 'tenantName', idFront: 'idFront', idBack: 'idBack',
   familySize: 'familySize', work: 'work', landlord: 'landlord', house: 'category', photos: 'photos',
   tenantPhoto: 'tenantPhoto', gps: 'gps', lc1: 'lc1', lcLetter: 'lcLetter', payoutDay: 'payoutDay', note: 'note',
 };
@@ -302,6 +305,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   ));
   /** The GPS the request already had (resubmit / renewal); a newly captured one is sent with it. */
   const [gpsOnFile, setGpsOnFile] = useState(false);
+  /* DOCS-1 (E75): photos of the National ID front and back (and the LC1 letter) on every request.
+     A slot holds a new photo, or one already stored on the request (file null). */
+  const [idFront, setIdFront] = useState<Photo | null>(null);
+  const [idBack, setIdBack] = useState<Photo | null>(null);
+  /** Documents already stored on the request being resubmitted, or on the plan being renewed. */
+  const [docsOnFile, setDocsOnFile] = useState<Partial<Record<DocKind, StoredDoc>>>({});
   /** The renewal choice and tenant code dialogs are up; the form steps aside. */
   const [renewing, setRenewing] = useState(false);
   const renewalFlow = useRenewalFlow();
@@ -323,6 +332,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     intakeError: string | null;
     lc1AttachError: string | null;
     lc1NoteError: string | null;
+    /** Document photos that were not stored or attached, with the server's message. */
+    docErrors: string[];
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const greeting = useMemo(greetingNow, [open]);
@@ -430,6 +441,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
           if (plan.gps) { setGps({ ...plan.gps, accuracy: 0 }); setGpsOnFile(true); }
           setLcOnFile(plan.lcLetter);
           setLc1PhoneConfirmed(plan.lc1PhoneConfirmed);
+          setDocsOnFile(plan.docs);
+          if (plan.docs.id_front) setIdFront({ file: null, preview: '' });
+          if (plan.docs.id_back) setIdBack({ file: null, preview: '' });
         }
         if (tenant) {
           setTenantOnFile(tenant);
@@ -462,6 +476,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       if (cancelled) return;
       if (t) setTenantOnFile(t);
       if (onFile?.lc1PhoneConfirmed) setLc1PhoneConfirmed(true);
+      if (onFile) {
+        setDocsOnFile(onFile.docs);
+        if (onFile.docs.id_front) setIdFront({ file: null, preview: '' });
+        if (onFile.docs.id_back) setIdBack({ file: null, preview: '' });
+      }
       const d = onFile ? { family_size: onFile.familySize, work_business: onFile.workBusiness, work_location: onFile.workLocation } : null;
       const name = t?.full_name || r.tenant_name || '';
       const phone = t?.phone || r.tenant_phone || '';
@@ -677,7 +696,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'work':
         return workProblem(text);
       case 'lcLetter':
-        return lc1LetterProblem({ hasLetter: !!lcLetter || lcOnFile || lc1PhoneConfirmed, noLetterYet: noLc1Letter, reason: noLc1Reason });
+        // DOCS-1: only a photo of the letter counts; a phone confirmation or a "no letter yet" reason does not.
+        return lcLetter || lcOnFile ? null : 'Add a photo of the stamped LC1 letter 📄';
       case 'days': {
         const n = parseInt(text.replace(/\D/g, ''), 10) || 0;
         return n >= RESUBMIT_DAYS_MIN && n <= RESUBMIT_DAYS_MAX ? null : `Type the number of days, from ${RESUBMIT_DAYS_MIN} to ${RESUBMIT_DAYS_MAX} 📅`;
@@ -728,6 +748,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'tenantPhoto':
         if (!tenantPhoto) return `Take ${tenantNameParts.firstName.trim() || 'the tenant'}’s passport photo first 📸`;
         return faceCheckBlocker(faceCheck);
+      case 'idFront':
+        return idFront ? null : 'Take a photo of the FRONT of the National ID first 🪪';
+      case 'idBack':
+        return idBack ? null : 'Take a photo of the BACK of the National ID first 🪪';
       case 'gps':
         return gps ? null : 'Tap capture while you’re standing at the house 🛰️';
       case 'lc1':
@@ -923,11 +947,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     advance(current);
   };
 
-  const showSent = (id: string, o: T4IntakeOutcome) => {
+  const showSent = (id: string, o: T4IntakeOutcome, docErrors: string[] = []) => {
     hapticSuccess();
     setResult({
       id, existing: true, lcLetterFailed: o.lcLetterFailed, intakeError: o.intakeError,
-      lc1AttachError: o.lc1AttachError, lc1NoteError: o.lc1NoteError,
+      lc1AttachError: o.lc1AttachError, lc1NoteError: o.lc1NoteError, docErrors,
     });
     onSuccess?.(id);
     request?.onDone?.(id);
@@ -961,16 +985,21 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       note,
       photos: housePhotos.map((p) => (p ? (p.file ?? p.preview) : null)),
       extraPhotoUrls: urls.slice(4),
-      lcLetter: lcLetter?.file ?? null,
-      noLc1Reason: !lcLetter && !lcOnFile && noLc1Letter ? noLc1Reason : null,
+      // The LC1 letter goes with the ID photos below, through request_attach_document.
+      lcLetter: null,
+      noLc1Reason: null,
       details: rejected.registration_type === 'renewal'
         ? null
         : { familySize: parseFamilySize(familySize), workBusiness: work, workLocation },
     });
-    setPosting(false);
     // Server errors are shown as they come.
-    if ('message' in res) { setError(res.message); return; }
-    showSent(res.requestId, res);
+    if ('message' in res) { setPosting(false); setError(res.message); return; }
+    // New photos only: the ones on file are already on this request.
+    const docErrors = await attachT4Documents(user.id, rejected.id, {
+      id_front: idFront?.file ?? null, id_back: idBack?.file ?? null, lc1_letter: lcLetter?.file ?? null,
+    });
+    setPosting(false);
+    showSent(res.requestId, res, docErrors);
   };
 
   const postRenewalPlan = async () => {
@@ -1003,8 +1032,14 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       );
       setRentText(String(choice.newRent));
       const photoError = await attachRenewalPhotos(user.id, newId, housePhotos.map((p) => (p ? (p.file ?? p.preview) : null)));
-      const o = await finishRenewalIntake(user.id, newId, lcLetter?.file ?? null, !lcLetter && !lcOnFile && noLc1Letter ? noLc1Reason : null);
-      showSent(newId, { ...o, lcLetterFailed: o.lcLetterFailed, lc1AttachError: o.lc1AttachError ?? (photoError ? `House photos not saved: ${photoError}` : null) });
+      const o = await finishRenewalIntake(user.id, newId, null, null);
+      // The new request gets the ID photos and the LC1 letter: new ones uploaded, or the ones on the previous plan.
+      const docErrors = await attachT4Documents(user.id, newId, {
+        id_front: idFront?.file ?? docsOnFile.id_front,
+        id_back: idBack?.file ?? docsOnFile.id_back,
+        lc1_letter: lcLetter?.file ?? docsOnFile.lc1_letter,
+      });
+      showSent(newId, { ...o, lc1AttachError: o.lc1AttachError ?? (photoError ? `House photos not saved: ${photoError}` : null) }, docErrors);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -1067,15 +1102,19 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       lc1Name,
       lc1Phone,
       lc1Village,
-      lcLetter: lcLetter?.file ?? null,
+      // The LC1 letter goes with the ID photos after the insert, through request_attach_document.
+      lcLetter: null,
       landlordPayoutDay: payoutDay || '1',
       familySize: parseFamilySize(familySize) ?? 0,
       workBusiness: work,
       workLocation,
-      noLc1Reason: !lcLetter && noLc1Letter ? noLc1Reason : null,
+      noLc1Reason: null,
     });
-    setPosting(false);
     if (res.ok) {
+      const docErrors = await attachT4Documents(user.id, res.rentRequestId, {
+        id_front: idFront?.file ?? null, id_back: idBack?.file ?? null, lc1_letter: lcLetter?.file ?? null,
+      });
+      setPosting(false);
       hapticSuccess();
       setResult({
         id: res.rentRequestId,
@@ -1084,11 +1123,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         intakeError: res.intakeError,
         lc1AttachError: res.lc1AttachError,
         lc1NoteError: res.lc1NoteError,
+        docErrors,
       });
       onSuccess?.(res.rentRequestId);
       request?.onDone?.(res.rentRequestId);
       return;
     }
+    setPosting(false);
     const fail = res as Extract<AssistantSubmitResult, { ok: false }>;
     if (fail.raw && promptIfNotVetted(fail.raw, fail.message)) {
       setError(agentNotVettedReason(fail.raw) ?? agentNotVettedReason(fail.message) ?? fail.message);
@@ -1112,9 +1153,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     familySize: familySizeProblem(familySize) === null,
     work: workProblem(work) === null || !!tenantOnFile?.occupation?.trim(),
     // The letter, or the LC1 confirmed by phone. A "no letter yet" reason does not pass the gate.
-    lcLetter: !!lcLetter || lcOnFile || lc1PhoneConfirmed,
+    lcLetter: !!lcLetter || lcOnFile,
     tenantName: isFullName(tenantName),
-    tenantId: mode === 'new' ? ninTyped : hasTenantId(tenantOnFile) || ninTyped,
+    idFront: !!idFront,
+    idBack: !!idBack,
     openRequest: openStatus === null,
     // What this form needs to send.
     plan: !!planType && !!fees,
@@ -1167,6 +1209,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'category': return 'What kind of place is it? 🏠';
       case 'photos': return 'Photo time! 📸 Stand outside the house and take 4 photos: front, back, left and right.';
       case 'tenantPhoto': return `Now a passport photo of ${first}, please 🙂 I’ll check the face is clear.`;
+      case 'idFront': return `Now a clear photo of the FRONT of ${first}’s National ID 🪪 All the writing must be readable.`;
+      case 'idBack': return `And the BACK of ${first}’s National ID 🪪`;
       case 'gps': return 'While you’re standing at the house, capture its GPS location 🛰️';
       case 'lc1': return `Almost there! 🙌 Last person: the LC1 chairperson who knows ${first}. Search by their name or phone 🔎`;
       case 'lc1Phone': return 'Let’s add them 🤝 What’s the chairperson’s phone number?';
@@ -1208,6 +1252,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         ? (housePhotos.some((p) => p?.file) ? '4 house photos taken' : 'House photos on file')
         : housePhotos.some(Boolean) ? `${housePhotos.filter(Boolean).length} of 4 house photos` : '';
       case 'tenantPhoto': return 'Passport photo taken';
+      case 'idFront': return idFront ? (idFront.file ? 'ID front photo taken' : 'ID front photo on file') : '';
+      case 'idBack': return idBack ? (idBack.file ? 'ID back photo taken' : 'ID back photo on file') : '';
       case 'gps': return gps ? (gps.accuracy ? `GPS captured, accurate to ${Math.round(gps.accuracy)} m` : gpsOnFile ? 'GPS on file' : 'GPS from the house listing') : '';
       case 'lc1': return lc1Mode === 'existing' ? lc1Name : lc1Mode === 'new' ? 'Register a new LC1' : '';
       case 'lc1Phone': return lc1Phone;
@@ -1357,6 +1403,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                     </Bubble>
                   </Bot>
                   {result.lcLetterFailed && <Bot><Bubble tone="warn">The LC letter didn’t upload. Add it later from My rent requests.</Bubble></Bot>}
+                  {result.docErrors.map((e) => (
+                    <Bot key={e}><Bubble tone="warn"><b>Not saved:</b> {e}</Bubble></Bot>
+                  ))}
                   {result.lc1NoteError && (
                     <Bot><Bubble tone="warn"><b>LC1 reason not saved:</b> {result.lc1NoteError}</Bubble></Bot>
                   )}
@@ -1614,6 +1663,29 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             </p>
           </div>
         );
+      case 'idFront':
+      case 'idBack': {
+        const side = current === 'idFront' ? 'front' : 'back';
+        const slot = current === 'idFront' ? idFront : idBack;
+        const set = current === 'idFront' ? setIdFront : setIdBack;
+        return (
+          <div className="flex items-center gap-3">
+            <label className={cn('relative flex h-20 w-32 cursor-pointer items-center justify-center overflow-hidden rounded-xl', slot?.file ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}>
+              {slot?.file ? <img src={slot.preview} alt={`National ID ${side}`} className="h-full w-full object-cover" /> : <ImagePlus className="h-6 w-6" />}
+              <input type="file" accept="image/*" capture="environment" aria-label={`National ID ${side} photo`} className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!f) return;
+                  void readPhoto(f).then((p) => { if (p) { set(p); setError(null); } });
+                }} />
+            </label>
+            <p className="text-sm text-muted-foreground">
+              {!slot ? 'Tap to take the photo.' : slot.file ? 'Photo taken. Tap it to retake.' : 'On file. Tap to replace it.'}
+            </p>
+          </div>
+        );
+      }
       case 'gps':
         return (
           <div className="flex flex-wrap items-center gap-2">
@@ -1688,7 +1760,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                   <Row k="House" v={answerOf('category')} />
                   <Row k="House photos" v={answerOf('photos') || 'Missing'} />
                   <Row k="House GPS" v={gps ? 'On file' : 'Missing'} />
-                  <Row k="Tenant ID" v={answerOf('nationalId') || 'Missing'} />
+                  <Row k="ID front photo" v={answerOf('idFront') || 'Missing'} />
+                  <Row k="ID back photo" v={answerOf('idBack') || 'Missing'} />
                   <Row k="LC1 letter" v={answerOf('lcLetter') || 'Missing'} />
                   {rejected?.registration_type !== 'renewal' && <Row k="Household" v={answerOf('familySize') || 'Missing'} />}
                   {rejected?.registration_type !== 'renewal' && <Row k="Work" v={work ? `${work}${workLocation ? ` · ${workLocation}` : ''}` : 'Missing'} />}
@@ -1702,7 +1775,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                   {renewal?.houseLabel && <Row k="House" v={renewal.houseLabel} />}
                   <Row k="House photos" v={answerOf('photos') || 'Missing'} />
                   <Row k="House GPS" v={gps ? 'On file' : 'Missing'} />
-                  <Row k="Tenant ID" v={answerOf('nationalId') || 'Missing'} />
+                  <Row k="ID front photo" v={answerOf('idFront') || 'Missing'} />
+                  <Row k="ID back photo" v={answerOf('idBack') || 'Missing'} />
                   <Row k="LC1 letter" v={answerOf('lcLetter') || 'Missing'} />
                 </>
               ) : (
@@ -1712,6 +1786,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
               <Row k="Landlord" v={`${landlord?.name ?? ''}${landlordStatus === 'unverified' ? ' (verification pending)' : ''}`} />
               <Row k="House" v={`${answerOf('category')} · ${address}`} />
               <Row k="LC1" v={`${lc1Name} · ${lc1Village}`} />
+              <Row k="ID photos" v={idFront && idBack ? 'Front and back taken' : 'Missing'} />
               <Row k="LC1 letter" v={answerOf('lcLetter') || 'Missing'} />
               <Row k="Household" v={answerOf('familySize')} />
               <Row k="Work" v={`${work}${workLocation ? ` · ${workLocation}` : ''}`} />

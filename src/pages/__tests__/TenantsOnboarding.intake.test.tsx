@@ -97,7 +97,7 @@ function renderPage() {
 }
 
 /** Walks steps 1-4; leaves the form on step 5 (landlord and LC1). */
-async function fillToVerification({ housePhotos = 3, nin = 'CM9001234567AB', idPhoto = false } = {}) {
+async function fillToVerification({ housePhotos = 3, nin = 'CM9001234567AB', idFront = true, idBack = true } = {}) {
   renderPage();
   fireEvent.click(await screen.findByRole('button', { name: /Daily income earner/ }));
   await next();
@@ -109,8 +109,18 @@ async function fillToVerification({ housePhotos = 3, nin = 'CM9001234567AB', idP
   if (nin) type('CM9001234567AB', nin);
   type('e.g. Boda rider', 'Boda rider');
   type('e.g. 4', '4');
+  // Step 3 photo boxes, in order: passport, ID front, ID back. Each box's input goes once it holds a photo.
   pickFile(fileInputs()[0]); // passport photo
-  if (idPhoto) pickFile(fileInputs()[1]);
+  await waitFor(() => expect(screen.getByRole('img', { name: 'Passport photo' })).toBeInTheDocument());
+  if (idFront) {
+    pickFile(fileInputs()[0]);
+    await waitFor(() => expect(screen.getByRole('img', { name: 'National ID — front' })).toBeInTheDocument());
+  }
+  if (idBack) {
+    pickFile(fileInputs()[fileInputs().length - 1]);
+    await waitFor(() => expect(screen.getByRole('img', { name: 'National ID — back' })).toBeInTheDocument());
+  }
+  if (!idFront || !idBack) return;
   await next();
   type('e.g. Plot 14, behind Kabalagala market', 'Plot 14, behind Kabalagala market');
   fireEvent.click(screen.getByRole('button', { name: 'Pick village' }));
@@ -121,12 +131,19 @@ async function fillToVerification({ housePhotos = 3, nin = 'CM9001234567AB', idP
   }
 }
 
+/** Step 5: the LC1 letter photo (the last photo box on the step). */
+async function addLcLetter() {
+  pickFile(fileInputs()[fileInputs().length - 1]);
+  await waitFor(() => expect(screen.getByRole('img', { name: 'LC1 introduction letter' })).toBeInTheDocument());
+}
+
 describe('Tenant "Request rent here": Submit stays locked until everything is in', () => {
   it('happy path: creates the request, saves the intake, and shows the end screen', async () => {
     await fillToVerification();
     await next();
     fireEvent.click(screen.getByRole('button', { name: 'Pick landlord' }));
     fireEvent.click(screen.getByRole('button', { name: 'Pick LC1' }));
+    await addLcLetter();
     await next();
 
     // Review: only the declaration is left, so Submit is still locked.
@@ -147,6 +164,11 @@ describe('Tenant "Request rent here": Submit stays locked until everything is in
       gps_lat: 0.3136, gps_lng: 32.5811,
     });
     expect(((submitCall![1] as { body: { house_photos: unknown[] } }).body.house_photos)).toHaveLength(3);
+    // DOCS-1: both sides of the ID and the LC1 letter go to the server.
+    const sent = (submitCall![1] as { body: Record<string, unknown> }).body;
+    expect(sent.id_photo).toEqual(expect.stringMatching(/^data:image\/jpeg/));
+    expect(sent.id_photo_back).toEqual(expect.stringMatching(/^data:image\/jpeg/));
+    expect(sent.lc_letter).toEqual(expect.stringMatching(/^data:image\/jpeg/));
     expect(mocks.rpc).toHaveBeenCalledWith('tenant_save_intake_details', {
       p_request_id: 'req-1', p_family_size: 4, p_work_business: 'Boda rider', p_work_location: null,
       p_lc1_contact: 'Sarah Namuli, 0701000222', p_lc_letter_bucket: null, p_lc_letter_path: null,
@@ -166,13 +188,24 @@ describe('Tenant "Request rent here": Submit stays locked until everything is in
     expect(continueBtn()).toBeDisabled();
   });
 
-  it('no LC1 chairperson and no letter: cannot move on; the LC1 letter alone is enough', async () => {
+  it('DOCS-1: no LC1 letter photo: cannot move on, even with the LC1 chairperson; the letter alone is enough', async () => {
     await fillToVerification();
     await next();
     fireEvent.click(screen.getByRole('button', { name: 'Pick landlord' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pick LC1' }));
     expect(continueBtn()).toBeDisabled();
-    pickFile(fileInputs()[fileInputs().length - 1]); // LC1 letter
+    await addLcLetter();
     await waitFor(() => expect(continueBtn()).toBeEnabled());
+  });
+
+  it('DOCS-1: no photo of the FRONT of the ID: cannot move past "About you"', async () => {
+    await fillToVerification({ idFront: false });
+    expect(continueBtn()).toBeDisabled();
+  });
+
+  it('DOCS-1: no photo of the BACK of the ID: cannot move past "About you"', async () => {
+    await fillToVerification({ idBack: false });
+    expect(continueBtn()).toBeDisabled();
   });
 
   it('the landlord’s phone cannot be the tenant’s', async () => {
@@ -185,9 +218,9 @@ describe('Tenant "Request rent here": Submit stays locked until everything is in
     expect(continueBtn()).toBeDisabled();
   });
 
-  it('a photo of the ID is accepted instead of the NIN', async () => {
-    await fillToVerification({ nin: '', idPhoto: true });
-    // Reaching the house step with no NIN means the ID photo was accepted.
+  it('DOCS-1: the NIN is optional when both ID photos are in', async () => {
+    await fillToVerification({ nin: '' });
+    // Reaching the house step with no NIN means it was not required.
     expect(screen.getByRole('button', { name: 'Pick village' })).toBeInTheDocument();
   });
 
@@ -197,6 +230,7 @@ describe('Tenant "Request rent here": Submit stays locked until everything is in
     await next();
     fireEvent.click(screen.getByRole('button', { name: 'Pick landlord' }));
     fireEvent.click(screen.getByRole('button', { name: 'Pick LC1' }));
+    await addLcLetter();
     await next();
     fireEvent.click(screen.getByRole('checkbox'));
     await waitFor(() => expect(screen.getByRole('button', { name: /Submit rent request/ })).toBeEnabled());
@@ -214,6 +248,7 @@ describe('Tenant "Request rent here": Submit stays locked until everything is in
     await next();
     fireEvent.click(screen.getByRole('button', { name: 'Pick landlord' }));
     fireEvent.click(screen.getByRole('button', { name: 'Pick LC1' }));
+    await addLcLetter();
     await next();
     fireEvent.click(screen.getByRole('checkbox'));
     await waitFor(() => expect(screen.getByRole('button', { name: /Submit rent request/ })).toBeEnabled());
