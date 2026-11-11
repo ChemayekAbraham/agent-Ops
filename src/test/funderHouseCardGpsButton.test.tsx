@@ -1,7 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
+
+// The card's co-support button imports the backend client and reads React Query; no network here.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn(), from: vi.fn() } }));
+
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
+
+const render = (ui: ReactElement) =>
+  rtlRender(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, enabled: false } } })}>{ui}</QueryClientProvider>);
 
 // Agent Care switch OFF (the default): amounts equal the rent, no query client needed.
 vi.mock('@/hooks/useSelfSupportFeePolicy', () => ({
