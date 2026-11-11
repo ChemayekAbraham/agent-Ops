@@ -26,7 +26,7 @@ import {
   buildSchoolSignupLink, buildSignupMessage, toIntlDigits, smartphoneFields,
   readLockedSchool, writeLockedSchool, saveProfile, flushPendingProfiles, readPendingProfiles, markSignupSent,
   saveGateLog, flipGateLogDirection, flushPendingGateLogs, readPendingGateLogs, readLocalGateLogs, writeLocalGateLogs,
-  computeGateMovementSummary, formatEatTime, classLevelsFor, isListedClass,
+  computeGateMovementSummary, formatEatTime, classLevelsFor, isListedClass, showsStream,
   type SchoolRow, type SchoolProfileRow, type SchoolGateLogRow,
 } from '@/lib/welileSchools';
 
@@ -443,8 +443,14 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
             <Field label="Gender"><Chips options={['Female', 'Male']} value={f.gender ?? ''} onChange={(v) => setF((d) => ({ ...d, gender: v }))} /></Field>
             {group === 'pupil' && (
               <div className="grid grid-cols-2 gap-2">
-                <Field label="Class / Grade / Year"><ClassGradeSelect schoolLevel={school.school_level} value={f.class_grade ?? ''} onChange={(v) => setF((d) => ({ ...d, class_grade: v }))} /></Field>
-                <Field label="Stream / Dormitory"><Input value={f.stream ?? ''} onChange={set('stream')} /></Field>
+                <div className={showsStream(f.class_grade, school.school_level) ? '' : 'col-span-2'}>
+                  <Field label="Class / Grade / Year"><ClassGradeSelect schoolLevel={school.school_level} value={f.class_grade ?? ''}
+                    onChange={(v) => setF((d) => ({ ...d, class_grade: v, ...(showsStream(v, school.school_level) ? {} : { stream: null }) }))} /></Field>
+                </div>
+                {/* No streams or dormitories beyond secondary school. */}
+                {showsStream(f.class_grade, school.school_level) && (
+                  <Field label="Stream / Dormitory"><Input value={f.stream ?? ''} onChange={set('stream')} /></Field>
+                )}
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">

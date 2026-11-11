@@ -407,3 +407,15 @@ export function studentCode(profileId: string): string {
   const hex = profileId.replace(/-/g, '').toUpperCase();
   return `WS-${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
 }
+
+const TERTIARY_LEVELS: readonly string[] = ['TVET/Vocational', 'University/Tertiary'];
+
+/**
+ * Streams and dormitories exist up to secondary school only. Decided by the chosen
+ * class; before one is chosen, by the school's level.
+ */
+export function showsStream(classValue: string | null | undefined, schoolLevel?: string | null): boolean {
+  const group = classValue ? CLASS_LEVELS.find((g) => g.classes.some((c) => c.value === classValue)) : undefined;
+  const level = group?.level ?? (classValue ? null : schoolLevel ?? null);
+  return !level || !TERTIARY_LEVELS.includes(level);
+}

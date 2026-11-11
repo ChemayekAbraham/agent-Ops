@@ -5,7 +5,7 @@ import { render, screen } from '@testing-library/react';
 vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 
 import StudentProfileSummary from '@/components/welile-schools/StudentProfileSummary';
-import { parseStudentQr, studentCode, studentQrValue, type SchoolProfileRow } from '@/lib/welileSchools';
+import { parseStudentQr, showsStream, studentCode, studentQrValue, type SchoolProfileRow } from '@/lib/welileSchools';
 
 const ID = '3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90';
 const row: SchoolProfileRow = {
@@ -50,5 +50,27 @@ describe('StudentProfileSummary', () => {
   it('shows the captured photo when there is one', () => {
     render(<StudentProfileSummary row={row} saved photoUrl="blob:photo" school={{ name: 'Migeera SS' }} onNext={() => {}} />);
     expect(screen.getByRole('img', { name: 'Photo of Amina Nakato' })).toHaveAttribute('src', 'blob:photo');
+  });
+});
+
+
+describe('showsStream', () => {
+  it('shows stream / dormitory up to secondary school', () => {
+    expect(showsStream('S2')).toBe(true);
+    expect(showsStream('P5')).toBe(true);
+    expect(showsStream('Baby class')).toBe(true);
+  });
+  it('hides it for vocational and university classes', () => {
+    expect(showsStream('Diploma year 1')).toBe(false);
+    expect(showsStream('Year 3')).toBe(false);
+    expect(showsStream('Postgraduate')).toBe(false);
+  });
+  it('goes by the school level until a class is chosen', () => {
+    expect(showsStream('', 'University/Tertiary')).toBe(false);
+    expect(showsStream(null, 'Secondary/High School')).toBe(true);
+    expect(showsStream('S2', 'University/Tertiary')).toBe(true);
+  });
+  it('keeps it for a free-text class saved before the dropdown', () => {
+    expect(showsStream('senior 2', 'Secondary/High School')).toBe(true);
   });
 });
