@@ -6,6 +6,11 @@ import { supabase } from '@/integrations/supabase/client';
  * run only one of these at a time. Identical in-flight arguments share one
  * request. Callers pass the React Query abort signal so a report that has not
  * started yet is dropped when the user leaves that tab.
+ *
+ * get_platform_cash_summary and get_financial_statement_ledger_sums are here
+ * for the same reason: each scans the ledger for about 20 seconds, and a
+ * retry storm of the two together exhausted the database. The database also
+ * allows only one computation of a given argument set at a time.
  */
 export const HEAVY_FINANCE_REPORTS = [
   'fin_balance_sheet',
@@ -13,6 +18,8 @@ export const HEAVY_FINANCE_REPORTS = [
   'fin_cash_flow',
   'get_statement_of_financial_position',
   'get_statement_of_cash_flows',
+  'get_platform_cash_summary',
+  'get_financial_statement_ledger_sums',
 ] as const;
 
 export type HeavyFinanceReportName = (typeof HEAVY_FINANCE_REPORTS)[number];
@@ -204,13 +211,15 @@ function pump() {
 
 async function callRpc(name: HeavyFinanceReportName, args: Record<string, unknown>): Promise<unknown> {
   // The generated `rpc` type is a generic overload set, so it does not overlap
-  // with the plain call shape used here; go through `unknown` (behaviour is
-  // unchanged: same function, same arguments).
+  // with the plain call shape used here; go through `unknown`. A function with
+  // no arguments is called with no params object, matching supabase.rpc(name).
   const rpc = supabase.rpc as unknown as (
     fn: string,
     params?: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: unknown }>;
-  const { data, error } = await rpc(name, args);
+  const { data, error } = Object.keys(args).length === 0
+    ? await rpc(name)
+    : await rpc(name, args);
   if (error) throw error;
   return data;
 }
