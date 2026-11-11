@@ -82553,6 +82553,18 @@ export type Database = {
         Args: { p_message?: string; p_rent_request_ids: string[] }
         Returns: number
       }
+      cfo_partner_released_today: {
+        Args: never
+        Returns: {
+          agent_name: string
+          allocation_status: string
+          amount: number
+          flags: string[]
+          landlord_name: string
+          plan_label: string
+          rent_request_id: string
+        }[]
+      }
       cfo_payroll_history: {
         Args: never
         Returns: {

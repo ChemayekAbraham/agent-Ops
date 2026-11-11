@@ -49,6 +49,8 @@ import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDr
 
 import { formatDynamic } from '@/lib/currencyFormat';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import type { FunderFundResult } from '@/components/funder-new/FunderNewSelectionPanel';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 import { FunderSavedItemsDialog } from '@/components/funder-new/FunderSavedItemsDialog';
@@ -107,6 +109,7 @@ export default function FunderDashboardNew() {
   const [calculatorOpen, setCalculatorOpen] = useState(false);
   const [howOpen, setHowOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const fundInflight = useRef<{ key: string; task: Promise<FunderFundResult> } | null>(null);
 
 
   // Debounced text search; typing never fires a request per keystroke.
@@ -674,6 +677,88 @@ export default function FunderDashboardNew() {
         walletLoading={wallet.isLoading}
         walletError={wallet.error}
         onRemove={removeSelected}
+        onFund={async (total) => {
+          const ids = selectedItems.map((item) => item.id);
+          if (ids.length === 0) return;
+          const key = [...ids].sort().join(',');
+          if (fundInflight.current?.key === key) return fundInflight.current.task;
+
+          const task = (async (): Promise<FunderFundResult> => {
+            const category = selectedItems[0].category;
+            const landlordNames = selectedItems
+              .map((item) => item.landlordName)
+              .filter((name): name is string => !!name && name.trim().length > 0);
+            const rentRequestIds = category === 'ready' ? ids : [];
+            try {
+              let reference: string | null = null;
+              let releasedToAgent = false;
+              if (category === 'empty') {
+                const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
+                  p_payload: {
+                    partner_name: (profile?.full_name || '').trim(),
+                    whatsapp_number: (profile?.phone || '').trim(),
+                    phone_number: (profile?.phone || '').trim() || null,
+                    email: (profile?.email || user?.email || '').trim() || null,
+                    amount: Number(total || 0),
+                    contribution_type: 'once_off',
+                  },
+                  p_house_ids: ids,
+                });
+                if (error) throw error;
+                const note = ((data ?? {}) as { note?: { id: string } }).note;
+                if (!note) throw new Error('Booking was not created');
+                const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
+                  p_house_ids: ids,
+                  p_idempotency_key: `fund-${note.id}`,
+                });
+                if (fundErr) throw fundErr;
+                reference = note.id;
+              } else {
+                const { error: claimError } = await supabase.rpc('partner_self_claim_plans', {
+                  p_rent_request_ids: ids,
+                });
+                if (claimError) throw claimError;
+                const { data, error } = await supabase.rpc('funder_support_tenant_direct', {
+                  p_rent_request_ids: ids,
+                  p_promised_deposit_date: null,
+                });
+                if (error) throw error;
+                const payload = (data ?? {}) as {
+                  commitment_id?: string;
+                  portfolio_id?: string;
+                  landlord_float_released?: boolean;
+                };
+                reference = payload.commitment_id ?? payload.portfolio_id ?? null;
+                releasedToAgent = payload.landlord_float_released === true;
+              }
+              setSelectedItems([]);
+              setSelectedCategory(null);
+              window.dispatchEvent(new Event('supporter-contribution-changed'));
+              return {
+                submitted: true,
+                reference,
+                releasedToAgent,
+                supportKind: category === 'empty' ? 'house' : 'rent',
+                landlordNames,
+                rentRequestIds,
+              };
+            } catch (err: unknown) {
+              const raw = String((err as { message?: string })?.message || 'Could not submit support');
+              const message = raw.includes('NO_AGENT_ASSIGNED')
+                ? 'This Rent Plan has no assigned agent, so it cannot be funded.'
+                : raw;
+              toast.error(message);
+              throw err;
+            }
+          })();
+
+          fundInflight.current = { key, task };
+          try {
+            return await task;
+          } finally {
+            if (fundInflight.current?.task === task) fundInflight.current = null;
+          }
+        }}
       />
       <FunderNewSelectionBar
         items={selectedItems}

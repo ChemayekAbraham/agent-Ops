@@ -50,6 +50,8 @@ describe('fund chooser', () => {
     renderChooser();
     expect(await screen.findByText(/after this Rent Plan is verified/i)).toBeInTheDocument();
     expect(screen.getByText('Fund this house through Welile')).toBeInTheDocument();
+    expect(screen.getByText(/pays the landlord within 24 hours/i)).toBeInTheDocument();
+    expect(screen.getByText('Fund this house through Welile').closest('button')?.textContent || '').not.toMatch(/\u2014/);
     expect(screen.getByText('Contact Welile Tenant Partnership Support Team')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Send directly/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Take cash/i })).toBeNull();

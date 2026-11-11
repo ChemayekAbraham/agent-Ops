@@ -172,7 +172,7 @@ function ChooserBody({
       <ChoiceButton
         icon={<Wallet className="h-5 w-5" />}
         title="Fund this house through Welile"
-        detail="Continues in Welile. You will see the rent and the 2% Welile Cover before your balance is used."
+        detail="The rent goes straight to the agent's landlord float. The agent pays the landlord within 24 hours. You will see the rent and the 2% Welile Cover before your balance is used."
         onClick={() => { onClose(); onThroughWelile(); }}
       />
       {contactQuery.isLoading && (
