@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { rpc, useReviewSheet } from './reviewApi';
+import { rpc } from './reviewApi';
 import { CALM, FOCUS, LABEL, statusText } from './deskTheme';
-import { DECISION_LABEL, type Stage } from './reviewTypes';
 import { EmptyState, ErrorLine, LoadingRows, Sheet, moneyFull, stackLayout } from './ui';
 import { KindChip, type RequestKind } from './KindChip';
+import { DeskHistory } from './deskHistory';
 
 /**
  * Desk search (E72): `desk_search(p_query, p_desk, p_limit)`.
@@ -52,14 +52,6 @@ export const SEARCH_PLACEHOLDER: Record<SearchDesk, string> = {
 /** The status a request carries while it waits at the COO: the one result that opens the COO's drawer. */
 export const AT_COO = 'partner_ops_approved';
 export const SEARCH_LIMIT = 30;
-const STAGE_WORDS: Record<Stage, string> = {
-  service_centre: 'Service Centre',
-  agent_ops: 'Agent Ops',
-  tenant_ops: 'Tenant Ops',
-  landlord_ops: 'Landlord Ops',
-  partner_ops: 'Partner Ops',
-  coo: 'COO',
-};
 export const SEARCH_DEBOUNCE_MS = 300;
 
 /** A query worth sending: 6+ digits when it is a number, otherwise 2+ characters. */
@@ -223,8 +215,6 @@ export function SearchResults({
 
 /** The read-only view of a request found by search: where it is, who is on it, and what the desks decided. */
 export function RequestView({ row, onClose }: { row: SearchRow; onClose: () => void }) {
-  const sheet = useReviewSheet(row.id);
-  const history = sheet.data?.history ?? [];
   return (
     <Sheet title={`${row.tenant ?? 'Request'} · ${row.short_id}`} onClose={onClose}>
       <div data-request-view style={stackLayout(10)}>
@@ -248,26 +238,8 @@ export function RequestView({ row, onClose }: { row: SearchRow; onClose: () => v
             </>
           )}
         </dl>
-        <h3 className="text-sm font-semibold text-foreground" style={{ margin: 0 }}>
-          What the desks decided
-        </h3>
-        {sheet.isLoading ? (
-          <LoadingRows rows={2} height={20} label="Loading the history" />
-        ) : sheet.error ? (
-          <ErrorLine>{asIs(sheet.error)}</ErrorLine>
-        ) : history.length === 0 ? (
-          <p className={LABEL}>No desk has decided on it yet.</p>
-        ) : (
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none', ...stackLayout(4) }}>
-            {history.map((h, i) => (
-              <li key={`${h.stage}-${h.at}-${i}`} className={LABEL}>
-                <span className="text-foreground">{STAGE_WORDS[h.stage] ?? h.stage}</span>: {DECISION_LABEL[h.decision] ?? h.decision}
-                {h.by ? ` · ${h.by}` : ''}
-                {h.note ? ` — ${h.note}` : ''}
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* E79: what every desk did with it, the calls, and the moves. */}
+        <DeskHistory requestId={row.id} />
         <p className={`text-xs ${statusText.idle}`} style={{ margin: 0 }}>
           Read-only: it is acted on at the desk it is at.
         </p>

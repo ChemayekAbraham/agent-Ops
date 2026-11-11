@@ -9,6 +9,7 @@ import { CallLog } from './CallLog';
 import { asIs, isRecordOnly, needsNote, passMovesOnServer, rejectMovesOnServer, runMove, transferThenPass } from './deskActions';
 import { passBlock } from './passBlock';
 import { IdentityBanner, IdentityPanel } from './identityPhotos';
+import { DeskHistory } from './deskHistory';
 import { answeredCallOnFile, awarenessCallsKey, callTime, stageSince, useAwarenessCalls } from './callOnFile';
 import { toast } from 'sonner';
 import { afterServerPass } from './boardApi';
@@ -265,7 +266,8 @@ export function ReviewDrawer({
   // "Wait on…" is not a review decision: it parks the request here and never calls runMove.
   const [waitMode, setWaitMode] = useState(initial === 'wait');
   // Agent Ops has a second tab for the house photos.
-  const [tab, setTab] = useState<'review' | 'photos'>(initial === 'photos' ? 'photos' : 'review');
+  // Review, Agent Ops' Photos, and (E79) the request's Desk history on every desk.
+  const [tab, setTab] = useState<'review' | 'photos' | 'history'>(initial === 'photos' ? 'photos' : 'review');
   // Opened from a card's "Log a concern…": bring the concerns section into view.
   const concernRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -529,7 +531,7 @@ export function ReviewDrawer({
       Retry the move only
     </button>
   );
-  const showActionBar = phone && !!req && !waitMode && !sendBackTo && (!photosTab || tab === 'review');
+  const showActionBar = phone && !!req && !waitMode && !sendBackTo && tab === 'review';
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Review this request">
@@ -576,9 +578,9 @@ export function ReviewDrawer({
             </p>
           )}
 
-          {req && photosTab && (
+          {req && (
             <div role="tablist" aria-label="Review views" className="flex gap-1.5">
-              {(['review', 'photos'] as const).map((t) => (
+              {(photosTab ? (['review', 'photos', 'history'] as const) : (['review', 'history'] as const)).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -591,17 +593,18 @@ export function ReviewDrawer({
                       : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  {t === 'review' ? 'Review' : 'Photos'}
+                  {t === 'review' ? 'Review' : t === 'photos' ? 'Photos' : 'Desk history'}
                 </button>
               ))}
             </div>
           )}
 
           {req && photosTab && tab === 'photos' && <PhotoReview requestId={requestId} />}
+          {req && tab === 'history' && <DeskHistory requestId={requestId} />}
 
           {req && (
             // Hidden rather than unmounted on the Photos tab, so ticks and notes survive a tab switch.
-            <div className={photosTab && tab !== 'review' ? 'hidden' : 'space-y-5'}>
+            <div className={tab !== 'review' ? 'hidden' : 'space-y-5'}>
               {/* ── E77: who the tenant and the agent are, before anything else ── */}
               <IdentityPanel requestId={requestId} />
 

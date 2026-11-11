@@ -150,8 +150,12 @@ describe('COO desk: every desk, the desk each result is at', () => {
   function serveCoo() {
     serve(() => ({ data: { rows: ROWS, scope: 'every desk' } }), {
       pipeline_coo_board: { data: { counts: {}, can_push: true, rows: [] } },
-      pipeline_review_sheet: {
-        data: { request: {}, checklist: [], history: [{ stage: 'tenant_ops', decision: 'pass', by: 'Tess', note: null, at: '2026-11-10T10:00:00Z' }], score: null, recommendation: null, can_review: false, my_staff_ref: null },
+      request_desk_history: {
+        data: {
+          request: { id: 'id-f', short_id: 'ffff4444', status: 'coo_approved' },
+          desks: [{ desk: 'tenant_ops', round: 0, decision: 'pass', system_said: 'pass', followed_system: true, reason: null, note: null, score: 100, by: 'Tess', staff_id: 'E-1', at: '2026-11-10T10:00:00Z', checks: [] }],
+          calls: [], moves: [], concerns: [], other_actions: [],
+        },
       },
     });
   }
@@ -175,7 +179,9 @@ describe('COO desk: every desk, the desk each result is at', () => {
     expect(view.textContent).toContain('At Funders board');
     expect(view.textContent).toContain('Grace Funder');
     expect(view.textContent).toContain('UGX 500,000');
-    expect(await within(view).findByText(/Pass · Tess/)).toBeTruthy();
+    // What the desks decided: the desk history (E79).
+    await within(view).findByText(/Tess \(E-1\)/);
+    expect((view.querySelector('[data-review="tenant_ops"]') as HTMLElement).textContent).toMatch(/^Pass · Tess \(E-1\)/);
     expect(within(view).queryByRole('button', { name: /Record the review/ })).toBeNull();
   });
 });
