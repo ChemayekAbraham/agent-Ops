@@ -13,6 +13,8 @@ import {
   itemMonthlyReturn,
   readyPlanPlace,
   readyPlanTitle,
+  HOUSE_NOT_CHECKED_TEXT,
+  isUncheckedEmptyHouse,
 } from './utils';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
 import { FundersBoardTag, tagKindFor } from './FundersBoardTag';
@@ -52,6 +54,7 @@ export function FunderNewHouseCard({
   const monthlyReturn = itemMonthlyReturn(category, item, partnerPay);
   const photo = firstPhoto(category, item);
   const coords = itemCoordinates(item, category);
+  const unchecked = isUncheckedEmptyHouse(category, item);
 
   return (
     <article
@@ -63,7 +66,7 @@ export function FunderNewHouseCard({
     >
       <div className="relative aspect-[16/10] w-full bg-muted">
         {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
-        {boardTagsOn ? null : (
+        {boardTagsOn || unchecked ? null : (
           <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -175,6 +178,12 @@ export function FunderNewHouseCard({
               <span className="text-[10px] font-semibold leading-none">Location</span>
             </Button>
           ) : null}
+          {unchecked ? (
+            // Not checked by Welile yet: no Fund button, a plain grey line (as on view-only board cards).
+            <p data-testid="house-not-checked" className="flex min-h-11 min-w-0 flex-1 items-center text-xs text-muted-foreground" style={{ margin: 0 }}>
+              {HOUSE_NOT_CHECKED_TEXT}
+            </p>
+          ) : (
           <Button
             variant="default"
             className={cn(
@@ -188,9 +197,9 @@ export function FunderNewHouseCard({
             aria-pressed={selected}
           >
             {selected ? <Check className="h-4 w-4 text-white" aria-hidden /> : null}
-            {/* Every house on the funder feed is verified (p_verified_only). */}
             {selected ? 'Selected' : 'Fund this House'}
           </Button>
+          )}
 
         </div>
       </div>

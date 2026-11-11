@@ -13,6 +13,7 @@
  *   state=ready|loading|error|empty
  *   loc=granted|prompt|denied
  *   map=fake|real      real = the V3 Google map (live pin read; needs Maps to load)
+ *   unchecked=1        every third empty house has house_listings.verified = false
  *   tags=on|off|board  funders board tags (off = switch off and no preview row);
  *                      board = tags on with the E72b grouped list (fixture board items in all four tags)
  *   demote=1           E59 viewer may demote (funders_board_can_demote() true); fake submit
@@ -130,7 +131,19 @@ export default function FunderV3Harness() {
   const [detail, setDetail] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  const items = useMemo(() => (state === 'empty' ? [] : makeFeed(Math.min(loaded, total))), [loaded, total, state]);
+  const unchecked = params.get('unchecked') === '1';
+  const items = useMemo(() => {
+    if (state === 'empty') return [];
+    const feed = makeFeed(Math.min(loaded, total));
+    // The live feed reads verified houses only (p_verified_only); with unchecked=1,
+    // every third empty house has not been checked by Welile (house_listings.verified = false).
+    let n = 0;
+    return feed.map((entry) => {
+      if (entry.category !== 'empty') return entry;
+      n += 1;
+      return { ...entry, item: { ...entry.item, verified: !(unchecked && n % 3 === 1) } };
+    });
+  }, [loaded, total, state, unchecked]);
   const tagOf = (entry: FeedEntry): BoardTag | null => {
     if (!boardTagsOn) return null;
     return entry.category === 'empty' ? 'empty_house' : 'verified';
