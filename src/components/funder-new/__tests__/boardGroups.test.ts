@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } }));
 
-import { buildBoardGroups, boardHeadline, boardItemMatches, boardSubline } from '../boardGroups';
+import { buildBoardGroups, boardHeadline, boardItemMatches, boardItemToReadyPlan, boardSubline } from '../boardGroups';
 import { tagKindFor } from '../FundersBoardTag';
 import { BOARD_TAG_COLOR, parseBoardItems, type BoardItem } from '@/lib/fundersBoard';
 import type { FunderNewEmptyHouse, FunderNewReadyPlan } from '../types';
@@ -20,7 +20,7 @@ const house = (id: string, km: number | null = null): Entry & { km: number | nul
 });
 const item = (id: string, tag: BoardItem['tag'], over: Partial<BoardItem> = {}): BoardItem => ({
   id, tag, selectable: tag === 'verified', held: false, tenantFirstName: 'Grace', houseCategory: 'Single Room', city: 'Kira',
-  mainPhoto: null, rentAmount: 400000, durationDays: 30, lat: null, lng: null, sortAt: null, ...over,
+  mainPhoto: null, photos: [], rentAmount: 400000, durationDays: 30, dailyRepayment: null, lat: null, lng: null, sortAt: null, ...over,
 });
 const NO_FILTERS = { search: '', location: '', amount: 'all' as const, rentMin: null, rentMax: null };
 const ids = (rows: { kind: string; cardId: string }[]) => rows.map((r) => r.cardId);
@@ -59,6 +59,33 @@ describe('E72b grouped funders list', () => {
       ['board', 'board:held'],
       ['feed', 'ready:p-extra'],
     ]);
+  });
+
+  it("a Verified card follows the server's selectable: a selectable item whose plan has not loaded is still fundable", () => {
+    const verified = buildBoardGroups({ ...base, board: [item('late', 'verified', { mainPhoto: 'a.jpg', lat: 0.3, lng: 32.6 })], ready: [] })[0];
+    expect(verified.rows.map((r) => [r.kind, r.cardId])).toEqual([['feed', 'ready:late']]);
+    const row = verified.rows[0];
+    if (row.kind !== 'feed') throw new Error('expected a fundable row');
+    const built = row.entry.item as FunderNewReadyPlan;
+    expect(built.rent_request_id).toBe('late');
+    expect(built.funding_amount).toBe(400000);
+    expect(built.house_image_urls).toEqual(['a.jpg']);
+    expect([built.request_latitude, built.request_longitude]).toEqual([0.3, 32.6]);
+  });
+
+  it('a Verified item the server marks not selectable is view only even if its plan loaded, unless this viewer holds it', () => {
+    const held = { held: true, selectable: false };
+    const stale = buildBoardGroups({ ...base, board: [item('x', 'verified', held)], ready: [plan('x')] })[0];
+    expect(stale.rows.map((r) => [r.kind, r.cardId])).toEqual([['board', 'board:x']]);
+    const mine = plan('x');
+    (mine.item as FunderNewReadyPlan).held_by = 'me';
+    const own = buildBoardGroups({ ...base, board: [item('x', 'verified', held)], ready: [mine] })[0];
+    expect(own.rows.map((r) => [r.kind, r.cardId])).toEqual([['feed', 'ready:x']]);
+  });
+
+  it('boardItemToReadyPlan keeps every photo the server sent', () => {
+    expect(boardItemToReadyPlan(item('y', 'verified', { mainPhoto: 'a.jpg', photos: ['a.jpg', 'b.jpg'] })).house_image_urls).toEqual(['a.jpg', 'b.jpg']);
+    expect(boardItemToReadyPlan(item('z', 'verified')).house_image_urls).toBeNull();
   });
 
   it('Empty houses: header counts every matching house, cards are the loaded ones', () => {

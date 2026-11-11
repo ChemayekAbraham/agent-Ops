@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { demoteItems, fetchCanDemote } from '@/lib/fundersBoard';
+import { useQueryClient } from '@tanstack/react-query';
+import { demoteItems } from '@/lib/fundersBoard';
+import { useFundersBoardCanDemote } from '@/hooks/useFundersBoardCanDemote';
 import type { FunderV3DemoteApi } from './FunderV3HousesScreen';
 
 /**
@@ -10,13 +11,7 @@ import type { FunderV3DemoteApi } from './FunderV3HousesScreen';
  */
 export function useFunderV3Demote(userId: string | null | undefined): FunderV3DemoteApi | null {
   const queryClient = useQueryClient();
-  const { data: canDemote = false } = useQuery({
-    queryKey: ['funders-board-can-demote', userId],
-    queryFn: fetchCanDemote,
-    enabled: !!userId,
-    staleTime: 5 * 60 * 1000,
-    retry: false,
-  });
+  const canDemote = useFundersBoardCanDemote(userId);
 
   return useMemo<FunderV3DemoteApi | null>(() => {
     if (!canDemote) return null;

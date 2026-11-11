@@ -418,13 +418,20 @@ for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
 const GROUP_ORDER = ['verified', 'booked', 'funded', 'pending_verification', 'empty_house'];
 
 for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
-  test(`${size.width}x${size.height}: groups in order, header totals, view-only cards, one chip per card`, async ({ page }) => {
+  test(`${size.width}x${size.height}: groups in order, no header totals for funders, view-only cards, one chip per card`, async ({ page }) => {
     await page.setViewportSize(size);
     await open(page, 'view=houses&count=24&tags=board');
     const groups = await page.locator('[data-board-group]').evaluateAll((els) => els.map((e) => e.getAttribute('data-board-group')));
     expect(groups).toEqual(GROUP_ORDER);
-    await expect(page.getByTestId('fv3-count')).toHaveText('5 ready to fund · UGX 1,950,000');
-    await expect(page.getByTestId('fv3-count-sub')).toHaveText('3 verified · 2 pending verification');
+    // Funders: the totals are COO/CEO only; the group headers stay.
+    await expect(page.getByRole('heading', { name: 'Houses to fund' }).first()).toBeVisible();
+    await expect(page.getByTestId('fv3-count')).toHaveCount(0);
+    await expect(page.getByTestId('fv3-count-sub')).toHaveCount(0);
+    await expect(page.getByText(/ready to fund ·/)).toHaveCount(0);
+    await expect(page.locator('[data-testid="board-group-head"]')).toHaveCount(GROUP_ORDER.length);
+    // A Verified item the server marks selectable is fundable even before its page of plans loads.
+    await expect(page.locator('article[data-card-id="ready:rq-late"] [data-testid="fv3-fund-button"]')).toHaveText(/Fund this House/);
+    await expect(page.locator('[data-board-group="verified"]').getByText('View only.', { exact: true })).toHaveCount(0);
     // Every card in a group carries that group's tag only (never mixed), and exactly one chip.
     for (const tag of GROUP_ORDER) {
       const chips = await page.locator(`[data-board-group="${tag}"] [data-testid="funders-board-tag"]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-tag')));
@@ -453,6 +460,18 @@ for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
     const card = page.locator('article[data-card-id="board:rq-f1"]');
     await expect(card).toHaveAttribute('data-highlighted', 'true');
     await expect(card).toBeInViewport();
+  });
+}
+
+for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
+  test(`${size.width}x${size.height}: COO/CEO (funders_board_can_demote) see the header totals`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await open(page, 'view=houses&count=24&tags=board&demote=1');
+    await expect(page.getByTestId('fv3-count')).toHaveText('6 ready to fund · UGX 2,600,000');
+    await expect(page.getByTestId('fv3-count-sub')).toHaveText('4 verified · 2 pending verification');
+    await expect(page.locator('[data-testid="board-group-head"]')).toHaveCount(GROUP_ORDER.length);
+    await noHorizontalScroll(page);
+    await page.screenshot({ path: join(SHOTS, `houses-board-coo-${size.width}x${size.height}.png`) });
   });
 }
 

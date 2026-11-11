@@ -11,6 +11,7 @@ import { formatDynamic } from '@/lib/currencyFormat';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useMountedOnce } from '@/hooks/useMountedOnce';
 import { useAuth } from '@/hooks/useAuth';
+import { useFundersBoardCanDemote } from '@/hooks/useFundersBoardCanDemote';
 import { FEATURE_FUNDERS_BOARD_TAGS, useFeaturePreview } from '@/hooks/useFeaturePreview';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
@@ -72,7 +73,7 @@ export interface FunderListingsViewApi {
   clearRadius: () => void;
   /** E72b grouped list (tags on): Verified, Booked, Funded, Pending verification, Empty houses. Null while tags are off. */
   boardGroups: BoardGroup<FeedEntry>[] | null;
-  /** E72b header numbers (tags on). */
+  /** E72b header numbers (tags on, COO/CEO only via funders_board_can_demote; null for funders). */
   boardCounts: BoardItemsCounts | null;
   /** Map pins for the board's rent requests, coloured by tag (tags on). */
   boardPins: BoardPin[];
@@ -410,7 +411,11 @@ export function FunderHouseListingsSection({
     }
     return out;
   }, [boardGroups]);
-  const boardCounts = boardTagsOn ? boardQuery.data?.counts ?? null : null;
+  // The header totals ("16 ready to fund · UGX …", "12 verified · 4 pending
+  // verification") are for COO/CEO only (funders_board_can_demote); funders see
+  // the grouped list and its group headers without them.
+  const canSeeBoardTotals = useFundersBoardCanDemote(user?.id);
+  const boardCounts = boardTagsOn && canSeeBoardTotals ? boardQuery.data?.counts ?? null : null;
 
   useEffect(() => {
     onResultCountChange?.(matchingCount);

@@ -9,8 +9,8 @@ import { FundersBoardTag, tagKindFor } from './FundersBoardTag';
 
 /**
  * E72b view-only card for a rent request on the funders board that cannot be
- * funded here: Booked, Funded, Pending verification, or a Verified one held by
- * a funder. One tag chip, no fund button. Verified cards may carry the demote
+ * funded here: Booked, Funded, Pending verification, or a Verified one the
+ * server marks not selectable (held by a funder). One tag chip, no fund button. Verified cards may carry the demote
  * checkbox for staff who can demote.
  */
 export function FunderBoardItemCard({
@@ -93,8 +93,11 @@ export function FunderBoardItemCard({
           {formatDynamic(item.rentAmount > 0 ? partnerPay(item.rentAmount) : item.rentAmount)}
         </span>
         <p className="text-xs text-muted-foreground" style={{ margin: 0 }} data-testid="board-item-note">
-          {item.tag === 'verified' && item.held
-            ? 'Held by a funder for now — view only.'
+          {/* A Verified card here is never selectable (the list gives those the fundable card), so it never reads plain "View only". */}
+          {item.tag === 'verified'
+            ? item.selectable
+              ? 'Ready to fund.'
+              : 'Held by a funder for now — view only.'
             : item.tag === 'booked'
               ? 'A funder picked this one — view only.'
               : item.tag === 'funded'
