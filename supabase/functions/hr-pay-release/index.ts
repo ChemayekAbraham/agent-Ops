@@ -283,6 +283,32 @@ Deno.serve(async (req) => {
       }, 200);
     }
 
+    // 7b. Salary-advance recoveries withheld in this run, per staff member (CFO 11 Nov 2026). The payslip's net already
+    // excludes them; without these legs the withheld salary never reached the ledger as cost and the advance (A27,
+    // Loans and Advances to Employees) was never reduced.
+    const recoveryByStaff = new Map<string, number>();
+    {
+      const { data: recs, error: recErr } = await adminClient
+        .from('hr_pay_advance_recoveries')
+        .select('advance_id, amount')
+        .eq('run_id', runId);
+      if (recErr) return json({ error: recErr.message }, 500);
+      const advanceIds = Array.from(new Set((recs ?? []).map((r: any) => r.advance_id)));
+      if (advanceIds.length > 0) {
+        const { data: advs, error: advErr } = await adminClient
+          .from('hr_pay_advances')
+          .select('id, staff_id')
+          .in('id', advanceIds);
+        if (advErr) return json({ error: advErr.message }, 500);
+        const staffOf = new Map((advs ?? []).map((a: any) => [a.id, a.staff_id]));
+        for (const r of recs ?? []) {
+          const staffId = staffOf.get((r as any).advance_id);
+          const amt = Number((r as any).amount ?? 0);
+          if (staffId && amt > 0) recoveryByStaff.set(staffId, (recoveryByStaff.get(staffId) ?? 0) + amt);
+        }
+      }
+    }
+
     // 8. Post each payslip sequentially
     let posted = 0, skipped = 0, failed = 0, alreadyHandled = 0, retried = 0, totalPosted = 0;
 
@@ -389,6 +415,29 @@ Deno.serve(async (req) => {
           recipient_type: 'user',
         },
       ];
+      // g2. salary withheld to recover an advance: still salary cost (X1); reduces the advance owed (A27).
+      // Platform legs only — the wallet credit above is unchanged.
+      const recovered = recoveryByStaff.get(p.staff_id) ?? 0;
+      if (recovered > 0) {
+        entries.push(
+          {
+            user_id: employeeUserId, ledger_scope: 'platform', direction: 'cash_out',
+            amount: recovered, category: 'salary_advance_recovery_expense',
+            source_table: 'hr_pay_payslips',
+            description: 'Salary withheld to recover an advance, ' + periodCode,
+            currency: 'UGX', reference_id: refId, transaction_date: payTxDate,
+            recipient_type: 'user',
+          },
+          {
+            user_id: employeeUserId, ledger_scope: 'platform', direction: 'cash_in',
+            amount: recovered, category: 'salary_advance_recovered',
+            source_table: 'hr_pay_payslips',
+            description: 'Salary advance recovered from the ' + periodCode + ' salary',
+            currency: 'UGX', reference_id: refId, transaction_date: payTxDate,
+            recipient_type: 'user',
+          },
+        );
+      }
 
       // h. post
       const { error: rpcErr } = await adminClient.rpc('create_ledger_transaction', { entries });
