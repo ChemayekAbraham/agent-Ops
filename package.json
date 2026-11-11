@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "predev": "node scripts/run-optional.mjs node --import tsx scripts/generate-sitemap.ts",
-    "build": "node scripts/run-guards.mjs && node scripts/run-with-heap.mjs vite build && node scripts/verify-dist.mjs",
+    "build": "node scripts/run-guards.mjs && node scripts/run-optional.mjs node --import tsx scripts/generate-sitemap.ts && node scripts/run-with-heap.mjs vite build && node scripts/verify-dist.mjs",
     "build:diagnostics": "node scripts/build-logger.mjs --fresh --stage diagnostics -- \"node scripts/run-optional.mjs node --import tsx scripts/generate-sitemap.ts && node scripts/run-with-heap.mjs vite build && node scripts/run-optional.mjs node scripts/run-with-heap.mjs node scripts/prerender-houses.mjs && node scripts/verify-dist.mjs && node scripts/run-optional.mjs node scripts/publish-diagnostics.mjs\"",
     "build:dev": "node scripts/run-with-heap.mjs vite build --mode development",
     "lint": "eslint .",
