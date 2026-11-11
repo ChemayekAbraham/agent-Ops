@@ -371,10 +371,6 @@ export function FunderPreviewHomeSheet({
                 </dd>
               </div>
             </dl>
-            <AgentCareNote
-              kind={entry.category === 'empty' ? 'house' : 'tenant'}
-              rent={itemAmount(entry.category, entry.item)}
-            />
 
             <ul aria-label="Why you can trust this home" className="space-y-2.5">
               {trustRows(entry.item, entry.category).map(({ icon: Icon, text }) => (
@@ -386,6 +382,10 @@ export function FunderPreviewHomeSheet({
                 </li>
               ))}
             </ul>
+            <AgentCareNote
+              kind={entry.category === 'empty' ? 'house' : 'tenant'}
+              rent={itemAmount(entry.category, entry.item)}
+            />
           </div>
         </div>
 
