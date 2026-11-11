@@ -3,6 +3,10 @@
  * Mirrors the paper receipt book (Welile header, No., RECEIPT box, dotted lines, boxed Ugx amount, stamp, signature lines).
  * Display only: a copy is evidence of money already in the system; nothing here posts or moves money.
  * Pure black on white and grey, so it prints cleanly on a black-and-white printer or photocopier.
+ *
+ * Money out is built from the SAME data the public receipt page loads (get_payout_receipt_by_token), by copyFromPayoutReceipt in
+ * payoutReceiptCopy.ts, so the recipient's copy, the merchant agent's copy and the company's archive copy are one document.
+ * It never carries the merchant's commission (see receiptContentPolicy).
  */
 import { format } from 'date-fns';
 import { PAYOUT_RECEIPT_BASE_URL, type ArchiveRow } from '@/hooks/useReceiptArchive';
@@ -10,23 +14,16 @@ import { METHOD_LABEL, amountInWords, type PartnerReceiptRow } from '@/lib/partn
 
 export type ReceiptCopyStatus = 'issued' | 'voided' | 'corrected';
 
+/** One dotted line of the receipt: a label, then the value sitting on the line. Five lines fit the paper layout. */
+export interface ReceiptCopyLine { label: string; value: string }
+
 export interface ReceiptCopyData {
   direction: 'in' | 'out';
-  /** "4300" for a digital partner receipt, "RCPT-AB12CD34" for a payout receipt. */
+  /** "4300" for a digital partner receipt, "WD261111-6EFB5B" or "RCPT-AB12CD34" for a payout receipt. */
   numberLabel: string;
   dateLabel: string;
-  /** "Received with thanks from" for money in, "Paid to" for money out. */
-  partyLabel: string;
-  partyName: string;
-  phone: string | null;
+  lines: ReceiptCopyLine[];
   amount: number;
-  amountWords: string;
-  byLabel: string;
-  byValue: string;
-  /** Extra fields printed on the same line as "By": Dated and Drawn on for money in, Reference for money out. */
-  extras: { label: string; value: string }[];
-  branch: string;
-  purpose: string;
   /** "10 NOV 2026", printed inside the stamp. */
   stampDate: string;
   /** Typed under "Authorised Signatory". Never a drawn signature. */
@@ -59,20 +56,23 @@ export function reprintNote(by: string | null, now = new Date()): string {
 
 export function copyFromPartnerRow(r: PartnerReceiptRow, replacedByNo: number | null, reprint: string | null): ReceiptCopyData {
   const isInstrument = r.payment_method === 'cheque' || r.payment_method === 'bank_draft';
+  const by = [
+    `${methodLabel(r.payment_method)}${isInstrument && r.instrument_no ? ` no. ${r.instrument_no}` : ''}`,
+    `Dated: ${longDate(r.received_on)}`,
+    `Drawn on: ${r.drawn_on || '-'}`,
+  ].join('     ');
   return {
     direction: 'in',
     numberLabel: String(r.receipt_no),
     dateLabel: longDate(r.received_on),
-    partyLabel: 'Received with thanks from',
-    partyName: r.received_from,
-    phone: r.payer_phone,
+    lines: [
+      { label: 'Received with thanks from:', value: r.received_from },
+      { label: 'A sum of Shillings:', value: amountInWords(r.amount) },
+      { label: 'By Cash/Cheque/Draft no:', value: by },
+      { label: 'Branch:', value: r.branch },
+      { label: 'Purpose:', value: r.purpose },
+    ],
     amount: r.amount,
-    amountWords: amountInWords(r.amount),
-    byLabel: 'By Cash/Cheque/Draft no:',
-    byValue: `${methodLabel(r.payment_method)}${isInstrument && r.instrument_no ? ` no. ${r.instrument_no}` : ''}`,
-    extras: [{ label: 'Dated', value: longDate(r.received_on) }, { label: 'Drawn on', value: r.drawn_on ?? '' }],
-    branch: r.branch,
-    purpose: r.purpose,
     stampDate: format(new Date(`${r.received_on}T00:00:00`), 'dd MMM yyyy').toUpperCase(),
     signatory: r.issued_by_name,
     clientSignatureLabel: 'Signature of Client',
@@ -87,22 +87,21 @@ export function copyFromPartnerRow(r: PartnerReceiptRow, replacedByNo: number | 
   };
 }
 
+/** Fallback for a payout row when the full receipt cannot be loaded: only what the archive list itself carries. */
 export function copyFromPayoutRow(r: ArchiveRow, reference: string | null, reprint: string | null): ReceiptCopyData {
   const token = r.link_token ?? '';
   return {
     direction: 'out',
     numberLabel: r.receipt_ref,
     dateLabel: longDate(r.event_at),
-    partyLabel: 'Paid to',
-    partyName: r.client_name ?? '',
-    phone: r.client_phone,
+    lines: [
+      { label: 'Paid to:', value: r.client_name ?? '' },
+      { label: 'A sum of Shillings:', value: amountInWords(r.amount) },
+      { label: 'Paid by:', value: `${methodLabel(r.method)}${r.client_phone ? `, ${prettyPhone(r.client_phone)}` : ''}` },
+      { label: 'Purpose:', value: r.purpose },
+      { label: 'Reference:', value: reference ?? '' },
+    ],
     amount: r.amount,
-    amountWords: amountInWords(r.amount),
-    byLabel: 'Paid by:',
-    byValue: methodLabel(r.method),
-    extras: reference ? [{ label: 'Reference', value: reference }] : [],
-    branch: 'Entebbe',
-    purpose: r.purpose,
     stampDate: format(new Date(r.event_at), 'dd MMM yyyy').toUpperCase(),
     signatory: null,
     clientSignatureLabel: "Recipient's signature",
@@ -118,6 +117,44 @@ export function copyFromPayoutRow(r: ArchiveRow, reference: string | null, repri
 
 const GREY = 110;
 
+/** The Welile wordmark on the paper receipts is set in Chewy. The app already loads Google Fonts, so Chewy is loaded the same way. */
+export const WORDMARK_FONT = "'Chewy', 'Arial Rounded MT Bold', Helvetica, Arial, sans-serif";
+const CHEWY_CSS = 'https://fonts.googleapis.com/css2?family=Chewy&display=swap';
+
+/** Adds the Chewy stylesheet once and waits for the font. Resolves false (never throws) when it cannot load. */
+export async function ensureChewy(): Promise<boolean> {
+  if (typeof document === 'undefined') return false;
+  try {
+    if (!document.querySelector('link[data-welile-chewy]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet'; link.href = CHEWY_CSS; link.setAttribute('data-welile-chewy', '1');
+      document.head.appendChild(link);
+    }
+    await document.fonts.load('100px Chewy', 'Welile');
+    return document.fonts.check('100px Chewy');
+  } catch {
+    return false;
+  }
+}
+
+/** "Welile" drawn in Chewy as a PNG (black on transparent), for the PDF. Null when Chewy is unavailable. */
+async function wordmarkPng(): Promise<{ url: string; ratio: number } | null> {
+  if (!(await ensureChewy())) return null;
+  const size = 220;
+  const probe = document.createElement('canvas').getContext('2d');
+  if (!probe) return null;
+  probe.font = `${size}px Chewy`;
+  const w = Math.ceil(probe.measureText('Welile').width) + 8;
+  const h = Math.ceil(size * 1.25);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.font = `${size}px Chewy`; ctx.fillStyle = '#000000'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('Welile', 4, Math.round(size * 0.95));
+  return { url: canvas.toDataURL('image/png'), ratio: w / h };
+}
+
 /** Builds the receipt copy PDF: A5 landscape, the size of one receipt in the paper book (two per A4 sheet). */
 export async function buildReceiptCopyPdf(d: ReceiptCopyData) {
   const [{ jsPDF }, QRCode] = await Promise.all([import('jspdf'), import('qrcode')]);
@@ -129,9 +166,16 @@ export async function buildReceiptCopyPdf(d: ReceiptCopyData) {
   doc.setTextColor(0, 0, 0); doc.setDrawColor(0, 0, 0);
 
   // Header
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(28); doc.text('Welile', M, 23);
-  doc.setFontSize(7); doc.text('TM', M + 41, 15);
-  doc.setFontSize(7); doc.text('WELILE TECHNOLOGIES (U) LIMITED', W - M, 12, { align: 'right' });
+  const mark = await wordmarkPng();
+  if (mark) {
+    const mh = 17; const mw = mh * mark.ratio;
+    doc.addImage(mark.url, 'PNG', M, 8.5, mw, mh);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(5); doc.text('TM', M + mw + 0.5, 12);
+  } else {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(28); doc.text('Welile', M, 23);
+    doc.setFontSize(5); doc.text('TM', M + 41, 15);
+  }
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.text('WELILE TECHNOLOGIES (U) LIMITED', W - M, 12, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   doc.text('P.O Box 167564, Kampala - Uganda', W - M, 16, { align: 'right' });
   doc.text('Email: info@welile.com', W - M, 20, { align: 'right' });
@@ -144,25 +188,20 @@ export async function buildReceiptCopyPdf(d: ReceiptCopyData) {
   doc.setLineWidth(0.6); doc.rect(W / 2 - 20, 31.5, 40, 9.5);
   doc.setFontSize(13); doc.text('RECEIPT', W / 2, 38.2, { align: 'center' });
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-  doc.text('Date:', W - M - 38, 38); doc.setFont('helvetica', 'bold'); doc.text(d.dateLabel, W - M, 38, { align: 'right' });
+  doc.text('Date:', W - M - 44, 38); doc.setFont('helvetica', 'bold'); doc.text(d.dateLabel, W - M, 38, { align: 'right' });
 
   // Dotted lines: label, then the value sitting on a dotted underline
   let y = 51;
-  const line = (label: string, value: string) => {
+  for (const l of d.lines) {
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-    doc.text(label, M, y);
-    const x = M + doc.getTextWidth(label) + 2;
+    doc.text(l.label, M, y);
+    const x = M + doc.getTextWidth(l.label) + 2;
     doc.setLineWidth(0.2); doc.setLineDashPattern([0.6, 0.8], 0); doc.line(x, y + 1, W - M, y + 1); doc.setLineDashPattern([], 0);
     doc.setFont('helvetica', 'bold');
-    const wrapped = doc.splitTextToSize(value || '', W - M - x - 2) as string[];
+    const wrapped = doc.splitTextToSize(l.value || '', W - M - x - 2) as string[];
     doc.text(wrapped[0] ?? '', x + 1.5, y - 0.4);
     y += 9;
-  };
-  line(`${d.partyLabel}:`, d.partyName);
-  line('A sum of Shillings:', d.amountWords);
-  line(d.byLabel, [d.byValue, ...d.extras.map((e) => `${e.label}: ${e.value || '-'}`)].join('     '));
-  line('Branch:', d.branch);
-  line('Purpose:', d.purpose);
+  }
 
   // Boxed amount
   const boxY = y + 3;

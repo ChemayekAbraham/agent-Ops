@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import QRCode from 'qrcode';
-import type { ReceiptCopyData } from '@/lib/receiptCopy';
+import { WORDMARK_FONT, ensureChewy, type ReceiptCopyData } from '@/lib/receiptCopy';
 
 /**
  * On-screen black-and-white receipt copy. Same layout as the paper receipt book and as the PDF built by buildReceiptCopyPdf.
@@ -39,6 +39,10 @@ export function ReceiptCopy({ data }: { data: ReceiptCopyData }) {
     return () => ro.disconnect();
   }, []);
 
+  // The wordmark is set in Chewy. The copy shows in the fallback face until the font arrives.
+  const [, setFontReady] = useState(false);
+  useEffect(() => { void ensureChewy().then(setFontReady); }, []);
+
   useEffect(() => {
     let live = true;
     QRCode.toDataURL(data.qrText, { margin: 0, width: 240, color: { dark: '#000000', light: '#ffffff' } })
@@ -46,8 +50,6 @@ export function ReceiptCopy({ data }: { data: ReceiptCopyData }) {
       .catch(() => { if (live) setQr(null); });
     return () => { live = false; };
   }, [data.qrText]);
-
-  const by = [data.byValue, ...data.extras.map((e) => `${e.label}: ${e.value || '-'}`)].join('     ');
 
   return (
     <div ref={wrap} style={{ width: '100%', height: BASE_H * scale }} role="img" aria-label={`Receipt ${data.numberLabel} for UGX ${Math.round(data.amount).toLocaleString('en-US')}`}>
@@ -58,7 +60,7 @@ export function ReceiptCopy({ data }: { data: ReceiptCopyData }) {
       }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ fontSize: 66, fontWeight: 900, letterSpacing: -2, lineHeight: 1 }}>Welile<sup style={{ fontSize: 14, fontWeight: 700, marginLeft: 2 }}>TM</sup></div>
+          <div style={{ fontFamily: WORDMARK_FONT, fontSize: 72, fontWeight: 400, letterSpacing: 0, lineHeight: 1 }}>Welile<sup style={{ fontFamily: 'Helvetica, Arial, sans-serif', fontSize: 12, fontWeight: 700, marginLeft: 2 }}>TM</sup></div>
           <div style={{ textAlign: 'right', fontSize: 13, lineHeight: '17px' }}>
             <div style={{ fontWeight: 700 }}>WELILE TECHNOLOGIES (U) LIMITED</div>
             <div>P.O Box 167564, Kampala - Uganda</div>
@@ -75,11 +77,7 @@ export function ReceiptCopy({ data }: { data: ReceiptCopyData }) {
           <div style={{ fontSize: 19, minWidth: 220, textAlign: 'right' }}>Date: <b>{data.dateLabel}</b></div>
         </div>
 
-        <Line label={`${data.partyLabel}:`}>{data.partyName}</Line>
-        <Line label="A sum of Shillings:">{data.amountWords}</Line>
-        <Line label={data.byLabel}>{by}</Line>
-        <Line label="Branch:">{data.branch}</Line>
-        <Line label="Purpose:">{data.purpose}</Line>
+        {data.lines.map((l) => <Line key={l.label} label={l.label}>{l.value}</Line>)}
 
         {/* Amount, stamp, signatory */}
         <div style={{ position: 'absolute', left: 42, right: 42, top: 372, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

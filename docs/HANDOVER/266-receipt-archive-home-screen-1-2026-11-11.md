@@ -35,6 +35,16 @@ No migration. The row's Open-link button (which sent money-out rows to the old c
 - Every copy printed or downloaded carries **"Reprint printed <date time> by <name>. Not the original."** Print opens the PDF in a new tab with the print dialog ready.
 - QR: money out links to the existing public receipt page. Money in carries the receipt code and verify code as text, because **no public verify page exists for partner receipts yet**.
 
+## One payout receipt everywhere (2026-11-11)
+Josh found the recipient's copy (the purple page at `welileapp.com/r/<token>`) looked different from what the company held in the archive, and asked for the recipient's page to look like the paper receipt, with the Welile wordmark in the **Chewy** font.
+- **The public page, its PDF, the merchant agent's PDF and the archive copy are now one document**: the black-and-white paper-book receipt. `src/lib/payoutReceiptCopy.ts` (`copyFromPayoutReceipt`) builds it from the same RPC the public page already used (`get_payout_receipt_by_token`), so the registered name, provider, merchant agent and branch, WD reference and TID are all on it. The archive drawer loads that same RPC for payouts, so the company's copy and the recipient's cannot differ.
+- `src/pages/PayoutReceipt.tsx` now renders `ReceiptCopy` instead of the purple card. Same RPCs, loading/error/"not paid yet" states, `?c=` checksum check ("Authenticity verified") and QR value as before. On a phone the landscape receipt shrinks, so the same facts are repeated underneath at a readable size.
+- `src/lib/payoutReceiptPdf.ts` keeps its exports; `downloadPayoutReceiptPdf` now delegates to the shared builder (also used by the merchant agent's `PayoutReceiptHistory`, which therefore changes too). The old coloured PDF drawing code is gone.
+- **Commission is never printed.** `assertReceiptContent('customer', false)` is still called, the copy has no commission line, and `src/test/payoutReceiptCopy.test.ts` asserts the commission amount never appears in the copy.
+- **Chewy:** loaded from Google Fonts (already used by the app; `index.html` loads other Google fonts, and the welcome page uses Chewy). The PDF draws "Welile" in Chewy onto a canvas and embeds it as an image; if Chewy cannot load, it falls back to bold text.
+- The printed verify code on a payout copy is the same checksum the QR link carries (`c=`), so a scan and the printed code agree.
+- Not browser-checked: the public page and the PDFs were not seen rendered. Unit tests cover the data and that the PDF builds.
+
 ## Rules kept
 Read-only: nothing writes to wallets or `general_ledger`. Copy uses "Returns payout", not ROI.
 
