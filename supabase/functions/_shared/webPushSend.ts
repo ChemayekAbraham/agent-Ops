@@ -38,7 +38,12 @@ export interface PushSendResult {
   ok: boolean;
   /** Endpoint is permanently gone (404/410) -- the caller should delete the row. */
   gone: boolean;
+  /** Push service says the subscription was made with another VAPID key (e.g. before the 2026-10-29 rotation). */
+  keyMismatch: boolean;
+  status: number;
 }
+
+const KEY_MISMATCH_RE = /do(?:es)? not correspond|VapidPkHashMismatch|mismatch/i;
 
 function base64urlEncode(data: Uint8Array | string): string {
   const str = typeof data === "string" ? data : String.fromCharCode(...data);
@@ -224,17 +229,26 @@ export async function sendPushToSubscription(
     });
 
     if (!response.ok) {
-      console.error(`[webPushSend] Push failed for ${subscription.endpoint}: ${response.status}`);
-      // Only 404/410 mean the endpoint is permanently gone (unsubscribed /
-      // expired). Every other status (401, 429, 5xx, timeouts) is transient --
-      // keep the subscription so we don't wipe valid devices on a bad send.
-      return { ok: false, gone: response.status === 404 || response.status === 410 };
+      const status = response.status;
+      let body = "";
+      try {
+        body = (await response.text()).slice(0, 300);
+      } catch {
+        body = "";
+      }
+      console.error(`[webPushSend] Push failed (${status}) host=${endpoint.host}`, body);
+      // 404/410: endpoint permanently gone. 400/401/403 with a key-mismatch body:
+      // subscription made with an old VAPID key, can never succeed. Everything
+      // else is transient and the subscription is kept.
+      const gone = status === 404 || status === 410;
+      const keyMismatch = !gone && (status === 400 || status === 401 || status === 403) && KEY_MISMATCH_RE.test(body);
+      return { ok: false, gone, keyMismatch, status };
     }
 
-    return { ok: true, gone: false };
+    return { ok: true, gone: false, keyMismatch: false, status: response.status };
   } catch (error) {
     console.error("[webPushSend] Error sending push:", error);
-    return { ok: false, gone: false };
+    return { ok: false, gone: false, keyMismatch: false, status: 0 };
   }
 }
 
@@ -250,4 +264,45 @@ export async function cleanupGoneSubscription(admin: any, endpoint: string): Pro
   } catch (err) {
     console.error("[webPushSend] cleanupGoneSubscription failed:", err);
   }
+}
+
+/**
+ * Deletes dead subscriptions after one batch of sends. Gone (404/410) rows are
+ * always removed; key-mismatch rows only when at least one other send in the
+ * same batch succeeded, which proves the current VAPID key works, so a bad
+ * VAPID secret can never wipe every device. Deletes in chunks of 50.
+ */
+export async function removeDeadSubscriptions(
+  admin: any,
+  results: Array<{ endpoint: string; result: PushSendResult | null }>,
+  tag: string,
+): Promise<number> {
+  const anyOk = results.some((r) => r.result?.ok);
+  const dead = results
+    .filter((r) => r.result && (r.result.gone || (anyOk && r.result.keyMismatch)))
+    .map((r) => r.endpoint);
+  let removed = 0;
+  for (let i = 0; i < dead.length; i += 50) {
+    const chunk = dead.slice(i, i + 50);
+    try {
+      const { error } = await admin.from("push_subscriptions").delete().in("endpoint", chunk);
+      if (error) console.error(`[${tag}] dead subscription delete failed:`, error);
+      else removed += chunk.length;
+    } catch (err) {
+      console.error(`[${tag}] dead subscription delete failed:`, err);
+    }
+  }
+  if (removed > 0) console.log(`[${tag}] removed ${removed} dead subscriptions`);
+  return removed;
+}
+
+/** Pairs Promise.allSettled push results with their subscription endpoints. */
+export function settledPushResults(
+  subs: Array<{ endpoint: string }>,
+  settled: PromiseSettledResult<PushSendResult>[],
+): Array<{ endpoint: string; result: PushSendResult | null }> {
+  return subs.map((s, i) => ({
+    endpoint: s.endpoint,
+    result: settled[i]?.status === "fulfilled" ? (settled[i] as PromiseFulfilledResult<PushSendResult>).value : null,
+  }));
 }

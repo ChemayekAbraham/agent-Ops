@@ -10,6 +10,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // Fire-and-forget from the client: it must never block or fail rent submission.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -223,7 +224,7 @@ Deno.serve(async (req) => {
     );
 
     const token = authHeader.replace(/^Bearer\s+/i, "");
-    const { data: { user: caller }, error: authErr } = await adminClient.auth.getUser(token);
+    const { data: { user: caller }, error: authErr } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
     if (authErr || !caller) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },

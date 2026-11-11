@@ -474,3 +474,27 @@ test("E72b: with the switch off the list is today's (no groups)", async ({ page 
   await expect(page.locator('[data-board-group]')).toHaveCount(0);
   await expect(page.getByTestId('fv3-count')).toHaveText('24 of 2,534');
 });
+
+// ---- Empty houses Welile has not checked (house_listings.verified = false) ----
+
+for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
+  test(`${size.width}x${size.height}: unchecked empty houses have no Fund button and no action line`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await open(page, 'view=houses&count=24&unchecked=1');
+    const unchecked = page.locator('[data-testid="fv3-card"][data-unchecked="true"]');
+    expect(await unchecked.count()).toBeGreaterThan(2);
+    for (let i = 0; i < Math.min(3, await unchecked.count()); i += 1) {
+      const card = unchecked.nth(i);
+      await expect(card.getByTestId('fv3-fund-button')).toHaveCount(0);
+      await expect(card.getByText(/not yet checked/i)).toHaveCount(0);
+      await expect(card.getByText(/Details/)).toHaveCount(1);
+    }
+    // Verified empty houses keep "Fund this House".
+    const verifiedEmpty = page.locator('[data-card-id^="empty:"]:not([data-unchecked="true"])');
+    await expect(verifiedEmpty.first().getByTestId('fv3-fund-button')).toHaveText(/Fund this House/);
+    // "Pending verification" never appears on an empty house.
+    await expect(page.locator('[data-card-id^="empty:"]').getByText(/Pending verification/i)).toHaveCount(0);
+    await unchecked.first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, `houses-unchecked-${size.width}x${size.height}.png`) });
+  });
+}

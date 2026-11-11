@@ -10,6 +10,7 @@ import { learnDepositNumber, toLast9, learnDepositName } from "../_shared/deposi
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
 import { isPartnerReturnCredit } from "../_shared/returnCycleGuard.ts";
 import { customerMoneyFloatPlatformLegs, isCustomerMoneyFloatDeposit, reverseCustomerMoneyLegs } from "../_shared/depositBooking.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -182,7 +183,7 @@ Deno.serve(async (req) => {
       if (guardBlock) return guardBlock;
     } else {
       // Use admin client to verify the JWT token
-      const { data: { user: authedUser }, error: authError } = await adminClient.auth.getUser(token);
+      const { data: { user: authedUser }, error: authError } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
       if (authError || !authedUser) {
         console.error("Auth verification failed:", authError?.message || "No user");
         return new Response(JSON.stringify({ error: "Unauthorized" }), {

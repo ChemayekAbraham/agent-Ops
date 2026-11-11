@@ -1,6 +1,7 @@
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,7 +72,7 @@ Deno.serve(async (req) => {
       });
     }
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
+    const { data: { user }, error: authError } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -1,4 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// These are pure-rule tests. The Supabase client is created at import time and needs a
+// project URL, so stub it: the suite then loads on a machine without one, and nothing here
+// reaches the database.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 import { Stethoscope } from 'lucide-react';
 import { buildMedicineSignupLink, medicineSmartphoneFields, generateReceiptNumber, computeMedicalGateSummary, computeMedicalTxSummary, type MedicalGateLogRow, type MedicalTransactionRow } from '@/lib/welileMedicine';
 import { computeMedicineKpis } from '@/components/executive/agent-ops-v2/WelileMedicineOps';

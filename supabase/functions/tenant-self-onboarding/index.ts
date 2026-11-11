@@ -23,6 +23,7 @@ import {
   confirmDeclarationConsent,
   linkBorrowerProfile,
 } from "../_shared/nationalIdDeclaration.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,7 +106,7 @@ Deno.serve(async (req) => {
 
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     if (!token) return err("Sign in to continue", 401);
-    const { data: authData, error: authErr } = await admin.auth.getUser(token);
+    const { data: authData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authErr || !authData?.user) return err("Sign in to continue", 401);
     const userId = authData.user.id;
 
@@ -204,13 +205,19 @@ Deno.serve(async (req) => {
     // to its recorded fingerprint + verdict. Reference data only.
     const tenant_photo_sha256 = typeof body.tenant_photo_sha256 === "string" ? body.tenant_photo_sha256 : null;
 
+    // DOCS-1: photos of the National ID front and back, and of the LC1 letter, are all required.
     const id_photo = typeof body.id_photo === "string" ? body.id_photo : null;
+    const id_photo_back = typeof body.id_photo_back === "string" ? body.id_photo_back : null;
     const lc_letter = typeof body.lc_letter === "string" ? body.lc_letter : null;
     const tenant_note = String(body.tenant_note || "").trim().slice(0, 1000);
 
     if (full_name.split(/\s+/).filter(Boolean).length < 2) return err("Enter your first and last name");
     if (!phone) return err("Enter a valid phone number");
-    if (national_id.length < 10 || national_id.length > 14) return err("National ID must be 10–14 characters");
+    // The NIN is optional; a typed one must be valid. Both sides of the ID and the LC1 letter are required.
+    if (national_id && (national_id.length < 10 || national_id.length > 14)) return err("National ID must be 10–14 characters");
+    if (!id_photo) return err("Add a photo of the front of your National ID");
+    if (!id_photo_back) return err("Add a photo of the back of your National ID");
+    if (!lc_letter) return err("Add a photo of the LC1 letter");
     if (rent_amount < 50000) return err("Rent amount must be at least UGX 50,000");
     if (!(duration_days === 30 || duration_days === 60 || duration_days === 90 || duration_days === 120 ||
       (duration_days >= 7 && duration_days <= 364 && duration_days % 7 === 0))) return err("Choose a valid repayment period");
@@ -218,7 +225,7 @@ Deno.serve(async (req) => {
     if (!village || !district) return err("Pick your official village");
 
     // The National ID must not belong to somebody else.
-    {
+    if (national_id) {
       const spaced = national_id.replace(/(.{4})/g, "$1 ").trim();
       const { data } = await admin
         .from("profiles").select("id, national_id")
@@ -332,6 +339,10 @@ Deno.serve(async (req) => {
     let landlordId = typeof body.landlord_id === "string" ? body.landlord_id : null;
     const landlord_name = String(body.landlord_name || "").trim();
     const landlord_phone = validPhone(body.landlord_phone);
+    // The landlord must be someone else: their phone cannot be the tenant's.
+    if (landlord_phone && last9(landlord_phone) === last9(phone)) {
+      return err("Your landlord's phone must be different from yours");
+    }
     if (!landlordId) {
       if (!landlord_name || !landlord_phone) return err("Landlord name and phone are required");
       const { data: existing } = await admin
@@ -352,8 +363,8 @@ Deno.serve(async (req) => {
     let lc1Id = typeof body.lc1_id === "string" ? body.lc1_id : null;
     const lc1_name = String(body.lc1_name || "").trim();
     const lc1_phone = validPhone(body.lc1_phone);
-    if (!lc1Id) {
-      if (!lc1_name || !lc1_phone) return err("LC1 chairperson name and phone are required");
+    // The LC1 chairperson's contact is optional (the LC1 letter photo is required above).
+    if (!lc1Id && lc1_name && lc1_phone) {
       const { data: existing } = await admin
         .from("lc1_chairpersons").select("id").ilike("phone", `%${last9(lc1_phone)}`)
         .order("verified", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
@@ -371,8 +382,10 @@ Deno.serve(async (req) => {
 
     /* ---- Profile: keep the vetting details on the tenant record ---------- */
     const profilePatch: Record<string, unknown> = {
-      full_name, phone, national_id, occupation, village, district,
+      full_name, phone, occupation, village, district,
     };
+    // Only a typed NIN goes on the profile; never clear one already there.
+    if (national_id) profilePatch.national_id = national_id;
     if (preferred_language) profilePatch.preferred_language = preferred_language;
     if (ug_village_id) profilePatch.ug_village_id = ug_village_id;
     const { error: pErr } = await admin.from("profiles").update(profilePatch).eq("id", userId);
@@ -451,6 +464,16 @@ Deno.serve(async (req) => {
         .from("profiles").select("avatar_url").eq("id", userId).maybeSingle();
       if (prof?.avatar_url) tenantPhotoUrl = prof.avatar_url as string;
     }
+    // The required documents are stored before the insert too and go in the insert itself: with the
+    // DOCS-1 rule on (E75/E75b), the database refuses a rent request without them.
+    // National ID and the LC1 letter are private documents.
+    const ninPhotoPath = await uploadTo("tenant-ids", id_photo, `${userId}/${assetFolder}/national_id.jpg`);
+    if (!ninPhotoPath) return err("The photo of the front of your National ID could not be saved. Use a JPG or PNG under 5 MB and try again.", 400);
+    const ninPhotoBackPath = await uploadTo("tenant-ids", id_photo_back, `${userId}/${assetFolder}/national_id_back.jpg`);
+    if (!ninPhotoBackPath) return err("The photo of the back of your National ID could not be saved. Use a JPG or PNG under 5 MB and try again.", 400);
+    const lcLetterPath = await uploadTo("lc-letters", lc_letter, `${userId}/${assetFolder}/lc_letter.jpg`);
+    if (!lcLetterPath) return err("The photo of the LC1 letter could not be saved. Use a JPG or PNG under 5 MB and try again.", 400);
+
     if (!tenantPhotoUrl) {
       // Stop here with a clear message rather than letting the DB trigger
       // reject the insert with a 500.
@@ -482,9 +505,15 @@ Deno.serve(async (req) => {
       tenant_self_applied: true,
       // Present at INSERT so the tenant-photo trigger is satisfied.
       tenant_photo_url: tenantPhotoUrl,
+      // DOCS-1: the ID front and back and the LC1 letter, present at INSERT for the same reason.
+      nin_photo_path: ninPhotoPath, nin_photo_bucket: "tenant-ids",
+      nin_photo_back_path: ninPhotoBackPath, nin_photo_back_bucket: "tenant-ids",
+      lc_letter_path: lcLetterPath, lc_letter_bucket: "lc-letters",
     };
     const { data: rentReq, error: rErr } = await admin
       .from("rent_requests").insert(insertPayload as any).select("id, rent_amount, duration_days, access_fee, request_fee, total_repayment, daily_repayment").single();
+    // DOCS-1: the database names the missing document photos; passed on exactly as it says.
+    if (rErr && /DOCS_MISSING/.test(rErr.message ?? "")) return err(rErr.message, 400);
     if (rErr || !rentReq) return err(`Could not post your rent request: ${rErr?.message ?? "unknown"}`, 500);
 
     /* ---- Remaining documents -------------------------------------------- */
@@ -493,18 +522,8 @@ Deno.serve(async (req) => {
       const url = await uploadDataUrl(house_photos[i], `${userId}/${assetFolder}/house_${i}.jpg`);
       if (url) houseUrls.push(url);
     }
-    // National ID and the LC1 letter are private documents.
-    let ninPhotoPath: string | null = null;
-    if (id_photo) ninPhotoPath = await uploadTo("tenant-ids", id_photo, `${userId}/${assetFolder}/national_id.jpg`);
-    let lcLetterPath: string | null = null;
-    if (lc_letter) lcLetterPath = await uploadTo("lc-letters", lc_letter, `${userId}/${assetFolder}/lc_letter.jpg`);
-
-    if (houseUrls.length || ninPhotoPath || lcLetterPath) {
-      const patch: Record<string, unknown> = {};
-      if (houseUrls.length) patch.house_image_urls = houseUrls;
-      if (ninPhotoPath) { patch.nin_photo_path = ninPhotoPath; patch.nin_photo_bucket = "tenant-ids"; }
-      if (lcLetterPath) { patch.lc_letter_path = lcLetterPath; patch.lc_letter_bucket = "lc-letters"; }
-      await admin.from("rent_requests").update(patch).eq("id", rentReq.id);
+    if (houseUrls.length) {
+      await admin.from("rent_requests").update({ house_image_urls: houseUrls }).eq("id", rentReq.id);
     }
     if (tenantPhotoUrl) await admin.from("profiles").update({ avatar_url: tenantPhotoUrl }).eq("id", userId);
 
@@ -538,8 +557,9 @@ Deno.serve(async (req) => {
         house_photos: houseUrls.length,
         house_photo_urls: houseUrls,
         tenant_photo_url: tenantPhotoUrl,
-        national_id_photo: ninPhotoPath ? { bucket: "tenant-ids", path: ninPhotoPath } : null,
-        lc_letter: lcLetterPath ? { bucket: "lc-letters", path: lcLetterPath } : null,
+        national_id_photo: { bucket: "tenant-ids", path: ninPhotoPath },
+        national_id_photo_back: { bucket: "tenant-ids", path: ninPhotoBackPath },
+        lc_letter: { bucket: "lc-letters", path: lcLetterPath },
         tenant_note: tenant_note || null,
          referring_agent_id: referringAgentId,
       },
@@ -559,7 +579,14 @@ Deno.serve(async (req) => {
       if (tErr) console.warn("[tenant-self-onboarding] trust signal failed", tErr.message);
     }
 
-    return ok({ success: true, rent_request_id: rentReq.id, request: rentReq });
+    return ok({
+      success: true,
+      rent_request_id: rentReq.id,
+      request: rentReq,
+      // Where the LC1 letter was stored, for tenant_save_intake_details.
+      lc_letter_bucket: "lc-letters",
+      lc_letter_path: lcLetterPath,
+    });
   } catch (e: any) {
     console.error("[tenant-self-onboarding] unhandled", e?.message || e);
     return err(`Service error: ${e?.message || "unknown"}`, 500);

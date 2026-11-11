@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateFullName, FULL_NAME_ERROR } from "../_shared/validateFullName.ts";
 import { guardAgentAssistedSignup, attachAgentSignupUser } from "../_shared/agentSignupGuard.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { data: callerData, error: callerError } = await supabase.auth.getUser(token);
+    const { data: callerData, error: callerError } = await (bearerHasSub(token) ? supabase.auth.getUser(token) : noUserResult());
     const callerId = callerData?.user?.id;
     if (callerError || !callerId) {
       return new Response(

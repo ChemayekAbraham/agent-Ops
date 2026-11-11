@@ -1,5 +1,6 @@
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -193,7 +194,7 @@ async function requireStaffCaller(admin: any, req: Request): Promise<Response | 
     });
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return deny(401, "Unauthorized");
-  const { data: authData, error: authError } = await admin.auth.getUser(token);
+  const { data: authData, error: authError } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
   const caller = authData?.user;
   if (authError || !caller) return deny(401, "Unauthorized");
 

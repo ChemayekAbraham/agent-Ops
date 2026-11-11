@@ -19,6 +19,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'https://esm.sh/pdf-lib@1.17.1';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -442,7 +443,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization') ?? '';
     if (wantsOverrides && anonKey && authHeader.startsWith('Bearer ')) {
       const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-      const { data: u } = await userClient.auth.getUser();
+      const { data: u } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
       if (u?.user) {
         const { error } = await userClient.rpc('get_next_day_payout_projection', { p_date: null });
         isExec = !error;

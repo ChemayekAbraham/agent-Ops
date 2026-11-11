@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { netWalletTransferOutflow } from '@/lib/custodialTransfers';
+import { runHeavyFinanceReport } from '@/lib/heavyFinanceReportQueue';
 import { startOfDay, endOfDay, subDays, subWeeks, subMonths, subYears, startOfMonth, startOfYear, startOfWeek, startOfQuarter, differenceInDays } from 'date-fns';
 import {
   REVENUE_SERVICE_FAMILIES,
@@ -506,14 +507,17 @@ export async function generateStatementsRaw(activeFilters: StatementFilters): Pr
         amount: number | string;
       }
 
-      const { data: sumRowsRaw, error: sumsError } = await supabase.rpc(
+      // One ledger scan at a time in this tab, shared with the other heavy
+      // statements. A timeout is not retried here; the database also refuses
+      // a second concurrent computation of the same dates.
+      const sumRowsRaw = await runHeavyFinanceReport<LedgerSumRow[]>(
         'get_financial_statement_ledger_sums',
         {
           p_start: startDate ? startDate.toISOString() : null,
           p_end: endDate ? endDate.toISOString() : null,
-        } as any,
+        },
+        { active: true },
       );
-      if (sumsError) throw sumsError;
       const sumRows = ((sumRowsRaw || []) as unknown as LedgerSumRow[]).map(r => ({
         amount: Number(r.amount) || 0,
         direction: r.direction,
@@ -546,7 +550,7 @@ export async function generateStatementsRaw(activeFilters: StatementFilters): Pr
         // consumers of this row set.
         supabase.from('rent_requests').select('id, rent_amount, access_fee, request_fee, status, tenant_id, agent_id, created_at, amount_repaid, total_repayment, funded_at').limit(10000),
         supabase.from('agent_advances').select('access_fee, access_fee_collected, access_fee_status, status').in('status', ['active', 'overdue']),
-        supabase.rpc('get_platform_cash_summary'),
+        runHeavyFinanceReport<Record<string, unknown> | null>('get_platform_cash_summary', {}, { active: true }),
         supabase.from('promissory_notes').select('amount, total_collected, status').in('status', ['pending', 'activated']),
         // Single authoritative Total Receivables (server-side v_receivables_lines).
         supabase.rpc('get_receivables_total'),
@@ -582,7 +586,7 @@ export async function generateStatementsRaw(activeFilters: StatementFilters): Pr
       const wallets = [{ balance: Number(walletTotalsData?.total_balance ?? 0) }];
       const rentRequests = rentRequestsRes.data || [];
       const activeAdvances = advancesRes.data || [];
-      const allTimePlatformSummary = allTimePlatformRes.data as any;
+      const allTimePlatformSummary = allTimePlatformRes as any;
       const promissoryNotes = promissoryNotesRes.data || [];
       const authoritativeReceivables = Number((receivablesTotalRes.data as any)?.total ?? 0);
 

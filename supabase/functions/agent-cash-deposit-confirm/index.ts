@@ -6,6 +6,7 @@
 //   • credits the depositor's WITHDRAWABLE wallet (wallet, recipient_type=user)
 // Wallet bucket caches are updated by the ledger triggers (sole-writer rule).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,7 +29,7 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
-    const { data: authData, error: authErr } = await admin.auth.getUser(token);
+    const { data: authData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authErr || !authData?.user) return json(401, { error: "Unauthorized" });
     const depositor = authData.user;
 

@@ -88,6 +88,15 @@ export function placeCase(raw?: string | null): string {
  * repeats the place line below it, so the clean room type wins. The shared
  * formatHouseCategory appends "House"; the compact browse row does not need it.
  */
+/**
+ * An empty house whose house_listings.verified is false. It cannot be funded
+ * from a card, and it never reads "Pending verification": that words belongs
+ * to the amber board tag (its agent fell below the collection bar).
+ */
+export function isUncheckedEmptyHouse(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan): boolean {
+  return category === 'empty' && (item as FunderNewEmptyHouse).verified === false;
+}
+
 export function emptyHouseTitle(house: FunderNewEmptyHouse): string {
   return (
     placeCase(house.house_category) ||

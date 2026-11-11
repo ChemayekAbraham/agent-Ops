@@ -6,6 +6,7 @@ import {
   DueScheduleRecord,
   runStaffAssistantSchedules,
 } from "./handler.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,7 +65,7 @@ Deno.serve(async (req) => {
     });
     const {
       data: { user },
-    } = await userClient.auth.getUser(bearerToken);
+    } = await (bearerHasSub(bearerToken) ? userClient.auth.getUser(bearerToken) : noUserResult());
     if (!user) {
       return json(401, { error: "Unauthorized" });
     }

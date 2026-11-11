@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  financeReportErrorMessage,
+  heavyFinanceReportQueryOptions,
+  rememberHeavyReportResult,
+  runHeavyFinanceReport,
+} from '@/lib/heavyFinanceReportQueue';
 
 import { Loader2, TrendingUp, TrendingDown, ArrowRight, Wallet } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -9,9 +15,10 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveCont
 import { cn } from '@/lib/utils';
 
 export function DailyCashPositionReport() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['daily-cash-position'],
-    queryFn: async () => {
+    ...heavyFinanceReportQueryOptions,
+    queryFn: async ({ signal, client, queryKey }) => {
       const today = new Date();
       const days: any[] = [];
 
@@ -25,16 +32,17 @@ export function DailyCashPositionReport() {
         .in('classification', ['production', 'legacy_real']);
       if (error) throw error;
 
-      // Platform cash via server-side RPC (no row limit)
-      const [cashSummaryRes, walletTotalsRes, pendingRentRes] = await Promise.all([
-        supabase.rpc('get_platform_cash_summary'),
+      // Platform cash via the shared heavy-report queue (no row limit, no retry).
+      const [cashSummary, walletTotalsRes, pendingRentRes] = await Promise.all([
+        runHeavyFinanceReport<{
+          total_revenue?: number;
+          total_costs?: number;
+        } | null>('get_platform_cash_summary', {}, { active: true, signal }),
         supabase.rpc('get_wallet_totals'),
         supabase.from('rent_requests')
           .select('rent_amount')
           .in('status', ['coo_approved', 'cfo_approved']),
       ]);
-
-      const cashSummary = cashSummaryRes.data as any;
       const rev = Number(cashSummary?.total_revenue ?? 0);
       const costs = Number(cashSummary?.total_costs ?? 0);
       const platformCash = Math.max(0, rev - costs);
@@ -63,12 +71,14 @@ export function DailyCashPositionReport() {
       }
 
       const todayData = days[days.length - 1];
-      return { days, platformCash, userFundsCustody, pendingObligations, today: todayData };
+      return rememberHeavyReportResult(client, queryKey, signal, {
+        days, platformCash, userFundsCustody, pendingObligations, today: todayData,
+      });
     },
-    staleTime: 60_000,
   });
 
   if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  if (error) return <p className="py-6 text-center text-sm text-muted-foreground">{financeReportErrorMessage(error)}</p>;
   if (!data) return null;
 
   const { days, platformCash, userFundsCustody, pendingObligations, today } = data;

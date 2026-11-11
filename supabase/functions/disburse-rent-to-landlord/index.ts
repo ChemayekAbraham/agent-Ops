@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { logSystemEvent } from "../_shared/eventLogger.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { guardCfoApprover } from "../_shared/cfoApprovalGate.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,7 +27,7 @@ Deno.serve(async (req) => {
     const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } },
     })
-    const { data: { user }, error: authErr } = await anonClient.auth.getUser()
+    const { data: { user }, error: authErr } = await (bearerHasSub(authHeader) ? anonClient.auth.getUser() : noUserResult())
     if (authErr || !user) throw new Error('Unauthorized')
 
     // Verify CFO role

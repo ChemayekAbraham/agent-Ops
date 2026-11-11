@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { estimateSupporterReturns, runNexaTool } from "./nexaTools.ts";
 import { isStaff, knowledgeScopesFor, filterKnowledgeForAudience } from "./nexaAccess.ts";
-import { buildNexaSystemPrompt, NEXA_SALES_SYSTEM_PROMPT } from "./nexa.ts";
+import { buildNexaSystemPrompt, NEXA_NAME_AND_SUPPORT_RULES, NEXA_SALES_SYSTEM_PROMPT } from "./nexa.ts";
 import { normalizePortfolioCode, requestPortfolioOtp, GENERIC_SENT } from "./nexaPortfolioAccess.ts";
 
 // The new-partner rate is the live public rate passed in by the caller; no rate lives in the code.
@@ -65,6 +65,24 @@ Deno.test("no em-dashes in Nexa copy", () => {
   assert(!buildNexaSystemPrompt(["supporter"], false).includes("\u2014"));
   assert(!buildNexaSystemPrompt(["supporter"], false, 10).includes("\u2014"));
   assert(!NEXA_SALES_SYSTEM_PROMPT.includes("\u2014"));
+  assert(!NEXA_NAME_AND_SUPPORT_RULES.includes("\u2014"));
+  assert(!NEXA_NAME_AND_SUPPORT_RULES.includes("Returns"));
+});
+Deno.test("every Nexa system prompt carries the name and support rules", () => {
+  for (const prompt of [
+    NEXA_SALES_SYSTEM_PROMPT,
+    buildNexaSystemPrompt([], false),
+    buildNexaSystemPrompt(["supporter"], false, 15),
+    buildNexaSystemPrompt(["agent"], false),
+    buildNexaSystemPrompt(["manager"], true, 15),
+  ]) {
+    assert(prompt.includes(NEXA_NAME_AND_SUPPORT_RULES), prompt.slice(0, 80));
+    assert(prompt.includes("Your name is Nexa. Never call yourself Clara or any other name."));
+    assert(prompt.includes("https://wa.me/256777607640 (+256777607640)"));
+    assert(prompt.includes("Never say a request was sent, passed on, forwarded or escalated"));
+    assert(prompt.includes("list every one of the user's own houses"));
+    assert(prompt.includes("no 'high volume'"));
+  }
 });
 Deno.test("portfolio and returns questions reach the tool", async () => {
   const { isPortfolioOrReturnsQuestion } = await import("./nexaTools.ts");

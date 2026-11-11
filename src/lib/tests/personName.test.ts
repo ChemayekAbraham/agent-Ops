@@ -101,6 +101,18 @@ describe('validatePersonNameParts', () => {
     expect(r.valid).toBe(false);
     expect(r.error).toBeTruthy();
   });
+  it.each([
+    ['Livingstone', 'Okello'], ['Okello', 'Livingstone'], ['Livingston', 'Kato'],
+    ['Kingsley', 'Mugisha'], ['Humphrey', 'Ssali'], ['Ernst', 'Kato'],
+  ])('accepts real names with a 4-consonant cluster: %s %s', (firstName, lastName) => {
+    expect(validatePersonNameParts({ firstName, otherNames: '', lastName }).error).toBeNull();
+  });
+  it.each([['hfhkg', 'Okello'], ['Okello', 'bhdhdhfhfh'], ['dhfh', 'Kato'], ['ngstngst', 'Kato']])(
+    'still rejects consonant mash: %s %s',
+    (firstName, lastName) => {
+      expect(validatePersonNameParts({ firstName, otherNames: '', lastName }).valid).toBe(false);
+    },
+  );
   it('still rejects identical first and last via validateFullName', () => {
     const r = validatePersonNameParts({ firstName: 'John', otherNames: '', lastName: 'John' });
     expect(r.valid).toBe(false);

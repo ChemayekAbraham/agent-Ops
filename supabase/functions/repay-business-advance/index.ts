@@ -3,6 +3,7 @@
 // On every repayment, the originating agent earns 4% as a platform expense.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkTreasuryGuard } from '../_shared/treasuryGuard.ts';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,7 +26,7 @@ Deno.serve(async (req) => {
     const anonClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: authErr } = await anonClient.auth.getUser();
+    const { data: { user }, error: authErr } = await (bearerHasSub(authHeader) ? anonClient.auth.getUser() : noUserResult());
     if (authErr || !user) throw new Error('Unauthorized');
 
     const service = createClient(supabaseUrl, serviceKey);

@@ -18,6 +18,7 @@ import {
   compoundEmailIdempotencyKey,
   type CompoundFacts,
 } from "../_shared/compoundEmail.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,7 +49,7 @@ Deno.serve(async (req) => {
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (!token) return json(401, { error: "Unauthorized" });
   if (token !== serviceKey) {
-    const { data: { user }, error: authErr } = await admin.auth.getUser(token);
+    const { data: { user }, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authErr || !user) return json(401, { error: "Unauthorized" });
     const { data: isStaff } = await admin.rpc("is_welile_staff", { _user_id: user.id });
     if (isStaff !== true) return json(403, { error: "Staff only" });

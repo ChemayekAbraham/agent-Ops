@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { resolvePayoutDebitTarget, logProxyFallbackAudit } from '../_shared/partnership-emails.ts';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,7 +73,7 @@ Deno.serve(async (req) => {
     if (!token) {
       return json({ error: 'Missing authorization token' }, 401);
     }
-    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? supabase.auth.getUser(token) : noUserResult());
     if (userErr || !userData?.user?.id) {
       return json({ error: 'Invalid token' }, 401);
     }

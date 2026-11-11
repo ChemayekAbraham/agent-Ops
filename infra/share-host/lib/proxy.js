@@ -3,6 +3,7 @@
  *
  *   /s/<code>  rent plans and empty houses  -> og-plan
  *   /m/<code>  merchandise                  -> og-merchandise
+ *   /c/<code>  co-support invitations       -> og-co-support
  *
  * welileapp.com is hosted by Lovable, which only ever returns the app shell
  * (Welile logo preview), and its DNS is at name.com, so the Worker route in
@@ -23,7 +24,7 @@ function text(body, status, extra = {}) {
   });
 }
 
-/** @param {Request} request @param {'s' | 'm'} kind @param {string} code */
+/** @param {Request} request @param {'s' | 'm' | 'c'} kind @param {string} code */
 export async function proxyShare(request, kind, code) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return text('Method not allowed', 405, { Allow: 'GET, HEAD' });
@@ -34,7 +35,9 @@ export async function proxyShare(request, kind, code) {
   const upstreamUrl =
     kind === 'm'
       ? new URL(`${FUNCTIONS}/og-merchandise`)
-      : new URL(`${FUNCTIONS}/og-plan/${encodeURIComponent(code)}`);
+      : kind === 'c'
+        ? new URL(`${FUNCTIONS}/og-co-support/${encodeURIComponent(code)}`)
+        : new URL(`${FUNCTIONS}/og-plan/${encodeURIComponent(code)}`);
   if (kind === 'm') upstreamUrl.searchParams.set('code', code.toLowerCase());
   if (src) upstreamUrl.searchParams.set('src', src.slice(0, 50));
 

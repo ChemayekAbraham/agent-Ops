@@ -6,6 +6,7 @@ import { maySendRequisitionSms } from "../_shared/requisitionSmsPolicy.ts";
 import { authorizeStaffRequisitionDecision } from "../_shared/staffRequisitionApprovalAuth.ts";
 import { assessReceiptPayout } from "../_shared/requisitionReceiptMatch.ts";
 import { clearStaffReceiptGap } from "../_shared/requisitionReceiptRead.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,7 +56,7 @@ Deno.serve(async (req) => {
     );
 
     const token = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
-    const { data: userData, error: authErr } = await admin.auth.getUser(token);
+    const { data: userData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authErr || !userData?.user) return json({ error: "Not authenticated" }, 401);
     const actor = userData.user;
 

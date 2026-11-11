@@ -1,5 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  financeReportErrorMessage,
+  heavyFinanceReportQueryKey,
+  heavyFinanceReportQueryOptions,
+  isSlowFinanceReportError,
+  rememberHeavyReportResult,
+  runHeavyFinanceReport,
+  HEAVY_REPORT_SLOW_MESSAGE,
+} from '@/lib/heavyFinanceReportQueue';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -13,11 +23,10 @@ import {
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 import { useReceivablesBreakdown } from '@/hooks/useReceivables';
-import { format, endOfDay, subYears, isToday } from 'date-fns';
+import { format, endOfDay } from 'date-fns';
 import {
   AlertTriangle, Calendar, CheckCircle2, ChevronDown, ChevronRight,
-  Download, FileSpreadsheet, GitCompareArrows, Loader2, RefreshCw,
-  TrendingUp, Wallet, ShieldCheck,
+  Download, FileSpreadsheet, Loader2, RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -432,75 +441,6 @@ interface CarriedForwardRow {
   amount: number;
 }
 
-const callLooseRpc = <T = unknown>(fn: string, args: Record<string, unknown> = {}) =>
-  (supabase.rpc.bind(supabase) as unknown as (name: string, params?: Record<string, unknown>) => Promise<{ data: T | null; error: { message: string } | null }>)(fn, args);
-
-/**
- * The server functions run with statement_timeout = 120s. If nothing has come
- * back shortly after that, the connection is dead (usually a gateway timeout),
- * so stop the spinner instead of waiting forever.
- */
-const SOFP_CLIENT_TIMEOUT_MS = 130_000;
-
-/** One in-flight statement request per as-at key, shared by every caller. */
-const sofpInflight = new Map<string, Promise<StatementOfFinancialPosition>>();
-
-function friendlyLoadError(e: unknown): string {
-  const raw = e instanceof Error ? e.message : String(e ?? '');
-  if (/failed to fetch|networkerror|load failed|timed out|timeout|504|canceling statement/i.test(raw)) {
-    return 'The server did not finish building the balance sheet in time, so the connection was dropped. '
-      + 'No figures were changed. Please retry; if it keeps happening the ledger statement query needs a performance fix on the server.';
-  }
-  return raw || 'Failed to generate the statement of financial position';
-}
-
-/**
- * Fetch the authoritative statement (get_statement_of_financial_position) once.
- * No fallbacks: fin_balance_sheet re-runs this same statement internally, so
- * "falling back" to it only doubles the wait before failing.
- */
-function fetchSofp(date: Date): Promise<StatementOfFinancialPosition> {
-  const isCurrent = isToday(date);
-  const key = isCurrent ? 'now' : format(date, 'yyyy-MM-dd');
-  const existing = sofpInflight.get(key);
-  if (existing) return existing;
-
-  const params = isCurrent ? {} : { p_as_at: endOfDay(date).toISOString() };
-  const request = (async () => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      const timeout = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('Balance sheet request timed out')), SOFP_CLIENT_TIMEOUT_MS);
-      });
-      const { data, error } = await Promise.race([
-        callLooseRpc<StatementOfFinancialPosition>('get_statement_of_financial_position', params),
-        timeout,
-      ]);
-      if (error) throw new Error(error.message);
-      if (!data) throw new Error('The server returned an empty balance sheet');
-      return data;
-    } finally {
-      if (timer) clearTimeout(timer);
-      sofpInflight.delete(key);
-    }
-  })();
-  sofpInflight.set(key, request);
-  return request;
-}
-
-/** Disclosure-only schedules, fetched after the statement so they never compete with it. */
-async function fetchAuxiliary(date: Date) {
-  const params = isToday(date) ? {} : { p_as_at: endOfDay(date).toISOString() };
-  const [split, stat] = await Promise.allSettled([
-    callLooseRpc<LandlordFloatSplit>('get_landlord_float_management_split', params),
-    callLooseRpc<StatutoryLiabilityRow[]>('hr_pay_statutory_liability'),
-  ]);
-  return {
-    floatSplit: split.status === 'fulfilled' && !split.value.error ? split.value.data : null,
-    statutory: stat.status === 'fulfilled' && !stat.value.error ? stat.value.data : null,
-  };
-}
-
 /**
  * Detailed breakdown of the carried-forward equity line (ledger account E3),
  * fetched only while its drill-down modal is open.
@@ -512,8 +452,9 @@ function useEquityBreakdown(rpcName: string, active: boolean) {
     if (!active) return;
     let cancelled = false;
     setLoading(true);
-    callLooseRpc<CarriedForwardRow[]>(rpcName, { p_as_at: new Date().toISOString() })
-      .then(({ data, error }) => {
+    (supabase as any)
+      .rpc(rpcName, { p_as_at: new Date().toISOString() })
+      .then(({ data, error }: { data: CarriedForwardRow[] | null; error: unknown }) => {
         if (cancelled) return;
         if (error) setRows([]);
         else setRows((data ?? []).map(r => ({ ...r, amount: Number(r.amount) })));
@@ -734,220 +675,78 @@ function DriftNote({ drift, of }: { drift: number; of: string }) {
   );
 }
 
-const SNAPSHOT_KEY_PREFIX = 'welile_bs_snapshot_v2_';
-
-interface SnapshotStorage {
-  data: StatementOfFinancialPosition;
-  floatSplit: LandlordFloatSplit | null;
-  statutory: StatutoryLiabilityRow[] | null;
-  cachedAt: number;
-}
-
-function getStoredSnapshot(dateKey: string): SnapshotStorage | null {
-  try {
-    const raw = sessionStorage.getItem(SNAPSHOT_KEY_PREFIX + dateKey) || localStorage.getItem(SNAPSHOT_KEY_PREFIX + dateKey);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as SnapshotStorage;
-    if (parsed?.data?.assets?.current) {
-      return parsed;
-    }
-  } catch {
-    // Ignore storage parse issues
-  }
-  return null;
-}
-
-function storeSnapshot(
-  dateKey: string,
-  payload: {
-    data: StatementOfFinancialPosition;
-    floatSplit: LandlordFloatSplit | null;
-    statutory: StatutoryLiabilityRow[] | null;
-  }
-) {
-  try {
-    const serialized = JSON.stringify({
-      ...payload,
-      cachedAt: Date.now(),
-    });
-    sessionStorage.setItem(SNAPSHOT_KEY_PREFIX + dateKey, serialized);
-    localStorage.setItem(SNAPSHOT_KEY_PREFIX + dateKey, serialized);
-  } catch {
-    // Ignore storage quota limits
-  }
-}
-
 export default function BalanceSheetPanel() {
   const [asAt, setAsAt] = useState<Date>(new Date());
-  const [data, setData] = useState<StatementOfFinancialPosition | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loadStartedAt, setLoadStartedAt] = useState<number | null>(null);
-  const [elapsedSec, setElapsedSec] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [showSources, setShowSources] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
+  /** Line or total the user tapped, shown as a modal breakdown. */
   const [drill, setDrill] = useState<Drilldown | null>(null);
-  const [statutory, setStatutory] = useState<StatutoryLiabilityRow[] | null>(null);
-  const [loadingTies, setLoadingTies] = useState(false);
-  const [tiesError, setTiesError] = useState<string | null>(null);
+  const asAtIso = endOfDay(asAt).toISOString();
 
-  // Comparative period state (Uber Form 10-K presentation)
-  const [showComparison, setShowComparison] = useState(false);
-  const [compareDate, setCompareDate] = useState<Date>(() => subYears(new Date(), 1));
-  const [compareData, setCompareData] = useState<StatementOfFinancialPosition | null>(null);
-  const [compareFloatSplit, setCompareFloatSplit] = useState<LandlordFloatSplit | null>(null);
-  const [compareStatutory, setCompareStatutory] = useState<StatutoryLiabilityRow[] | null>(null);
-  const [loadingCompare, setLoadingCompare] = useState(false);
+  // fin_balance_sheet = the same statement as get_statement_of_financial_position, plus sub-ledger ties.
+  // The float split and the payroll statutory disclosure are lighter reads and stay outside the queue.
+  // Statutory (PAYE / NSSF / LST) is withheld on payroll that has actually been paid, net of recorded
+  // remittances. No ledger account exists for taxes, so it prints on Taxes Payable but is NOT added to
+  // Total Liabilities — that total stays the ledger's own figure so the balance check remains a real assertion.
+  const report = useQuery({
+    queryKey: heavyFinanceReportQueryKey('fin_balance_sheet', { p_as_at: asAtIso }),
+    ...heavyFinanceReportQueryOptions,
+    placeholderData: keepPreviousData,
+    queryFn: async ({ signal, client, queryKey }) => {
+      const statement = await runHeavyFinanceReport<StatementOfFinancialPosition>(
+        'fin_balance_sheet',
+        { p_as_at: asAtIso },
+        { active: true, signal },
+      );
+      const { data: split, error: splitError } = await (supabase as any).rpc('get_landlord_float_management_split', {
+        p_as_at: asAtIso,
+      });
+      if (splitError) console.warn('Landlord float split unavailable:', splitError.message);
+      const { data: stat, error: statError } = await (supabase as any).rpc('hr_pay_statutory_liability');
+      if (statError) console.warn('Statutory payroll obligations unavailable:', statError.message);
+      const payload = {
+        statement,
+        floatSplit: (splitError ? null : (split as LandlordFloatSplit | null)) ?? null,
+        statutory: (statError ? null : (stat as StatutoryLiabilityRow[] | null)) ?? null,
+      };
+      return rememberHeavyReportResult(client, queryKey, signal, payload);
+    },
+  });
 
-  // Supporting schedules collapsible state
-  const [openSchedule1, setOpenSchedule1] = useState(false);
-  const [openSchedule2, setOpenSchedule2] = useState(false);
-  const [openSchedule3, setOpenSchedule3] = useState(false);
+  const data = report.data?.statement ?? null;
+  const floatSplit = report.data?.floatSplit ?? null;
+  const statutory = report.data?.statutory ?? null;
+  const loading = report.isFetching;
+  const reportError = report.error
+    ? (isSlowFinanceReportError(report.error)
+      ? HEAVY_REPORT_SLOW_MESSAGE
+      : financeReportErrorMessage(report.error) || 'Failed to generate the statement of financial position')
+    : null;
 
-  // Ignore responses for an as-at date the user has already moved away from.
-  const latestLoadKey = useRef<string>('');
-  const latestCompareKey = useRef<string>('');
-
-  // Visible elapsed-time counter so a slow server is obvious rather than a silent spinner.
+  const toastedAt = useRef<number | null>(null);
   useEffect(() => {
-    if (loadStartedAt === null) return;
-    const id = setInterval(() => setElapsedSec(Math.round((Date.now() - loadStartedAt) / 1000)), 1000);
-    return () => clearInterval(id);
-  }, [loadStartedAt]);
-
-  const load = useCallback(async (date: Date, force = false) => {
-    const dateKey = format(date, 'yyyy-MM-dd');
-    latestLoadKey.current = dateKey;
-
-    // 1. Instant render from a recent snapshot of the same server statement.
-    const stored = getStoredSnapshot(dateKey);
-    if (stored) {
-      setData(stored.data);
-      setFloatSplit(stored.floatSplit);
-      setStatutory(stored.statutory);
-      setError(null);
-      if (!force && Date.now() - stored.cachedAt < 5 * 60 * 1000) return;
-    }
-
-    setLoading(true);
-    setLoadStartedAt(Date.now());
-    setElapsedSec(0);
-    setError(null);
-
-    try {
-      // 2. The single authoritative statement — nothing else runs alongside it.
-      const sheet = await fetchSofp(date);
-      if (latestLoadKey.current !== dateKey) return;
-      setData(sheet);
-      setError(null);
-      storeSnapshot(dateKey, { data: sheet, floatSplit: stored?.floatSplit ?? null, statutory: stored?.statutory ?? null });
-      setLoading(false);
-      setLoadStartedAt(null);
-
-      // 3. Disclosure schedules only after the statement is on screen.
-      const aux = await fetchAuxiliary(date);
-      if (latestLoadKey.current !== dateKey) return;
-      setFloatSplit(aux.floatSplit);
-      setStatutory(aux.statutory);
-      storeSnapshot(dateKey, { data: sheet, floatSplit: aux.floatSplit, statutory: aux.statutory });
-    } catch (e: unknown) {
-      if (latestLoadKey.current !== dateKey) return;
-      console.error('Balance Sheet load failed:', e);
-      const msg = friendlyLoadError(e);
-      // Keep any snapshot already on screen; only show the error page when there is nothing.
-      if (!stored) {
-        setData(null);
-        setError(msg);
-      }
-      toast.error(stored ? 'Could not refresh the balance sheet — showing the last loaded statement.' : 'Unable to generate the balance sheet');
-    } finally {
-      if (latestLoadKey.current === dateKey) {
-        setLoading(false);
-        setLoadStartedAt(null);
-      }
-    }
-  }, []);
-
-  const loadComparison = useCallback(async (date: Date, force = false) => {
-    const dateKey = format(date, 'yyyy-MM-dd');
-    latestCompareKey.current = dateKey;
-
-    const stored = getStoredSnapshot(dateKey);
-    if (stored) {
-      setCompareData(stored.data);
-      setCompareFloatSplit(stored.floatSplit);
-      setCompareStatutory(stored.statutory);
-      if (!force && Date.now() - stored.cachedAt < 5 * 60 * 1000) return;
-    }
-
-    setLoadingCompare(true);
-    try {
-      const sheet = await fetchSofp(date);
-      if (latestCompareKey.current !== dateKey) return;
-      setCompareData(sheet);
-      storeSnapshot(dateKey, { data: sheet, floatSplit: stored?.floatSplit ?? null, statutory: stored?.statutory ?? null });
-      setLoadingCompare(false);
-
-      const aux = await fetchAuxiliary(date);
-      if (latestCompareKey.current !== dateKey) return;
-      setCompareFloatSplit(aux.floatSplit);
-      setCompareStatutory(aux.statutory);
-      storeSnapshot(dateKey, { data: sheet, floatSplit: aux.floatSplit, statutory: aux.statutory });
-    } catch (e: unknown) {
-      if (latestCompareKey.current !== dateKey) return;
-      console.warn('Failed to load comparative balance sheet:', e);
-      toast.error('Could not load the comparative period. ' + friendlyLoadError(e));
-    } finally {
-      if (latestCompareKey.current === dateKey) setLoadingCompare(false);
-    }
-  }, []);
-
-  /**
-   * Sub-ledger tie-out (Schedule I) on request only. fin_balance_sheet rebuilds
-   * the whole statement internally, so running it automatically doubled the
-   * database work on every load.
-   */
-  const loadSubledgerTies = useCallback(async () => {
-    setLoadingTies(true);
-    setTiesError(null);
-    try {
-      const params = isToday(asAt) ? {} : { p_as_at: endOfDay(asAt).toISOString() };
-      const { data: res, error: err } = await callLooseRpc<StatementOfFinancialPosition>('fin_balance_sheet', params);
-      if (err) throw new Error(err.message);
-      setData(prev => (prev ? {
-        ...prev,
-        subledger_ties: res?.subledger_ties ?? [],
-        subledger_ties_basis: res?.subledger_ties_basis,
-        disclosures: res?.disclosures,
-      } : prev));
-      setOpenSchedule1(true);
-    } catch (e: unknown) {
-      setTiesError(friendlyLoadError(e));
-    } finally {
-      setLoadingTies(false);
-    }
-  }, [asAt]);
-
-  useEffect(() => {
-    load(asAt);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (showComparison) {
-      loadComparison(compareDate);
-    }
-  }, [showComparison, compareDate, loadComparison]);
+    if (!report.isError || !report.errorUpdatedAt) return;
+    if (toastedAt.current === report.errorUpdatedAt) return;
+    // A failure remembered from an earlier visit is shown inline. Toast only a fresh failure.
+    if (Date.now() - report.errorUpdatedAt > 1500) return;
+    toastedAt.current = report.errorUpdatedAt;
+    if (report.error instanceof Error && report.error.name === 'AbortError') return;
+    toast.error(reportError ?? 'Failed to generate the statement of financial position');
+  }, [report.isError, report.error, report.errorUpdatedAt, reportError]);
 
   const title = `WELILE — BALANCE SHEET — As at ${format(asAt, 'dd MMMM yyyy')}`;
-
-  // Current period classification
   const assetGroups = data
     ? classifyAssets([...data.assets.current, ...data.assets.non_current])
     : null;
   const liabilityGroups = data
     ? classifyLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
     : null;
+  // E3 (Balances Carried Forward from Earlier Records) and E4 (Unmatched Historic
+  // Postings) are equity accounts in ledger_account_catalog and are reported in
+  // equity. They were briefly reclassified onto the asset side as components of
+  // Intangible Assets, which inverted their sign and produced a negative
+  // intangible asset; per BIS approval that reclassification is removed. Every
+  // total below is now the RPC's own figure, with nothing added or moved.
   const equityGroups = data ? classifyEquity(data.equity.lines) : null;
   const assetRows = assetGroups?.groups ?? [];
   const assetsTotal = data ? data.assets.total : 0;
@@ -956,211 +755,108 @@ export default function BalanceSheetPanel() {
     ? data.balance_check.total_liabilities_and_equity
     : 0;
   const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? [], floatSplit);
-
-  // Compare period classification
-  const compareAssetGroups = compareData
-    ? classifyAssets([...compareData.assets.current, ...compareData.assets.non_current])
-    : null;
-  const compareLiabilityGroups = compareData
-    ? classifyLiabilities([...compareData.liabilities.current, ...compareData.liabilities.non_current])
-    : null;
-  const compareEquityGroups = compareData ? classifyEquity(compareData.equity.lines) : null;
-  const compareAssetRows = compareAssetGroups?.groups ?? [];
-  const compareAssetsTotal = compareData ? compareData.assets.total : 0;
-  const compareEquityTotal = compareData ? compareData.equity.total : 0;
-  const compareTotalLiabilitiesAndEquity = compareData
-    ? compareData.balance_check.total_liabilities_and_equity
-    : 0;
-  const compareMarketplaceRows = expandLandlordFloat(compareLiabilityGroups?.marketplace ?? [], compareFloatSplit);
-
-  // Drift validations
+  /** Each section's groups must still sum to the RPC's own total. */
   const assetDrift = data && assetGroups ? Math.round(assetGroups.total - data.assets.total) : 0;
   const equityDrift = data && equityGroups ? Math.round(equityGroups.total - equityTotal) : 0;
   const liabilityGroupDrift = data && liabilityGroups
     ? Math.round(liabilityGroups.total - data.liabilities.total)
     : 0;
 
-  // Statutory payroll disclosure lines
+  /** Payroll-derived statutory obligation lines and their total. */
   const statutoryLines: PositionLine[] = (statutory ?? []).map(r => ({
     label: r.label,
     value: Number(r.outstanding ?? 0),
   }));
   const statutoryTotal = statutoryLines.reduce((t, l) => t + l.value, 0);
   const isTaxLine = (label: string) => label === 'Taxes Payable';
-
+  /** Taxes Payable prints the payroll-derived figure; every other line is the ledger's. */
+  const standaloneValue = (g: BsGroup) =>
+    isTaxLine(g.label) && statutory ? statutoryTotal : g.value;
   const standaloneComponents = (g: BsGroup) =>
     isTaxLine(g.label) && statutory ? statutoryLines : g.components;
   const standaloneNote = (g: BsGroup) =>
     isTaxLine(g.label) && statutory ? STATUTORY_NOTE : undefined;
-
+  /**
+   * Rows as printed on the statement. Only the Taxes Payable row is restated,
+   * from payroll; Total Liabilities below is untouched and stays the ledger's.
+   */
   const standaloneRows: BsGroup[] = (liabilityGroups?.standalone ?? []).map(g =>
     isTaxLine(g.label) && statutory
       ? { ...g, value: statutoryTotal, components: [], unsourced: false }
       : g,
   );
 
-  const compareStatutoryLines: PositionLine[] = (compareStatutory ?? []).map(r => ({
-    label: r.label,
-    value: Number(r.outstanding ?? 0),
-  }));
-  const compareStatutoryTotal = compareStatutoryLines.reduce((t, l) => t + l.value, 0);
-  const compareStandaloneRows: BsGroup[] = (compareLiabilityGroups?.standalone ?? []).map(g =>
-    isTaxLine(g.label) && compareStatutory
-      ? { ...g, value: compareStatutoryTotal, components: [], unsourced: false }
-      : g,
-  );
-
-  // Partition asset rows into Current and Non-Current (Uber Form 10-K hierarchy)
-  const isNonCurrentAsset = (label: string) => {
-    const l = label.toLowerCase();
-    return (
-      l.includes('property') ||
-      l.includes('equipment') ||
-      l.includes('intangible') ||
-      l.includes('goodwill')
-    );
-  };
-
-  const currentAssetRows = assetRows.filter(g => !isNonCurrentAsset(g.label));
-  const nonCurrentAssetRows = assetRows.filter(g => isNonCurrentAsset(g.label));
-  const currentAssetsTotal = data?.assets.total_current ?? currentAssetRows.reduce((s, g) => s + (g.heading ? 0 : g.value), 0);
-  const nonCurrentAssetsTotal = data?.assets.total_non_current ?? nonCurrentAssetRows.reduce((s, g) => s + (g.heading ? 0 : g.value), 0);
-
-  const compareCurrentAssetsTotal = compareData?.assets.total_current ?? 0;
-  const compareNonCurrentAssetsTotal = compareData?.assets.total_non_current ?? 0;
-
-  // Partition liabilities into Current and Non-Current
-  const isNonCurrentLiability = (label: string) => {
-    const l = label.toLowerCase();
-    return l.includes('borrowed') || l.includes('long-term') || l.includes('capital held');
-  };
-
-  const currentMarketplaceRows = marketplaceRows.filter(g => !isNonCurrentLiability(g.label));
-  const nonCurrentMarketplaceRows = marketplaceRows.filter(g => isNonCurrentLiability(g.label));
-
-  const currentLiabilitiesTotal = data?.liabilities.total_current ?? (
-    standaloneRows.reduce((s, g) => s + (isTaxLine(g.label) ? 0 : g.value), 0) +
-    currentMarketplaceRows.filter(g => !g.subtotal && !g.depth && !g.heading).reduce((s, g) => s + g.value, 0)
-  );
-  const nonCurrentLiabilitiesTotal = data?.liabilities.total_non_current ?? (
-    nonCurrentMarketplaceRows.filter(g => !g.subtotal && !g.depth && !g.heading).reduce((s, g) => s + g.value, 0)
-  );
-
-  const compareCurrentLiabilitiesTotal = compareData?.liabilities.total_current ?? 0;
-  const compareNonCurrentLiabilitiesTotal = compareData?.liabilities.total_non_current ?? 0;
-
-  // Working capital
-  const workingCapital = (data?.assets.total_current ?? currentAssetsTotal) - (data?.liabilities.total_current ?? currentLiabilitiesTotal);
-
-  // Helper to find matching comparison value
-  const findCompVal = (label: string, groups: BsGroup[] | null): number | null => {
-    if (!groups) return null;
-    const match = groups.find(g => g.label.toLowerCase().trim() === label.toLowerCase().trim());
-    return match ? match.value : null;
-  };
-
-  const formatPct = (val: number, total: number) => {
-    if (!total || total === 0) return '—';
-    const pct = (val / total) * 100;
-    return `${pct.toFixed(1)}%`;
-  };
-
-  const formatVariance = (cur: number, comp: number | null) => {
-    if (comp === null) return { diffText: '—', pctText: '' };
-    const diff = cur - comp;
-    const diffStr = diff < 0 ? `(${formatUGX(Math.abs(diff))})` : formatUGX(diff);
-    if (comp === 0) return { diffText: diffStr, pctText: '' };
-    const pct = ((cur - comp) / Math.abs(comp)) * 100;
-    const pctStr = `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`;
-    return { diffText: diffStr, pctText: pctStr };
-  };
-
   const exportCSV = () => {
     if (!data) return;
-    const rows: (string | number)[][] = [
-      ['WELILE TECHNOLOGIES LIMITED'],
-      ['CONSOLIDATED BALANCE SHEETS'],
-      [`As at ${format(asAt, 'dd MMMM yyyy')}${showComparison && compareData ? ` and ${format(compareDate, 'dd MMMM yyyy')}` : ''}`],
-      ['(All amounts in Uganda Shillings [UGX])'],
-      [],
-    ];
-
-    const header = ['Financial Line Item', `As of ${format(asAt, 'yyyy-MM-dd')}`, '% of Assets'];
-    if (showComparison && compareData) {
-      header.push(`As of ${format(compareDate, 'yyyy-MM-dd')}`, '% of Assets', 'Variance (UGX)');
+    const rows: (string | number)[][] = [[title], []];
+    rows.push(['ASSETS', '']);
+    assetRows.forEach(g => {
+      rows.push([g.label, g.heading ? '' : g.value]);
+      (g.components ?? []).forEach(c => rows.push(['   ' + c.label, c.value]));
+    });
+    if (assetGroups && hasFlagged(assetGroups.flagged)) {
+      rows.push([assetGroups.flagged.label, assetGroups.flagged.value]);
+      visibleFlaggedLines(assetGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
     }
-    rows.push(header);
-
-    rows.push(['ASSETS', '', '']);
-    rows.push(['Current assets:', '', '']);
-    currentAssetRows.forEach(g => {
-      const compVal = findCompVal(g.label, compareAssetRows);
-      const row: (string | number)[] = [
-        '   ' + g.label,
-        g.heading ? '' : g.value,
-        g.heading ? '' : formatPct(g.value, assetsTotal),
-      ];
-      if (showComparison && compareData) {
-        row.push(compVal !== null ? compVal : '', compVal !== null ? formatPct(compVal, compareAssetsTotal) : '', compVal !== null ? g.value - compVal : '');
-      }
-      rows.push(row);
-    });
-    rows.push(['Total current assets', currentAssetsTotal, formatPct(currentAssetsTotal, assetsTotal)]);
-
-    rows.push(['Non-current assets:', '', '']);
-    nonCurrentAssetRows.forEach(g => {
-      const compVal = findCompVal(g.label, compareAssetRows);
-      const row: (string | number)[] = [
-        '   ' + g.label,
-        g.heading ? '' : g.value,
-        g.heading ? '' : formatPct(g.value, assetsTotal),
-      ];
-      if (showComparison && compareData) {
-        row.push(compVal !== null ? compVal : '', compVal !== null ? formatPct(compVal, compareAssetsTotal) : '', compVal !== null ? g.value - compVal : '');
-      }
-      rows.push(row);
-    });
-    rows.push(['Total non-current assets', nonCurrentAssetsTotal, formatPct(nonCurrentAssetsTotal, assetsTotal)]);
-    rows.push(['TOTAL ASSETS', assetsTotal, '100.0%']);
-
+    rows.push(['TOTAL ASSETS', assetsTotal]);
     rows.push([]);
-    rows.push(['LIABILITIES AND SHAREHOLDERS\' EQUITY', '', '']);
-    rows.push(['Current liabilities:', '', '']);
+    rows.push(['LIABILITIES', '']);
     standaloneRows.forEach(g => {
-      rows.push(['   ' + g.label, g.value, formatPct(g.value, assetsTotal)]);
+      rows.push([g.label, g.value]);
+      (isTaxLine(g.label) ? g.components ?? [] : []).forEach(c => rows.push(['   ' + c.label, c.value]));
     });
-    currentMarketplaceRows.forEach(g => {
+    rows.push(['Market Place Liabilities', '']);
+    marketplaceRows.forEach(g => {
       const pad = '   '.repeat(1 + (g.depth ?? 0));
-      rows.push([pad + g.label, g.heading ? '' : g.value, g.heading ? '' : formatPct(g.value, assetsTotal)]);
+      // A heading names the block below it; its figure is on the block's total.
+      rows.push([pad + g.label, g.heading ? '' : g.value]);
+      (g.components ?? []).forEach(c => rows.push([pad + '   ' + c.label, c.value]));
     });
-    rows.push(['Total current liabilities', currentLiabilitiesTotal, formatPct(currentLiabilitiesTotal, assetsTotal)]);
-
-    rows.push(['Non-current liabilities:', '', '']);
-    nonCurrentMarketplaceRows.forEach(g => {
-      const pad = '   '.repeat(1 + (g.depth ?? 0));
-      rows.push([pad + g.label, g.heading ? '' : g.value, g.heading ? '' : formatPct(g.value, assetsTotal)]);
-    });
-    rows.push(['Total non-current liabilities', nonCurrentLiabilitiesTotal, formatPct(nonCurrentLiabilitiesTotal, assetsTotal)]);
-    rows.push(['TOTAL LIABILITIES', data.liabilities.total, formatPct(data.liabilities.total, assetsTotal)]);
-
+    rows.push(['Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
+    if (liabilityGroups && hasFlagged(liabilityGroups.flagged)) {
+      rows.push([liabilityGroups.flagged.label, liabilityGroups.flagged.value]);
+      visibleFlaggedLines(liabilityGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
+    }
+    rows.push(['TOTAL LIABILITIES', data.liabilities.total]);
     rows.push([]);
-    rows.push(['Shareholders\' equity:', '', '']);
-    (equityGroups?.groups ?? []).forEach(g => {
-      rows.push(['   ' + g.label, g.value, formatPct(g.value, assetsTotal)]);
-    });
-    rows.push(['TOTAL SHAREHOLDERS\' EQUITY', equityTotal, formatPct(equityTotal, assetsTotal)]);
-
+    rows.push(["SHAREHOLDERS' EQUITY", '']);
+    (equityGroups?.groups ?? []).forEach(g => rows.push([g.label, g.value]));
+    if (equityGroups && hasFlagged(equityGroups.flagged)) {
+      rows.push([equityGroups.flagged.label, equityGroups.flagged.value]);
+      visibleFlaggedLines(equityGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
+    }
+    rows.push(["TOTAL SHAREHOLDERS' EQUITY", equityTotal]);
     rows.push([]);
-    rows.push(['TOTAL LIABILITIES AND SHAREHOLDERS\' EQUITY', totalLiabilitiesAndEquity, formatPct(totalLiabilitiesAndEquity, assetsTotal)]);
-    rows.push(['Balance Check Difference', data.balance_check.difference, '']);
-    rows.push(['Balanced (real ledger, no plug)', data.balance_check.balanced ? 'YES' : 'NO', '']);
+    rows.push(['TOTAL LIABILITIES AND EQUITY', totalLiabilitiesAndEquity]);
+    rows.push(['Balance check difference', data.balance_check.difference]);
+    rows.push(['Balanced', data.balance_check.balanced ? 'YES' : 'NO']);
+    if (data.trial_balance) {
+      rows.push([]);
+      rows.push(['TRIAL BALANCE', '']);
+      rows.push(['Total debits', data.trial_balance.total_debits]);
+      rows.push(['Total credits', data.trial_balance.total_credits]);
+      rows.push(['Difference', data.trial_balance.difference]);
+    }
+    if (data.reconciliation) {
+      rows.push([]);
+      rows.push(['UNRESOLVED ONE-SIDED LEDGER POSTINGS', '']);
+      rows.push(['Transactions affected', data.reconciliation.unresolved_groups]);
+      rows.push(['Absolute amount', data.reconciliation.unresolved_absolute_amount]);
+      rows.push(['Suspense plug applied', 'NO — no plug is used; the balance check is a real assertion']);
+      rows.push(['Unreconciled difference (assets less liabilities and equity)', data.reconciliation.unreconciled_difference ?? data.balance_check.difference]);
+      data.reconciliation.schedule?.forEach(r =>
+        rows.push([`${r.category} (${r.ledger_scope}) — ${r.groups} transactions`, r.net_debit_less_credit]));
+      rows.push([]);
+      rows.push(['MEMO — NOT IN TOTALS', '']);
+      data.reconciliation.memo_sub_ledgers?.forEach(l => rows.push([l.label, l.value]));
+    }
 
     const csv = rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `welile-consolidated-balance-sheet-${format(asAt, 'yyyy-MM-dd')}.csv`;
+    a.download = `welile-statement-of-financial-position-${format(asAt, 'yyyy-MM-dd')}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -1176,1208 +872,487 @@ export default function BalanceSheetPanel() {
       const margin = 14;
       let y = 20;
 
-      pdf.setFillColor(30, 41, 59);
-      pdf.rect(0, 0, pw, 14, 'F');
+      pdf.setFillColor(37, 99, 235);
+      pdf.rect(0, 0, pw, 12, 'F');
       pdf.setTextColor(255, 255, 255);
       pdf.setFontSize(10);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('WELILE TECHNOLOGIES LIMITED', margin, 9);
-      pdf.setFontSize(8);
-      pdf.text('CONSOLIDATED BALANCE SHEETS', pw - margin - 50, 9);
+      pdf.text('WELILE TECHNOLOGIES LIMITED', margin, 8);
+      pdf.text('CONFIDENTIAL', pw - margin - 25, 8);
 
       pdf.setTextColor(0, 0, 0);
       pdf.setFontSize(13);
-      y = 22;
-      pdf.text('STATEMENT OF FINANCIAL POSITION', margin, y);
-      y += 5;
-      pdf.setFontSize(8);
+      pdf.text('BALANCE SHEET', margin, y);
+      y += 6;
+      pdf.setFontSize(9);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(100, 100, 100);
-      pdf.text(`As at ${format(asAt, 'dd MMMM yyyy')} · All figures in Uganda Shillings (UGX)`, margin, y);
+      pdf.text(`As at ${format(asAt, 'dd MMMM yyyy')}`, margin, y);
+      pdf.text(`Generated: ${format(new Date(data.generated_at), 'dd MMM yyyy, HH:mm')}`, pw - margin - 60, y);
       y += 3;
-      pdf.setDrawColor(200, 200, 200);
+      pdf.setDrawColor(220, 220, 220);
       pdf.line(margin, y, pw - margin, y);
       y += 6;
 
-      const printHeading = (text: string) => {
-        if (y > ph - 25) { pdf.addPage(); y = 20; }
-        pdf.setFontSize(9);
+      const heading = (t: string) => {
+        if (y > ph - 30) { pdf.addPage(); y = 20; }
+        pdf.setFontSize(8);
         pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(30, 41, 59);
-        pdf.text(text.toUpperCase(), margin, y);
+        pdf.setTextColor(37, 99, 235);
+        pdf.text(t.toUpperCase(), margin, y);
+        pdf.setTextColor(0, 0, 0);
+        y += 5;
+      };
+      const row = (label: string, value: number, bold = false, indent = true) => {
+        if (y > ph - 20) { pdf.addPage(); y = 20; }
+        pdf.setFontSize(bold ? 9 : 8);
+        pdf.setFont('helvetica', bold ? 'bold' : 'normal');
+        pdf.setTextColor(bold ? 0 : 80, bold ? 0 : 80, bold ? 0 : 80);
+        pdf.text(label, indent && !bold ? margin + 5 : margin, y);
+        const str = value < 0 ? `(${formatUGX(Math.abs(value))})` : formatUGX(value);
+        pdf.text(str, pw - margin, y, { align: 'right' });
+        if (bold) { pdf.setDrawColor(200, 200, 200); pdf.line(margin, y + 1.5, pw - margin, y + 1.5); }
+        y += bold ? 7 : 5;
+      };
+
+      /** A block heading: names the rows beneath it and carries no amount. */
+      const blockHeading = (label: string) => {
+        if (y > ph - 20) { pdf.addPage(); y = 20; }
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(60, 60, 60);
+        pdf.text(label, margin + 2, y);
+        pdf.setTextColor(0, 0, 0);
         y += 5;
       };
 
-      const printRow = (label: string, val: number, bold = false, indent = 4) => {
-        if (y > ph - 20) { pdf.addPage(); y = 20; }
-        pdf.setFontSize(bold ? 8.5 : 8);
-        pdf.setFont('helvetica', bold ? 'bold' : 'normal');
-        pdf.setTextColor(bold ? 0 : 70, bold ? 0 : 70, bold ? 0 : 70);
-        pdf.text(label, margin + indent, y);
-        const valStr = val < 0 ? `(${formatUGX(Math.abs(val))})` : formatUGX(val);
-        pdf.text(valStr, pw - margin - 20, y, { align: 'right' });
-        const pctStr = formatPct(val, assetsTotal);
-        pdf.text(pctStr, pw - margin, y, { align: 'right' });
-        if (bold) {
-          pdf.setDrawColor(220, 220, 220);
-          pdf.line(margin + indent, y + 1.5, pw - margin, y + 1.5);
-        }
-        y += bold ? 6 : 4.5;
+      const flaggedRows = (g?: BsGroup) => {
+        if (!g || !hasFlagged(g)) return;
+        row(g.label, g.value, true);
+        visibleFlaggedLines(g).forEach(l => row('   ' + l.label, l.value));
       };
 
-      printHeading('Assets');
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Current assets:', margin + 2, y);
-      y += 4.5;
-      currentAssetRows.forEach(g => {
-        if (!g.heading) printRow(g.label, g.value, false, 4);
+      heading('Assets');
+      assetRows.forEach(g => {
+        if (g.heading) blockHeading(g.label);
+        else row(g.label, g.value, g.subtotal);
+        (g.components ?? []).forEach(c => row('   ' + c.label, c.value));
       });
-      printRow('Total current assets', currentAssetsTotal, true, 2);
+      flaggedRows(assetGroups?.flagged);
+      row('TOTAL ASSETS', assetsTotal, true);
 
-      y += 2;
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Non-current assets:', margin + 2, y);
-      y += 4.5;
-      nonCurrentAssetRows.forEach(g => {
-        if (!g.heading) printRow(g.label, g.value, false, 4);
+      heading('Liabilities');
+      standaloneRows.forEach(g => {
+        row(g.label, g.value);
+        (isTaxLine(g.label) ? g.components ?? [] : []).forEach(c => row('   ' + c.label, c.value));
       });
-      printRow('Total non-current assets', nonCurrentAssetsTotal, true, 2);
-      printRow('TOTAL ASSETS', assetsTotal, true, 0);
-
-      y += 3;
-      printHeading('Liabilities and Shareholders\' Equity');
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Current liabilities:', margin + 2, y);
-      y += 4.5;
-      standaloneRows.forEach(g => printRow(g.label, g.value, false, 4));
-      currentMarketplaceRows.forEach(g => {
-        if (!g.heading && !g.subtotal) printRow(g.label, g.value, false, 4);
+      heading('Market Place Liabilities');
+      marketplaceRows.forEach(g => {
+        const pad = '   '.repeat(g.depth ?? 0);
+        if (g.heading) blockHeading(pad + g.label);
+        else row(pad + g.label, g.value, g.subtotal);
+        (g.components ?? []).forEach(c => row(pad + '   ' + c.label, c.value));
       });
-      printRow('Total current liabilities', currentLiabilitiesTotal, true, 2);
+      row('Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
+      flaggedRows(liabilityGroups?.flagged);
+      row('TOTAL LIABILITIES', data.liabilities.total, true);
 
-      y += 2;
+      heading("Shareholders' Equity");
+      (equityGroups?.groups ?? []).forEach(g => row(g.label, g.value));
+      flaggedRows(equityGroups?.flagged);
+      row("TOTAL SHAREHOLDERS' EQUITY", equityTotal, true);
+
+      heading('Balance Check');
+      row('Total Assets', assetsTotal);
+      row('Total Liabilities and Equity', totalLiabilitiesAndEquity);
+      row('Difference', data.balance_check.difference, true);
+      if (data.trial_balance) {
+        heading('Trial Balance');
+        row('Total Debits', data.trial_balance.total_debits);
+        row('Total Credits', data.trial_balance.total_credits);
+        row('Difference', data.trial_balance.difference, true);
+      }
+      if (data.reconciliation) {
+        heading('Unresolved one-sided ledger postings');
+        row(`Transactions affected: ${data.reconciliation.unresolved_groups.toLocaleString()}`, data.reconciliation.unresolved_absolute_amount);
+        row(
+          'Unreconciled difference (no suspense plug applied)',
+          data.reconciliation.unreconciled_difference ?? data.balance_check.difference,
+          true,
+        );
+        data.reconciliation.schedule?.forEach(r =>
+          row(`${r.category.replace(/_/g, ' ')} · ${r.ledger_scope} · ${r.groups} txns`, r.net_debit_less_credit));
+        heading('Memo — operational records and wallet caches (not in totals)');
+        data.reconciliation.memo_sub_ledgers?.forEach(l => row(l.label, l.value));
+      }
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('Non-current liabilities:', margin + 2, y);
-      y += 4.5;
-      nonCurrentMarketplaceRows.forEach(g => {
-        if (!g.heading && !g.subtotal) printRow(g.label, g.value, false, 4);
-      });
-      printRow('Total non-current liabilities', nonCurrentLiabilitiesTotal, true, 2);
-      printRow('TOTAL LIABILITIES', data.liabilities.total, true, 0);
-
-      y += 2;
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Shareholders\' equity:', margin + 2, y);
-      y += 4.5;
-      (equityGroups?.groups ?? []).forEach(g => printRow(g.label, g.value, false, 4));
-      printRow('TOTAL SHAREHOLDERS\' EQUITY', equityTotal, true, 2);
-
-      y += 2;
-      printRow('TOTAL LIABILITIES AND SHAREHOLDERS\' EQUITY', totalLiabilitiesAndEquity, true, 0);
-
-      y += 4;
-      pdf.setFontSize(7.5);
-      pdf.setFont('helvetica', 'italic');
-      pdf.setTextColor(data.balance_check.balanced ? 22 : 180, data.balance_check.balanced ? 101 : 30, data.balance_check.balanced ? 52 : 30);
+      pdf.setTextColor(...(data.balance_check.balanced ? [22, 163, 74] : [220, 38, 38]) as [number, number, number]);
       pdf.text(
         data.balance_check.balanced
-          ? 'ASSERTION: Balanced — Total Assets equal Total Liabilities and Shareholders\' Equity (Zero suspense plug applied).'
-          : `ASSERTION: Unbalanced Difference: ${formatUGX(data.balance_check.difference)} — Real ledger data with no plug.`,
+          ? 'BALANCED — Total Assets = Total Liabilities + Equity'
+          : 'NOT BALANCED — difference shown above; no figures have been adjusted',
         margin, y,
       );
 
-      const fileName = `welile-balance-sheet-${format(asAt, 'yyyy-MM-dd')}.pdf`;
-      pdf.save(fileName);
-      toast.success('PDF report downloaded');
-    } catch {
-      toast.error('Failed to export PDF');
+      pdf.setFillColor(37, 99, 235);
+      pdf.rect(0, ph - 8, pw, 8, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(7);
+      pdf.text('Welile Technologies Limited — Confidential Financial Report — All figures in UGX', pw / 2, ph - 3, { align: 'center' });
+
+      const fileName = `welile-statement-of-financial-position-${format(asAt, 'yyyy-MM-dd')}.pdf`;
+      const blob = pdf.output('blob');
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: 'Welile Balance Sheet', files: [file] });
+      } else {
+        pdf.save(fileName);
+        toast.success('PDF downloaded');
+      }
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') toast.error('PDF export failed');
     } finally {
       setExporting(false);
     }
   };
 
   return (
-    <div className="space-y-4">
-      {/* 1. Executive Summary KPI Strip */}
-      {data && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-          <div className="rounded-xl border border-border bg-card p-3 shadow-xs">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              Total Assets
-              <Wallet className="h-3.5 w-3.5 text-primary opacity-80" />
-            </p>
-            <p className="text-base font-bold font-mono text-foreground mt-1 tabular-nums">
-              {formatUGX(assetsTotal)}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Current: {formatUGX(currentAssetsTotal)}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-3 shadow-xs">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              Total Liabilities
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 opacity-80" />
-            </p>
-            <p className="text-base font-bold font-mono text-foreground mt-1 tabular-nums">
-              {formatUGX(data.liabilities.total)}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Current: {formatUGX(currentLiabilitiesTotal)}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-3 shadow-xs">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              Shareholders' Equity
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-500 opacity-80" />
-            </p>
-            <p className={cn("text-base font-bold font-mono mt-1 tabular-nums", equityTotal < 0 ? "text-destructive" : "text-foreground")}>
-              {equityTotal < 0 ? `(${formatUGX(Math.abs(equityTotal))})` : formatUGX(equityTotal)}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Net position from ledger
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-3 shadow-xs">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              Net Working Capital
-              <ShieldCheck className="h-3.5 w-3.5 text-blue-500 opacity-80" />
-            </p>
-            <p className={cn("text-base font-bold font-mono mt-1 tabular-nums", workingCapital < 0 ? "text-destructive" : "text-foreground")}>
-              {workingCapital < 0 ? `(${formatUGX(Math.abs(workingCapital))})` : formatUGX(workingCapital)}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Current Assets - Current Liab.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Controls and Date Selection Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl border border-border bg-card shadow-xs">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* As of Date Picker */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 font-medium">
-                <Calendar className="h-3.5 w-3.5 text-primary" />
-                <span>As of: <strong className="font-semibold">{format(asAt, 'dd MMM yyyy')}</strong></span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 z-[200]" align="start">
-              <CalendarPicker
-                mode="single"
-                selected={asAt}
-                onSelect={(d) => {
-                  if (d) {
-                    setAsAt(d);
-                    load(d, false);
-                  }
-                }}
-                initialFocus
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs gap-1"
-            onClick={() => load(asAt, true)}
-            disabled={loading}
-          >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            {data ? 'Refresh' : 'Generate'}
-          </Button>
-
-          {/* Comparative Period Toggle */}
-          <Button
-            size="sm"
-            variant={showComparison ? 'default' : 'outline'}
-            className="h-8 text-xs gap-1.5"
-            onClick={() => setShowComparison(s => !s)}
-          >
-            <GitCompareArrows className="h-3.5 w-3.5" />
-            {showComparison ? 'Comparison Active' : 'Compare Period'}
-          </Button>
-
-          {showComparison && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-dashed border-primary/60">
-                  <Calendar className="h-3.5 w-3.5 text-primary" />
-                  <span>Prior: <strong className="font-semibold">{format(compareDate, 'dd MMM yyyy')}</strong></span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-[200]" align="start">
-                <CalendarPicker
-                  mode="single"
-                  selected={compareDate}
-                  onSelect={(d) => {
-                    if (d) {
-                      setCompareDate(d);
-                      loadComparison(d, false);
-                    }
-                  }}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-          )}
-
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => setShowSources(s => !s)}
-          >
-            {showSources ? 'Hide account codes' : 'Show account codes'}
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5" onClick={exportCSV} disabled={!data}>
-            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
-            CSV
-          </Button>
-          <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5" onClick={exportPDF} disabled={!data || exporting}>
-            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 text-blue-600" />}
-            PDF
-          </Button>
-        </div>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
+              <Calendar className="h-3.5 w-3.5" />
+              As at {format(asAt, 'dd MMM yyyy')}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 z-[200]" align="start">
+            <CalendarPicker
+              mode="single"
+              selected={asAt}
+              onSelect={(d) => { if (d) setAsAt(d); }}
+              initialFocus
+              className="p-3 pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
+        <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { void report.refetch(); }} disabled={loading}>
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {data ? 'Refresh' : reportError ? 'Try again' : 'Generate'}
+        </Button>
+        <Button
+          size="sm"
+          variant={showSources ? 'default' : 'outline'}
+          className="h-7 text-xs"
+          onClick={() => setShowSources(s => !s)}
+        >
+          {showSources ? 'Hide account detail' : 'Show account detail'}
+        </Button>
       </div>
 
       {loading && !data && (
-        <div className="py-14 text-center text-muted-foreground text-xs rounded-xl border border-border bg-card">
-          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
-          <p className="font-medium text-foreground text-sm">Compiling Consolidated Balance Sheet from General Ledger…</p>
-          <p className="text-[11px] text-muted-foreground mt-1">Resolving real double-entry account positions, statutory payroll obligations, and asset classifications.</p>
-          <p className="text-[11px] text-muted-foreground mt-2 font-mono tabular-nums">
-            {elapsedSec}s elapsed{elapsedSec >= 20 ? ' · the ledger statement is large; this can take up to two minutes' : ''}
-          </p>
+        <div className="py-10 text-center text-muted-foreground text-xs">
+          <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+          Building the statement from the general ledger…
         </div>
       )}
 
-      {loading && data && (
-        <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-muted/60 text-xs text-muted-foreground border border-border/50">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-          <span>Refreshing latest positions from the General Ledger…</span>
-        </div>
-      )}
-
-      {!loading && !data && (
-        <div className="py-12 px-4 text-center rounded-xl border border-dashed border-border bg-card">
-          {error ? (
-            <div className="max-w-md mx-auto space-y-3">
-              <div className="inline-flex p-3 rounded-full bg-destructive/10 text-destructive mb-1">
-                <AlertTriangle className="h-6 w-6" />
-              </div>
-              <h3 className="text-sm font-semibold text-foreground">Unable to generate Balance Sheet</h3>
-              <p className="text-xs text-muted-foreground break-words">{error}</p>
-              <Button size="sm" onClick={() => load(asAt, true)} className="text-xs gap-1.5 mt-2">
-                <RefreshCw className="h-3.5 w-3.5" />
-                Retry
-              </Button>
-            </div>
-          ) : (
-            <div className="max-w-md mx-auto space-y-2">
-              <FileSpreadsheet className="h-8 w-8 mx-auto text-muted-foreground/40 mb-1" />
-              <p className="text-xs font-medium text-foreground">No Balance Sheet loaded</p>
-              <p className="text-[11px] text-muted-foreground">Select a date and click Generate to compile the statement.</p>
-              <Button size="sm" onClick={() => load(asAt, true)} className="text-xs gap-1.5 mt-2">
-                <RefreshCw className="h-3.5 w-3.5" />
-                Generate
-              </Button>
-            </div>
-          )}
+      {reportError && !data && (
+        <div role="alert" className="flex items-start gap-2 rounded-md border border-destructive/40 p-3 text-xs text-destructive">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{reportError}</span>
         </div>
       )}
 
       {data && (
         <>
-          {/* 3. Official Uber Form 10-K Consolidated Balance Sheets Presentation */}
-          <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-            {/* Formal Header */}
-            <div className="p-4 border-b border-border text-center space-y-1 bg-muted/10">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-foreground">
-                Welile Technologies Limited
-              </h2>
-              <h1 className="text-base font-bold text-foreground tracking-tight">
-                CONSOLIDATED BALANCE SHEETS
-              </h1>
-              <p className="text-[11px] text-muted-foreground">
-                (Amounts in Uganda Shillings [UGX])
+          <div className="text-center pb-2 border-b border-border">
+            <p className="text-[11px] font-bold uppercase tracking-widest">Welile — Balance Sheet</p>
+            <p className="text-[10px] text-muted-foreground">Balance Sheet — As at {format(asAt, 'dd MMMM yyyy')} · All figures in {data.currency}</p>
+          </div>
+
+          <div
+            className={cn(
+              'rounded-lg border p-3 flex items-start gap-2',
+              data.balance_check.balanced ? 'border-success/40 bg-success/5' : 'border-destructive/40 bg-destructive/5',
+            )}
+          >
+            {data.balance_check.balanced
+              ? <CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />
+              : <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />}
+            <div className="min-w-0 space-y-1">
+              <p className={cn('text-xs font-semibold', data.balance_check.balanced ? 'text-success' : 'text-destructive')}>
+                {data.balance_check.balanced
+                  ? 'Balanced — Total Assets = Total Liabilities + Equity (real ledger data, no plug)'
+                  : 'BALANCE CHECK FAILED — Total Assets do not equal Total Liabilities + Equity'}
               </p>
-            </div>
-
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-border/80 text-muted-foreground text-[11px]">
-                    <th className="py-2.5 pl-4 pr-3 text-left font-semibold">
-                      Account / Financial Category
-                    </th>
-                    <th className="py-2.5 px-3 text-right font-semibold whitespace-nowrap">
-                      As of {format(asAt, 'MMM d, yyyy')}
-                    </th>
-                    <th className="py-2.5 px-3 text-right font-semibold whitespace-nowrap text-muted-foreground/80">
-                      % of Assets
-                    </th>
-                    {showComparison && compareData && (
-                      <>
-                        <th className="py-2.5 px-3 text-right font-semibold whitespace-nowrap border-l border-border/50">
-                          As of {format(compareDate, 'MMM d, yyyy')}
-                        </th>
-                        <th className="py-2.5 px-3 text-right font-semibold whitespace-nowrap text-muted-foreground/80">
-                          % of Assets
-                        </th>
-                        <th className="py-2.5 pl-3 pr-4 text-right font-semibold whitespace-nowrap">
-                          Variance
-                        </th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-border/30">
-                  {/* ======================================================== */}
-                  {/* ASSETS SECTION                                           */}
-                  {/* ======================================================== */}
-                  <tr className="bg-muted/30">
-                    <td colSpan={showComparison && compareData ? 6 : 3} className="py-2 pl-4 text-xs font-bold text-foreground uppercase tracking-wider">
-                      ASSETS
-                    </td>
-                  </tr>
-
-                  {/* Current Assets Header */}
-                  <tr className="bg-muted/10">
-                    <td colSpan={showComparison && compareData ? 6 : 3} className="py-1.5 pl-5 text-[11px] font-semibold text-foreground/90 italic">
-                      Current assets:
-                    </td>
-                  </tr>
-
-                  {/* Current Assets Rows */}
-                  {currentAssetRows.map(g => {
-                    const compVal = findCompVal(g.label, compareAssetRows);
-                    const variance = formatVariance(g.value, compVal);
-                    return (
-                      <tr
-                        key={g.label}
-                        onClick={() => setDrill({
-                          title: g.label,
-                          value: g.value,
-                          unsourced: g.unsourced,
-                          lines: g.lines,
-                          components: g.components,
-                        })}
-                        className="hover:bg-muted/40 cursor-pointer transition-colors group"
-                      >
-                        <td className="py-1.5 pl-8 pr-3 text-muted-foreground group-hover:text-foreground">
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate">{g.label}</span>
-                            {showSources && g.lines[0]?.source && (
-                              <span className="text-[9px] font-mono px-1 rounded bg-muted text-muted-foreground shrink-0">
-                                {g.lines[0].source.split('—').pop()?.trim()}
-                              </span>
-                            )}
-                            {g.unsourced && (
-                              <span className="text-[9px] px-1 rounded bg-muted text-muted-foreground shrink-0">
-                                not in ledger
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className={cn("py-1.5 px-3 text-right font-mono tabular-nums", g.value < 0 ? "text-destructive" : "text-foreground")}>
-                          {g.value < 0 ? `(${formatUGX(Math.abs(g.value))})` : formatUGX(g.value)}
-                        </td>
-                        <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                          {formatPct(g.value, assetsTotal)}
-                        </td>
-                        {showComparison && compareData && (
-                          <>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground border-l border-border/40">
-                              {compVal !== null ? (compVal < 0 ? `(${formatUGX(Math.abs(compVal))})` : formatUGX(compVal)) : '—'}
-                            </td>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                              {compVal !== null ? formatPct(compVal, compareAssetsTotal) : '—'}
-                            </td>
-                            <td className={cn("py-1.5 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]", (compVal !== null && g.value - compVal < 0) ? "text-amber-600" : "text-emerald-600")}>
-                              {variance.diffText}
-                              {variance.pctText && <span className="text-[9px] ml-1 opacity-80">({variance.pctText})</span>}
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-
-                  {/* Total Current Assets Subtotal */}
-                  <tr className="border-t border-border font-semibold bg-muted/15">
-                    <td className="py-2 pl-6 pr-3 text-foreground">
-                      Total current assets
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                      {formatUGX(currentAssetsTotal)}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                      {formatPct(currentAssetsTotal, assetsTotal)}
-                    </td>
-                    {showComparison && compareData && (
-                      <>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground border-l border-border/40">
-                          {formatUGX(compareCurrentAssetsTotal)}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                          {formatPct(compareCurrentAssetsTotal, compareAssetsTotal)}
-                        </td>
-                        <td className="py-2 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]">
-                          {formatVariance(currentAssetsTotal, compareCurrentAssetsTotal).diffText}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-
-                  {/* Non-Current Assets Header */}
-                  <tr className="bg-muted/10">
-                    <td colSpan={showComparison && compareData ? 6 : 3} className="py-1.5 pl-5 text-[11px] font-semibold text-foreground/90 italic">
-                      Non-current assets:
-                    </td>
-                  </tr>
-
-                  {/* Non-Current Assets Rows */}
-                  {nonCurrentAssetRows.map(g => {
-                    const compVal = findCompVal(g.label, compareAssetRows);
-                    const variance = formatVariance(g.value, compVal);
-                    return (
-                      <tr
-                        key={g.label}
-                        onClick={() => setDrill({
-                          title: g.label,
-                          value: g.value,
-                          unsourced: g.unsourced,
-                          lines: g.lines,
-                          components: g.components,
-                        })}
-                        className="hover:bg-muted/40 cursor-pointer transition-colors group"
-                      >
-                        <td className="py-1.5 pl-8 pr-3 text-muted-foreground group-hover:text-foreground">
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate">{g.label}</span>
-                            {showSources && g.lines[0]?.source && (
-                              <span className="text-[9px] font-mono px-1 rounded bg-muted text-muted-foreground shrink-0">
-                                {g.lines[0].source.split('—').pop()?.trim()}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className={cn("py-1.5 px-3 text-right font-mono tabular-nums", g.value < 0 ? "text-destructive" : "text-foreground")}>
-                          {g.value < 0 ? `(${formatUGX(Math.abs(g.value))})` : formatUGX(g.value)}
-                        </td>
-                        <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                          {formatPct(g.value, assetsTotal)}
-                        </td>
-                        {showComparison && compareData && (
-                          <>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground border-l border-border/40">
-                              {compVal !== null ? (compVal < 0 ? `(${formatUGX(Math.abs(compVal))})` : formatUGX(compVal)) : '—'}
-                            </td>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                              {compVal !== null ? formatPct(compVal, compareAssetsTotal) : '—'}
-                            </td>
-                            <td className="py-1.5 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]">
-                              {variance.diffText}
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-
-                  {/* Total Non-Current Assets Subtotal */}
-                  <tr className="border-t border-border font-semibold bg-muted/15">
-                    <td className="py-2 pl-6 pr-3 text-foreground">
-                      Total non-current assets
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                      {formatUGX(nonCurrentAssetsTotal)}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                      {formatPct(nonCurrentAssetsTotal, assetsTotal)}
-                    </td>
-                    {showComparison && compareData && (
-                      <>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground border-l border-border/40">
-                          {formatUGX(compareNonCurrentAssetsTotal)}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                          {formatPct(compareNonCurrentAssetsTotal, compareAssetsTotal)}
-                        </td>
-                        <td className="py-2 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]">
-                          {formatVariance(nonCurrentAssetsTotal, compareNonCurrentAssetsTotal).diffText}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-
-                  {/* Flagged Assets if any */}
-                  {assetGroups && hasFlagged(assetGroups.flagged) && (
-                    <tr className="bg-amber-500/10 border-t border-amber-500/30 text-amber-700 dark:text-amber-400">
-                      <td className="py-1.5 pl-6 pr-3 font-medium">
-                        {assetGroups.flagged.label}
-                      </td>
-                      <td className="py-1.5 px-3 text-right font-mono tabular-nums">
-                        {formatUGX(assetGroups.flagged.value)}
-                      </td>
-                      <td className="py-1.5 px-3 text-right font-mono tabular-nums">
-                        {formatPct(assetGroups.flagged.value, assetsTotal)}
-                      </td>
-                      {showComparison && compareData && <td colSpan={3} />}
-                    </tr>
-                  )}
-
-                  {/* TOTAL ASSETS (Uber double bottom border) */}
-                  <tr className="border-t-2 border-b-2 border-primary/50 bg-primary/5 font-bold">
-                    <td className="py-2.5 pl-4 pr-3 text-sm text-foreground uppercase tracking-wider">
-                      TOTAL ASSETS
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-sm tabular-nums text-primary">
-                      {formatUGX(assetsTotal)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-sm tabular-nums text-primary">
-                      100.0%
-                    </td>
-                    {showComparison && compareData && (
-                      <>
-                        <td className="py-2.5 px-3 text-right font-mono text-sm tabular-nums text-foreground border-l border-border/40">
-                          {formatUGX(compareAssetsTotal)}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-sm tabular-nums text-foreground">
-                          100.0%
-                        </td>
-                        <td className="py-2.5 pl-3 pr-4 text-right font-mono text-sm tabular-nums text-primary">
-                          {formatVariance(assetsTotal, compareAssetsTotal).diffText}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-
-                  {/* ======================================================== */}
-                  {/* LIABILITIES AND SHAREHOLDERS' EQUITY SECTION            */}
-                  {/* ======================================================== */}
-                  <tr className="bg-muted/30">
-                    <td colSpan={showComparison && compareData ? 6 : 3} className="py-2.5 pl-4 text-xs font-bold text-foreground uppercase tracking-wider">
-                      LIABILITIES AND SHAREHOLDERS' EQUITY
-                    </td>
-                  </tr>
-
-                  {/* Current Liabilities Header */}
-                  <tr className="bg-muted/10">
-                    <td colSpan={showComparison && compareData ? 6 : 3} className="py-1.5 pl-5 text-[11px] font-semibold text-foreground/90 italic">
-                      Current liabilities:
-                    </td>
-                  </tr>
-
-                  {/* Standalone Current Liabilities (Customer Custody L1, Deferred Fees L7, etc.) */}
-                  {standaloneRows.map(g => {
-                    const compVal = findCompVal(g.label, compareStandaloneRows);
-                    const variance = formatVariance(g.value, compVal);
-                    return (
-                      <tr
-                        key={g.label}
-                        onClick={() => setDrill({
-                          title: g.label,
-                          value: g.value,
-                          unsourced: g.unsourced,
-                          lines: g.lines,
-                          components: standaloneComponents(g),
-                          note: standaloneNote(g),
-                        })}
-                        className="hover:bg-muted/40 cursor-pointer transition-colors group"
-                      >
-                        <td className="py-1.5 pl-8 pr-3 text-muted-foreground group-hover:text-foreground">
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate">{g.label}</span>
-                            {isTaxLine(g.label) && (
-                              <span className="text-[9px] px-1 rounded bg-amber-500/10 text-amber-600 shrink-0 font-medium">
-                                payroll disclosure
-                              </span>
-                            )}
-                            {showSources && g.lines[0]?.source && (
-                              <span className="text-[9px] font-mono px-1 rounded bg-muted text-muted-foreground shrink-0">
-                                {g.lines[0].source.split('—').pop()?.trim()}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className={cn("py-1.5 px-3 text-right font-mono tabular-nums", g.value < 0 ? "text-destructive" : "text-foreground")}>
-                          {g.value < 0 ? `(${formatUGX(Math.abs(g.value))})` : formatUGX(g.value)}
-                        </td>
-                        <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                          {formatPct(g.value, assetsTotal)}
-                        </td>
-                        {showComparison && compareData && (
-                          <>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground border-l border-border/40">
-                              {compVal !== null ? (compVal < 0 ? `(${formatUGX(Math.abs(compVal))})` : formatUGX(compVal)) : '—'}
-                            </td>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                              {compVal !== null ? formatPct(compVal, compareAssetsTotal) : '—'}
-                            </td>
-                            <td className="py-1.5 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]">
-                              {variance.diffText}
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-
-                  {/* Current Marketplace Liabilities (L4 Landlord Flow, Float, etc.) */}
-                  {currentMarketplaceRows.map(g => {
-                    const compVal = findCompVal(g.label, compareMarketplaceRows);
-                    const variance = formatVariance(g.value, compVal);
-                    if (g.subtotal) return null; // We render section subtotals uniformly
-                    return (
-                      <tr
-                        key={g.label}
-                        onClick={() => setDrill({
-                          title: g.label,
-                          value: g.value,
-                          unsourced: g.unsourced,
-                          lines: g.lines,
-                          components: g.components,
-                        })}
-                        className="hover:bg-muted/40 cursor-pointer transition-colors group"
-                      >
-                        <td className={cn("py-1.5 pr-3 text-muted-foreground group-hover:text-foreground", g.depth ? "pl-11" : "pl-8")}>
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate">{g.label}</span>
-                            {showSources && g.lines[0]?.source && (
-                              <span className="text-[9px] font-mono px-1 rounded bg-muted text-muted-foreground shrink-0">
-                                {g.lines[0].source.split('—').pop()?.trim()}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className={cn("py-1.5 px-3 text-right font-mono tabular-nums", g.value < 0 ? "text-destructive" : "text-foreground")}>
-                          {g.value < 0 ? `(${formatUGX(Math.abs(g.value))})` : formatUGX(g.value)}
-                        </td>
-                        <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                          {formatPct(g.value, assetsTotal)}
-                        </td>
-                        {showComparison && compareData && (
-                          <>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground border-l border-border/40">
-                              {compVal !== null ? (compVal < 0 ? `(${formatUGX(Math.abs(compVal))})` : formatUGX(compVal)) : '—'}
-                            </td>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                              {compVal !== null ? formatPct(compVal, compareAssetsTotal) : '—'}
-                            </td>
-                            <td className="py-1.5 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]">
-                              {variance.diffText}
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-
-                  {/* Total Current Liabilities Subtotal */}
-                  <tr className="border-t border-border font-semibold bg-muted/15">
-                    <td className="py-2 pl-6 pr-3 text-foreground">
-                      Total current liabilities
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                      {formatUGX(currentLiabilitiesTotal)}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                      {formatPct(currentLiabilitiesTotal, assetsTotal)}
-                    </td>
-                    {showComparison && compareData && (
-                      <>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground border-l border-border/40">
-                          {formatUGX(compareCurrentLiabilitiesTotal)}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                          {formatPct(compareCurrentLiabilitiesTotal, compareAssetsTotal)}
-                        </td>
-                        <td className="py-2 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]">
-                          {formatVariance(currentLiabilitiesTotal, compareCurrentLiabilitiesTotal).diffText}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-
-                  {/* Non-Current Liabilities Header */}
-                  <tr className="bg-muted/10">
-                    <td colSpan={showComparison && compareData ? 6 : 3} className="py-1.5 pl-5 text-[11px] font-semibold text-foreground/90 italic">
-                      Non-current liabilities:
-                    </td>
-                  </tr>
-
-                  {/* Non-Current Liabilities Rows (Partner Capital Held L2, Borrowed funds) */}
-                  {nonCurrentMarketplaceRows.map(g => {
-                    const compVal = findCompVal(g.label, compareMarketplaceRows);
-                    const variance = formatVariance(g.value, compVal);
-                    if (g.subtotal) return null;
-                    return (
-                      <tr
-                        key={g.label}
-                        onClick={() => setDrill({
-                          title: g.label,
-                          value: g.value,
-                          unsourced: g.unsourced,
-                          lines: g.lines,
-                          components: g.components,
-                        })}
-                        className="hover:bg-muted/40 cursor-pointer transition-colors group"
-                      >
-                        <td className={cn("py-1.5 pr-3 text-muted-foreground group-hover:text-foreground", g.depth ? "pl-11" : "pl-8")}>
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate">{g.label}</span>
-                            {showSources && g.lines[0]?.source && (
-                              <span className="text-[9px] font-mono px-1 rounded bg-muted text-muted-foreground shrink-0">
-                                {g.lines[0].source.split('—').pop()?.trim()}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className={cn("py-1.5 px-3 text-right font-mono tabular-nums", g.value < 0 ? "text-destructive" : "text-foreground")}>
-                          {g.value < 0 ? `(${formatUGX(Math.abs(g.value))})` : formatUGX(g.value)}
-                        </td>
-                        <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                          {formatPct(g.value, assetsTotal)}
-                        </td>
-                        {showComparison && compareData && (
-                          <>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground border-l border-border/40">
-                              {compVal !== null ? (compVal < 0 ? `(${formatUGX(Math.abs(compVal))})` : formatUGX(compVal)) : '—'}
-                            </td>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                              {compVal !== null ? formatPct(compVal, compareAssetsTotal) : '—'}
-                            </td>
-                            <td className="py-1.5 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]">
-                              {variance.diffText}
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-
-                  {/* Total Non-Current Liabilities Subtotal */}
-                  <tr className="border-t border-border font-semibold bg-muted/15">
-                    <td className="py-2 pl-6 pr-3 text-foreground">
-                      Total non-current liabilities
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                      {formatUGX(nonCurrentLiabilitiesTotal)}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                      {formatPct(nonCurrentLiabilitiesTotal, assetsTotal)}
-                    </td>
-                    {showComparison && compareData && (
-                      <>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground border-l border-border/40">
-                          {formatUGX(compareNonCurrentLiabilitiesTotal)}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                          {formatPct(compareNonCurrentLiabilitiesTotal, compareAssetsTotal)}
-                        </td>
-                        <td className="py-2 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]">
-                          {formatVariance(nonCurrentLiabilitiesTotal, compareNonCurrentLiabilitiesTotal).diffText}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-
-                  {/* Flagged Liabilities if any */}
-                  {liabilityGroups && hasFlagged(liabilityGroups.flagged) && (
-                    <tr className="bg-amber-500/10 border-t border-amber-500/30 text-amber-700 dark:text-amber-400">
-                      <td className="py-1.5 pl-6 pr-3 font-medium">
-                        {liabilityGroups.flagged.label}
-                      </td>
-                      <td className="py-1.5 px-3 text-right font-mono tabular-nums">
-                        {formatUGX(liabilityGroups.flagged.value)}
-                      </td>
-                      <td className="py-1.5 px-3 text-right font-mono tabular-nums">
-                        {formatPct(liabilityGroups.flagged.value, assetsTotal)}
-                      </td>
-                      {showComparison && compareData && <td colSpan={3} />}
-                    </tr>
-                  )}
-
-                  {/* TOTAL LIABILITIES */}
-                  <tr className="border-t border-b border-border/80 font-bold bg-muted/20">
-                    <td className="py-2 pl-4 pr-3 text-foreground">
-                      TOTAL LIABILITIES
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                      {formatUGX(data.liabilities.total)}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                      {formatPct(data.liabilities.total, assetsTotal)}
-                    </td>
-                    {showComparison && compareData && (
-                      <>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground border-l border-border/40">
-                          {formatUGX(compareData.liabilities.total)}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                          {formatPct(compareData.liabilities.total, compareAssetsTotal)}
-                        </td>
-                        <td className="py-2 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]">
-                          {formatVariance(data.liabilities.total, compareData.liabilities.total).diffText}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-
-                  {/* Shareholders' Equity Header */}
-                  <tr className="bg-muted/10">
-                    <td colSpan={showComparison && compareData ? 6 : 3} className="py-2 pl-5 text-[11px] font-semibold text-foreground/90 italic">
-                      Shareholders' equity:
-                    </td>
-                  </tr>
-
-                  {/* Equity Rows */}
-                  {(equityGroups?.groups ?? []).map(g => {
-                    const compVal = findCompVal(g.label, compareEquityGroups?.groups ?? null);
-                    const variance = formatVariance(g.value, compVal);
-                    return (
-                      <tr
-                        key={g.label}
-                        onClick={() => setDrill({
-                          title: g.label,
-                          value: g.value,
-                          unsourced: g.unsourced,
-                          lines: g.lines,
-                          components: g.components,
-                        })}
-                        className="hover:bg-muted/40 cursor-pointer transition-colors group"
-                      >
-                        <td className="py-1.5 pl-8 pr-3 text-muted-foreground group-hover:text-foreground">
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate">{g.label}</span>
-                            {showSources && g.lines[0]?.source && (
-                              <span className="text-[9px] font-mono px-1 rounded bg-muted text-muted-foreground shrink-0">
-                                {g.lines[0].source.split('—').pop()?.trim()}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className={cn("py-1.5 px-3 text-right font-mono tabular-nums", g.value < 0 ? "text-destructive" : "text-foreground")}>
-                          {g.value < 0 ? `(${formatUGX(Math.abs(g.value))})` : formatUGX(g.value)}
-                        </td>
-                        <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                          {formatPct(g.value, assetsTotal)}
-                        </td>
-                        {showComparison && compareData && (
-                          <>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground border-l border-border/40">
-                              {compVal !== null ? (compVal < 0 ? `(${formatUGX(Math.abs(compVal))})` : formatUGX(compVal)) : '—'}
-                            </td>
-                            <td className="py-1.5 px-3 text-right font-mono tabular-nums text-muted-foreground">
-                              {compVal !== null ? formatPct(compVal, compareAssetsTotal) : '—'}
-                            </td>
-                            <td className="py-1.5 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]">
-                              {variance.diffText}
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-
-                  {/* Flagged Equity if any */}
-                  {equityGroups && hasFlagged(equityGroups.flagged) && (
-                    <tr className="bg-amber-500/10 border-t border-amber-500/30 text-amber-700 dark:text-amber-400">
-                      <td className="py-1.5 pl-6 pr-3 font-medium">
-                        {equityGroups.flagged.label}
-                      </td>
-                      <td className="py-1.5 px-3 text-right font-mono tabular-nums">
-                        {formatUGX(equityGroups.flagged.value)}
-                      </td>
-                      <td className="py-1.5 px-3 text-right font-mono tabular-nums">
-                        {formatPct(equityGroups.flagged.value, assetsTotal)}
-                      </td>
-                      {showComparison && compareData && <td colSpan={3} />}
-                    </tr>
-                  )}
-
-                  {/* Total Shareholders' Equity Subtotal */}
-                  <tr className="border-t border-border font-semibold bg-muted/15">
-                    <td className="py-2 pl-6 pr-3 text-foreground">
-                      Total shareholders' equity
-                    </td>
-                    <td className={cn("py-2 px-3 text-right font-mono tabular-nums", equityTotal < 0 ? "text-destructive" : "text-foreground")}>
-                      {equityTotal < 0 ? `(${formatUGX(Math.abs(equityTotal))})` : formatUGX(equityTotal)}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                      {formatPct(equityTotal, assetsTotal)}
-                    </td>
-                    {showComparison && compareData && (
-                      <>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground border-l border-border/40">
-                          {compareEquityTotal < 0 ? `(${formatUGX(Math.abs(compareEquityTotal))})` : formatUGX(compareEquityTotal)}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
-                          {formatPct(compareEquityTotal, compareAssetsTotal)}
-                        </td>
-                        <td className="py-2 pl-3 pr-4 text-right font-mono tabular-nums text-[11px]">
-                          {formatVariance(equityTotal, compareEquityTotal).diffText}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-
-                  {/* TOTAL LIABILITIES AND SHAREHOLDERS' EQUITY (Uber double bottom border) */}
-                  <tr className="border-t-2 border-b-2 border-primary/50 bg-primary/5 font-bold">
-                    <td className="py-2.5 pl-4 pr-3 text-sm text-foreground uppercase tracking-wider">
-                      TOTAL LIABILITIES AND SHAREHOLDERS' EQUITY
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-sm tabular-nums text-primary">
-                      {formatUGX(totalLiabilitiesAndEquity)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-sm tabular-nums text-primary">
-                      {formatPct(totalLiabilitiesAndEquity, assetsTotal)}
-                    </td>
-                    {showComparison && compareData && (
-                      <>
-                        <td className="py-2.5 px-3 text-right font-mono text-sm tabular-nums text-foreground border-l border-border/40">
-                          {formatUGX(compareTotalLiabilitiesAndEquity)}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-sm tabular-nums text-foreground">
-                          {formatPct(compareTotalLiabilitiesAndEquity, compareAssetsTotal)}
-                        </td>
-                        <td className="py-2.5 pl-3 pr-4 text-right font-mono text-sm tabular-nums text-primary">
-                          {formatVariance(totalLiabilitiesAndEquity, compareTotalLiabilitiesAndEquity).diffText}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Assertion & Reconciliation Banner */}
-            <div className={cn(
-              "p-3.5 border-t flex items-start gap-2.5 text-xs",
-              data.balance_check.balanced ? "bg-emerald-500/5 text-emerald-800 dark:text-emerald-300 border-emerald-500/30" : "bg-destructive/5 text-destructive border-destructive/30"
-            )}>
-              {data.balance_check.balanced ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-              ) : (
-                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+              <p className="text-[10px] font-mono text-muted-foreground break-words">
+                {formatUGX(assetsTotal)} vs {formatUGX(totalLiabilitiesAndEquity)} · Difference {formatUGX(data.balance_check.difference)}
+              </p>
+              {!data.balance_check.balanced && (
+                <p className="text-[10px] text-destructive/90 break-words">
+                  {data.balance_check.message
+                    ?? 'No suspense plug has been applied — the difference above is real and must be resolved in the ledger.'}
+                </p>
               )}
-              <div className="space-y-0.5">
-                <p className="font-semibold">
-                  {data.balance_check.balanced
-                    ? 'AUDIT ASSERTION: BALANCED — Total Assets equal Total Liabilities and Shareholders\' Equity.'
-                    : 'AUDIT ASSERTION: NOT BALANCED — Real General Ledger Difference Detected'}
-                </p>
-                <p className="text-[11px] opacity-90 font-mono">
-                  Assets: {formatUGX(assetsTotal)} vs Liabilities &amp; Equity: {formatUGX(totalLiabilitiesAndEquity)} · Difference: {formatUGX(data.balance_check.difference)}
-                </p>
-                <p className="text-[10px] opacity-80 pt-0.5">
-                  Zero suspense plug applied. Every line item maps to a real general ledger debit or credit entry.
-                </p>
-              </div>
             </div>
           </div>
 
-          {/* 4. Collapsible Supporting Schedules */}
-          <div className="space-y-2 pt-1">
-            {/* Schedule I: Subledger Ties */}
-            {!data.subledger_ties && (
-              <div className="rounded-xl border border-dashed border-border bg-card p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <span className="flex items-center gap-2">
-                  <span className="font-mono text-primary font-bold">Schedule I</span>
-                  <span className="text-muted-foreground">Subledger Ties (Ledger vs Operational Records) — loaded on request</span>
-                </span>
-                <div className="flex items-center gap-2">
-                  {tiesError && <span className="text-[11px] text-destructive max-w-xs">{tiesError}</span>}
-                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={loadSubledgerTies} disabled={loadingTies}>
-                    {loadingTies ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    {loadingTies ? 'Checking…' : 'Run tie-out'}
-                  </Button>
-                </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <Badge variant="outline" className="text-[10px]">Assets</Badge>
+              <SectionHeading>Assets</SectionHeading>
+              <div>
+                {assetRows.map(g => (
+                  g.subtotal
+                    ? <TotalRow
+                        key={g.label} label={g.label} value={g.value} depth={g.depth}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value,
+                          sourceNote: 'Calculated by adding the asset lines shown in this section.',
+                          groups: assetRows.filter(row => !row.subtotal && !row.heading),
+                        })}
+                      />
+                    : <GroupRow
+                        key={g.label} group={g} components={g.components}
+                        heading={g.heading} depth={g.depth} showSources={showSources}
+                        onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                      />
+                ))}
               </div>
-            )}
-            {data.subledger_ties && data.subledger_ties.length > 0 && (
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setOpenSchedule1(s => !s)}
-                  className="w-full flex items-center justify-between p-3 text-xs font-semibold text-left hover:bg-muted/30 transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="font-mono text-primary font-bold">Schedule I</span>
-                    <span>Subledger Ties (Ledger vs Operational Records)</span>
-                  </span>
-                  {openSchedule1 ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                </button>
-                {openSchedule1 && (
-                  <div className="p-3 pt-0 border-t border-border/50 space-y-2">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="text-left text-muted-foreground border-b border-border text-[11px]">
-                            <th className="py-1.5 font-medium">Balance</th>
-                            <th className="py-1.5 font-medium text-right">Ledger</th>
-                            <th className="py-1.5 font-medium text-right">Operational</th>
-                            <th className="py-1.5 font-medium text-right">Difference</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.subledger_ties.map((t) => (
-                            <tr key={t.key} className="border-b border-border/40 last:border-0">
-                              <td className="py-1.5 pr-2">{t.label}</td>
-                              <td className="py-1.5 text-right font-mono tabular-nums">{formatUGX(t.ledger)}</td>
-                              <td className="py-1.5 text-right font-mono tabular-nums">{formatUGX(t.operational)}</td>
-                              <td className={cn("py-1.5 text-right font-mono tabular-nums", Math.abs(t.difference) >= 1 ? "text-destructive" : "text-emerald-600")}>
-                                {formatUGX(t.difference)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {data.subledger_ties_basis && (
-                      <p className="text-[11px] text-amber-700 dark:text-amber-400">{data.subledger_ties_basis}</p>
-                    )}
-                    {data.disclosures?.map((d) => (
-                      <p key={d} className="text-[11px] text-muted-foreground">{d}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+              <FlaggedBlock group={assetGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Assets" value={assetsTotal} emphasis
+                onOpen={() => setDrill({
+                  title: 'Total Assets', value: assetsTotal,
+                  sourceNote: 'Calculated by adding all asset balances returned by the general ledger statement.',
+                  groups: [...assetRows.filter(g => !g.subtotal), ...(assetGroups && hasFlagged(assetGroups.flagged) ? [assetGroups.flagged] : [])],
+                })}
+              />
+              <DriftNote drift={assetDrift} of="Total Assets" />
+            </div>
 
-            {/* Schedule II: Statutory Payroll Taxes */}
-            {statutory && statutory.length > 0 && (
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setOpenSchedule2(s => !s)}
-                  className="w-full flex items-center justify-between p-3 text-xs font-semibold text-left hover:bg-muted/30 transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="font-mono text-primary font-bold">Schedule II</span>
-                    <span>Statutory Payroll Liabilities (PAYE, NSSF, LST Withheld)</span>
-                  </span>
-                  {openSchedule2 ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                </button>
-                {openSchedule2 && (
-                  <div className="p-3 pt-0 border-t border-border/50 space-y-2">
-                    <p className="text-[11px] text-muted-foreground">
-                      Amounts withheld on payroll that has actually been paid, net of recorded remittances. Derived from payroll records for disclosure purposes.
-                    </p>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="text-left text-muted-foreground border-b border-border text-[11px]">
-                            <th className="py-1.5 font-medium">Obligation</th>
-                            <th className="py-1.5 font-medium text-right">Withheld</th>
-                            <th className="py-1.5 font-medium text-right">Remitted</th>
-                            <th className="py-1.5 font-medium text-right">Outstanding</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {statutory.map((s) => (
-                            <tr key={s.component_code} className="border-b border-border/40 last:border-0">
-                              <td className="py-1.5 pr-2">{s.label} ({s.authority})</td>
-                              <td className="py-1.5 text-right font-mono tabular-nums">{formatUGX(s.withheld)}</td>
-                              <td className="py-1.5 text-right font-mono tabular-nums">{formatUGX(s.remitted)}</td>
-                              <td className="py-1.5 text-right font-mono tabular-nums font-semibold text-foreground">
-                                {formatUGX(s.outstanding)}
-                              </td>
-                            </tr>
-                          ))}
-                          <tr className="border-t border-border font-bold">
-                            <td className="py-2">Total Statutory Obligations</td>
-                            <td className="py-2 text-right font-mono tabular-nums">{formatUGX(statutory.reduce((t, r) => t + r.withheld, 0))}</td>
-                            <td className="py-2 text-right font-mono tabular-nums">{formatUGX(statutory.reduce((t, r) => t + r.remitted, 0))}</td>
-                            <td className="py-2 text-right font-mono tabular-nums text-primary">{formatUGX(statutoryTotal)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
+            <div>
+              <Badge variant="outline" className="text-[10px]">Liabilities &amp; Shareholders&apos; Equity</Badge>
+              <SectionHeading>Liabilities</SectionHeading>
+              <div>{standaloneRows.map(g => (
+                <GroupRow
+                  key={g.label} group={g} components={isTaxLine(g.label) ? g.components : undefined} showSources={showSources}
+                  onOpen={() => setDrill({
+                    title: g.label, value: g.value, unsourced: g.unsourced,
+                    lines: g.lines, components: standaloneComponents(g),
+                    note: standaloneNote(g),
+                  })}
+                />
+              ))}</div>
+              <SubHeading>Market Place Liabilities</SubHeading>
+              <div>
+                {marketplaceRows.map(g => (
+                  g.subtotal
+                    ? <TotalRow
+                        key={g.label} label={g.label} value={g.value} depth={g.depth}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value,
+                          sourceNote: 'Calculated by adding the marketplace liability lines shown in this section.',
+                          groups: marketplaceRows.filter(row => !row.subtotal && !row.heading && !row.depth),
+                        })}
+                      />
+                    : <GroupRow
+                        key={g.label} group={g} components={g.components}
+                        heading={g.heading} depth={g.depth} showSources={showSources}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components,
+                          sourceNote: g.lines.length === 0 && !g.unsourced
+                            ? 'Measured from landlord float ledger entries, split by whether the rent plan is funded and managed directly by a funder (self managed) or by the company.'
+                            : undefined,
+                        })}
+                      />
+                ))}
               </div>
-            )}
-
-            {/* Schedule III: Trial Balance & One-Sided Postings */}
-            {(data.trial_balance || data.reconciliation) && (
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setOpenSchedule3(s => !s)}
-                  className="w-full flex items-center justify-between p-3 text-xs font-semibold text-left hover:bg-muted/30 transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="font-mono text-primary font-bold">Schedule III</span>
-                    <span>Trial Balance &amp; Ledger Reconciliation</span>
-                  </span>
-                  {openSchedule3 ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                </button>
-                {openSchedule3 && (
-                  <div className="p-3 pt-0 border-t border-border/50 space-y-3">
-                    {data.trial_balance && (
-                      <div className="grid grid-cols-3 gap-2 text-center p-2 rounded-lg bg-muted/20">
-                        <div>
-                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Total Debits</p>
-                          <p className="font-mono text-xs font-semibold mt-0.5">{formatUGX(data.trial_balance.total_debits)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Total Credits</p>
-                          <p className="font-mono text-xs font-semibold mt-0.5">{formatUGX(data.trial_balance.total_credits)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Difference</p>
-                          <p className={cn("font-mono text-xs font-semibold mt-0.5", data.trial_balance.balanced ? "text-emerald-600" : "text-destructive")}>
-                            {formatUGX(data.trial_balance.difference)}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {data.reconciliation && (
-                      <div className="space-y-2">
-                        <p className="text-[11px] text-muted-foreground">
-                          {data.reconciliation.unresolved_groups.toLocaleString()} historic ledger transactions carry only one side of their entry ({formatUGX(data.reconciliation.unresolved_absolute_amount)} in absolute terms). Their counterpart is recognised in the equity line "{UNMATCHED_HISTORIC_POSTINGS_LABEL}".
-                        </p>
-                        {data.reconciliation.schedule?.length > 0 && (
-                          <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                            {data.reconciliation.schedule.map(r => (
-                              <div key={`${r.ledger_scope}-${r.category}`} className="flex items-center justify-between text-[11px] border-b border-border/30 py-1">
-                                <span className="text-muted-foreground truncate">{r.category.replace(/_/g, ' ')} · {r.ledger_scope} ({r.groups} txns)</span>
-                                <span className="font-mono tabular-nums shrink-0">{formatUGX(r.net_debit_less_credit)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+              <TotalRow
+                label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0}
+                onOpen={() => setDrill({
+                  title: 'Market Place Liabilities', value: liabilityGroups?.marketplaceTotal ?? 0,
+                  sourceNote: 'Calculated by adding all marketplace liability balances shown below.',
+                  groups: marketplaceRows.filter(g => !g.subtotal && !g.depth),
+                })}
+              />
+              <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Liabilities" value={data.liabilities.total}
+                onOpen={() => setDrill({
+                  title: 'Total Liabilities', value: data.liabilities.total,
+                  sourceNote: 'Calculated by adding every liability account returned by the general ledger statement.',
+                  groups: [
+                    ...(liabilityGroups?.standalone ?? []),
+                    ...marketplaceRows.filter(g => !g.subtotal && !g.depth),
+                    ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
+                  ],
+                })}
+              />
+              <DriftNote drift={liabilityGroupDrift} of="Total Liabilities" />
+              <SectionHeading>Shareholders&apos; Equity</SectionHeading>
+              <div>{equityGroups?.groups.map(g => (
+                <GroupRow
+                  key={g.label} group={g} showSources={showSources}
+                  onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                />
+              ))}</div>
+              <FlaggedBlock group={equityGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Shareholders&apos; Equity" value={equityTotal}
+                onOpen={() => setDrill({
+                  title: "Total Shareholders' Equity", value: equityTotal,
+                  sourceNote: 'Calculated by adding every shareholders’ equity balance returned by the general ledger statement.',
+                  groups: [...(equityGroups?.groups ?? []), ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : [])],
+                })}
+              />
+              <DriftNote drift={equityDrift} of="Total Shareholders&apos; Equity" />
+              <TotalRow
+                label="Total Liabilities and Shareholders&apos; Equity" value={totalLiabilitiesAndEquity} emphasis
+                onOpen={() => setDrill({
+                  title: "Total Liabilities and Shareholders' Equity", value: totalLiabilitiesAndEquity,
+                  sourceNote: 'Calculated by adding Total Liabilities and Total Shareholders’ Equity.',
+                  groups: [
+                    ...(liabilityGroups?.standalone ?? []),
+                    ...marketplaceRows.filter(g => !g.subtotal && !g.depth),
+                    ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
+                    ...(equityGroups?.groups ?? []),
+                    ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : []),
+                  ],
+                })}
+              />
+            </div>
           </div>
 
-          <p className="text-[10px] text-muted-foreground text-center pt-2">
-            Every figure is generated live from the general ledger and operational records. No figures have been forced or altered.
+          {data.subledger_ties && data.subledger_ties.length > 0 && (
+            <div className="rounded-lg border border-border p-3 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Ledger vs operational records</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b border-border">
+                      <th className="py-1.5 font-medium">Balance</th>
+                      <th className="py-1.5 font-medium text-right">Ledger</th>
+                      <th className="py-1.5 font-medium text-right">Operational</th>
+                      <th className="py-1.5 font-medium text-right">Difference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.subledger_ties.map((t) => (
+                      <tr key={t.key} className="border-b border-border/50 last:border-0">
+                        <td className="py-1.5 pr-2">{t.label}</td>
+                        <td className="py-1.5 text-right font-mono tabular-nums">{formatUGX(t.ledger)}</td>
+                        <td className="py-1.5 text-right font-mono tabular-nums">{formatUGX(t.operational)}</td>
+                        <td className={`py-1.5 text-right font-mono tabular-nums ${Math.abs(t.difference) >= 1 ? 'text-destructive' : 'text-emerald-600'}`}>
+                          {formatUGX(t.difference)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {data.subledger_ties_basis && (
+                <p className="text-[11px] text-amber-700 dark:text-amber-400">{data.subledger_ties_basis}</p>
+              )}
+              {data.disclosures?.map((d) => (
+                <p key={d} className="text-[11px] text-muted-foreground">{d}</p>
+              ))}
+            </div>
+          )}
+
+          {(data.trial_balance || data.reconciliation) && (
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Trial balance and reconciliation</p>
+
+              {data.trial_balance && (
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-[9px] uppercase text-muted-foreground">Total debits</p>
+                    <p className="font-mono text-xs font-semibold">{formatUGX(data.trial_balance.total_debits)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase text-muted-foreground">Total credits</p>
+                    <p className="font-mono text-xs font-semibold">{formatUGX(data.trial_balance.total_credits)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase text-muted-foreground">Difference</p>
+                    <p className={cn('font-mono text-xs font-semibold', data.trial_balance.balanced ? 'text-success' : 'text-destructive')}>
+                      {formatUGX(data.trial_balance.difference)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {data.reconciliation && (
+                <>
+                  <p className="text-[10px] text-muted-foreground">
+                    {data.reconciliation.unresolved_groups.toLocaleString()} historic ledger transactions carry only one side of their entry
+                    ({formatUGX(data.reconciliation.unresolved_absolute_amount)} in absolute terms) and are listed below by category.
+                    Their missing side is recognised, itemised, in the equity line "{UNMATCHED_HISTORIC_POSTINGS_LABEL}"
+                    {typeof data.reconciliation.one_sided_equity_counterpart === 'number'
+                      ? ` (${formatUGX(data.reconciliation.one_sided_equity_counterpart)})`
+                      : ''}. No suspense plug is applied: every balanced ledger entry is mapped to a real debit and a real credit, so nothing
+                    unexplained is absorbed into Current Assets. Classification exclusions are applied to whole transaction groups, never to individual legs.
+                  </p>
+
+
+                  {data.reconciliation.schedule?.length > 0 && (
+                    <div className="space-y-0.5">
+                      {data.reconciliation.schedule.map(r => (
+                        <div key={`${r.ledger_scope}-${r.category}`} className="flex items-center justify-between gap-3 border-b border-border/40 py-1">
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            {r.category.replace(/_/g, ' ')} · {r.ledger_scope} · {r.groups.toLocaleString()} transactions
+                          </span>
+                          <span className={cn('font-mono text-[10px] shrink-0', r.net_debit_less_credit < 0 ? 'text-destructive' : 'text-foreground')}>
+                            {r.net_debit_less_credit < 0
+                              ? `(${formatUGX(Math.abs(r.net_debit_less_credit))})`
+                              : formatUGX(r.net_debit_less_credit)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {data.reconciliation.memo_sub_ledgers?.length > 0 && (
+                    <>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-primary pt-1">
+                        Memo — operational records and wallet caches (not in the totals)
+                      </p>
+                      <div className="space-y-0.5">
+                        {data.reconciliation.memo_sub_ledgers.map(l => (
+                          <LineRow key={l.label} line={l} showSources={showSources} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {data.reconciliation.excluded_classifications?.length > 0 && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Excluded ledger classifications:{' '}
+                      {data.reconciliation.excluded_classifications
+                        .map(c => `${c.classification} (${c.legs.toLocaleString()} legs, ${formatUGX(c.amount)})`)
+                        .join(' · ')}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-3 border-t border-border">
+            <Button variant="outline" size="sm" className="flex-1 gap-2 text-xs" onClick={exportCSV}>
+              <FileSpreadsheet className="h-3.5 w-3.5" /> Export CSV
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1 gap-2 text-xs" onClick={exportPDF} disabled={exporting}>
+              {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              PDF / Print
+            </Button>
+          </div>
+
+          <p className="text-[10px] text-muted-foreground text-center">
+            Every figure is generated live from the general ledger and existing operational records. No values are hard-coded and nothing is adjusted to force a balance.
           </p>
         </>
       )}

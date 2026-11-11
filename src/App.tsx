@@ -147,6 +147,8 @@ const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const AgentDashboardNew = lazy(() => import("./pages/AgentDashboardNew"));
+// The T4 rent request form: the one place agents post, resubmit or renew a rent request.
+const T4RentRequestHost = lazy(() => import("./components/agent/rentRequestAssistant/T4RentRequestHost"));
 const FunderDashboardNew = lazy(() => import("./pages/FunderDashboardNew"));
 const FunderLandingPreview = lazy(() => import("./pages/FunderLandingPreview"));
 // Frozen snapshot of the funder dashboard — see SupporterDashboard.backup.tsx.
@@ -242,6 +244,7 @@ const CampaignLinkRedirect = lazy(() => import('./pages/CampaignLinkRedirect'));
 const MerchandiseShareRedirect = lazy(() => import('./pages/MerchandiseShareRedirect'));
 const SupportHouse = lazy(() => import('./pages/SupportHouse'));
 const SupportPlanPublic = lazy(() => import('./pages/SupportPlanPublic'));
+const CoSupportInvite = lazy(() => import('./pages/CoSupportInvite'));
 const RentAccessLimitPublic = lazy(() => import('./pages/RentAccessLimitPublic'));
 const Unsubscribe = lazy(() => import('./pages/Unsubscribe'));
 const StopSms = lazy(() => import('./pages/StopSms'));
@@ -585,6 +588,7 @@ function AppRoutes() {
           <Route path="/m/:code" element={<MerchandiseShareRedirect />} />
           <Route path="/support-house" element={<SupportHouse />} />
           <Route path="/support/:planId" element={<SupportPlanPublic />} />
+          <Route path="/co-support/:code" element={<CoSupportInvite />} />
           <Route path="/t/:token" element={<TenantDashboardLandingPage />} />
           <Route path="/join/:code" element={<CampaignRedirect />} />
           <Route path="/c/:slug/:code" element={<CampaignRedirect />} />
@@ -1187,6 +1191,7 @@ const App = () => {
                         <Suspense fallback={null}>
                           <DeferredExtras />
                           <GlobalFloatingWidgets />
+                          <Suspense fallback={null}><T4RentRequestHost /></Suspense>
                           <Toaster />
                           <SonnerToaster />
                           <BuildUpdateWatcher />

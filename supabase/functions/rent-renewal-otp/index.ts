@@ -7,6 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS, toGsm7, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 import { appendSupportFooter } from "../_shared/smsFooter.ts";
 import { buildRenewalSms, renewalCodeHash } from "../_shared/renewalOtp.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,7 +36,7 @@ Deno.serve(async (req) => {
   try {
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     const admin = createClient(URL_, SERVICE);
-    const { data: u } = await admin.auth.getUser(token);
+    const { data: u } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (!u?.user) return json({ error: "Not signed in" }, 401);
     const body = await req.json().catch(() => ({}));
     const action = body?.action;

@@ -1,6 +1,6 @@
 import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { memo } from 'react';
-import { Bookmark, Check, ChevronRight, Clock, Home, Navigation, Sprout } from 'lucide-react';
+import { Bookmark, Check, ChevronRight, Home, Navigation, Sprout } from 'lucide-react';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
 import type { FunderNewCategory, FunderNewDistance, FunderNewEmptyHouse, FunderNewReadyPlan } from '@/components/funder-new/types';
@@ -13,6 +13,7 @@ import {
   itemMonthlyReturn,
   readyPlanPlace,
   readyPlanTitle,
+  isUncheckedEmptyHouse,
 } from '@/components/funder-new/utils';
 import { STRAIGHT_LINE_EXPLANATION } from '@/components/funder-new/distance';
 import { FundersBoardTag, tagKindFor } from '@/components/funder-new/FundersBoardTag';
@@ -84,11 +85,13 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   const monthlyReturn = itemMonthlyReturn(category, item, partnerPay);
   const photo = firstPhoto(category, item);
   const coords = itemCoordinates(item, category);
+  const unchecked = isUncheckedEmptyHouse(category, item);
 
   return (
     <article
       data-card-id={cardId}
       data-testid="fv3-card"
+      data-unchecked={unchecked ? 'true' : undefined}
       data-highlighted={highlighted ? 'true' : undefined}
       data-demote-checked={demoteMode && demoteChecked ? 'true' : undefined}
       onPointerEnter={onHoverChange ? () => onHoverChange(true) : undefined}
@@ -128,22 +131,13 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
         </button>
 
         {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
-        {boardTagsOn ? null : (
+        {boardTagsOn || unchecked ? null : (
         <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 fv3-t-2xs font-semibold text-foreground shadow-sm ring-1 ring-border">
-          {isEmpty ? (
-            <>
-              <Clock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-              Pending verification
-            </>
-          ) : (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#8024D1" stroke="#8024D1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden>
-                <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-                <path d="m9 12 2 2 4-4" stroke="white" />
-              </svg>
-              Verified tenant
-            </>
-          )}
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#8024D1" stroke="#8024D1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden>
+            <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
+            <path d="m9 12 2 2 4-4" stroke="white" />
+          </svg>
+          {isEmpty ? 'Verified House' : 'Verified tenant'}
         </span>
         )}
 
@@ -233,6 +227,8 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
               <span className="sr-only">Open in Google Maps</span>
             </a>
           ) : null}
+          {/* Not checked by Welile yet: no Fund button and no action line. */}
+          {unchecked ? null : (
           <button
             type="button"
             data-testid="fv3-fund-button"
@@ -246,8 +242,9 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
             )}
           >
             {selected ? <Check className="h-4 w-4 flex-none" aria-hidden /> : <Sprout className="h-4 w-4 flex-none" aria-hidden />}
-            <span className="truncate">{selected ? 'Selected' : isEmpty ? 'Pending verification' : 'Fund this House'}</span>
+            <span className="truncate">{selected ? 'Selected' : 'Fund this House'}</span>
           </button>
+          )}
         </div>
       </div>
     </article>

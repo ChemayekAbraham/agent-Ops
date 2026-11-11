@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +28,7 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     if (!token) return json({ error: "No authorization header" }, 401);
 
-    const { data: { user }, error: userError } = await adminClient.auth.getUser(token);
+    const { data: { user }, error: userError } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
     if (userError || !user) return json({ error: "Unauthorized" }, 401);
 
     const reqBody = await req.json().catch(() => ({}));

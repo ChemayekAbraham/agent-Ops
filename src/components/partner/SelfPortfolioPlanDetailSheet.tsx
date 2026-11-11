@@ -1,5 +1,6 @@
 import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { AgentCareNote } from './AgentCareNote';
+import { CoSupportStartButton } from '@/components/co-support/CoSupportStartButton';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CONTRACT_TERM_MONTHS } from '@/lib/contractTerm';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -575,6 +576,11 @@ export function SelfPortfolioPlanDetailSheet({
                 <Wallet className="h-5 w-5" />
                 Fund this house, {formatDynamic(pay(Number(plan.funding_amount || 0)))}
               </Button>
+              <CoSupportStartButton
+                className="mt-2"
+                rentRequestId={plan.rent_request_id}
+                planAmount={pay(Number(plan.funding_amount || 0))}
+              />
             </div>
           )}
           {onFund && plan && (

@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  financeReportErrorMessage,
+  heavyFinanceReportQueryKey,
+  heavyFinanceReportQueryOptions,
+  rememberHeavyReportResult,
+  runHeavyFinanceReport,
+} from '@/lib/heavyFinanceReportQueue';
 
 /**
  * Income Statement from the General Ledger revenue (R) and expense (X) accounts.
@@ -66,10 +73,14 @@ export function buildFinIncomeRows(d: FinIncomeStatement): FinIncomeRow[] {
   return rows;
 }
 
-export function useFinIncomeStatement(start: Date | null, end: Date | null, enabled: boolean = true) {
-  const [data, setData] = useState<FinIncomeStatement | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function useFinIncomeStatement(
+  start: Date | null,
+  end: Date | null,
+  optionsOrEnabled?: { enabled?: boolean } | boolean,
+) {
+  const enabled = typeof optionsOrEnabled === 'boolean'
+    ? optionsOrEnabled
+    : (optionsOrEnabled?.enabled !== false);
 
   // Freeze "now" once per period choice: a fresh new Date() on every render recreated `load` and re-ran the
   // query in a loop for open-ended periods (All Time).
@@ -77,37 +88,32 @@ export function useFinIncomeStatement(start: Date | null, end: Date | null, enab
   const endMs = end ? end.getTime() : null;
   const fromIso = useMemo(() => (startMs === null ? ALL_TIME_START : new Date(startMs)).toISOString(), [startMs]);
   const toIso = useMemo(() => (endMs === null ? new Date() : new Date(endMs)).toISOString(), [endMs]);
+  const args = useMemo(() => ({ p_from: fromIso, p_to: toIso }), [fromIso, toIso]);
+  const argsKey = `${fromIso}\0${toIso}`;
+  // A failed read must not start again just because the tab is closed and opened.
+  // Try again calls refetch() on purpose. A different period is a different key.
+  const [blockedKey, setBlockedKey] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!enabled) {
-      setData(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setData(null); // never show or export the previous period's figures while the new period loads
-    try {
-      const { data: rpc, error: rpcError } = await supabase.rpc('fin_income_statement', { p_from: fromIso, p_to: toIso });
-      if (rpcError) {
-        setError(rpcError.message);
-        setData(null);
-      } else {
-        setData(rpc as unknown as FinIncomeStatement);
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [enabled, fromIso, toIso]);
+  const query = useQuery({
+    queryKey: heavyFinanceReportQueryKey('fin_income_statement', args),
+    enabled: enabled && blockedKey !== argsKey,
+    ...heavyFinanceReportQueryOptions,
+    queryFn: async ({ signal, client, queryKey }) => {
+      const data = await runHeavyFinanceReport<FinIncomeStatement>('fin_income_statement', args, { active: true, signal });
+      return rememberHeavyReportResult(client, queryKey, signal, data);
+    },
+  });
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (query.isError) setBlockedKey(argsKey);
+  }, [query.isError, argsKey]);
 
-  return { data, loading, error, reload: load };
+  return {
+    data: query.data ?? null,
+    loading: enabled && query.isFetching && query.data === undefined,
+    error: query.error ? financeReportErrorMessage(query.error) : null,
+    reload: () => query.refetch(),
+  };
 }
 
 /**

@@ -13,6 +13,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { classifyDevice } from "../_shared/deviceClass.ts";
 import { DEVICE_ICON_LABEL, deviceIconKey, placeLabel, sendPasswordTip } from "../_shared/newDeviceAlert.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,7 +52,7 @@ Deno.serve(async (req) => {
   try {
     const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
     if (!token) return json({ error: "Not signed in" }, 401);
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     const user = userData?.user;
     if (userErr || !user) return json({ error: "Not signed in" }, 401);
 

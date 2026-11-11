@@ -14,6 +14,7 @@ import {
   type Frequency,
 } from "./schedule.ts";
 import { planRepayment, repaymentLegs, splitColumns, FLOAT_LOAN_MAX_UGX, FLOAT_LOAN_DAILY_MAX_UGX } from "./floatSplit.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -79,7 +80,7 @@ Deno.serve(async (req) => {
 
   try {
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
-    const { data: userData, error: authError } = await admin.auth.getUser(token);
+    const { data: userData, error: authError } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authError || !userData?.user) return json({ error: "Please sign in again" }, 401);
     const userId = userData.user.id;
 

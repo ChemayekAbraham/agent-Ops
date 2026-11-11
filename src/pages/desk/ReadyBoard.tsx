@@ -30,6 +30,7 @@ import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { SENT_BACK_TO_AGENT, passMovesOnServer, passSentTo, rejectMovesOnServer } from './deskActions';
 import { toast } from 'sonner';
 import { KindChip } from './KindChip';
+import { DeskSearchBox, SearchResults, searchReady, type SearchDesk } from './deskSearch';
 import { asIs } from './deskActions';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
@@ -535,7 +536,36 @@ function ScopeSwitch({
   );
 }
 
+/** Each stage board's own slug for desk_search: it searches only the requests at this desk. */
+const STAGE_SEARCH: Partial<Record<Stage, SearchDesk>> = {
+  service_centre: 'service-centre',
+  agent_ops: 'agent-ops',
+  tenant_ops: 'tenant-ops',
+  landlord_ops: 'landlord-ops',
+};
+
+/**
+ * The board, with its search box on top (E72). While a search is on, its
+ * results replace the list (the list stays mounted, hidden, so its filters
+ * and notes survive); a result opens the review drawer.
+ */
 export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: boolean; onOpen: OpenDrawer }) {
+  const slug = STAGE_SEARCH[stage];
+  const [query, setQuery] = useState('');
+  const searching = !!slug && query.trim().length > 0;
+  if (!slug) return <BoardList stage={stage} board={board} onOpen={onOpen} />;
+  return (
+    <div style={stackLayout(12)}>
+      <DeskSearchBox desk={slug} value={query} onChange={setQuery} />
+      {searching && <SearchResults desk={slug} query={query} onOpen={(id) => onOpen(id)} />}
+      <div hidden={searching}>
+        <BoardList stage={stage} board={board} onOpen={onOpen} />
+      </div>
+    </div>
+  );
+}
+
+function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onOpen: OpenDrawer }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { mark, clear } = useReviewStatus();

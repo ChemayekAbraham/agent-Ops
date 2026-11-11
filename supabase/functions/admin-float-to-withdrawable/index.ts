@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 import { postBalancedLedgerGroup } from "../_shared/balancedLedgerPost.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,7 +61,7 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
 
     const { data: { user: authedUser }, error: authError } =
-      await adminClient.auth.getUser(token);
+      await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
     if (authError || !authedUser) return json({ error: "Unauthorized" }, 401);
 
     // Treasury guard — block any money movement while paused (CTO/super_admin bypass).

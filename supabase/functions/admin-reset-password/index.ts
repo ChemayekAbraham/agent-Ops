@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,7 +34,7 @@ serve(async (req) => {
         });
       }
 
-      const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+      const { data: authData, error: authError } = await (bearerHasSub(token) ? supabaseAdmin.auth.getUser(token) : noUserResult());
       const user = authData?.user;
 
       if (authError || !user) {

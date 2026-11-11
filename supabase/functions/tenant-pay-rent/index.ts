@@ -10,6 +10,7 @@ import {
   loadTenantPaymentMessageVars,
   nextLevelSentence,
 } from "../_shared/tenantTemplates.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,7 +39,7 @@ Deno.serve(async (req) => {
     const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: authError } = await anonClient.auth.getUser();
+    const { data: { user }, error: authError } = await (bearerHasSub(authHeader) ? anonClient.auth.getUser() : noUserResult());
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
