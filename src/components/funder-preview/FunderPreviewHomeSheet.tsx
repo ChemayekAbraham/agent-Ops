@@ -122,7 +122,8 @@ export function FunderPreviewHomeSheet({
   if (!entry) return null;
   const view = toSelectionItem(entry.category, entry.item, partnerPay);
   const photos = photosOf(entry);
-  const verified = isHouseVerified(entry.category, entry.item);
+  // Tenant-ready entries come from the COO-reviewed fundable-plan service; their landlords are verified.
+  const verified = entry.category === 'ready' || isHouseVerified(entry.category, entry.item);
   const rooms = entry.category === 'empty' ? (entry.item as FunderNewEmptyHouse).number_of_rooms : null;
   const placeLine = [view.place, rooms ? `${rooms} ${rooms === 1 ? 'room' : 'rooms'}` : null, distanceLabel]
     .filter(Boolean)
@@ -270,7 +271,7 @@ export function FunderPreviewHomeSheet({
               {verified ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-[13px] font-semibold text-primary">
                   <BadgeCheck className="h-3.5 w-3.5 fill-primary text-primary [&_path:last-child]:stroke-white" strokeWidth={2.5} aria-hidden />
-                  Verified house
+                  {entry.category === 'ready' ? 'Verified landlord' : 'Verified house'}
                 </span>
               ) : null}
             </div>
