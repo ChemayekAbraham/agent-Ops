@@ -388,3 +388,22 @@ export function classLevelsFor(schoolLevel?: string | null): ClassLevelGroup[] {
 export function isListedClass(value: string | null | undefined): boolean {
   return !!value && CLASS_LEVELS.some((g) => g.classes.some((c) => c.value === value));
 }
+
+/* ---------------- Student identity (QR) ---------------- */
+
+/** What a student's QR code holds: their permanent profile id, and no personal details. */
+export function studentQrValue(profileId: string): string {
+  return `welile-schools:student:${profileId}`;
+}
+
+/** Reads a scanned code back to a profile id, or null when it is not a Welile Schools student code. */
+export function parseStudentQr(value: string): string | null {
+  const m = /^welile-schools:student:([0-9a-f-]{36})$/i.exec(value.trim());
+  return m ? m[1].toLowerCase() : null;
+}
+
+/** A short code to read out or type when there is no scanner, e.g. WS-3F2A-9C1E. */
+export function studentCode(profileId: string): string {
+  const hex = profileId.replace(/-/g, '').toUpperCase();
+  return `WS-${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
+}

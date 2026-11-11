@@ -6,6 +6,7 @@ import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, 
 import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershipPanel';
 import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
 import StudentPhotoCapture from '@/components/welile-schools/StudentPhotoCapture';
+import StudentProfileSummary from '@/components/welile-schools/StudentProfileSummary';
 import { flushPendingPhotos, uploadStudentPhoto } from '@/lib/welileSchoolsPhoto';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -327,6 +328,8 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
   const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraProblem, setCameraProblem] = useState<string | null>(null);
+  // After a save the form is replaced by the student's profile summary until "Register the next student".
+  const [summary, setSummary] = useState<{ photoUrl: string | null } | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const group = roleGroup(role);
   const set = (k: keyof SchoolProfileRow) => (e: React.ChangeEvent<HTMLInputElement>) => setF((d) => ({ ...d, [k]: e.target.value }));
@@ -367,32 +370,35 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     const who = group === 'asset' ? (f.facility_type || 'Facility') : (f.full_name?.trim() || 'Person');
     if (!res.saved) { onQueued(); toast.message('Saved on this phone', { description: `${who} will upload automatically when you are back online.` }); }
     else toast.success('Registration successful', { description: `${who} is registered at ${school.name}.` });
+    // The summary keeps the photo's preview URL; it is released on "Register the next student".
+    setSummary({ photoUrl: group === 'pupil' ? photo?.url ?? null : null });
     setF({}); setHasPhone(null); setPhoto(null);
-    // The confirmation sits above the form; bring it into view after saving at the bottom.
+    // The summary replaces the form; bring its top into view after saving at the bottom.
     topRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  };
+
+  const registerNext = () => {
+    if (summary?.photoUrl) URL.revokeObjectURL(summary.photoUrl);
+    setSummary(null);
+    topRef.current?.scrollIntoView({ block: 'start' });
   };
 
   return (
     <div ref={topRef} className="space-y-4 scroll-mt-32">
-      {last && (
-        <div role="status" aria-live="polite" className={cn('flex gap-3 rounded-2xl border p-4', last.saved ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30' : 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30')}>
-          {last.saved ? <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden /> : <CloudOff className="h-6 w-6 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />}
-          <div className="min-w-0">
-            <p className="font-semibold">{last.saved ? 'Registration successful' : 'Saved on this phone'}</p>
-            <p className="text-sm text-muted-foreground">
-              {last.row.full_name || last.row.facility_type || 'This record'}{last.saved ? ` is registered at ${school.name}.` : ' will upload automatically when you are back online.'}
-            </p>
-          </div>
-        </div>
-      )}
+      {summary && last ? (
+        <>
+          <StudentProfileSummary row={last.row} saved={last.saved} photoUrl={summary.photoUrl} school={school} onNext={registerNext} />
+          {last.row.has_smartphone && <SignupLinkCard row={last.row} saved={last.saved} school={school} agentId={agentId} />}
+          {last.row.needs_free_smartphone && (
+            <Card className="p-3 border-primary/40 bg-primary/5 flex gap-2"><Gift className="h-5 w-5 text-primary shrink-0" /><p className="text-sm">{last.row.full_name} is in the Free Smartphone queue.</p></Card>
+          )}
+        </>
+      ) : (
+      <>
       <div className="flex gap-3 p-4 bg-primary/5 border-l-4 border-primary rounded-lg">
         <Bot className="h-6 w-6 text-primary shrink-0" />
         <div><p className="text-sm font-semibold">🎉 {school.name} is locked!</p><p className="text-sm text-muted-foreground">Register each student with their parent or guardian's details.</p></div>
       </div>
-      {last && last.row.has_smartphone && <SignupLinkCard row={last.row} saved={last.saved} school={school} agentId={agentId} />}
-      {last && last.row.needs_free_smartphone && (
-        <Card className="p-3 border-primary/40 bg-primary/5 flex gap-2"><Gift className="h-5 w-5 text-primary shrink-0" /><p className="text-sm">{last.row.full_name} is in the Free Smartphone queue.</p></Card>
-      )}
 
       <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between"><h2 className="font-semibold">Register a student</h2><Badge variant="secondary">{count} this session</Badge></div>
@@ -500,8 +506,10 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
             <LogIn className="h-4 w-4 shrink-0" />🟢 Also log as ENTERED (IN) at gate right now
           </button>
         )}
-        <Button className="w-full min-h-[52px] text-base" onClick={submit} disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save & next person</Button>
+        <Button className="w-full min-h-[52px] text-base" onClick={submit} disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save student</Button>
       </Card>
+      </>
+      )}
     </div>
   );
 }
