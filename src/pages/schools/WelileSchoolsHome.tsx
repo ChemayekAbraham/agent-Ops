@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  AlertCircle, ArrowLeft, Banknote, Building2, ChevronRight, ClipboardCheck, CloudOff, DoorOpen, FileSignature, GraduationCap,
+  AlertCircle, ArrowLeft, Banknote, Building2, Check, ChevronDown, ChevronRight, ClipboardCheck, CloudOff, DoorOpen, FileSignature, GraduationCap,
   Handshake, Hourglass, IdCard, Loader2, LogIn, MapPin, MessageCircle, MessageSquareText, Receipt, RotateCcw, School,
   Smartphone, TrendingDown, UserPlus, Users,
 } from 'lucide-react';
@@ -12,6 +12,7 @@ import styles from './WelileSchoolsHome.module.css';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { WHATSAPP_URL } from '@/components/ai-chat/assistantConfig';
@@ -77,9 +78,10 @@ export default function WelileSchoolsHome() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <img src={welileLogo} alt="" aria-hidden className="h-7 w-auto rounded-lg" />
-          <h1 className="flex-1 text-lg font-bold">
+          <h1 className="min-w-0 flex-1 truncate text-lg font-bold">
             <span className={`${styles.wordmark} text-xl text-primary`}>Welile</span> Schools
           </h1>
+          {role !== null && <RoleSwitcher role={role} onChange={choose} />}
         </div>
       </header>
 
@@ -88,18 +90,6 @@ export default function WelileSchoolsHome() {
           <SchoolsOnboarding wordmarkClass={styles.wordmark} onDone={choose} />
         ) : (
           <>
-            <div role="tablist" aria-label="Explore Welile Schools as" className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1">
-              {SCHOOLS_ROLES.map((key) => {
-                const Icon = ROLE_ICON[key];
-                return (
-                  <button key={key} type="button" role="tab" aria-selected={role === key} aria-label={SCHOOLS_ROLE_LABEL[key]} onClick={() => choose(key)}
-                    className={cn('flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg text-sm font-semibold transition-colors',
-                      role === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-                    <Icon className="h-4 w-4 shrink-0" aria-hidden />{SHORT_LABEL[key]}
-                  </button>
-                );
-              })}
-            </div>
             {role === 'parent' && <ParentHome />}
             {role === 'school' && <SchoolOwnerHome />}
             {role === 'agent' && (
@@ -114,6 +104,35 @@ export default function WelileSchoolsHome() {
         )}
       </main>
     </div>
+  );
+}
+
+/** Top-right role picker: the current role as one button, the others in a dropdown. */
+function RoleSwitcher({ role, onChange }: { role: SchoolsRole; onChange: (r: SchoolsRole) => void }) {
+  const Current = ROLE_ICON[role];
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="h-10 shrink-0 gap-1.5 rounded-full px-3 text-sm font-semibold" aria-label={`Viewing as ${SCHOOLS_ROLE_LABEL[role]}. Change role`}>
+          <Current className="h-4 w-4 text-primary" aria-hidden />
+          {SHORT_LABEL[role]}
+          <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Explore Welile Schools as</DropdownMenuLabel>
+        {SCHOOLS_ROLES.map((key) => {
+          const Icon = ROLE_ICON[key];
+          return (
+            <DropdownMenuItem key={key} onSelect={() => onChange(key)} className="min-h-[44px] gap-3">
+              <Icon className="h-4 w-4 text-primary" aria-hidden />
+              <span className="flex-1">{SCHOOLS_ROLE_LABEL[key]}</span>
+              {key === role && <Check className="h-4 w-4 text-primary" aria-label="Current" />}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
