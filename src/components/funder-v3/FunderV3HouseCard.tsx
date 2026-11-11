@@ -13,7 +13,6 @@ import {
   itemMonthlyReturn,
   readyPlanPlace,
   readyPlanTitle,
-  HOUSE_NOT_CHECKED_TEXT,
   isUncheckedEmptyHouse,
 } from '@/components/funder-new/utils';
 import { STRAIGHT_LINE_EXPLANATION } from '@/components/funder-new/distance';
@@ -92,6 +91,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
     <article
       data-card-id={cardId}
       data-testid="fv3-card"
+      data-unchecked={unchecked ? 'true' : undefined}
       data-highlighted={highlighted ? 'true' : undefined}
       data-demote-checked={demoteMode && demoteChecked ? 'true' : undefined}
       onPointerEnter={onHoverChange ? () => onHoverChange(true) : undefined}
@@ -227,12 +227,8 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
               <span className="sr-only">Open in Google Maps</span>
             </a>
           ) : null}
-          {unchecked ? (
-            // Not checked by Welile yet: no Fund button, a plain grey line (as on view-only board cards).
-            <p data-testid="fv3-not-checked" className="flex min-h-11 min-w-0 flex-1 items-center fv3-t-xs text-muted-foreground" style={{ margin: 0 }}>
-              {HOUSE_NOT_CHECKED_TEXT}
-            </p>
-          ) : (
+          {/* Not checked by Welile yet: no Fund button and no action line. */}
+          {unchecked ? null : (
           <button
             type="button"
             data-testid="fv3-fund-button"

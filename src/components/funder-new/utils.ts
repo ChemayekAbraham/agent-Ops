@@ -88,9 +88,6 @@ export function placeCase(raw?: string | null): string {
  * repeats the place line below it, so the clean room type wins. The shared
  * formatHouseCategory appends "House"; the compact browse row does not need it.
  */
-/** Shown instead of the Fund button on an empty house Welile has not checked yet. */
-export const HOUSE_NOT_CHECKED_TEXT = 'House not yet checked by Welile';
-
 /**
  * An empty house whose house_listings.verified is false. It cannot be funded
  * from a card, and it never reads "Pending verification": that words belongs

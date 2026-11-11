@@ -13,7 +13,6 @@ import {
   itemMonthlyReturn,
   readyPlanPlace,
   readyPlanTitle,
-  HOUSE_NOT_CHECKED_TEXT,
   isUncheckedEmptyHouse,
 } from './utils';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
@@ -58,6 +57,7 @@ export function FunderNewHouseCard({
 
   return (
     <article
+      data-unchecked={unchecked ? 'true' : undefined}
       className={cn(
         'relative my-3 min-w-0 overflow-hidden rounded-lg border border-border bg-muted shadow-none transition-[border-color,box-shadow] sm:my-0 sm:shadow-sm',
         'sm:hover:shadow-md',
@@ -178,12 +178,8 @@ export function FunderNewHouseCard({
               <span className="text-[10px] font-semibold leading-none">Location</span>
             </Button>
           ) : null}
-          {unchecked ? (
-            // Not checked by Welile yet: no Fund button, a plain grey line (as on view-only board cards).
-            <p data-testid="house-not-checked" className="flex min-h-11 min-w-0 flex-1 items-center text-xs text-muted-foreground" style={{ margin: 0 }}>
-              {HOUSE_NOT_CHECKED_TEXT}
-            </p>
-          ) : (
+          {/* Not checked by Welile yet: no Fund button and no action line. */}
+          {unchecked ? null : (
           <Button
             variant="default"
             className={cn(
