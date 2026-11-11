@@ -105,6 +105,8 @@ export type BoardRow = {
   photos_ok?: boolean | null;
   /** E73: New, Renewal or Self-applied, with the server's colour and detail. */
   kind?: RequestKind | null;
+  /** E82: what is still missing; while non-empty the server refuses the pass (E82_INCOMPLETE). */
+  incomplete?: string[] | null;
 };
 
 /** Service Centre only: which requests the board shows. Other stages ignore it. */

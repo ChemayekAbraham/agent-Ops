@@ -6,6 +6,7 @@ import { CALM, FIGURE, FOCUS, LABEL, PANEL } from './deskTheme';
 import { Skeleton } from './Skeleton';
 import { AwaitingReleaseCard } from './AwaitingRelease';
 import { SelfAppliedCard } from './SelfAppliedQueue';
+import { IncompleteCard } from './incomplete';
 
 /**
  * What replaced the Budget room card when budgets were retired on 5 Nov:
@@ -82,6 +83,9 @@ export function PushQueueCards({ board, enabled, onCooDesk }: { board: boolean; 
 
       {/* E73: tenants who applied without an agent, waiting for Agent Ops to assign one. */}
       <SelfAppliedCard board={board} />
+
+      {/* E82: requests past Agent Ops that still miss something; the COO push waits for them. */}
+      <IncompleteCard board={board} />
 
       <Card id="funded-not-paid" title="Funded, not yet paid" board={board}>
         {q.isLoading ? (

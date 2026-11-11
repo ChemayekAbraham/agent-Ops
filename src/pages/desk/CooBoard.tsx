@@ -15,6 +15,8 @@ import { AgentSheet } from './agents/AgentSheet';
 import { SendBackSheet } from './sendBack';
 import { KindChip, type RequestKind } from './KindChip';
 import { AT_COO, DeskSearchBox, SearchResults } from './deskSearch';
+import { MissingLine, toAgentOps } from './incomplete';
+import { missingChip } from './boardRowModel';
 import { awaitingRentRequestIds } from '@/lib/fundersBoard';
 import { useCooDemoted } from './fundersBoard/DemotedPanel';
 
@@ -41,6 +43,8 @@ export type CooRow = {
   id: string;
   /** E73: New, Renewal or Self-applied. */
   kind?: RequestKind | null;
+  /** E82: what is still missing; the server already marks such a row not pushable. */
+  incomplete?: string[] | null;
   req: string;
   tenant: string | null;
   agent: string | null;
@@ -209,6 +213,8 @@ export function frozenText(f: NonNullable<CooRow['frozen']>): string {
  */
 export function cooChips(row: CooRow, concerns?: ConcernSummary): ChipModel[] {
   const out: ChipModel[] = [];
+  const m = missingChip(row.incomplete);
+  if (m) out.push(m);
   const c = concernsChip(concerns);
   if (c) out.push({ key: 'concerns', text: c.text, tone: c.tone, title: c.title, strong: c.tone === 'bad' });
   if (isDemotedAwaiting(row)) out.push({ key: 'demoted', text: 'Demoted: choose level above', tone: 'warn', strong: true, title: row.waiting?.note ?? undefined });
@@ -263,6 +269,7 @@ function CooRowLine({
   onPush,
   onAgent,
   onSendBack,
+  onSendBackAgentOps,
   concerns,
 }: {
   row: CooRow;
@@ -275,6 +282,8 @@ function CooRowLine({
   onAgent: (row: CooRow) => void;
   /** Opens "Send back…" to a chosen office (E63). */
   onSendBack: (row: CooRow) => void;
+  /** E82: "Send back to Agent Ops" for a row that misses something. */
+  onSendBackAgentOps?: (row: CooRow) => void;
   /** Concerns any desk logged on this request. */
   concerns?: ConcernSummary;
 }) {
@@ -339,6 +348,9 @@ function CooRowLine({
   );
 
   const lines = cooLines(row, concerns);
+  // E82: what is missing, with the shortcut back to Agent Ops (the server already keeps the row from the push).
+  const missingEl = <MissingLine list={row.incomplete} onSendBack={onSendBackAgentOps ? () => onSendBackAgentOps(row) : undefined} />;
+  const missing = (row.incomplete ?? []).filter(Boolean).length > 0;
 
   if (layout === 'card') {
     return (
@@ -349,8 +361,9 @@ function CooRowLine({
           subtitle={agent}
           chips={chips}
           why={
-            lines.length ? (
+            lines.length || missing ? (
               <>
+                {missing && missingEl}
                 {lines.map((l) => (
                   <span key={l} style={{ display: 'block' }} data-row-line={l === CONCERN_BLOCK_LINE ? 'concern' : undefined}>
                     {l}
@@ -411,6 +424,7 @@ function CooRowLine({
         <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>{menu}</MoreMenu>
       </span>
       {layout === 'md' && chips.length > 0 && <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 6 }}>{chips}</div>}
+      {missing && <div style={{ gridColumn: '1 / -1', minWidth: 0 }}>{missingEl}</div>}
       {lines.map((l) => (
         <div key={l} className={LABEL} style={{ gridColumn: '1 / -1', minWidth: 0 }} data-row-line={l === CONCERN_BLOCK_LINE ? 'concern' : undefined}>
           {l}
@@ -603,6 +617,9 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
   const closeAgent = useCallback(() => setAgentRow(null), []);
   const [sendBackRow, setSendBackRow] = useState<CooRow | null>(null);
   const closeSendBack = useCallback(() => setSendBackRow(null), []);
+  // E82: the same sheet, started on Agent Ops with the missing list as the note.
+  const [agentOpsRow, setAgentOpsRow] = useState<CooRow | null>(null);
+  const closeAgentOps = useCallback(() => setAgentOpsRow(null), []);
   // Requests demoted from the funders board wait for a level on the panel above; mark them so they are never pushed.
   const demoted = useCooDemoted();
   const rows = useMemo(() => {
@@ -676,7 +693,7 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
       ) : (
         <ol style={{ display: 'flex', flexDirection: 'column', gap: card ? 12 : 0, margin: 0, padding: 0 }}>
           {rows.map((r) => (
-            <CooRowLine key={r.id} row={r} board={board} layout={layout} onOpen={onOpen} onPush={setPushRow} onAgent={setAgentRow} onSendBack={setSendBackRow} concerns={concerns.data?.[r.id]} />
+            <CooRowLine key={r.id} row={r} board={board} layout={layout} onOpen={onOpen} onPush={setPushRow} onAgent={setAgentRow} onSendBack={setSendBackRow} onSendBackAgentOps={setAgentOpsRow} concerns={concerns.data?.[r.id]} />
           ))}
         </ol>
       )}
@@ -684,6 +701,7 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
       {confirm && valid && <PushSheet plan={plan} n={n} onClose={() => setConfirm(false)} />}
       {pushRow && <RowPushConfirm row={pushRow} onClose={() => setPushRow(null)} />}
       {sendBackRow && <SendBackSheet requestId={sendBackRow.id} stage="coo" tenant={sendBackRow.tenant} onClose={closeSendBack} />}
+      {agentOpsRow && <SendBackSheet requestId={agentOpsRow.id} stage="coo" tenant={agentOpsRow.tenant} initial={toAgentOps(agentOpsRow.incomplete)} onClose={closeAgentOps} />}
       {agentRow && (
         <AgentSheet target={{ kind: 'request', requestId: agentRow.id, name: agentRow.agent, grade: agentRow.agent_grade }} onClose={closeAgent} />
       )}

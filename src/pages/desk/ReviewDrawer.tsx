@@ -330,6 +330,7 @@ export function ReviewDrawer({
   // Why Pass cannot go yet, in the desk's short words ("Answer 5 more checks").
   const passAgainst = !!recommended && recommended !== 'pass';
   const passWhy = passBlock({
+    incomplete: ctx?.incomplete ?? null,
     callDesk,
     callAnswered: canPass,
     items,
