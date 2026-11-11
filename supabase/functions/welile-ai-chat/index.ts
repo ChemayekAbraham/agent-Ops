@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildNexaPublicGuideReply, isFinancialAccessQuery, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
 import { extractInquiryLeadDetails, buildSignupPersuasionPitch, buildInquirySignupResult } from '../_shared/nexaSignup.ts';
 import { buildNexaSystemPrompt, groundReply, wantsHuman, validMessages, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from "../_shared/nexa.ts";
-import { buildNexaToolDefs, runNexaTool, normalizePortfolioRow, isPortfolioOrReturnsQuestion, type PortfolioReader, type MyRateReader } from "../_shared/nexaTools.ts";
+import { buildNexaToolDefs, runNexaTool, normalizePortfolioRow, isPortfolioOrReturnsQuestion, type PortfolioReader, type MyRateReader, type ProfileReader } from "../_shared/nexaTools.ts";
 import { cachedPublicPolicy, readQuoteRate } from "../_shared/partnerReturnPolicy.ts";
 import { requestPortfolioOtp, verifyPortfolioOtp, portfolioIdFromSession, auditPortfolioAccess, sha256Hex } from "../_shared/nexaPortfolioAccess.ts";
 import { knowledgeScopesFor, filterKnowledgeForAudience, isStaff, recordAccessAlert, channelFrom } from "../_shared/nexaAccess.ts";
@@ -102,12 +102,26 @@ Deno.serve(async req => {
     // The caller's own rate for a NEW portfolio: only for a user JWT (partner_quote_rate('me') reads
     // auth.uid()). OTP portfolio sessions and anonymous callers never get it.
     let readMyRate:MyRateReader|undefined;
+    let readMyProfile:ProfileReader|undefined;
     if(userId && auth) {
       const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}}});
       readPortfolios=async()=>{ const {data,error}=await userClient.rpc('nexa_get_my_portfolios'); return error?{error:'Portfolio data is unavailable right now.'}:{portfolios:(data ?? []).map(normalizePortfolioRow)}; };
       // One partner_quote_rate read per request, shared by get_my_returns_rate and the estimate default.
       let myRate:ReturnType<MyRateReader>|null=null;
       readMyRate=()=>(myRate ??= readQuoteRate(userClient,'me').then((r):Awaited<ReturnType<MyRateReader>>=>r===null?{error:'Your rate is unavailable right now.'}:{rate:r}));
+      const nonempty=(v:unknown)=>typeof v==='string' && v.trim()!=='';
+      readMyProfile=async()=>{
+        const {data,error}=await userClient.from('profiles').select('verified,phone_verified,identity_photos_submitted_at,national_id_photo_path,national_id_back_photo_path,selfie_photo_path').eq('id',userId).maybeSingle();
+        if(error || !data) return {error:'Your profile is unavailable right now.'};
+        return {
+          verified:!!data.verified,
+          phone_verified:!!data.phone_verified,
+          identity_photos_submitted_at:(data.identity_photos_submitted_at as string|null) ?? null,
+          has_id_front:nonempty(data.national_id_photo_path),
+          has_id_back:nonempty(data.national_id_back_photo_path),
+          has_selfie:nonempty(data.selfie_photo_path),
+        };
+      };
     } else {
       const sessionPortfolioId=await portfolioIdFromSession(admin,body.portfolioSession);
       if(sessionPortfolioId) {
@@ -123,7 +137,7 @@ Deno.serve(async req => {
     const errorFor=(status:number)=>json({error:status===429?'Please try again shortly':status===402?'AI credits are unavailable. Check Plans & credits.':status===403?'AI access is blocked. Ask your workspace administrator to check access.':'AI temporarily unavailable'},status>=400&&status<500?status:503);
     // deno-lint-ignore no-explicit-any
     const convo:any[]=[{role:'system',content:buildNexaSystemPrompt(verifiedRoles,isStaff(verifiedRoles),publicRate)+signupSafety+knowledgeContext(knowledge ?? [])},...messages];
-    const toolDefs=buildNexaToolDefs({publicRate,ownRate:!!readMyRate});
+    const toolDefs=buildNexaToolDefs({publicRate,ownRate:!!readMyRate,ownProfile:!!readMyProfile});
     let finalText='';
     let toolBacked=false; // true once any server tool returned data this request
     for(let round=0;round<=MAX_TOOL_ROUNDS;round++) {
@@ -135,7 +149,7 @@ Deno.serve(async req => {
       if(!calls.length) { finalText=typeof msg?.content==='string'?msg.content:''; break; }
       convo.push({role:'assistant',content:msg.content ?? '',tool_calls:calls});
       for(const c of calls) {
-        const result=await runNexaTool(String(c?.function?.name ?? ''),String(c?.function?.arguments ?? ''),readPortfolios,(tool,reason)=>recordAccessAlert(admin,{userId,phone:callerPhone,channel,roles:verifiedRoles,attemptedResource:tool,userMessage:question.content,reason}),{defaultRate:publicRate,readMyRate});
+        const result=await runNexaTool(String(c?.function?.name ?? ''),String(c?.function?.arguments ?? ''),readPortfolios,(tool,reason)=>recordAccessAlert(admin,{userId,phone:callerPhone,channel,roles:verifiedRoles,attemptedResource:tool,userMessage:question.content,reason}),{defaultRate:publicRate,readMyRate,readMyProfile});
         if(result && typeof result==='object' && !('error' in (result as Record<string,unknown>))) toolBacked=true;
         convo.push({role:'tool',tool_call_id:c.id,content:JSON.stringify(result)});
       }
