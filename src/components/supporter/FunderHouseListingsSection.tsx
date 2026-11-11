@@ -39,7 +39,8 @@ import type {
   FunderNewSort,
   FunderNewDistance,
 } from '@/components/funder-new/types';
-import { countActiveFunderFilters, itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { countActiveFunderFilters, itemAmount, itemCoordinates, itemId, placeCase, readyPlanPlace, readyPlanTitle, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { useRentPlanFundChoice } from '@/components/supporter/FunderFundChooser';
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 import { useQuery } from '@tanstack/react-query';
@@ -458,6 +459,8 @@ export function FunderHouseListingsSection({
     setFilters((current) => ({ ...current, sort: value }));
   };
 
+  const fundChoice = useRentPlanFundChoice();
+
   const toggleSelect = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
     const next = toSelectionItem(category, item, partnerPay);
     setSelectedCategory((current) => (current && current !== category ? category : current ?? category));
@@ -469,6 +472,26 @@ export function FunderHouseListingsSection({
       return nextList;
     });
   }, [partnerPay]);
+
+  const requestFund = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
+    if (category !== 'ready') {
+      toggleSelect(category, item);
+      return;
+    }
+    const plan = item as FunderNewReadyPlan;
+    const already = selectedItems.some((entry) => entry.category === 'ready' && entry.id === plan.rent_request_id);
+    if (already) {
+      toggleSelect(category, item);
+      return;
+    }
+    fundChoice.ask({
+      rentRequestId: plan.rent_request_id,
+      title: readyPlanTitle(plan),
+      place: readyPlanPlace(plan),
+      landlordName: plan.landlord_name,
+      rentAmount: Number(plan.funding_amount || 0),
+    }, () => toggleSelect('ready', plan));
+  }, [fundChoice, selectedItems, toggleSelect]);
 
   const removeSelected = (item: FunderNewSelectionItem) => {
     setSelectedItems((current) => {
@@ -735,7 +758,7 @@ export function FunderHouseListingsSection({
                       selected={selectedItems.some((selected) => selected.category === entry.category && selected.id === id)}
                       distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
                       onSave={() => toggleSave(entry.category, id)}
-                      onSelect={() => toggleSelect(entry.category, entry.item)}
+                      onSelect={() => requestFund(entry.category, entry.item)}
                       onDetail={() => openDetail(entry.category, entry.item)}
                       boardTagsOn
                       boardTag={row.tag}
@@ -777,7 +800,7 @@ export function FunderHouseListingsSection({
                   )}
                   distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
                   onSave={() => toggleSave(entry.category, id)}
-                  onSelect={() => toggleSelect(entry.category, entry.item)}
+                  onSelect={() => requestFund(entry.category, entry.item)}
                   onDetail={() => openDetail(entry.category, entry.item)}
                   boardTagsOn={boardTagsOn}
                   boardTag={boardTagOf(entry)}
@@ -901,6 +924,7 @@ export function FunderHouseListingsSection({
           }
         }}
       />
+      {fundChoice.chooser}
       <FunderNewReviewDialog
         open={reviewOpen}
         onOpenChange={setReviewOpen}
