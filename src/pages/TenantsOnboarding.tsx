@@ -88,7 +88,7 @@ const SUBMIT_PHASES = ['Submitting…', 'Sending your request…', 'Uploading yo
 
 /** Welile support, shown behind the header Help button. */
 const SUPPORT_EMAIL = 'info@welile.com';
-const SUPPORT_PHONE_DISPLAY = '+256 777 607640';
+const SUPPORT_PHONE_DISPLAY = '+256 748 747134';
 const SUPPORT_PHONE_DIAL = '+256777607640';
 
 const HOUSE_TYPES = [
