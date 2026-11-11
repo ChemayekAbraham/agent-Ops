@@ -199,7 +199,10 @@ export const DOC_KINDS: { kind: DocKind; label: string; bucket: 'tenant-ids' | '
  * Upload into the reviewer's own folder (the buckets only take uploads under
  * `<uid>/…`), then attach it to the request. Returns the server's words on a refusal.
  */
-export async function attachDocument(userId: string, requestId: string, kind: DocKind, file: File): Promise<{ ok: true } | { ok: false; message: string }> {
+/** Flat on purpose: the app's tsconfig is not strict, so a union would not narrow on `ok`. */
+export type AttachOutcome = { ok: boolean; message?: string };
+
+export async function attachDocument(userId: string, requestId: string, kind: DocKind, file: File): Promise<AttachOutcome> {
   const spec = DOC_KINDS.find((k) => k.kind === kind)!;
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
   const path = `${userId}/${requestId}/${kind}_${Date.now()}.${ext}`;
@@ -269,7 +272,7 @@ function DocumentBlock({ requestId, onSaved }: { requestId: string; onSaved: () 
     setError(null);
     const out = await attachDocument(user.id, requestId, kind, file);
     setBusy(false);
-    if (!out.ok) return setError(out.message);
+    if (!out.ok) return setError(out.message ?? 'The document was not attached.');
     toast.success(`${DOC_KINDS.find((k) => k.kind === kind)?.label} attached`);
     setFile(null);
     setInputKey((n) => n + 1);
