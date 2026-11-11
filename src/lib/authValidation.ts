@@ -43,6 +43,9 @@ const JUNK_NAME_PATTERNS: RegExp[] = [
   /[0-9@#$%^&*_=+<>{}\[\]\\\/|~`"]/,  // digits or symbols anywhere
 ];
 
+/** 4-consonant runs that occur in real names; exempt from the consonant-run check. */
+const REAL_NAME_CONSONANT_CLUSTERS = /ngst|ngsl|ngsb|mphr|rnst|nstr|rstr|tchw/g;
+
 /**
  * Heuristic gibberish detector for a single name token.
  * Flags keyboard-mash / random strings like "dhfhfdhd", "hshseh", "twat".
@@ -71,7 +74,9 @@ const isGibberishToken = (token: string): boolean => {
 
   // Four or more consecutive consonants is unnatural for a real name
   // (allow common clusters by only flagging 4+, e.g. "dhfh", "shss").
-  if (/[bcdfghjklmnpqrstvwxz]{4,}/.test(t)) return true;
+  // A few real names carry a 4-consonant run ("Livingstone", "Kingsley",
+  // "Humphrey", "Ernst"), so those clusters are blanked out before the check.
+  if (/[bcdfghjklmnpqrstvwxz]{4,}/.test(t.replace(REAL_NAME_CONSONANT_CLUSTERS, '-'))) return true;
 
   // Sequential keyboard runs ("abcd", "1234"-like letter rows).
   const KEYBOARD_RUNS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm', 'abcdefghijklmnopqrstuvwxyz'];
