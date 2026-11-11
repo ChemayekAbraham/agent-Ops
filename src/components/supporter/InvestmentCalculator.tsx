@@ -671,7 +671,7 @@ export function InvestmentCalculator() {
 
           {/* Results — two clean stat boxes */}
           <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
-            <div className="p-4 rounded-xl border border-primary/20 bg-primary/5">
+            <div className="@container min-w-0 p-3 rounded-xl border border-primary/20 bg-primary/5">
               <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Contribute</p>
               <AnimatePresence mode="wait">
                 <motion.div
@@ -679,7 +679,8 @@ export function InvestmentCalculator() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <p className="text-lg font-bold tabular-nums leading-tight break-all">
+                  {/* Scales with the card so the amount stays on one line instead of splitting mid-number. */}
+                  <p className="whitespace-nowrap text-[length:clamp(12px,11cqw,18px)] font-bold tabular-nums leading-tight">
                     {formatUGX(calculations.requiredContribution)}
                   </p>
                   {currency.code !== 'UGX' && (
@@ -692,7 +693,7 @@ export function InvestmentCalculator() {
               <p className="text-[9px] text-muted-foreground mt-1">One-time</p>
             </div>
 
-            <div className="p-4 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50/50 dark:bg-emerald-950/20">
+            <div className="@container min-w-0 p-3 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50/50 dark:bg-emerald-950/20">
               <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">
                 {isCompounding ? `Earn (${duration}mo)` : 'Monthly'}
               </p>
@@ -702,7 +703,7 @@ export function InvestmentCalculator() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums break-all leading-tight">
+                  <p className="whitespace-nowrap text-[length:clamp(12px,11cqw,18px)] font-bold text-emerald-700 dark:text-emerald-400 tabular-nums leading-tight">
                     {formatUGX(isCompounding ? projections[projections.length - 1]?.totalEarnings || 0 : calculations.monthlyReward)}
                   </p>
                   {currency.code !== 'UGX' && (
@@ -964,23 +965,31 @@ export function InvestmentCalculator() {
         </div>
 
         {/* Summary Stats */}
-        <div className="p-3 sm:p-6 border-b border-border">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-            <div className="text-center p-2 sm:p-3 rounded-lg bg-primary/10">
-              <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">Contribution</p>
-              <p className="font-bold text-primary text-xs sm:text-sm">{formatUGX(calculations.requiredContribution)}</p>
+        <div className="@container p-3 sm:p-6 border-b border-border">
+          {/* Columns follow the card's own width, not the screen's, so values never spill past the tiles. */}
+          <div className="grid grid-cols-2 @xl:grid-cols-4 gap-2 @xl:gap-3">
+            <div className="flex min-w-0 flex-col items-center justify-center text-center p-2.5 rounded-lg bg-primary/10">
+              <p className="text-[10px] @md:text-xs text-muted-foreground mb-0.5">Contribution</p>
+              <p className="max-w-full break-words font-bold leading-tight tabular-nums text-primary text-xs @md:text-sm">{formatUGX(calculations.requiredContribution)}</p>
             </div>
-            <div className="text-center p-2 sm:p-3 rounded-lg bg-success/10">
-              <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">Returns</p>
-              <p className="font-bold text-success text-xs sm:text-sm">{ratePctLabel ? `target ${ratePctLabel}, not guaranteed` : '—'}</p>
+            <div className="flex min-w-0 flex-col items-center justify-center text-center p-2.5 rounded-lg bg-success/10">
+              <p className="text-[10px] @md:text-xs text-muted-foreground mb-0.5">Returns</p>
+              {ratePctLabel ? (
+                <>
+                  <p className="max-w-full break-words font-bold leading-tight text-success text-xs @md:text-sm">target {ratePctLabel}</p>
+                  <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">not guaranteed</p>
+                </>
+              ) : (
+                <p className="font-bold text-success text-xs @md:text-sm">—</p>
+              )}
             </div>
-            <div className="text-center p-2 sm:p-3 rounded-lg bg-muted">
-              <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">Duration</p>
-              <p className="font-bold text-xs sm:text-sm">{duration}mo</p>
+            <div className="flex min-w-0 flex-col items-center justify-center text-center p-2.5 rounded-lg bg-muted">
+              <p className="text-[10px] @md:text-xs text-muted-foreground mb-0.5">Duration</p>
+              <p className="font-bold leading-tight text-xs @md:text-sm">{duration}mo</p>
             </div>
-            <div className="text-center p-2 sm:p-3 rounded-lg bg-warning/10">
-              <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">Reinvest</p>
-              <p className="font-bold text-warning text-xs sm:text-sm">{isCompounding ? 'Yes' : 'No'}</p>
+            <div className="flex min-w-0 flex-col items-center justify-center text-center p-2.5 rounded-lg bg-warning/10">
+              <p className="text-[10px] @md:text-xs text-muted-foreground mb-0.5">Reinvest</p>
+              <p className="font-bold leading-tight text-warning text-xs @md:text-sm">{isCompounding ? 'Yes' : 'No'}</p>
             </div>
           </div>
         </div>
