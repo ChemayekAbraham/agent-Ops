@@ -746,8 +746,13 @@ function FinancialStatementsPanelInner() {
   const drillCtx = useMemo<DrillContextValue>(() => ({ open: setDrillLabel }), []);
 
   const { data: cashFlow, error: cashFlowError } = useStatementOfCashFlows(drillDates.start, drillDates.end);
+  // The income statements resolve ledger legs the same way the balance sheet does, so running
+  // them while the Balance Sheet tab loads makes both compete for the database. Start them the
+  // first time the Income tab is opened (and keep them afterwards).
+  const [incomeOpened, setIncomeOpened] = useState(activeTab === 'income');
+  useEffect(() => { if (activeTab === 'income') setIncomeOpened(true); }, [activeTab]);
   // Income Statement from the revenue and expense accounts (fin_income_statement); replaces the browser P&L.
-  const { data: finIncome, error: finIncomeError, loading: finIncomeLoading } = useFinIncomeStatement(drillDates.start, drillDates.end);
+  const { data: finIncome, error: finIncomeError, loading: finIncomeLoading } = useFinIncomeStatement(drillDates.start, drillDates.end, incomeOpened);
 
   const comparisonDates = useMemo(() => {
     if (comparisonMode === 'none' || !drillDates.start || !drillDates.end) return null;
@@ -758,37 +763,46 @@ function FinancialStatementsPanelInner() {
   const { data: compFinIncome } = useFinIncomeStatement(
     comparisonDates?.start ?? null,
     comparisonDates?.end ?? null,
-    isComparisonActive
+    isComparisonActive && incomeOpened
   );
 
   const [multiYearData, setMultiYearData] = useState<{ label: string; statement: import('@/hooks/useFinIncomeStatement').FinIncomeStatement }[] | null>(null);
 
   useEffect(() => {
+    // Only load multi-year comparison if user is actively viewing the Income Statement
+    if (activeTab !== 'income' || multiYearData) return;
+
     let active = true;
     async function loadYears() {
       try {
-        const [res2024, res2025, res2026] = await Promise.all([
-          generateStatementsRaw({
+        const fetchYear = async (year: number) => {
+          try {
+            const { data: rpcData, error } = await supabase.rpc('fin_income_statement' as never, {
+              p_from: `${year}-01-01T00:00:00+03:00`,
+              p_to: `${year}-12-31T23:59:59+03:00`,
+            });
+            if (!error && rpcData) return rpcData as import('@/hooks/useFinIncomeStatement').FinIncomeStatement;
+          } catch {
+            // Fallback to client-side compilation if fin_income_statement RPC is unavailable
+          }
+          const raw = await generateStatementsRaw({
             period: 'custom',
-            startDate: new Date('2024-01-01T00:00:00.000Z'),
-            endDate: new Date('2024-12-31T23:59:59.999Z'),
-          }),
-          generateStatementsRaw({
-            period: 'custom',
-            startDate: new Date('2025-01-01T00:00:00.000Z'),
-            endDate: new Date('2025-12-31T23:59:59.999Z'),
-          }),
-          generateStatementsRaw({
-            period: 'custom',
-            startDate: new Date('2026-01-01T00:00:00.000Z'),
-            endDate: new Date('2026-12-31T23:59:59.999Z'),
-          }),
+            startDate: new Date(`${year}-01-01T00:00:00.000Z`),
+            endDate: new Date(`${year}-12-31T23:59:59.999Z`),
+          });
+          return convertToFinIncomeStatement(raw.incomeStatement);
+        };
+
+        const [stmt2024, stmt2025, stmt2026] = await Promise.all([
+          fetchYear(2024),
+          fetchYear(2025),
+          fetchYear(2026),
         ]);
         if (!active) return;
         setMultiYearData([
-          { label: '2024', statement: convertToFinIncomeStatement(res2024.incomeStatement) },
-          { label: '2025', statement: convertToFinIncomeStatement(res2025.incomeStatement) },
-          { label: '2026', statement: convertToFinIncomeStatement(res2026.incomeStatement) },
+          { label: '2024', statement: stmt2024 },
+          { label: '2025', statement: stmt2025 },
+          { label: '2026', statement: stmt2026 },
         ]);
       } catch (e) {
         console.warn('Could not load multi-year statements:', e);
@@ -796,11 +810,11 @@ function FinancialStatementsPanelInner() {
     }
     void loadYears();
     return () => { active = false; };
-  }, []);
+  }, [activeTab, multiYearData]);
 
   useEffect(() => {
     generate();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGenerate = async () => {
     try {
@@ -1088,8 +1102,8 @@ function FinancialStatementsPanelInner() {
         pdf.save(fileName);
         toast.success('PDF downloaded!');
       }
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') { toast.error('PDF export failed'); console.error(err); }
+    } catch (err: unknown) {
+      if ((err as Error)?.name !== 'AbortError') { toast.error('PDF export failed'); console.error(err); }
     } finally {
       setSharing(false);
     }
@@ -1185,7 +1199,7 @@ function FinancialStatementsPanelInner() {
         <ReconciliationCard r={data.reconciliation} cf={cashFlow} />
       )}
 
-      {(data || activeTab === 'budget') && (
+      {(data || activeTab === 'budget' || activeTab === 'balance') && (
         <Card ref={contentRef}>
           <CardContent className="pt-4 pb-6">
             {/* Tab Switcher */}
@@ -1256,7 +1270,7 @@ function FinancialStatementsPanelInner() {
       )}
 
       {/* Empty state */}
-      {!data && !loading && activeTab !== 'budget' && (
+      {!data && !loading && activeTab !== 'budget' && activeTab !== 'balance' && (
         <div className="text-center py-12 text-muted-foreground">
           <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
           <p className="text-sm">Select a period and generate statements</p>
