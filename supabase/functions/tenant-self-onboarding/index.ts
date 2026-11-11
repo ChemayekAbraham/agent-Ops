@@ -66,15 +66,48 @@ Deno.serve(async (req) => {
   );
 
   try {
+    let body: Record<string, unknown>;
+    try { body = await req.json(); } catch { return err("Invalid request body"); }
+    const action = String(body.action || "");
+
+    /* ------------------------------------------------ signup_precheck -----
+       The only action open to a visitor without an account. The form lets a
+       new tenant fill every step first and create their account at the end;
+       before that account is made, this says whether the phone or National ID
+       is already on file, so nobody is left with an account that cannot send
+       a request. Existence only, never whose.
+
+       Gated on proof that the caller owns the phone: a verified SMS code for
+       it in the last 30 minutes (the same proof phone-signup requires). That
+       keeps it from being used to test National IDs in bulk. */
+    if (action === "signup_precheck") {
+      const phone = typeof body.phone === "string" ? body.phone : "";
+      const phoneKey = last9(phone);
+      const nin = cleanNin(typeof body.national_id === "string" ? body.national_id : "");
+      if (phoneKey.length !== 9) return err("Enter a valid phone number");
+      const { data: otp } = await admin
+        .from("otp_verifications").select("verified, verified_at").eq("phone", phoneKey).maybeSingle();
+      const verifiedAt = otp?.verified_at ? new Date(otp.verified_at).getTime() : 0;
+      if (!otp?.verified || !verifiedAt || Date.now() - verifiedAt > 30 * 60 * 1000) {
+        return err("Verify your phone number first", 403);
+      }
+      const { data: phoneRows } = await admin.from("profiles").select("id").ilike("phone", `%${phoneKey}`).limit(1);
+      let ninKnown = false;
+      if (nin.length >= 10) {
+        const spaced = nin.replace(/(.{4})/g, "$1 ").trim();
+        const { data } = await admin
+          .from("profiles").select("national_id")
+          .or(`national_id.ilike.${nin}%,national_id.ilike.${spaced}%`).limit(10);
+        ninKnown = (data ?? []).some((r: any) => cleanNin(r.national_id || "") === nin);
+      }
+      return ok({ phone_known: (phoneRows ?? []).length > 0, nin_known: ninKnown });
+    }
+
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     if (!token) return err("Sign in to continue", 401);
     const { data: authData, error: authErr } = await admin.auth.getUser(token);
     if (authErr || !authData?.user) return err("Sign in to continue", 401);
     const userId = authData.user.id;
-
-    let body: Record<string, unknown>;
-    try { body = await req.json(); } catch { return err("Invalid request body"); }
-    const action = String(body.action || "");
 
     /* ------------------------------------------------ identity_check ------ */
     if (action === "identity_check") {
