@@ -1,4 +1,5 @@
 import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { fetchStatementOfFinancialPosition, SOFP_CLIENT_TIMEOUT_CODE } from '@/lib/sofpRequest';
 import { withUserSession } from '@/lib/authenticatedRequests';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useReceivablesTotal } from '@/hooks/useReceivables';
@@ -385,11 +386,8 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
     queryKey: ['cfo-overview-position'],
     enabled: cashVisible || cashDetails,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc(
-        'get_statement_of_financial_position' as any,
-        {} as any,
-      );
-      if (error) throw error;
+      // Shared with the Balance Sheet (src/lib/sofpRequest.ts): one server run serves both screens.
+      const { data } = await fetchStatementOfFinancialPosition();
       const d = data as any;
 
       const lines = [
@@ -425,7 +423,11 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
     // The statement rebuilds the balance sheet from the whole ledger and currently runs longer than the 8 s limit
     // for signed-in users. A timeout (57014) will time out again, so do not retry it: retries only held a
     // database connection for another 16 s per visit. Other errors keep the app's usual two retries.
-    retry: (failureCount, error) => (error as { code?: string } | null)?.code !== '57014' && failureCount < 2,
+    // A request abandoned after the client time limit (SOFP_CLIENT_TIMEOUT_CODE) is not retried either.
+    retry: (failureCount, error) => {
+      const code = (error as { code?: string } | null)?.code;
+      return code !== '57014' && code !== SOFP_CLIENT_TIMEOUT_CODE && failureCount < 2;
+    },
     staleTime: STALE_TIME,
   });
 

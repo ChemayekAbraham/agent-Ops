@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { fetchStatementOfFinancialPosition } from '@/lib/sofpRequest';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -435,16 +436,6 @@ interface CarriedForwardRow {
 const callLooseRpc = <T = unknown>(fn: string, args: Record<string, unknown> = {}) =>
   (supabase.rpc.bind(supabase) as unknown as (name: string, params?: Record<string, unknown>) => Promise<{ data: T | null; error: { message: string } | null }>)(fn, args);
 
-/**
- * The server functions run with statement_timeout = 120s. If nothing has come
- * back shortly after that, the connection is dead (usually a gateway timeout),
- * so stop the spinner instead of waiting forever.
- */
-const SOFP_CLIENT_TIMEOUT_MS = 130_000;
-
-/** One in-flight statement request per as-at key, shared by every caller. */
-const sofpInflight = new Map<string, Promise<StatementOfFinancialPosition>>();
-
 function friendlyLoadError(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e ?? '');
   if (/failed to fetch|networkerror|load failed|timed out|timeout|504|canceling statement/i.test(raw)) {
@@ -457,35 +448,14 @@ function friendlyLoadError(e: unknown): string {
 /**
  * Fetch the authoritative statement (get_statement_of_financial_position) once.
  * No fallbacks: fin_balance_sheet re-runs this same statement internally, so
- * "falling back" to it only doubles the wait before failing.
+ * "falling back" to it only doubles the wait before failing. The request is
+ * shared with the CFO Overview cash cards (src/lib/sofpRequest.ts), so the
+ * server builds the statement once for both.
  */
-function fetchSofp(date: Date): Promise<StatementOfFinancialPosition> {
-  const isCurrent = isToday(date);
-  const key = isCurrent ? 'now' : format(date, 'yyyy-MM-dd');
-  const existing = sofpInflight.get(key);
-  if (existing) return existing;
-
-  const params = isCurrent ? {} : { p_as_at: endOfDay(date).toISOString() };
-  const request = (async () => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      const timeout = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('Balance sheet request timed out')), SOFP_CLIENT_TIMEOUT_MS);
-      });
-      const { data, error } = await Promise.race([
-        callLooseRpc<StatementOfFinancialPosition>('get_statement_of_financial_position', params),
-        timeout,
-      ]);
-      if (error) throw new Error(error.message);
-      if (!data) throw new Error('The server returned an empty balance sheet');
-      return data;
-    } finally {
-      if (timer) clearTimeout(timer);
-      sofpInflight.delete(key);
-    }
-  })();
-  sofpInflight.set(key, request);
-  return request;
+async function fetchSofp(date: Date, force = false): Promise<StatementOfFinancialPosition> {
+  const asAtIso = isToday(date) ? null : endOfDay(date).toISOString();
+  const { data } = await fetchStatementOfFinancialPosition<StatementOfFinancialPosition>({ asAtIso, force });
+  return data;
 }
 
 /** Disclosure-only schedules, fetched after the statement so they never compete with it. */
@@ -837,7 +807,7 @@ export default function BalanceSheetPanel() {
 
     try {
       // 2. The single authoritative statement — nothing else runs alongside it.
-      const sheet = await fetchSofp(date);
+      const sheet = await fetchSofp(date, force);
       if (latestLoadKey.current !== dateKey) return;
       setData(sheet);
       setError(null);
@@ -883,7 +853,7 @@ export default function BalanceSheetPanel() {
 
     setLoadingCompare(true);
     try {
-      const sheet = await fetchSofp(date);
+      const sheet = await fetchSofp(date, force);
       if (latestCompareKey.current !== dateKey) return;
       setCompareData(sheet);
       storeSnapshot(dateKey, { data: sheet, floatSplit: stored?.floatSplit ?? null, statutory: stored?.statutory ?? null });
@@ -2052,7 +2022,7 @@ export default function BalanceSheetPanel() {
 
                   {/* Equity Rows */}
                   {(equityGroups?.groups ?? []).map(g => {
-                    const compVal = findCompVal(g.label, compareEquityRows);
+                    const compVal = findCompVal(g.label, compareEquityGroups?.groups ?? null);
                     const variance = formatVariance(g.value, compVal);
                     return (
                       <tr

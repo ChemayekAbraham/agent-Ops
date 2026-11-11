@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, createContext, useContext, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { FileText, TrendingUp, Wallet, BarChart3, Download, FileSpreadsheet, RefreshCw, Loader2, Calendar, ArrowUpRight, ArrowDownRight, Minus, GitCompareArrows, Activity, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -745,7 +746,13 @@ function FinancialStatementsPanelInner() {
   );
   const drillCtx = useMemo<DrillContextValue>(() => ({ open: setDrillLabel }), []);
 
-  const { data: cashFlow, error: cashFlowError } = useStatementOfCashFlows(drillDates.start, drillDates.end);
+  // fin_cash_flow resolves the whole ledger like the balance sheet does. Start it only once its figures are shown:
+  // the Cash Flow tab, or the reconciliation card under generated statements (not while the Balance Sheet tab loads).
+  const [cashFlowOpened, setCashFlowOpened] = useState(activeTab === 'cashflow');
+  useEffect(() => {
+    if (activeTab === 'cashflow' || (data && activeTab !== 'balance')) setCashFlowOpened(true);
+  }, [activeTab, data]);
+  const { data: cashFlow, error: cashFlowError } = useStatementOfCashFlows(drillDates.start, drillDates.end, cashFlowOpened);
   // The income statements resolve ledger legs the same way the balance sheet does, so running
   // them while the Balance Sheet tab loads makes both compete for the database. Start them the
   // first time the Income tab is opened (and keep them afterwards).
@@ -777,11 +784,11 @@ function FinancialStatementsPanelInner() {
       try {
         const fetchYear = async (year: number) => {
           try {
-            const { data: rpcData, error } = await supabase.rpc('fin_income_statement' as never, {
+            const { data: rpcData, error } = await supabase.rpc('fin_income_statement', {
               p_from: `${year}-01-01T00:00:00+03:00`,
               p_to: `${year}-12-31T23:59:59+03:00`,
             });
-            if (!error && rpcData) return rpcData as import('@/hooks/useFinIncomeStatement').FinIncomeStatement;
+            if (!error && rpcData) return rpcData as unknown as import('@/hooks/useFinIncomeStatement').FinIncomeStatement;
           } catch {
             // Fallback to client-side compilation if fin_income_statement RPC is unavailable
           }
