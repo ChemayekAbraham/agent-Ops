@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, createContext, useContext, useMemo } from 'react';
+import { useRef, useState, useEffect, useCallback, createContext, useContext, useMemo } from 'react';
 import { format } from 'date-fns';
 import { FileText, TrendingUp, Wallet, BarChart3, Download, FileSpreadsheet, RefreshCw, Loader2, Calendar, ArrowUpRight, ArrowDownRight, Minus, GitCompareArrows, Activity, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { exportToCSV } from '@/lib/exportUtils';
-import { useFinancialStatements, type StatementPeriod, type FinancialStatementsData, type ComparisonMode, type ComparisonMetrics, type DeltaValue } from '@/hooks/useFinancialStatements';
+import { useFinancialStatements, type StatementFilters, type StatementPeriod, type FinancialStatementsData, type ComparisonMode, type ComparisonMetrics, type DeltaValue } from '@/hooks/useFinancialStatements';
 import { Progress } from '@/components/ui/progress';
 import { ComprehensiveCashMovement } from '@/components/cfo/ComprehensiveCashMovement';
 import { LedgerDrillDownDialog } from '@/components/cfo/LedgerDrillDownDialog';
@@ -733,7 +733,7 @@ function Figure({ label, value }: { label: string; value: number }) {
 }
 
 function FinancialStatementsPanelInner() {
-  const { data, previousData, loading, filters, generate, updatePeriod, setFilters, comparisonMode, updateComparisonMode, comparisonMetrics, loadingComparison } = useFinancialStatements();
+  const { data, previousData, loading, filters, generate, setFilters, comparisonMode, updateComparisonMode, comparisonMetrics, loadingComparison } = useFinancialStatements();
   const [customStart, setCustomStart] = useState<Date | undefined>();
   const [customEnd, setCustomEnd] = useState<Date | undefined>();
   const [activeTab, setActiveTab] = useState<Tab>('movement');
@@ -760,13 +760,33 @@ function FinancialStatementsPanelInner() {
     { enabled: activeTab === 'income' },
   );
 
+  // Each tab loads only its own report, when it is selected. The general statements run (ledger sums, platform
+  // cash, comparison period) feeds only the Facilitated Volume tab and the reconciliation banner, so it no longer
+  // starts when the panel opens: it used to queue 25-50 s of ledger scans ahead of whichever report was chosen, and
+  // the Balance Sheet could not appear until it had finished. It runs when the Volume tab is opened (and again when
+  // the period or comparison changes while it is open) or when Generate is pressed.
+  const statementsKey = JSON.stringify([
+    filters.period, filters.startDate?.toISOString() ?? null, filters.endDate?.toISOString() ?? null, comparisonMode,
+  ]);
+  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+  const runGenerate = useCallback((next?: StatementFilters) => {
+    setGeneratedKey(next
+      ? JSON.stringify([next.period, next.startDate?.toISOString() ?? null, next.endDate?.toISOString() ?? null, comparisonMode])
+      : statementsKey);
+    return generate(next);
+  }, [generate, statementsKey, comparisonMode]);
   useEffect(() => {
-    generate();
-  }, []);
+    if (activeTab !== 'volume' || loading || generatedKey === statementsKey) return;
+    runGenerate().catch(() => { /* the empty state offers Generate again */ });
+  }, [activeTab, loading, generatedKey, statementsKey, runGenerate]);
+  const statementsCurrent = !!data && generatedKey === statementsKey;
+  const periodLabel = data?.incomeStatement.period ?? (drillDates.start && drillDates.end
+    ? `${format(drillDates.start, 'dd MMM yyyy')} — ${format(drillDates.end, 'dd MMM yyyy')}`
+    : 'All time');
 
   const handleGenerate = async () => {
     try {
-      await generate();
+      await runGenerate();
       toast.success('Financial statements generated');
     } catch {
       toast.error('Failed to generate statements');
@@ -778,7 +798,8 @@ function FinancialStatementsPanelInner() {
       setFilters({ period: 'custom', startDate: customStart ? startOfDay(customStart) : null, endDate: customEnd ? endOfDay(customEnd) : null });
       return;
     }
-    updatePeriod(period);
+    // The selected tab's own report reloads for the new period; the general run only follows on the Volume tab.
+    setFilters({ ...filters, period, startDate: null, endDate: null });
   };
 
   const applyCustomRange = () => {
@@ -792,7 +813,6 @@ function FinancialStatementsPanelInner() {
     }
     const next = { period: 'custom' as StatementPeriod, startDate: startOfDay(customStart), endDate: endOfDay(customEnd) };
     setFilters(next);
-    generate(next);
   };
 
   const getTabLabel = () => {
@@ -807,10 +827,10 @@ function FinancialStatementsPanelInner() {
   };
 
   const handleExportCSV = () => {
-    if (!data) { toast.error('Generate statements first'); return; }
+    if (!data && activeTab === 'volume') { toast.error('Generate statements first'); return; }
 
     const rows: (string | number)[][] = [];
-    const period = data.incomeStatement.period;
+    const period = periodLabel;
 
     if (activeTab === 'income') {
       if (!finIncome || finIncomeLoading) { toast.error('Income statement is still loading'); return; }
@@ -884,7 +904,7 @@ function FinancialStatementsPanelInner() {
   };
 
   const handleExportPDF = async () => {
-    if (!data) { toast.error('Generate statements first'); return; }
+    if (!data && activeTab === 'volume') { toast.error('Generate statements first'); return; }
     setSharing(true);
     try {
       const { jsPDF } = await import('jspdf');
@@ -911,8 +931,8 @@ function FinancialStatementsPanelInner() {
       pdf.setFontSize(9);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(100, 100, 100);
-      pdf.text(`Period: ${data.incomeStatement.period}`, margin, y);
-      pdf.text(`Generated: ${format(data.generatedAt, 'dd MMM yyyy, HH:mm')}`, pw - margin - 60, y);
+      pdf.text(`Period: ${periodLabel}`, margin, y);
+      pdf.text(`Generated: ${format(data?.generatedAt ?? new Date(), 'dd MMM yyyy, HH:mm')}`, pw - margin - 60, y);
       y += 6;
       pdf.setDrawColor(220, 220, 220);
       pdf.line(margin, y, pw - margin, y);
@@ -1141,11 +1161,11 @@ function FinancialStatementsPanelInner() {
       )}
 
       {/* Statement Tabs + Content */}
-      {data && (
+      {data && statementsCurrent && (
         <ReconciliationCard r={data.reconciliation} cf={cashFlow} />
       )}
 
-      {(data || activeTab === 'budget') && (
+      {(
         <Card ref={contentRef}>
           <CardContent className="pt-4 pb-6">
             {/* Tab Switcher */}
@@ -1171,7 +1191,7 @@ function FinancialStatementsPanelInner() {
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
               <h3 className="text-sm font-semibold">{getTabLabel()}</h3>
               <div className="flex items-center gap-2">
-                {data && <Badge variant="outline" className="text-xs">{data.incomeStatement.period}</Badge>}
+                <Badge variant="outline" className="text-xs">{periodLabel}</Badge>
                 {data && comparisonMode !== 'none' && comparisonMetrics && (
                   <Badge variant="secondary" className="text-[10px]">
                     vs {COMPARISON_MODES.find(m => m.value === comparisonMode)?.label}
@@ -1184,16 +1204,21 @@ function FinancialStatementsPanelInner() {
             {activeTab === 'income' && (
               <FinIncomeStatementSection d={finIncome} error={finIncomeError} onRetry={() => { void reloadIncome(); }} />
             )}
-            {activeTab === 'cashflow' && data && (
+            {activeTab === 'cashflow' && (
               <CashFlowSection d={cashFlow} error={cashFlowError} onRetry={() => { void reloadCashFlow(); }} />
             )}
             {activeTab === 'movement' && <ComprehensiveCashMovement />}
             {activeTab === 'balance' && <BalanceSheetPanel />}
-            {activeTab === 'volume' && data && <FacilitatedVolumeSection d={data.facilitatedVolume} cm={comparisonMetrics} />}
+            {activeTab === 'volume' && data && statementsCurrent && <FacilitatedVolumeSection d={data.facilitatedVolume} cm={comparisonMetrics} />}
+            {activeTab === 'volume' && loading && (
+              <div className="flex items-center justify-center gap-2 py-12 text-xs text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Building the facilitated volume report…
+              </div>
+            )}
             {activeTab === 'budget' && <BudgetApprovalPanel />}
 
             {/* Export Actions */}
-            {data && activeTab !== 'balance' && activeTab !== 'budget' && (
+            {activeTab !== 'balance' && activeTab !== 'budget' && activeTab !== 'movement' && (activeTab !== 'volume' || statementsCurrent) && (
             <div className="flex gap-2 mt-6 pt-4 border-t border-border">
               <Button variant="outline" size="sm" className="flex-1 gap-2 text-xs" onClick={handleExportCSV}>
                 <FileSpreadsheet className="h-3.5 w-3.5" />
@@ -1210,7 +1235,7 @@ function FinancialStatementsPanelInner() {
       )}
 
       {/* Empty state */}
-      {!data && !loading && activeTab !== 'budget' && (
+      {activeTab === 'volume' && !statementsCurrent && !loading && (
         <div className="text-center py-12 text-muted-foreground">
           <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
           <p className="text-sm">Select a period and generate statements</p>
