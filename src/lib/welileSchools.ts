@@ -347,3 +347,42 @@ export function computeGateMovementSummary(logs: SchoolGateLogRow[], now: Date =
     personStatus,
   };
 }
+
+/** Class / grade / year choices for learners, nursery to university (Ugandan system). */
+export interface ClassLevelGroup {
+  /** The SCHOOL_LEVELS value this group belongs to. */
+  level: (typeof SCHOOL_LEVELS)[number];
+  label: string;
+  classes: { value: string; label: string }[];
+}
+
+const numbered = (prefix: string, name: string, n: number) =>
+  Array.from({ length: n }, (_, i) => ({ value: `${prefix}${i + 1}`, label: `${name} ${i + 1} (${prefix}${i + 1})` }));
+
+export const CLASS_LEVELS: ClassLevelGroup[] = [
+  { level: 'Nursery/ECD', label: 'Nursery', classes: [
+    { value: 'Baby class', label: 'Baby class' }, { value: 'Middle class', label: 'Middle class' }, { value: 'Top class', label: 'Top class' },
+  ] },
+  { level: 'Primary', label: 'Primary', classes: numbered('P', 'Primary', 7) },
+  { level: 'Secondary/High School', label: 'Secondary, O level', classes: numbered('S', 'Senior', 4) },
+  { level: 'Secondary/High School', label: 'Secondary, A level', classes: numbered('S', 'Senior', 6).slice(4) },
+  { level: 'TVET/Vocational', label: 'Vocational', classes: [
+    { value: 'Certificate year 1', label: 'Certificate year 1' }, { value: 'Certificate year 2', label: 'Certificate year 2' },
+    { value: 'Diploma year 1', label: 'Diploma year 1' }, { value: 'Diploma year 2', label: 'Diploma year 2' }, { value: 'Diploma year 3', label: 'Diploma year 3' },
+  ] },
+  { level: 'University/Tertiary', label: 'University', classes: [
+    ...Array.from({ length: 5 }, (_, i) => ({ value: `Year ${i + 1}`, label: `Year ${i + 1}` })),
+    { value: 'Postgraduate', label: 'Postgraduate' },
+  ] },
+];
+
+/** The school's own level first, then the rest in order, so the agent rarely scrolls. */
+export function classLevelsFor(schoolLevel?: string | null): ClassLevelGroup[] {
+  const own = CLASS_LEVELS.filter((g) => g.level === schoolLevel);
+  return own.length ? [...own, ...CLASS_LEVELS.filter((g) => g.level !== schoolLevel)] : CLASS_LEVELS;
+}
+
+/** True when a stored class is one of the listed choices (older records hold free text). */
+export function isListedClass(value: string | null | undefined): boolean {
+  return !!value && CLASS_LEVELS.some((g) => g.classes.some((c) => c.value === value));
+}

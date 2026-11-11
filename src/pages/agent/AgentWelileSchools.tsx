@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, Handshake } from 'lucide-react';
 import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershipPanel';
 import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,7 @@ import {
   buildSchoolSignupLink, buildSignupMessage, toIntlDigits, smartphoneFields,
   readLockedSchool, writeLockedSchool, saveProfile, flushPendingProfiles, readPendingProfiles, markSignupSent,
   saveGateLog, flipGateLogDirection, flushPendingGateLogs, readPendingGateLogs, readLocalGateLogs, writeLocalGateLogs,
-  computeGateMovementSummary, formatEatTime,
+  computeGateMovementSummary, formatEatTime, classLevelsFor, isListedClass,
   type SchoolRow, type SchoolProfileRow, type SchoolGateLogRow,
 } from '@/lib/welileSchools';
 
@@ -31,6 +32,27 @@ const db = supabase as any;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1"><Label className="text-sm">{label}</Label>{children}</div>;
+}
+
+/** Class picker grouped nursery to university, the school's own level first. */
+function ClassGradeSelect({ schoolLevel, value, onChange }: { schoolLevel?: string | null; value: string; onChange: (v: string) => void }) {
+  const groups = classLevelsFor(schoolLevel);
+  return (
+    <Select value={value || undefined} onValueChange={onChange}>
+      <SelectTrigger aria-label="Class, grade or year" className="h-14 rounded-lg text-base"><SelectValue placeholder="Choose class" /></SelectTrigger>
+      <SelectContent className="max-h-[60vh]">
+        {value && !isListedClass(value) && (
+          <SelectGroup><SelectLabel>Saved earlier</SelectLabel><SelectItem value={value}>{value}</SelectItem></SelectGroup>
+        )}
+        {groups.map((g) => (
+          <SelectGroup key={g.label}>
+            <SelectLabel>{g.label}</SelectLabel>
+            {g.classes.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+          </SelectGroup>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 function Chips({ options, value, onChange }: { options: readonly string[]; value: string; onChange: (v: string) => void }) {
@@ -386,7 +408,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
             {group === 'pupil' && (
               <>
                 <div className="grid grid-cols-2 gap-2">
-                  <Field label="Class / Grade / Year"><Input value={f.class_grade ?? ''} onChange={set('class_grade')} /></Field>
+                  <Field label="Class / Grade / Year"><ClassGradeSelect schoolLevel={school.school_level} value={f.class_grade ?? ''} onChange={(v) => setF((d) => ({ ...d, class_grade: v }))} /></Field>
                   <Field label="Stream / Dormitory"><Input value={f.stream ?? ''} onChange={set('stream')} /></Field>
                 </div>
                 <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>
