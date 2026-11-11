@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -58,7 +59,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const { data: { user }, error: userError } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (userError || !user) {
       console.error('[agent-withdrawal] Auth error:', userError);
       return new Response(

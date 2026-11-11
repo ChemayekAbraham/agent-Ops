@@ -33,6 +33,7 @@ import {
   resolveConversation,
   touchConversation,
 } from "./store.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -283,7 +284,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: `Bearer ${token}` } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: userData, error: authError } = await userClient.auth.getUser(token);
+    const { data: userData, error: authError } = await (bearerHasSub(token) ? userClient.auth.getUser(token) : noUserResult());
     const user = userData?.user;
     if (authError || !user) return json({ error: MSG.unauthorized }, 401);
 

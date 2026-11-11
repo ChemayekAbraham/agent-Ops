@@ -27,6 +27,7 @@
 // so a previously reversed auto-credit does NOT block re-routing.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -102,7 +103,7 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-  const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
+  const { data: userData, error: userErr } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
   if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
 
   // Caller must be a financial role — same gate as cfo-direct-credit.

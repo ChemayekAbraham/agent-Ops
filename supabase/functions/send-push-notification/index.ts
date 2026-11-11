@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { sendPushToSubscription, type PushPayload } from "../_shared/webPushSend.ts";
+import { removeDeadSubscriptions, sendPushToSubscription, settledPushResults, type PushPayload } from "../_shared/webPushSend.ts";
 import { selectInChunks } from "../_shared/inChunks.ts";
 
 // VAPID encryption/JWT signing moved to ../_shared/webPushSend.ts (Stage 6),
@@ -82,25 +82,20 @@ serve(async (req) => {
     ).length;
     const failed = results.length - successful;
 
-    // Clean up ONLY permanently-gone endpoints (404/410). Transient failures
-    // keep their subscription so a single bad send never wipes a live device.
-    const failedSubs = subscriptions.filter((_, i) => {
-      const r = results[i];
-      return r.status === 'fulfilled' && r.value.gone;
-    });
-
-    if (failedSubs.length > 0) {
-      await supabase
-        .from('push_subscriptions')
-        .delete()
-        .in('endpoint', failedSubs.map(s => s.endpoint));
-    }
+    // Gone (404/410) always; old-VAPID-key mismatches only when another send
+    // in this batch succeeded (shared helper, chunks of 50).
+    const removed = await removeDeadSubscriptions(
+      supabase,
+      settledPushResults(subscriptions, results),
+      'send-push-notification',
+    );
 
     return new Response(
       JSON.stringify({
         success: true,
         sent: successful,
         failed,
+        removed,
         total: subscriptions.length
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

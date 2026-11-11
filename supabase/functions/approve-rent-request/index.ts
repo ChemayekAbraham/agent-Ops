@@ -2,6 +2,7 @@ import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { logSystemEvent } from "../_shared/eventLogger.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -82,7 +83,7 @@ Deno.serve(async (req) => {
     });
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
+    const { data: claimsData, error: claimsError } = await (bearerHasSub(token) ? supabase.auth.getUser(token) : noUserResult());
     if (claimsError || !claimsData?.user) {
       return new Response(JSON.stringify({ error: 'Unauthorized', details: claimsError?.message }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

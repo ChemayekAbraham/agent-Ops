@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { creditRequisitionWallet } from "../_shared/requisitionWalletCredit.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,7 +21,7 @@ Deno.serve(async (req) => {
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const token = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
-    const { data: userData, error: authErr } = await admin.auth.getUser(token);
+    const { data: userData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
     const actor = userData.user;
 

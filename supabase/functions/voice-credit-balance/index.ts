@@ -5,6 +5,7 @@
  * `public.voice_call_log_authorized`.
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 // Manual CORS headers (project standard — do not import corsHeaders).
 const corsHeaders = {
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
 
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
   if (!token) return json({ error: 'unauthenticated' }, 401);
-  const { data: userData, error: userErr } = await admin.auth.getUser(token);
+  const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
   if (userErr || !userData?.user) return json({ error: 'unauthenticated' }, 401);
 
   const { data: allowed } = await admin.rpc('voice_call_log_authorized', { _user_id: userData.user.id });

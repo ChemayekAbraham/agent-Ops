@@ -5,6 +5,7 @@ import { getAngelPoolHolding } from "../_shared/angelPoolHolding.ts";
 import {
   ANGEL_POOL_PERCENT, ANGEL_PRICE_PER_SHARE, ANGEL_TOTAL_SHARES, formatAllocationDate, sharesCommitted,
 } from "../_shared/angelPoolShares.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
-    const { data: { user } } = await admin.auth.getUser(token);
+    const { data: { user } } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (!user) return json({ error: "Unauthorized" }, 401);
     const { data: isOps } = await admin.rpc("is_partner_ops", { _uid: user.id });
     if (!isOps) return json({ error: "Only Partner Operations can do this" }, 403);

@@ -12,6 +12,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authErr } = await admin.auth.getUser(token);
+    const { data: { user }, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authErr || !user) return json({ error: "Unauthorized" }, 401);
 
     const { data: roles } = await admin.from("user_roles")

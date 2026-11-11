@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 import { BACKUP_LINK_TTL_HOURS, BACKUP_LINK_TTL_SECONDS, DEFAULT_BACKUP_RECIPIENTS, splitCompanyRecipients } from "../_shared/backupDelivery.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const SIGNED_URL_TTL_SECONDS = BACKUP_LINK_TTL_SECONDS;
 
@@ -21,7 +22,7 @@ Deno.serve(async (req) => {
     // Auth — staff only (manager OR cto)
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace("Bearer ", "");
-    const { data: userRes, error: userErr } = await adminClient.auth.getUser(token);
+    const { data: userRes, error: userErr } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
     if (userErr || !userRes?.user) {
       return new Response(JSON.stringify({ error: "unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
