@@ -14,6 +14,8 @@ import {
   type FeeRow, type PartnershipRow, type PartnershipStatus, type ReviewDecision, type TermRow,
 } from '@/lib/welileSchoolsPartnership';
 
+// These tables are not in the generated Supabase types yet (Lovable regenerates them).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 const ugx = (n: number) => `UGX ${Math.round(n).toLocaleString('en-UG')}`;
 const FILTERS: { key: 'submitted' | 'all'; label: string }[] = [
@@ -40,8 +42,9 @@ async function fetchQueue() {
   }
   const schools: Record<string, SchoolRow> = {};
   ((schoolsRes.data ?? []) as SchoolRow[]).forEach((s) => { schools[s.id] = s; });
-  const agents: Record<string, { full_name: string | null; phone: string | null }> = {};
-  ((agentsRes as any).data ?? []).forEach((a: any) => { agents[a.id] = a; });
+  type AgentRow = { id: string; full_name: string | null; phone: string | null };
+  const agents: Record<string, AgentRow> = {};
+  (((agentsRes as { data?: AgentRow[] | null }).data) ?? []).forEach((a) => { agents[a.id] = a; });
   return { partnerships: rows, schools, terms, fees, agents };
 }
 

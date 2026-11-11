@@ -8,6 +8,8 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 
+// These tables are not in the generated Supabase types yet (Lovable regenerates them).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
 export const PARTNERSHIP_DOCS_BUCKET = 'school-partnership-docs';

@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// The test environment has no Supabase URL; these helpers never touch the client.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 import {
   emptyTermDraft, isAgentEditable, missingForSubmit, parseAmount, partnershipDraftErrors, partnershipErrorMessage,
   planDueDate, termDraftErrors, termLengthDays, termToDraft,

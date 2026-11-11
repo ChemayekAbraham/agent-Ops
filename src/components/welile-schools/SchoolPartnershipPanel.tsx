@@ -67,8 +67,8 @@ export default function SchoolPartnershipPanel({ school }: { school: SchoolRow }
   const queryKey = ['welile-school-setup', school.id];
   const { data, isLoading, error } = useQuery({ queryKey, queryFn: () => fetchSchoolSetup(school.id) });
   const partnership = data?.partnership ?? null;
-  const terms = data?.terms ?? [];
-  const fees = data?.fees ?? [];
+  const terms = useMemo(() => data?.terms ?? [], [data]);
+  const fees = useMemo(() => data?.fees ?? [], [data]);
   const editable = isAgentEditable(partnership?.status);
   const refresh = () => qc.invalidateQueries({ queryKey });
 
