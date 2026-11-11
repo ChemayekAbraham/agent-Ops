@@ -1,4 +1,24 @@
--- Rollback of 20261115150000_agent_advance_reporting_basis.sql: production definitions of 11 Nov 2026, restored verbatim.
+-- Agent advances: reporting and reconciliation basis (CFO, 11 Nov 2026). REPORTING ONLY: no ledger posting, no
+-- balance, wallet, mapping or operational-record change; nothing here moves money or triggers any financial operation.
+--
+-- Verified 11 Nov 2026 against production (read-only):
+--   * disburse_agent_advance_request sets outstanding_balance = principal + access_fee + registration_fee at issue;
+--     repayments reduce it; arrears are computed as expected-to-date less paid, so arrears are a PART of outstanding
+--     (331 open advances: arrears 47,698,694, never above outstanding).
+--   * access_fee_collected is collected pro rata with repayments, so access_fee - access_fee_collected is the unpaid fee
+--     INSIDE outstanding (21,495,676, never above outstanding).
+-- Defects corrected:
+--   1. fin_balance_sheet tie 'agent_advances' added arrears_balance to outstanding_balance (47.7M counted twice).
+--      It now compares A10+A11+A20 with outstanding only and carries basis 'outstanding_only_v2'. The remaining
+--      difference (2,370,285 on 11 Nov) stays visible as an unresolved exception.
+--   2. v_receivables_lines listed the full outstanding as 'Agent Advances' AND the unpaid access fee as
+--      'Agent Advance Access Fees' (21.5M counted twice in every receivables total built on the view).
+--      The advance line now shows outstanding less the unpaid access fee (the A10/A20 part) and the fee line the unpaid
+--      fee (the A11 part), capped at outstanding: the two lines add up to outstanding exactly, nothing is hidden.
+--   3. fin_run_daily_tieout records, for each moved tie, the previous and current comparison basis and why it moved,
+--      so the first night after this change reads 'comparison basis changed', not a new difference. Earlier nightly
+--      rows are not touched.
+-- Rollback: supabase/rollbacks/20261116090000_agent_advance_reporting_basis.rollback.sql (restores the 11 Nov bodies).
 
 CREATE OR REPLACE FUNCTION public.fin_balance_sheet(p_as_at timestamp with time zone DEFAULT now())
  RETURNS jsonb
@@ -34,7 +54,7 @@ BEGIN
     SELECT
       (SELECT COALESCE(SUM(COALESCE(total_repayment,0) - COALESCE(amount_repaid,0)),0) FROM public.rent_requests
         WHERE status IN ('funded','disbursed','repaying') AND created_at <= COALESCE(p_as_at, now())) AS rent_book,
-      (SELECT COALESCE(SUM(COALESCE(outstanding_balance,0) + COALESCE(arrears_balance,0)),0) FROM public.agent_advances
+      (SELECT COALESCE(SUM(COALESCE(outstanding_balance,0)),0) FROM public.agent_advances
         WHERE status IN ('active','overdue') AND created_at <= COALESCE(p_as_at, now())) AS advances,
       (SELECT COALESCE(SUM(investment_amount),0) FROM public.investor_portfolios
         WHERE status = 'active' AND created_at <= COALESCE(p_as_at, now())) AS portfolios,
@@ -45,7 +65,8 @@ BEGIN
     jsonb_build_object('key','rent_plans','label','Rent Plan receivables (A3) vs Rent Plan book',
       'ledger', ROUND(COALESCE((v_val->>'A3')::numeric,0)), 'operational', ROUND(t.rent_book),
       'difference', ROUND(COALESCE((v_val->>'A3')::numeric,0) - t.rent_book)),
-    jsonb_build_object('key','agent_advances','label','Agent advances (A10+A11+A20) vs agent_advances outstanding + arrears',
+    jsonb_build_object('key','agent_advances','label','Agent advances (A10+A11+A20) vs open advances outstanding (fees and arrears included)',
+      'basis','outstanding_only_v2',
       'ledger', ROUND(COALESCE((v_val->>'A10')::numeric,0) + COALESCE((v_val->>'A11')::numeric,0) + COALESCE((v_val->>'A20')::numeric,0)),
       'operational', ROUND(t.advances),
       'difference', ROUND(COALESCE((v_val->>'A10')::numeric,0) + COALESCE((v_val->>'A11')::numeric,0) + COALESCE((v_val->>'A20')::numeric,0) - t.advances)),
@@ -117,7 +138,7 @@ SELECT 'agent'::text AS category_key,
     a.id AS item_id,
     a.agent_id AS counterparty_id,
     COALESCE(p.full_name, 'Unknown agent'::text) AS counterparty_name,
-    GREATEST(COALESCE(a.outstanding_balance, (0)::numeric), (0)::numeric) AS outstanding_amount,
+    GREATEST((GREATEST(COALESCE(a.outstanding_balance, (0)::numeric), (0)::numeric) - LEAST(GREATEST((COALESCE(a.access_fee, (0)::numeric) - COALESCE(a.access_fee_collected, (0)::numeric)), (0)::numeric), GREATEST(COALESCE(a.outstanding_balance, (0)::numeric), (0)::numeric))), (0)::numeric) AS outstanding_amount,
     NULL::date AS due_date,
     'projected'::text AS due_kind,
     COALESCE(NULLIF(a.daily_installment, (0)::numeric), NULLIF(a.installment_amount, (0)::numeric), (0)::numeric) AS daily_amount,
@@ -125,7 +146,7 @@ SELECT 'agent'::text AS category_key,
     a.created_at
    FROM (agent_advances a
      LEFT JOIN profiles p ON ((p.id = a.agent_id)))
-  WHERE ((a.status = ANY (ARRAY['active'::text, 'overdue'::text])) AND (COALESCE(a.outstanding_balance, (0)::numeric) > (0)::numeric))
+  WHERE ((a.status = ANY (ARRAY['active'::text, 'overdue'::text])) AND (GREATEST((GREATEST(COALESCE(a.outstanding_balance, (0)::numeric), (0)::numeric) - LEAST(GREATEST((COALESCE(a.access_fee, (0)::numeric) - COALESCE(a.access_fee_collected, (0)::numeric)), (0)::numeric), GREATEST(COALESCE(a.outstanding_balance, (0)::numeric), (0)::numeric))), (0)::numeric) > (0)::numeric))
 UNION ALL
  SELECT 'agent'::text AS category_key,
     'Agent Products & Services'::text AS category_label,
@@ -135,7 +156,7 @@ UNION ALL
     a.id AS item_id,
     a.agent_id AS counterparty_id,
     COALESCE(p.full_name, 'Unknown agent'::text) AS counterparty_name,
-    GREATEST((COALESCE(a.access_fee, (0)::numeric) - COALESCE(a.access_fee_collected, (0)::numeric)), (0)::numeric) AS outstanding_amount,
+    LEAST(GREATEST((COALESCE(a.access_fee, (0)::numeric) - COALESCE(a.access_fee_collected, (0)::numeric)), (0)::numeric), GREATEST(COALESCE(a.outstanding_balance, (0)::numeric), (0)::numeric)) AS outstanding_amount,
     (a.expires_at)::date AS due_date,
     'scheduled'::text AS due_kind,
     0 AS daily_amount,
@@ -143,7 +164,7 @@ UNION ALL
     a.created_at
    FROM (agent_advances a
      LEFT JOIN profiles p ON ((p.id = a.agent_id)))
-  WHERE ((a.status = ANY (ARRAY['active'::text, 'overdue'::text])) AND (GREATEST((COALESCE(a.access_fee, (0)::numeric) - COALESCE(a.access_fee_collected, (0)::numeric)), (0)::numeric) > (0)::numeric))
+  WHERE ((a.status = ANY (ARRAY['active'::text, 'overdue'::text])) AND (LEAST(GREATEST((COALESCE(a.access_fee, (0)::numeric) - COALESCE(a.access_fee_collected, (0)::numeric)), (0)::numeric), GREATEST(COALESCE(a.outstanding_balance, (0)::numeric), (0)::numeric)) > (0)::numeric))
 UNION ALL
  SELECT 'agent'::text AS category_key,
     'Agent Products & Services'::text AS category_label,
@@ -449,7 +470,10 @@ BEGIN
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
              'key', t->>'key', 'label', t->>'label',
              'previous', (p->>'difference')::numeric, 'current', (t->>'difference')::numeric,
-             'moved_by', round((t->>'difference')::numeric - COALESCE((p->>'difference')::numeric, 0)))), '[]'::jsonb)
+             'moved_by', round((t->>'difference')::numeric - COALESCE((p->>'difference')::numeric, 0)),
+             'basis_previous', p->>'basis', 'basis_current', t->>'basis',
+             'reason', CASE WHEN (p->>'basis') IS DISTINCT FROM (t->>'basis') THEN 'comparison basis changed'
+                            ELSE 'difference moved' END)), '[]'::jsonb)
       INTO v_changes
       FROM jsonb_array_elements(COALESCE(v_bs->'subledger_ties', '[]'::jsonb)) t
       LEFT JOIN jsonb_array_elements(v_prev.ties) p ON p->>'key' = t->>'key'

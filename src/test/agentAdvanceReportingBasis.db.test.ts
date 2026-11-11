@@ -1,7 +1,7 @@
 // @vitest-environment node
 /* eslint-disable @typescript-eslint/no-explicit-any -- assertions over untyped rows returned by SQL */
 /**
- * Agent advances reporting basis (supabase/migrations/20261115150000_agent_advance_reporting_basis.sql).
+ * Agent advances reporting basis (supabase/migrations/20261116090000_agent_advance_reporting_basis.sql).
  *
  * Runs the migration's fin_balance_sheet and the rollback's (= production 11 Nov 2026) verbatim, and the two agent
  * blocks of v_receivables_lines from each, against stand-in data shaped like production:
@@ -17,8 +17,8 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 600_000 });
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8').replace(/\r/g, '');
-const MIG = read('supabase/migrations/20261115150000_agent_advance_reporting_basis.sql');
-const RB = read('supabase/rollbacks/20261115150000_agent_advance_reporting_basis.rollback.sql');
+const MIG = read('supabase/migrations/20261116090000_agent_advance_reporting_basis.sql');
+const RB = read('supabase/rollbacks/20261116090000_agent_advance_reporting_basis.rollback.sql');
 
 /** The CREATE FUNCTION public.fin_balance_sheet statement from a file. */
 const fbsOf = (sql: string) => {
