@@ -16,6 +16,7 @@
  *    channel='email' AND logged_by IS NULL means "already acknowledged".
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { isVerifiedServiceRoleJwt, projectRefFromSupabaseUrl } from './serviceRoleJwt.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -107,23 +108,31 @@ Deno.serve(async (req) => {
 
   const adminClient = createClient(supabaseUrl, serviceKey);
 
-  // ── GUARD: scheduler (service-role bearer) OR an hr / super_admin caller.
+  // ── GUARD: scheduler (exact service-role key, or an HS256 JWT signed with
+  // SUPABASE_JWT_SECRET whose verified role is service_role) OR an hr / super_admin caller.
   // The published anon key is NOT accepted, so this is not publicly invokable.
   let invokedBy = 'scheduler';
   if (bearer !== serviceKey) {
-    const { data: userData, error: userError } = await createClient(supabaseUrl, anonKey)
-      .auth.getUser(bearer);
-    const caller = userData?.user;
-    if (userError || !caller) return json({ error: 'Unauthorized' }, 401);
+    const schedulerJwt = await isVerifiedServiceRoleJwt(
+      bearer,
+      Deno.env.get('SUPABASE_JWT_SECRET'),
+      projectRefFromSupabaseUrl(supabaseUrl),
+    );
+    if (!schedulerJwt) {
+      const { data: userData, error: userError } = await createClient(supabaseUrl, anonKey)
+        .auth.getUser(bearer);
+      const caller = userData?.user;
+      if (userError || !caller) return json({ error: 'Unauthorized' }, 401);
 
-    const { data: roles, error: roleError } = await adminClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', caller.id)
-      .in('role', ['hr', 'super_admin']);
-    if (roleError) return json({ error: `Role check failed: ${roleError.message}` }, 500);
-    if (!roles?.length) return json({ error: 'Only HR or Super Admin may run acknowledgements' }, 403);
-    invokedBy = caller.id;
+      const { data: roles, error: roleError } = await adminClient
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', caller.id)
+        .in('role', ['hr', 'super_admin']);
+      if (roleError) return json({ error: `Role check failed: ${roleError.message}` }, 500);
+      if (!roles?.length) return json({ error: 'Only HR or Super Admin may run acknowledgements' }, 403);
+      invokedBy = caller.id;
+    }
   }
 
   // ── ACK_CUTOFF gate: unset means process nothing.
