@@ -78929,6 +78929,7 @@ export type Database = {
         }
         Returns: Json
       }
+      _request_incomplete: { Args: { p_request_id: string }; Returns: string[] }
       _request_kind_json: { Args: { p_request_id: string }; Returns: Json }
       _return_cycle_can_request: {
         Args: { _user_id: string }
@@ -96373,6 +96374,7 @@ export type Database = {
         }[]
       }
       pipeline_i_can_view: { Args: { p_request_id: string }; Returns: boolean }
+      pipeline_incomplete_queue: { Args: { p_limit?: number }; Returns: Json }
       pipeline_link_call: {
         Args: {
           p_call_session_id: string
