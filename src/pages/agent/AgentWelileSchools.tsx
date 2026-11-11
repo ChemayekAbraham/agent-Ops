@@ -441,6 +441,12 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
               </div>
             )}
             <Field label="Gender"><Chips options={['Female', 'Male']} value={f.gender ?? ''} onChange={(v) => setF((d) => ({ ...d, gender: v }))} /></Field>
+            {group === 'pupil' && (
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Class / Grade / Year"><ClassGradeSelect schoolLevel={school.school_level} value={f.class_grade ?? ''} onChange={(v) => setF((d) => ({ ...d, class_grade: v }))} /></Field>
+                <Field label="Stream / Dormitory"><Input value={f.stream ?? ''} onChange={set('stream')} /></Field>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date of birth"><Input type="date" value={f.date_of_birth ?? ''} onChange={set('date_of_birth')} /></Field>
               <Field label="Age"><Input inputMode="numeric" value={(f.age as any) ?? ''} onChange={set('age')} /></Field>
@@ -452,10 +458,6 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
 
             {group === 'pupil' && (
               <>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Class / Grade / Year"><ClassGradeSelect schoolLevel={school.school_level} value={f.class_grade ?? ''} onChange={(v) => setF((d) => ({ ...d, class_grade: v }))} /></Field>
-                  <Field label="Stream / Dormitory"><Input value={f.stream ?? ''} onChange={set('stream')} /></Field>
-                </div>
                 <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>
                 <Field label="Parent / guardian full name"><Input value={f.guardian_name ?? ''} onChange={set('guardian_name')} /></Field>
                 <div className="grid grid-cols-2 gap-2">
