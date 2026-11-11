@@ -44,13 +44,22 @@ export type CoSupportStatus =
   | 'funded_alone'
   | 'plan_unavailable';
 
+/** What is being shared: a Rent Plan (tenant) or a verified empty house. */
+export type CoSupportKind = 'rent_plan' | 'house';
+
 /** One invitation as co_support_preview / co_support_my_invites return it. */
 export interface CoSupportInvite {
   id: string;
+  kind: CoSupportKind;
   code: string | null; // only for the person who shared it
   status: CoSupportStatus;
   expires_at: string;
-  rent_request_id: string;
+  rent_request_id: string | null;
+  /** Empty houses only. */
+  house_id: string | null;
+  house_title: string | null;
+  /** Empty houses only: accepted, both halves waiting for Partner Ops to approve them together. */
+  awaiting_partner_ops: boolean;
   tenant_first_name: string | null;
   city: string | null;
   house_image_url: string | null;
@@ -92,14 +101,20 @@ const ugx = (n: number | null | undefined) => `UGX ${Math.round(Number(n ?? 0)).
 
 /** The message the sharer sends with the link (WhatsApp, SMS, copy). */
 export function coSupportShareText(input: {
+  kind?: CoSupportKind;
   tenantFirstName?: string | null;
+  houseTitle?: string | null;
   city?: string | null;
   partnerShare: number;
   url: string;
 }): string {
   const tenant = (input.tenantFirstName ?? '').trim();
+  const house = (input.houseTitle ?? '').trim();
   const city = (input.city ?? '').trim();
-  const home = tenant ? `${tenant}'s rent` : 'a tenant’s rent';
+  const home =
+    input.kind === 'house'
+      ? house ? `an empty house (${house})` : 'an empty house'
+      : tenant ? `${tenant}'s rent` : 'a tenant’s rent';
   const where = city ? ` in ${city}` : '';
   return (
     `I'm supporting ${home}${where} on Welile and I'd like to do it with you, 50/50. ` +
@@ -192,6 +207,14 @@ const MESSAGES: Record<string, string> = {
   CO_SUPPORT_RELEASE_FAILED: 'Something went wrong, so nothing was taken from either wallet. Please try again.',
   PARTNER_RATE_UNAVAILABLE: 'Your Rent Profit Share rate could not be confirmed. Please contact Welile.',
   AUTH_REQUIRED: 'Please sign in first.',
+  HOUSE_NOT_AVAILABLE: 'This house is no longer available. Choose another one.',
+  HOUSES_UNAVAILABLE: 'This house is no longer available. Choose another one.',
+  HOUSE_ALREADY_SUPPORTED: 'This house already has a supporter. Choose another one.',
+  // Partner Ops screens
+  NOT_AUTHORIZED: 'Only Partner Operations can do this.',
+  PENDING_APPROVAL: 'This shared house is still waiting for approval. Reject it from the approval queue instead (both halves are rejected together).',
+  NOT_FUNDED: 'This shared support has no funding to cancel.',
+  LANDLORD_ALREADY_PAID: 'The landlord has already been paid from this float, so the funding cannot be cancelled here.',
 };
 
 /**
@@ -236,6 +259,24 @@ export function coSupportBlockMessage(p: Pick<CoSupportPreview, 'reason' | 'floa
     default:
       return MESSAGES.INVITE_CLOSED;
   }
+}
+
+/** One row of co_support_staff_list (Partner Ops). */
+export interface CoSupportStaffRow {
+  invite_id: string;
+  kind: CoSupportKind;
+  rent_request_id: string | null;
+  house_id: string | null;
+  title: string;
+  place: string | null;
+  rent_amount: number;
+  plan_amount: number;
+  /** house pairs wait for Partner Ops; Rent Plans are funded at once */
+  status: 'awaiting_approval' | 'funded';
+  /** > 0: the landlord was already paid from the float, so it cannot be cancelled here */
+  landlord_paid_out: number;
+  partners: Array<{ role: 'lead' | 'invitee'; partner_id: string; name: string | null; amount: number; portfolio_id: string | null }>;
+  accepted_at: string | null;
 }
 
 /** Whole hours and minutes left, for "Open for 31h 20m". */

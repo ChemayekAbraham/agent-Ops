@@ -67,8 +67,6 @@ CREATE TABLE public.partner_self_funding_lines (id uuid PRIMARY KEY DEFAULT gen_
   proxy_fee numeric DEFAULT 0, proxy_fee_status text, proxy_agent_id uuid, proxy_fee_ledger_group_id uuid);
 CREATE UNIQUE INDEX ux_psfl_active_plan ON public.partner_self_funding_lines (rent_request_id) WHERE status <> 'cancelled';
 
-CREATE TABLE public.partner_supported_houses (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), commitment_id uuid,
-  house_id uuid, principal numeric, proxy_fee numeric, proxy_fee_status text, rent_amount numeric);
 
 CREATE TABLE public.funder_pending_portfolios (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), portfolio_id uuid,
   funder_id uuid, amount numeric, source text, summary_id uuid, commitment_id uuid, term_months int DEFAULT 12,
@@ -186,9 +184,16 @@ CREATE FUNCTION public._funder_direct_release_note(a uuid, b uuid, c uuid) RETUR
 CREATE FUNCTION public.self_support_pay_proxy_fee(p_commitment_id uuid) RETURNS jsonb LANGUAGE plpgsql AS $$
 DECLARE v_fee numeric;
 BEGIN
-  SELECT COALESCE(SUM(proxy_fee),0) INTO v_fee FROM public.partner_self_funding_lines
-   WHERE commitment_id = p_commitment_id AND proxy_fee > 0 AND proxy_fee_status = 'pending';
+  -- like production: rent-plan lines and supported houses
+  SELECT COALESCE(SUM(fee),0) INTO v_fee FROM (
+    SELECT proxy_fee AS fee FROM public.partner_self_funding_lines
+     WHERE commitment_id = p_commitment_id AND proxy_fee > 0 AND proxy_fee_status = 'pending'
+    UNION ALL
+    SELECT proxy_fee FROM public.partner_supported_houses
+     WHERE commitment_id = p_commitment_id AND proxy_fee > 0 AND proxy_fee_status = 'pending') x;
   IF v_fee <= 0 THEN RETURN '{"status":"skipped"}'; END IF;
+  UPDATE public.partner_supported_houses SET proxy_fee_status = 'paid'
+   WHERE commitment_id = p_commitment_id AND proxy_fee > 0 AND proxy_fee_status = 'pending';
   PERFORM public.create_ledger_transaction(jsonb_build_array(jsonb_build_object('amount', v_fee, 'direction','cash_out',
      'category','agent_commission_earned','ledger_scope','platform','source_table','partner_self_commitments')),
      'ssfee-' || p_commitment_id::text);

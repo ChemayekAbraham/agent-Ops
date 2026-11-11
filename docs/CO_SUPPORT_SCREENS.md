@@ -107,9 +107,52 @@ What each status shows and allows:
   refunds them.
 - **Landlord already paid:** the call refuses with LANDLORD_ALREADY_PAID. Show the message.
 
+## 6. Phase 4: empty houses (added after the Rent Plan screens)
+
+Partners can now share a verified **empty house** too. The flow is the same as a
+Rent Plan, with one difference: **after the partner accepts, Partner Ops approve
+both halves together.** Nothing is taken from either wallet until then; each half
+is held on its partner's float. Approving either half approves both. Rejecting
+either half rejects both.
+
+- **Button:** add "Support with a partner" to the empty-house card and its detail
+  sheet. Call `useCreateCoSupportHouse().mutate(houseId)`.
+  - Hide it when the amount the partner pays is under UGX 100,000.
+  - The current house card hides the button with `isEmpty ? null : …`. Show it for
+    houses too, using the house hook.
+  - Explanation: "You pay half and a partner pays half. We hold your half for 48 hours
+    while they decide. Partner Ops then approve the house."
+- **Every invitation now has `kind`:** `'rent_plan'` or `'house'`.
+  - **Houses:** use `house_title` and `city` (`tenant_first_name` is empty).
+  - **Share text:** pass `kind` and `houseTitle` to `coSupportShareText`, so it says
+    "an empty house (…)".
+- **Invitation page header:**
+  - Houses: "{lead_first_name} wants to support an empty house with you", then
+    `house_title`.
+  - Rent Plans: unchanged ("…'s Rent Plan").
+- **After accepting a house** (`awaiting_partner_ops = true`): success screen "You and
+  {lead_first_name} have shared this house. Partner Ops will approve it. Your half stays
+  held until then." Don't say the money has moved yet.
+- **Waiting list (section 3):** for a `completed` house with
+  `awaiting_partner_ops = true`, show "Waiting for Partner Ops". Once false, show
+  "Supported with {partner_first_name}". The "Pay the full amount" action also works for
+  houses (it becomes a normal one-partner house support, waiting for Partner Ops).
+- **Partner Ops list (replaces the pending-vetting hook in section 5):** the cancel
+  button never showed there, because no server row carries a co-support id.
+  - Add a "Shared supports" list in Partner Ops using `useCoSupportStaffList()`.
+  - Each row: `title`, `place`, `kind`, `status` ("Waiting for approval" / "Funded"),
+    both partners (`partners[].name` and `amount`) and `accepted_at`.
+  - "Cancel both halves" uses `useCoSupportStaffCancel().mutate({ inviteId, reason })`.
+    Show `refunds_due` afterwards.
+  - Hide the button when `landlord_paid_out > 0`, and on house rows with
+    `status = 'awaiting_approval'`. Those are rejected from the normal approval queue,
+    and rejecting one half rejects both.
+- **Approval queue:** a shared house shows as two pending rows (one per partner).
+  Approving or rejecting either one handles both, so after one click both rows leave
+  the queue. Optional: label the rows "Shared house, approved together".
+
 ## Not in this phase
 
 - **The new name for the 2% agent fee:** the owner is choosing. Keep today's wording.
-- **Empty houses:** Phase 4.
 - **Types:** `src/integrations/supabase/types.ts` is regenerated after the migration is
   applied. Don't hand-edit it.

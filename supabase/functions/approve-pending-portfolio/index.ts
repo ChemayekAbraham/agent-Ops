@@ -35,6 +35,36 @@ function json(body: unknown, status = 200) {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Co-support house: the other half's portfolio, approved by the same
+ * approve_pending_portfolio call (both halves or neither). Empty for anything
+ * else. Never throws: a lookup failure only skips the second email.
+ */
+// deno-lint-ignore no-explicit-any
+async function coSupportPairPortfolios(admin: any, portfolioId: string): Promise<string[]> {
+  try {
+    const { data: mine } = await admin
+      .from("partner_supported_houses")
+      .select("co_support_id")
+      .eq("portfolio_id", portfolioId)
+      .not("co_support_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    if (!mine?.co_support_id) return [];
+    const { data: rows } = await admin
+      .from("partner_supported_houses")
+      .select("portfolio_id, status")
+      .eq("co_support_id", mine.co_support_id)
+      .eq("status", "active")
+      .neq("portfolio_id", portfolioId);
+    // deno-lint-ignore no-explicit-any
+    return Array.from(new Set(((rows ?? []) as any[]).map((r) => String(r.portfolio_id)).filter((id) => UUID.test(id))));
+  } catch (e) {
+    console.warn("[approve-pending-portfolio] co-support pair lookup failed:", (e as Error)?.message);
+    return [];
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -247,6 +277,13 @@ Deno.serve(async (req) => {
       return json({ error: `Wallet was debited but portfolio activation failed: ${msg}. Contact operations.` }, 500);
     }
 
+    // Co-support house: approve_pending_portfolio also approved the other
+    // partner's half in the same transaction. Each approved half gets its own
+    // confirmation email, so collect those portfolio ids now.
+    const pairIds = await coSupportPairPortfolios(admin, portfolioId);
+
+    // The confirmation for one approved portfolio (the shadowed portfolioId).
+    const sendConfirmation = async (portfolioId: string): Promise<void> => {
     // Fetch portfolio + partner for the final email.
     const { data: portfolio, error: pErr } = await admin
       .from("investor_portfolios")
@@ -254,7 +291,7 @@ Deno.serve(async (req) => {
       .eq("id", portfolioId).maybeSingle();
     if (pErr || !portfolio) {
       console.warn("[approve-pending-portfolio] Portfolio lookup after approval failed:", pErr?.message);
-      return json({ success: true, portfolio_id: portfolioId }, 200);
+      return;
     }
 
     // Both emails below carry the portfolio's rate and monthly Returns. They go to the profile email
@@ -461,8 +498,18 @@ Deno.serve(async (req) => {
         console.warn("[approve-pending-portfolio] Agreement email failed:", (e as Error)?.message);
       }
     }
+    };
 
-    return json({ success: true, portfolio_id: portfolioId }, 200);
+    await sendConfirmation(portfolioId);
+    for (const otherId of pairIds) {
+      try {
+        await sendConfirmation(otherId);
+      } catch (e) {
+        console.warn("[approve-pending-portfolio] co-support partner confirmation failed:", otherId, (e as Error)?.message);
+      }
+    }
+
+    return json({ success: true, portfolio_id: portfolioId, co_support_pair: pairIds }, 200);
   } catch (e) {
     console.error("[approve-pending-portfolio] Fatal:", (e as Error)?.message);
     return json({ error: (e as Error)?.message || "Unexpected server error" }, 500);

@@ -46,6 +46,14 @@ Deno.test("only https photos are used", () => {
   assertEquals(coSupportPreviewMeta({ ...open, house_image_url: "http://x/h.jpg" }).image, null);
 });
 
+Deno.test("house invitations name the house, not a tenant", () => {
+  const m = coSupportPreviewMeta({ ...open, kind: "house", tenant_first_name: null, house_title: "2-bedroom house", city: "Wakiso" });
+  assertEquals(m.title, "Sarah wants to support an empty house with you");
+  assertMatch(m.description, /^A verified empty house \(2-bedroom house\) in Wakiso, Uganda\. Share it 50\/50/);
+  assertNotMatch(`${m.title} ${m.description}`, /\b(loan|lender|interest|ROI|returns?)\b/i);
+  assertMatch(coSupportPreviewMeta({ ...open, kind: "house", status: "completed" }).description, /house has been fully supported/);
+});
+
 Deno.test("formatUgx rounds and groups", () => {
   assertEquals(formatUgx(127550.4), "UGX 127,550");
   assertEquals(formatUgx(null), "UGX 0");
