@@ -50,6 +50,8 @@ export interface SchoolRow {
 }
 
 export interface SchoolProfileRow {
+  /** Path of the student's face photo in the welile-school-photos bucket. */
+  photo_path?: string | null;
   id: string;
   school_id: string;
   registered_by?: string;

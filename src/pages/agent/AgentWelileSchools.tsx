@@ -2,9 +2,11 @@ import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, ChevronDown } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, ChevronDown, Camera } from 'lucide-react';
 import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershipPanel';
 import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
+import StudentPhotoCapture from '@/components/welile-schools/StudentPhotoCapture';
+import { flushPendingPhotos, uploadStudentPhoto } from '@/lib/welileSchoolsPhoto';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -102,7 +104,9 @@ export default function AgentWelileSchools() {
       flushPendingProfiles().then((n) => {
         setPendingCount(readPendingProfiles().length);
         if (n) toast.success(`${n} saved registration${n > 1 ? 's' : ''} sent`);
-      });
+        // Photos link to their profile by client_ref, so they go once the profiles are up.
+        return flushPendingPhotos();
+      }).then((n) => { if (n) toast.success(`${n} student photo${n > 1 ? 's' : ''} uploaded`); });
       flushPendingGateLogs().then((n) => {
         setGatePendingCount(readPendingGateLogs().length);
         if (n) toast.success(`${n} saved gate log${n > 1 ? 's' : ''} sent`);
@@ -320,6 +324,9 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
   const [last, setLast] = useState<{ row: SchoolProfileRow; saved: boolean } | null>(null);
   const [count, setCount] = useState(0);
   const [logEntry, setLogEntry] = useState(true);
+  const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraProblem, setCameraProblem] = useState<string | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const group = roleGroup(role);
   const set = (k: keyof SchoolProfileRow) => (e: React.ChangeEvent<HTMLInputElement>) => setF((d) => ({ ...d, [k]: e.target.value }));
@@ -329,6 +336,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     if (group !== 'asset' && !f.full_name?.trim()) { toast.error('Enter the full name'); return; }
     if (group === 'asset' && !f.facility_type) { toast.error('Choose the facility type'); return; }
     if (group !== 'asset' && hasPhone === null) { toast.error('Answer: has a smartphone?'); return; }
+    if (group === 'pupil' && !photo && !cameraProblem) { toast.error("Take the student's photo"); return; }
     setSaving(true);
     const id = safeUUID();
     const row: SchoolProfileRow = {
@@ -337,6 +345,8 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
       date_of_birth: f.date_of_birth || null,
       ...(group === 'asset' ? { has_smartphone: null, needs_free_smartphone: false, smartphone_status: null } : smartphoneFields(hasPhone)),
     };
+    // Upload the face photo first so the profile is saved with its path; offline, it waits on the phone.
+    if (group === 'pupil' && photo) row.photo_path = await uploadStudentPhoto(school.id, id, id, photo.blob);
     const res = await saveProfile(row);
     if (group !== 'asset' && logEntry) {
       const gid = safeUUID();
@@ -357,7 +367,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     const who = group === 'asset' ? (f.facility_type || 'Facility') : (f.full_name?.trim() || 'Person');
     if (!res.saved) { onQueued(); toast.message('Saved on this phone', { description: `${who} will upload automatically when you are back online.` }); }
     else toast.success('Registration successful', { description: `${who} is registered at ${school.name}.` });
-    setF({}); setHasPhone(null);
+    setF({}); setHasPhone(null); setPhoto(null);
     // The confirmation sits above the form; bring it into view after saving at the bottom.
     topRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   };
@@ -396,6 +406,34 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
         ) : (
           <>
             <Field label="Full name"><Input value={f.full_name ?? ''} onChange={set('full_name')} /></Field>
+            {group === 'pupil' && (
+              <div className="space-y-2">
+                <Label className="text-sm">Student photo</Label>
+                {photo ? (
+                  <div className="flex items-center gap-3 rounded-xl border border-border p-3">
+                    <img src={photo.url} alt="Student photo" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <p className="flex items-center gap-1.5 text-sm font-semibold"><CheckCircle2 className="h-4 w-4 text-emerald-600" />Photo taken</p>
+                      <p className="text-xs text-muted-foreground">Saved with this student when you save.</p>
+                    </div>
+                    <Button variant="outline" size="sm" className="min-h-[40px]" onClick={() => setCameraOpen(true)}>Retake</Button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setCameraOpen(true)}
+                    className="flex min-h-[96px] w-full items-center gap-4 rounded-xl border-2 border-dashed border-primary/50 bg-primary/5 p-4 text-left hover:bg-primary/10">
+                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Camera className="h-6 w-6" /></span>
+                    <span>
+                      <span className="block font-semibold">Take the student's photo</span>
+                      <span className="block text-sm text-muted-foreground">Fit their face inside the oval on screen.</span>
+                    </span>
+                  </button>
+                )}
+                {cameraProblem && !photo && <p className="text-xs text-amber-700 dark:text-amber-400">{cameraProblem} You can save without a photo for now.</p>}
+                <StudentPhotoCapture open={cameraOpen} studentName={f.full_name} onClose={() => setCameraOpen(false)}
+                  onUnavailable={(reason) => { setCameraOpen(false); setCameraProblem(reason); }}
+                  onCapture={(blob) => setPhoto((old) => { if (old) URL.revokeObjectURL(old.url); return { blob, url: URL.createObjectURL(blob) }; })} />
+              </div>
+            )}
             <Field label="Gender"><Chips options={['Female', 'Male']} value={f.gender ?? ''} onChange={(v) => setF((d) => ({ ...d, gender: v }))} /></Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date of birth"><Input type="date" value={f.date_of_birth ?? ''} onChange={set('date_of_birth')} /></Field>
