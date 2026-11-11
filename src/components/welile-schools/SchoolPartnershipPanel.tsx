@@ -109,7 +109,7 @@ export default function SchoolPartnershipPanel({ school }: { school: SchoolRow }
           </p>
         )}
         {status === 'submitted' && <p className="text-sm text-muted-foreground">Ops is reviewing this school. You can edit again if they send it back.</p>}
-        {status === 'approved' && <p className="text-sm text-muted-foreground">This school is a Welile Schools partner. Ops can update its terms and fees.</p>}
+        {status === 'approved' && <p className="text-sm text-muted-foreground">This school is a Welile Schools partner. If its terms or fees change, ask Welile ops to update them.</p>}
       </Card>
 
       <PartnershipDetailsCard school={school} partnership={partnership} editable={editable} onSaved={refresh} />

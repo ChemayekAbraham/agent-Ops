@@ -2,7 +2,8 @@ import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, Handshake } from 'lucide-react';
+import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershipPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -60,7 +61,7 @@ export default function AgentWelileSchools() {
   const [gpsBusy, setGpsBusy] = useState(false);
   const [pendingCount, setPendingCount] = useState(() => readPendingProfiles().length);
   const [gatePendingCount, setGatePendingCount] = useState(() => readPendingGateLogs().length);
-  const [mode, setMode] = useState<'gate' | 'register'>('gate');
+  const [mode, setMode] = useState<'gate' | 'register' | 'partner'>('gate');
 
   const { data: schools = [] } = useQuery({
     queryKey: ['welile-schools-list'],
@@ -168,8 +169,11 @@ export default function AgentWelileSchools() {
             <div className="grid grid-cols-2 gap-2" role="group" aria-label="School gate mode">
               <Button variant={mode === 'gate' ? 'default' : 'outline'} aria-pressed={mode === 'gate'} className="min-h-12 gap-1 whitespace-normal" onClick={() => setMode('gate')}><LogIn className="h-4 w-4 shrink-0" />🚪 Daily Gate Log (IN / OUT)</Button>
               <Button variant={mode === 'register' ? 'default' : 'outline'} aria-pressed={mode === 'register'} className="min-h-12 gap-1 whitespace-normal" onClick={() => setMode('register')}><GraduationCap className="h-4 w-4 shrink-0" />➕ Register New Person / Asset</Button>
+              <Button variant={mode === 'partner' ? 'default' : 'outline'} aria-pressed={mode === 'partner'} className="col-span-2 min-h-12 gap-1 whitespace-normal" onClick={() => setMode('partner')}><Handshake className="h-4 w-4 shrink-0" />School Fees partnership</Button>
             </div>
-            {mode === 'gate' ? (
+            {mode === 'partner' ? (
+              <SchoolPartnershipPanel school={locked} />
+            ) : mode === 'gate' ? (
               <DailyGateLogView school={locked} agentId={user.id} onQueued={() => setGatePendingCount(readPendingGateLogs().length)} onSwitchToRegister={() => setMode('register')} />
             ) : (
               <GateRegistration school={locked} agentId={user.id} onQueued={() => { setPendingCount(readPendingProfiles().length); setGatePendingCount(readPendingGateLogs().length); }} />
