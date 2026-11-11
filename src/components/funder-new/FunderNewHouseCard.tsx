@@ -18,6 +18,7 @@ import {
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
 import { FundersBoardTag, tagKindFor } from './FundersBoardTag';
 import type { BoardTag } from '@/lib/fundersBoard';
+import { CoSupportStartButton } from '@/components/co-support/CoSupportStartButton';
 
 /** Photo-led listing for /dashboard/funder-new. */
 export function FunderNewHouseCard({
@@ -198,6 +199,14 @@ export function FunderNewHouseCard({
           )}
 
         </div>
+        {/* Co-support: Rent Plans only, never empty houses. */}
+        {isEmpty ? null : (
+          <CoSupportStartButton
+            rentRequestId={(item as FunderNewReadyPlan).rent_request_id}
+            planAmount={amount}
+            showExplanation={false}
+          />
+        )}
       </div>
     </article>
   );

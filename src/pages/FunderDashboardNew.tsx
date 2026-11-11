@@ -21,6 +21,7 @@ import { SelfPortfolioPlanDetailSheet } from '@/components/partner/SelfPortfolio
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
 import { FunderNewMapSection } from '@/components/funder-new/FunderNewMapSection';
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
+import { CoSupportWaitingSection } from '@/components/co-support/CoSupportWaitingSection';
 import { FunderNewCalculatorDialog } from '@/components/funder-new/FunderNewCalculatorDialog';
 import { FunderNewHowItWorksDialog } from '@/components/funder-new/FunderNewHowItWorksDialog';
 import { FunderNewReviewDialog, FunderNewSelectionBar } from '@/components/funder-new/FunderNewSelectionPanel';
@@ -412,6 +413,7 @@ export default function FunderDashboardNew() {
       </section>
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 lg:px-8">
+        <CoSupportWaitingSection />
         <FunderNewHero
           summary={summary.data}
           isLoading={summary.isLoading}

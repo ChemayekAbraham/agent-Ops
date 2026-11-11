@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { Loader2, Home, User } from 'lucide-react';
+import { CoSupportStaffCancel } from '@/components/co-support/CoSupportStaffCancel';
 
 type Line = {
   id: string;
@@ -18,6 +19,8 @@ type Line = {
   proxyFee: number;
   /** null = no fee; pending | paid | kept (no proxy agent) | cancelled. */
   proxyFeeStatus: string | null;
+  /** Co-support invitation when two partners share this Rent Plan (only if the server returns it). */
+  coSupportId: string | null;
 };
 
 /**
@@ -48,6 +51,7 @@ export function CommitmentLines({ portfolioId }: { portfolioId: string }) {
         rentAmount: Number(r.rent_amount ?? r.principal) || 0,
         proxyFee: Number(r.proxy_fee) || 0,
         proxyFeeStatus: r.proxy_fee_status ?? null,
+        coSupportId: r.co_support_id ?? null,
       }));
     },
   });
@@ -115,6 +119,9 @@ export function CommitmentLines({ portfolioId }: { portfolioId: string }) {
               {l.daily > 0 && (
                 <p className="text-[10px] text-muted-foreground tabular-nums">{formatUGX(l.daily)} / day</p>
               )}
+              {l.coSupportId ? (
+                <div className="mt-1"><CoSupportStaffCancel inviteId={l.coSupportId} /></div>
+              ) : null}
             </div>
           </div>
         ))}
