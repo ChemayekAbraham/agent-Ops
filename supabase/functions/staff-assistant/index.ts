@@ -80,6 +80,7 @@ import {
 } from "./memory.ts";
 import { ANALYST_OPEN_OFFER, formatWriteMutationRefusal, MSG } from "./messages.ts";
 import { buildMorningBriefForCaller } from "./morningBrief.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 import {
   AiGatewayError,
   chatCompletion,
@@ -523,7 +524,7 @@ export async function handleStaffAssistantRequest(
   const {
     data: { user },
     error: authErr,
-  } = await userClient.auth.getUser();
+  } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
   if (authErr || !user) return json(401, { error: MSG.unauthorized });
 
   // ---- 2. Validate request body (strict: rejects user_id, role, history, system, etc.) -------

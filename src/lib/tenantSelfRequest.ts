@@ -7,6 +7,9 @@
  * (tenant_self_applied = true, status pending, so it routes to Agent Ops).
  * Then tenant_save_intake_details stores the intake that Agent Ops checks:
  * family size, work/business, the LC1 contact and the LC1 letter.
+ *
+ * DOCS-1: photos of the National ID front and back and of the LC1 letter are
+ * required. A typed NIN and the LC1 chairperson's contact are optional extras.
  */
 import { supabase } from '@/integrations/supabase/client';
 import { validateUgandaPhone } from '@/lib/ugandaPhone';
@@ -30,16 +33,16 @@ export function samePhone(a: string, b: string): boolean {
 }
 
 export type TenantItemKey =
-  | 'rent' | 'fullName' | 'phone' | 'nationalId' | 'passportPhoto' | 'familySize' | 'work'
+  | 'rent' | 'fullName' | 'phone' | 'nationalId' | 'idFront' | 'idBack' | 'passportPhoto' | 'familySize' | 'work'
   | 'address' | 'village' | 'gps' | 'housePhotos'
-  | 'landlord' | 'landlordPhone' | 'lc1' | 'declared';
+  | 'landlord' | 'landlordPhone' | 'lcLetter' | 'declared';
 
 /** Which step of the form fixes each item. */
 export const TENANT_ITEM_STEP: Record<TenantItemKey, number> = {
   rent: 2,
-  fullName: 3, phone: 3, nationalId: 3, passportPhoto: 3, familySize: 3, work: 3,
+  fullName: 3, phone: 3, nationalId: 3, idFront: 3, idBack: 3, passportPhoto: 3, familySize: 3, work: 3,
   address: 4, village: 4, gps: 4, housePhotos: 4,
-  landlord: 5, landlordPhone: 5, lc1: 5,
+  landlord: 5, landlordPhone: 5, lcLetter: 5,
   declared: 6,
 };
 
@@ -47,7 +50,9 @@ export const TENANT_ITEM_LABELS: Record<TenantItemKey, string> = {
   rent: 'Rent amount and how long you will take to pay it back',
   fullName: 'Your full name (first and last name)',
   phone: 'Your phone number',
-  nationalId: 'Your National ID number, or a photo of your ID',
+  nationalId: 'Your National ID number must be 10 to 14 letters and numbers (or leave it empty)',
+  idFront: 'A photo of the front of your National ID',
+  idBack: 'A photo of the back of your National ID',
   passportPhoto: 'Your passport photo',
   familySize: 'How many people live in your household',
   work: 'Your work or business',
@@ -57,7 +62,7 @@ export const TENANT_ITEM_LABELS: Record<TenantItemKey, string> = {
   housePhotos: 'At least 3 photos of the house',
   landlord: 'Your landlord’s name and phone',
   landlordPhone: 'Your landlord’s phone must be different from yours',
-  lc1: 'The LC1 letter photo, or the LC1 chairperson’s name and phone',
+  lcLetter: 'A photo of the LC1 letter',
   declared: 'Tick the box to confirm your details',
 };
 
@@ -70,8 +75,10 @@ export interface TenantRequestInput {
   firstName: string;
   lastName: string;
   phone: string;
+  /** Optional; checked only when typed. */
   nin: string;
-  hasIdPhoto: boolean;
+  hasIdFront: boolean;
+  hasIdBack: boolean;
   hasPassportPhoto: boolean;
   familySize: string;
   work: string;
@@ -82,8 +89,6 @@ export interface TenantRequestInput {
   landlordName: string;
   landlordPhone: string;
   hasLcLetter: boolean;
-  lc1Name: string;
-  lc1Phone: string;
   declared: boolean;
 }
 
@@ -106,8 +111,10 @@ export function tenantRequestMissing(i: TenantRequestInput): { key: TenantItemKe
     // Two names, each at least two letters (the edge function also needs two names).
     fullName: i.firstName.trim().length >= 2 && i.lastName.trim().length >= 2,
     phone: validPhone(i.phone),
-    // A NIN that is typed must be a valid one; otherwise a photo of the ID will do.
-    nationalId: cleanNin(i.nin) ? ninValid(i.nin) : i.hasIdPhoto,
+    // The NIN is optional; a typed one must be valid.
+    nationalId: !cleanNin(i.nin) || ninValid(i.nin),
+    idFront: i.hasIdFront,
+    idBack: i.hasIdBack,
     passportPhoto: i.hasPassportPhoto,
     familySize: parseFamilySize(i.familySize) !== null,
     work: i.work.trim().length >= WORK_MIN_CHARS,
@@ -117,7 +124,8 @@ export function tenantRequestMissing(i: TenantRequestInput): { key: TenantItemKe
     housePhotos: i.housePhotoCount >= MIN_HOUSE_PHOTOS,
     landlord: !!i.landlordName.trim() && validPhone(i.landlordPhone),
     landlordPhone: !validPhone(i.landlordPhone) || !validPhone(i.phone) || !samePhone(i.landlordPhone, i.phone),
-    lc1: i.hasLcLetter || (!!i.lc1Name.trim() && validPhone(i.lc1Phone)),
+    // DOCS-1: only the letter counts; the chairperson's contact is optional.
+    lcLetter: i.hasLcLetter,
     declared: i.declared,
   };
   return (Object.keys(TENANT_ITEM_STEP) as TenantItemKey[])

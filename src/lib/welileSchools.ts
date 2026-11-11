@@ -50,6 +50,8 @@ export interface SchoolRow {
 }
 
 export interface SchoolProfileRow {
+  /** Path of the student's face photo in the welile-school-photos bucket. */
+  photo_path?: string | null;
   id: string;
   school_id: string;
   registered_by?: string;
@@ -346,4 +348,79 @@ export function computeGateMovementSummary(logs: SchoolGateLogRow[], now: Date =
     byGroup,
     personStatus,
   };
+}
+
+/** Class / grade / year choices for learners, nursery to university (Ugandan system). */
+export interface ClassLevelGroup {
+  /** The SCHOOL_LEVELS value this group belongs to. */
+  level: (typeof SCHOOL_LEVELS)[number];
+  label: string;
+  classes: { value: string; label: string }[];
+}
+
+const numbered = (prefix: string, name: string, n: number) =>
+  Array.from({ length: n }, (_, i) => ({ value: `${prefix}${i + 1}`, label: `${name} ${i + 1} (${prefix}${i + 1})` }));
+
+export const CLASS_LEVELS: ClassLevelGroup[] = [
+  { level: 'Nursery/ECD', label: 'Nursery', classes: [
+    { value: 'Baby class', label: 'Baby class' }, { value: 'Middle class', label: 'Middle class' }, { value: 'Top class', label: 'Top class' },
+  ] },
+  { level: 'Primary', label: 'Primary', classes: numbered('P', 'Primary', 7) },
+  { level: 'Secondary/High School', label: 'Secondary, O level', classes: numbered('S', 'Senior', 4) },
+  { level: 'Secondary/High School', label: 'Secondary, A level', classes: numbered('S', 'Senior', 6).slice(4) },
+  { level: 'TVET/Vocational', label: 'Vocational', classes: [
+    { value: 'Certificate year 1', label: 'Certificate year 1' }, { value: 'Certificate year 2', label: 'Certificate year 2' },
+    { value: 'Diploma year 1', label: 'Diploma year 1' }, { value: 'Diploma year 2', label: 'Diploma year 2' }, { value: 'Diploma year 3', label: 'Diploma year 3' },
+  ] },
+  { level: 'University/Tertiary', label: 'University', classes: [
+    ...Array.from({ length: 5 }, (_, i) => ({ value: `Year ${i + 1}`, label: `Year ${i + 1}` })),
+    { value: 'Postgraduate', label: 'Postgraduate' },
+  ] },
+];
+
+/** The school's own level first, then the rest in order, so the agent rarely scrolls. */
+export function classLevelsFor(schoolLevel?: string | null): ClassLevelGroup[] {
+  const own = CLASS_LEVELS.filter((g) => g.level === schoolLevel);
+  return own.length ? [...own, ...CLASS_LEVELS.filter((g) => g.level !== schoolLevel)] : CLASS_LEVELS;
+}
+
+/** True when a stored class is one of the listed choices (older records hold free text). */
+export function isListedClass(value: string | null | undefined): boolean {
+  return !!value && CLASS_LEVELS.some((g) => g.classes.some((c) => c.value === value));
+}
+
+/* ---------------- Student identity (QR) ---------------- */
+
+/** What a student's QR code holds: their permanent profile id, and no personal details. */
+export function studentQrValue(profileId: string): string {
+  return `welile-schools:student:${profileId}`;
+}
+
+/** Reads a scanned code back to a profile id, or null when it is not a Welile Schools student code. */
+export function parseStudentQr(value: string): string | null {
+  const m = /^welile-schools:student:([0-9a-f-]{36})$/i.exec(value.trim());
+  return m ? m[1].toLowerCase() : null;
+}
+
+/** A short code to read out or type when there is no scanner, e.g. WS-3F2A-9C1E. */
+export function studentCode(profileId: string): string {
+  const hex = profileId.replace(/-/g, '').toUpperCase();
+  return `WS-${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
+}
+
+const TERTIARY_LEVELS: readonly string[] = ['TVET/Vocational', 'University/Tertiary'];
+
+/**
+ * Streams and dormitories exist up to secondary school only. Decided by the chosen
+ * class; before one is chosen, by the school's level.
+ */
+export function showsStream(classValue: string | null | undefined, schoolLevel?: string | null): boolean {
+  const group = classValue ? CLASS_LEVELS.find((g) => g.classes.some((c) => c.value === classValue)) : undefined;
+  const level = group?.level ?? (classValue ? null : schoolLevel ?? null);
+  return !level || !TERTIARY_LEVELS.includes(level);
+}
+
+/** Vocational and university learners: their own phone, WhatsApp and email; no stream, dormitory or day/boarding. */
+export function isTertiaryLearner(classValue: string | null | undefined, schoolLevel?: string | null): boolean {
+  return !showsStream(classValue, schoolLevel);
 }

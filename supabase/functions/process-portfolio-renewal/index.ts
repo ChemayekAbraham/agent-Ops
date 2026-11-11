@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendReturnsReadyEmail } from "../_shared/partnerRenewalEmails.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -101,7 +102,7 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userErr } = await userClient.auth.getUser();
+    const { data: { user }, error: userErr } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (userErr || !user) return json({ error: "Unauthorized" }, 401);
 
     const { request_id } = await req.json().catch(() => ({}));

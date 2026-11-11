@@ -32,6 +32,7 @@ import { UserSearchPicker } from './UserSearchPicker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { RentDisbursementQueue } from './RentDisbursementQueue';
+import { PartnerReleasedToday } from './PartnerReleasedToday';
 import { type LocationRecipient } from './PayByLocationRecipientPicker';
 import { BusinessAdvanceDisbursementQueue } from './BusinessAdvanceDisbursementQueue';
 import { CreditDrawApprovalQueue } from './CreditDrawApprovalQueue';
@@ -1110,6 +1111,7 @@ export function DirectCreditTool() {
                 </button>
               </div>
             )}
+            <PartnerReleasedToday />
             <RentDisbursementQueue
               restrictToIds={rentRequestIdsFromLocation}
               autoSelectIds={rentRequestIdsFromLocation}

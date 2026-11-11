@@ -1,5 +1,30 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { formatRatePct, monthlyReturnFor, readRentRewardRates, singleRate } from "../_shared/partnerReturnPolicy.ts";
+import { sendSMS, formatPhoneInternational } from "../_shared/sendSmsMultiProvider.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
+
+// Best-effort SMS through the shared multi-provider sender (logged, idempotent).
+// Never throws: a failed text must not undo a funding.
+async function trySms(
+  admin: any,
+  phone: string | null | undefined,
+  message: string,
+  ctx: { source: string; key: string; userId?: string | null; name?: string | null; refId?: string | null },
+) {
+  if (!phone) return;
+  try {
+    await sendSMS(formatPhoneInternational(phone), message, {
+      admin,
+      source: ctx.source,
+      reference_id: ctx.refId ?? null,
+      recipient_user_id: ctx.userId ?? null,
+      recipient_name: ctx.name ?? null,
+      idempotencyKey: ctx.key,
+    } as any);
+  } catch (e) {
+    console.warn("[fund-tenants] SMS failed", ctx.source, (e as Error)?.message ?? e);
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,7 +53,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const { data: { user }, error: userError } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
@@ -148,6 +173,27 @@ Deno.serve(async (req) => {
         landlordUserId = landlordProfile?.id || null;
       }
 
+      // Credit the registering agent's Landlord Payout Float (the "Landlord Float" card on the
+      // agent dashboard). agent_landlord_float.balance is derived from allocation rows by
+      // trg_sync_landlord_float_from_allocation, so this insert IS the credit. Done BEFORE the
+      // request is flipped to funded and before any wallet operation is queued: if it fails we
+      // skip this request, so the funder is never charged for money the agent cannot see.
+      const floatAgentId = rr.assigned_agent_id || rr.agent_id || null;
+      if (!floatAgentId) {
+        console.error("[fund-tenants] No agent on rent request, skipping", rr.id);
+        continue;
+      }
+      const { error: floatAllocErr } = await adminClient.rpc("create_landlord_float_allocation", {
+        p_agent_id: floatAgentId,
+        p_rent_request_id: rr.id,
+        p_amount: fundAmount,
+        p_source: "supporter_funding",
+      });
+      if (floatAllocErr) {
+        console.error("[fund-tenants] Landlord float allocation failed, skipping", rr.id, floatAllocErr.message);
+        continue;
+      }
+
       // Update rent request status to funded
       const fundedAt = new Date().toISOString();
       await adminClient
@@ -249,14 +295,16 @@ Deno.serve(async (req) => {
           status: "pending",
         },
         {
-          user_id: landlordUserId || null,
+          // The money now lands in the agent's Landlord Payout Float (allocation above), which the
+          // agent pays out to the landlord. Do not also credit the landlord's own wallet.
+          user_id: null,
           amount: fundAmount,
           direction: "cash_in",
           category: "rent facilitation payout",
           source_table: "rent_requests",
           source_id: rr.id,
           transaction_group_id: txGroupId,
-          description: `Rent payment from supporter`,
+          description: `Rent funded by supporter into agent Landlord Payout Float`,
           linked_party: user.id,
           status: "pending",
         },
@@ -308,6 +356,44 @@ Deno.serve(async (req) => {
         metadata: { rent_request_id: rr.id, amount: fundAmount },
       });
 
+      // Tell the agent the Landlord Float for this rent request has arrived and can be
+      // withdrawn at any time to pay the landlord. Best-effort: never fails the funding.
+      const landlordLabel = landlordRecord?.name || "the landlord";
+      const agentMsg = `Welile: UGX ${fundAmount.toLocaleString()} Landlord Float has been added for ${landlordLabel}'s rent. Open the Landlord Float card on your dashboard to pay the landlord.`;
+      await adminClient.from("notifications").insert({
+        user_id: floatAgentId,
+        title: "Landlord Float received",
+        message: agentMsg.replace(/^Welile: /, ""),
+        type: "float",
+        metadata: {
+          type: "landlord_float_funded",
+          rent_request_id: rr.id,
+          float_amount: fundAmount,
+          landlord_name: landlordRecord?.name || null,
+        },
+      }).then(() => {}, (e: unknown) => console.warn("[fund-tenants] agent notification failed", e));
+      const { data: agentProf } = await adminClient
+        .from("profiles").select("phone, full_name").eq("id", floatAgentId).maybeSingle();
+      await trySms(adminClient, agentProf?.phone, agentMsg, {
+        source: "fund-tenants:agent-landlord-float",
+        key: `fund-tenants-agent-float-${rr.id}`,
+        userId: floatAgentId, name: agentProf?.full_name, refId: rr.id,
+      });
+
+      // Tell the landlord the money is with the agent and will reach them. The landlord is a
+      // landlords row (often no login), so text the number on the record.
+      const landlordSmsPhone = landlordRecord?.mobile_money_number || landlordRecord?.phone || null;
+      await trySms(
+        adminClient,
+        landlordSmsPhone,
+        `Welile: UGX ${fundAmount.toLocaleString()} for your tenant's rent has been funded and is now with your agent. You will receive it shortly. Keep your phone on to share the code we send you when the agent pays you.`,
+        {
+          source: "fund-tenants:landlord-notice",
+          key: `fund-tenants-landlord-notice-${rr.id}`,
+          name: landlordRecord?.name ?? null, refId: rr.id,
+        },
+      );
+
       results.push({
         rent_request_id: rr.id,
         tenant_id: rr.tenant_id,
@@ -322,17 +408,31 @@ Deno.serve(async (req) => {
     const rewardRate = rewardRates.size === results.length ? singleRate(rewardRates.values()) : null;
 
     // Notify supporter
-    await adminClient.from("notifications").insert({
-      user_id: user.id,
-      title: "Funding Complete! 💚",
-      message: `You've funded ${results.length} tenant(s) totaling UGX ${totalFunding.toLocaleString()}. ${
-        rewardRate !== null
-          ? `Your ${formatRatePct(rewardRate)} monthly reward will be credited automatically.`
-          : "Your monthly Returns will be credited automatically."
-      }`,
-      type: "success",
-      metadata: { total: totalFunding, count: results.length, tx_group: txGroupId },
-    });
+    const processedTotal = results.reduce((s, r) => s + r.amount, 0);
+    if (results.length > 0) {
+      const returnsLine = rewardRate !== null
+        ? `Your ${formatRatePct(rewardRate)} monthly reward will be credited automatically.`
+        : "Your monthly Returns will be credited automatically.";
+      await adminClient.from("notifications").insert({
+        user_id: user.id,
+        title: "Funding is being processed 💚",
+        message: `Your funding of UGX ${processedTotal.toLocaleString()} for ${results.length} tenant(s) is being processed. The agent has been notified and will pay the landlord. ${returnsLine}`,
+        type: "success",
+        metadata: { total: processedTotal, count: results.length, tx_group: txGroupId },
+      });
+      const { data: funderProf } = await adminClient
+        .from("profiles").select("phone, full_name").eq("id", user.id).maybeSingle();
+      await trySms(
+        adminClient,
+        funderProf?.phone,
+        `Welile: Your funding of UGX ${processedTotal.toLocaleString()} for ${results.length} tenant(s) is being processed. We will update you once the landlord is paid.`,
+        {
+          source: "fund-tenants:supporter-processing",
+          key: `fund-tenants-supporter-${txGroupId}`,
+          userId: user.id, name: funderProf?.full_name, refId: txGroupId,
+        },
+      );
+    }
 
     console.log(`[fund-tenants] Supporter ${user.id} funded ${results.length} tenants, total: ${totalFunding}`);
 

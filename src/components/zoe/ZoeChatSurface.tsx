@@ -2099,7 +2099,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 >
                   <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-semibold text-foreground">
-                      Most-asked questions (from staff requests &amp; Clara)
+                      Most-asked questions (from staff requests &amp; Nexa)
                     </p>
                     <span className="text-[11px] text-muted-foreground">
                       Tap any question to ask Zoe

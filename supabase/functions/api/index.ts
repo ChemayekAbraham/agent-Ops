@@ -15,6 +15,7 @@
 // `Authorization: Bearer <access_token>` header.
 // ─────────────────────────────────────────────────────────────────────────────
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,7 +89,7 @@ async function authenticate(req: Request): Promise<
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data, error } = await userClient.auth.getUser();
+  const { data, error } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
   if (error || !data?.user) return null;
   return { user: data.user, userClient };
 }

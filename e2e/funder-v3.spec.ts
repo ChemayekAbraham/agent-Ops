@@ -418,13 +418,20 @@ for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
 const GROUP_ORDER = ['verified', 'booked', 'funded', 'pending_verification', 'empty_house'];
 
 for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
-  test(`${size.width}x${size.height}: groups in order, header totals, view-only cards, one chip per card`, async ({ page }) => {
+  test(`${size.width}x${size.height}: groups in order, no header totals for funders, view-only cards, one chip per card`, async ({ page }) => {
     await page.setViewportSize(size);
     await open(page, 'view=houses&count=24&tags=board');
     const groups = await page.locator('[data-board-group]').evaluateAll((els) => els.map((e) => e.getAttribute('data-board-group')));
     expect(groups).toEqual(GROUP_ORDER);
-    await expect(page.getByTestId('fv3-count')).toHaveText('5 ready to fund · UGX 1,950,000');
-    await expect(page.getByTestId('fv3-count-sub')).toHaveText('3 verified · 2 pending verification');
+    // Funders: the totals are COO/CEO only; the group headers stay.
+    await expect(page.getByRole('heading', { name: 'Houses to fund' }).first()).toBeVisible();
+    await expect(page.getByTestId('fv3-count')).toHaveCount(0);
+    await expect(page.getByTestId('fv3-count-sub')).toHaveCount(0);
+    await expect(page.getByText(/ready to fund ·/)).toHaveCount(0);
+    await expect(page.locator('[data-testid="board-group-head"]')).toHaveCount(GROUP_ORDER.length);
+    // A Verified item the server marks selectable is fundable even before its page of plans loads.
+    await expect(page.locator('article[data-card-id="ready:rq-late"] [data-testid="fv3-fund-button"]')).toHaveText(/Fund this House/);
+    await expect(page.locator('[data-board-group="verified"]').getByText('View only.', { exact: true })).toHaveCount(0);
     // Every card in a group carries that group's tag only (never mixed), and exactly one chip.
     for (const tag of GROUP_ORDER) {
       const chips = await page.locator(`[data-board-group="${tag}"] [data-testid="funders-board-tag"]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-tag')));
@@ -456,6 +463,18 @@ for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
   });
 }
 
+for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
+  test(`${size.width}x${size.height}: COO/CEO (funders_board_can_demote) see the header totals`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await open(page, 'view=houses&count=24&tags=board&demote=1');
+    await expect(page.getByTestId('fv3-count')).toHaveText('6 ready to fund · UGX 2,600,000');
+    await expect(page.getByTestId('fv3-count-sub')).toHaveText('4 verified · 2 pending verification');
+    await expect(page.locator('[data-testid="board-group-head"]')).toHaveCount(GROUP_ORDER.length);
+    await noHorizontalScroll(page);
+    await page.screenshot({ path: join(SHOTS, `houses-board-coo-${size.width}x${size.height}.png`) });
+  });
+}
+
 test('E72b: demote stays on Verified and Empty house cards only', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page, 'view=houses&count=24&tags=board&demote=1');
@@ -474,3 +493,27 @@ test("E72b: with the switch off the list is today's (no groups)", async ({ page 
   await expect(page.locator('[data-board-group]')).toHaveCount(0);
   await expect(page.getByTestId('fv3-count')).toHaveText('24 of 2,534');
 });
+
+// ---- Empty houses Welile has not checked (house_listings.verified = false) ----
+
+for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
+  test(`${size.width}x${size.height}: unchecked empty houses have no Fund button and no action line`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await open(page, 'view=houses&count=24&unchecked=1');
+    const unchecked = page.locator('[data-testid="fv3-card"][data-unchecked="true"]');
+    expect(await unchecked.count()).toBeGreaterThan(2);
+    for (let i = 0; i < Math.min(3, await unchecked.count()); i += 1) {
+      const card = unchecked.nth(i);
+      await expect(card.getByTestId('fv3-fund-button')).toHaveCount(0);
+      await expect(card.getByText(/not yet checked/i)).toHaveCount(0);
+      await expect(card.getByText(/Details/)).toHaveCount(1);
+    }
+    // Verified empty houses keep "Fund this House".
+    const verifiedEmpty = page.locator('[data-card-id^="empty:"]:not([data-unchecked="true"])');
+    await expect(verifiedEmpty.first().getByTestId('fv3-fund-button')).toHaveText(/Fund this House/);
+    // "Pending verification" never appears on an empty house.
+    await expect(page.locator('[data-card-id^="empty:"]').getByText(/Pending verification/i)).toHaveCount(0);
+    await unchecked.first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, `houses-unchecked-${size.width}x${size.height}.png`) });
+  });
+}

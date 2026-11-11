@@ -1,0 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Chewy&display=swap');
+
+/* The Welile wordmark font, as on the welcome screen. */
+.wordmark { font-family: 'Chewy', cursive; font-weight: 400; letter-spacing: 0.01em; }

@@ -2,6 +2,7 @@ import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logOtpUsage } from "../_shared/otpUsageLog.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 
 const corsHeaders = {
@@ -40,7 +41,7 @@ async function userIdFromAuth(
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) return null;
   try {
-    const { data } = await admin.auth.getUser(token);
+    const { data } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     return data?.user?.id ?? null;
   } catch {
     return null;

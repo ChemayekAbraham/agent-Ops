@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { resolveTrustedClientIp, getClientUserAgent } from "../_shared/resolveClientIp.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 // A real password change never reaches this edge function's own database
 // write through PostgREST -- it goes through supabase-js's GoTrue client
@@ -45,7 +46,7 @@ serve(async (req) => {
       });
     }
 
-    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const { data: authData, error: authError } = await (bearerHasSub(token) ? supabaseAdmin.auth.getUser(token) : noUserResult());
     const user = authData?.user;
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {

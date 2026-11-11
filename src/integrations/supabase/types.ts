@@ -7359,6 +7359,8 @@ export type Database = {
           created_at: string
           email: string | null
           email_verified_at: string | null
+          face_match_confirmed_at: string | null
+          face_match_confirmed_by: string | null
           gps1_accuracy_m: number | null
           gps1_captured_at: string | null
           gps1_lat: number | null
@@ -7367,6 +7369,8 @@ export type Database = {
           gps2_captured_at: string | null
           gps2_lat: number | null
           gps2_lng: number | null
+          home_lc1_letter_bucket: string | null
+          home_lc1_letter_path: string | null
           id_back_path: string | null
           id_captured_at: string | null
           id_changed_at: string | null
@@ -7378,6 +7382,9 @@ export type Database = {
           id_source: string | null
           in_scope: boolean
           nok_agent_id: string | null
+          nok_call_note: string | null
+          nok_confirmed_at: string | null
+          nok_confirmed_by: string | null
           nok_name: string | null
           nok_phone: string | null
           nok_relationship: string | null
@@ -7406,6 +7413,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           email_verified_at?: string | null
+          face_match_confirmed_at?: string | null
+          face_match_confirmed_by?: string | null
           gps1_accuracy_m?: number | null
           gps1_captured_at?: string | null
           gps1_lat?: number | null
@@ -7414,6 +7423,8 @@ export type Database = {
           gps2_captured_at?: string | null
           gps2_lat?: number | null
           gps2_lng?: number | null
+          home_lc1_letter_bucket?: string | null
+          home_lc1_letter_path?: string | null
           id_back_path?: string | null
           id_captured_at?: string | null
           id_changed_at?: string | null
@@ -7425,6 +7436,9 @@ export type Database = {
           id_source?: string | null
           in_scope?: boolean
           nok_agent_id?: string | null
+          nok_call_note?: string | null
+          nok_confirmed_at?: string | null
+          nok_confirmed_by?: string | null
           nok_name?: string | null
           nok_phone?: string | null
           nok_relationship?: string | null
@@ -7453,6 +7467,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           email_verified_at?: string | null
+          face_match_confirmed_at?: string | null
+          face_match_confirmed_by?: string | null
           gps1_accuracy_m?: number | null
           gps1_captured_at?: string | null
           gps1_lat?: number | null
@@ -7461,6 +7477,8 @@ export type Database = {
           gps2_captured_at?: string | null
           gps2_lat?: number | null
           gps2_lng?: number | null
+          home_lc1_letter_bucket?: string | null
+          home_lc1_letter_path?: string | null
           id_back_path?: string | null
           id_captured_at?: string | null
           id_changed_at?: string | null
@@ -7472,6 +7490,9 @@ export type Database = {
           id_source?: string | null
           in_scope?: boolean
           nok_agent_id?: string | null
+          nok_call_note?: string | null
+          nok_confirmed_at?: string | null
+          nok_confirmed_by?: string | null
           nok_name?: string | null
           nok_phone?: string | null
           nok_relationship?: string | null
@@ -13700,6 +13721,199 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      co_support_invites: {
+        Row: {
+          accepted_at: string | null
+          close_reason: string | null
+          closed_at: string | null
+          code: string
+          created_at: string
+          declined_at: string | null
+          declined_by: string | null
+          expires_at: string
+          gross_amount: number
+          house_id: string | null
+          id: string
+          invitee_commitment_id: string | null
+          invitee_id: string | null
+          invitee_portfolio_id: string | null
+          invitee_rent: number
+          invitee_share: number
+          lead_commitment_id: string | null
+          lead_partner_id: string
+          lead_portfolio_id: string | null
+          lead_rent: number
+          lead_share: number
+          rent_amount: number
+          rent_request_id: string | null
+          replaces_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          close_reason?: string | null
+          closed_at?: string | null
+          code: string
+          created_at?: string
+          declined_at?: string | null
+          declined_by?: string | null
+          expires_at: string
+          gross_amount: number
+          house_id?: string | null
+          id?: string
+          invitee_commitment_id?: string | null
+          invitee_id?: string | null
+          invitee_portfolio_id?: string | null
+          invitee_rent: number
+          invitee_share: number
+          lead_commitment_id?: string | null
+          lead_partner_id: string
+          lead_portfolio_id?: string | null
+          lead_rent: number
+          lead_share: number
+          rent_amount: number
+          rent_request_id?: string | null
+          replaces_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          close_reason?: string | null
+          closed_at?: string | null
+          code?: string
+          created_at?: string
+          declined_at?: string | null
+          declined_by?: string | null
+          expires_at?: string
+          gross_amount?: number
+          house_id?: string | null
+          id?: string
+          invitee_commitment_id?: string | null
+          invitee_id?: string | null
+          invitee_portfolio_id?: string | null
+          invitee_rent?: number
+          invitee_share?: number
+          lead_commitment_id?: string | null
+          lead_partner_id?: string
+          lead_portfolio_id?: string | null
+          lead_rent?: number
+          lead_share?: number
+          rent_amount?: number
+          rent_request_id?: string | null
+          replaces_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "co_support_invites_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "house_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_property_base"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_replaces_id_fkey"
+            columns: ["replaces_id"]
+            isOneToOne: false
+            referencedRelation: "co_support_invites"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       commission_accrual_ledger: {
         Row: {
@@ -22809,6 +23023,125 @@ export type Database = {
         }
         Relationships: []
       }
+      funder_direct_release_flags: {
+        Row: {
+          agent_id: string | null
+          allocation_id: string | null
+          created_at: string
+          id: string
+          reason: string
+          rent_request_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          allocation_id?: string | null
+          created_at?: string
+          id?: string
+          reason: string
+          rent_request_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          allocation_id?: string | null
+          created_at?: string
+          id?: string
+          reason?: string
+          rent_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funder_direct_release_flags_allocation_id_fkey"
+            columns: ["allocation_id"]
+            isOneToOne: false
+            referencedRelation: "agent_landlord_float_allocations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_allocation_id_fkey"
+            columns: ["allocation_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_funded_landlord_float"
+            referencedColumns: ["allocation_id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "funder_direct_release_flags_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       funder_house_progress_notices: {
         Row: {
           agent_name: string | null
@@ -23043,6 +23376,75 @@ export type Database = {
             referencedColumns: ["portfolio_id"]
           },
         ]
+      }
+      funder_release_notice_log: {
+        Row: {
+          audience: string
+          channel: string
+          created_at: string
+          detail: string | null
+          id: string
+          recipient: string | null
+          rent_request_id: string
+          status: string
+        }
+        Insert: {
+          audience: string
+          channel: string
+          created_at?: string
+          detail?: string | null
+          id?: string
+          recipient?: string | null
+          rent_request_id: string
+          status: string
+        }
+        Update: {
+          audience?: string
+          channel?: string
+          created_at?: string
+          detail?: string | null
+          id?: string
+          recipient?: string | null
+          rent_request_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      funder_release_sms: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          message: string
+          phone: string
+          rent_request_id: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          message: string
+          phone: string
+          rent_request_id: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          message?: string
+          phone?: string
+          rent_request_id?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: []
       }
       funders_board_baseline_items: {
         Row: {
@@ -42047,6 +42449,7 @@ export type Database = {
       }
       partner_self_funding_lines: {
         Row: {
+          co_support_id: string | null
           commitment_id: string
           committed_at: string
           completed_at: string | null
@@ -42071,6 +42474,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          co_support_id?: string | null
           commitment_id: string
           committed_at?: string
           completed_at?: string | null
@@ -42095,6 +42499,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          co_support_id?: string | null
           commitment_id?: string
           committed_at?: string
           completed_at?: string | null
@@ -42119,6 +42524,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "partner_self_funding_lines_co_support_id_fkey"
+            columns: ["co_support_id"]
+            isOneToOne: false
+            referencedRelation: "co_support_invites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "partner_self_funding_lines_commitment_id_fkey"
             columns: ["commitment_id"]
@@ -42337,6 +42749,7 @@ export type Database = {
         Row: {
           activated_at: string | null
           cancelled_at: string | null
+          co_support_id: string | null
           commitment_id: string | null
           created_at: string
           funding_tag: string
@@ -42362,6 +42775,7 @@ export type Database = {
         Insert: {
           activated_at?: string | null
           cancelled_at?: string | null
+          co_support_id?: string | null
           commitment_id?: string | null
           created_at?: string
           funding_tag?: string
@@ -42387,6 +42801,7 @@ export type Database = {
         Update: {
           activated_at?: string | null
           cancelled_at?: string | null
+          co_support_id?: string | null
           commitment_id?: string | null
           created_at?: string
           funding_tag?: string
@@ -42410,6 +42825,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "partner_supported_houses_co_support_id_fkey"
+            columns: ["co_support_id"]
+            isOneToOne: false
+            referencedRelation: "co_support_invites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "partner_supported_houses_commitment_id_fkey"
             columns: ["commitment_id"]
@@ -46593,6 +47015,7 @@ export type Database = {
           national_id_card_number: string | null
           national_id_given_name: string | null
           national_id_name: string | null
+          national_id_photo_back_path: string | null
           national_id_photo_path: string | null
           national_id_surname: string | null
           occupation: string | null
@@ -46713,6 +47136,7 @@ export type Database = {
           national_id_card_number?: string | null
           national_id_given_name?: string | null
           national_id_name?: string | null
+          national_id_photo_back_path?: string | null
           national_id_photo_path?: string | null
           national_id_surname?: string | null
           occupation?: string | null
@@ -46833,6 +47257,7 @@ export type Database = {
           national_id_card_number?: string | null
           national_id_given_name?: string | null
           national_id_name?: string | null
+          national_id_photo_back_path?: string | null
           national_id_photo_path?: string | null
           national_id_surname?: string | null
           occupation?: string | null
@@ -52376,6 +52801,8 @@ export type Database = {
           manager_verified_at: string | null
           manager_verified_by: string | null
           next_roi_due_date: string | null
+          nin_photo_back_bucket: string | null
+          nin_photo_back_path: string | null
           nin_photo_bucket: string | null
           nin_photo_path: string | null
           number_of_payments: number | null
@@ -52530,6 +52957,8 @@ export type Database = {
           manager_verified_at?: string | null
           manager_verified_by?: string | null
           next_roi_due_date?: string | null
+          nin_photo_back_bucket?: string | null
+          nin_photo_back_path?: string | null
           nin_photo_bucket?: string | null
           nin_photo_path?: string | null
           number_of_payments?: number | null
@@ -52684,6 +53113,8 @@ export type Database = {
           manager_verified_at?: string | null
           manager_verified_by?: string | null
           next_roi_due_date?: string | null
+          nin_photo_back_bucket?: string | null
+          nin_photo_back_path?: string | null
           nin_photo_bucket?: string | null
           nin_photo_path?: string | null
           number_of_payments?: number | null
@@ -53710,6 +54141,24 @@ export type Database = {
             referencedColumns: ["agent_id"]
           },
         ]
+      }
+      rpc_result_cache: {
+        Row: {
+          computed_at: string
+          key: string
+          payload: Json
+        }
+        Insert: {
+          computed_at: string
+          key: string
+          payload: Json
+        }
+        Update: {
+          computed_at?: string
+          key?: string
+          payload?: Json
+        }
+        Relationships: []
       }
       saved_houses: {
         Row: {
@@ -59172,6 +59621,7 @@ export type Database = {
           decided_at: string | null
           department_id: string | null
           department_key: string | null
+          extra_deferrals: number
           final_stage: string
           hr_decided_at: string | null
           hr_decided_by: string | null
@@ -59220,6 +59670,7 @@ export type Database = {
           decided_at?: string | null
           department_id?: string | null
           department_key?: string | null
+          extra_deferrals?: number
           final_stage?: string
           hr_decided_at?: string | null
           hr_decided_by?: string | null
@@ -59268,6 +59719,7 @@ export type Database = {
           decided_at?: string | null
           department_id?: string | null
           department_key?: string | null
+          extra_deferrals?: number
           final_stage?: string
           hr_decided_at?: string | null
           hr_decided_by?: string | null
@@ -69251,6 +69703,41 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_school_fee_structures: {
+        Row: {
+          amount: number
+          boarding_status: string
+          class_name: string
+          created_at: string
+          id: string
+          term_id: string
+        }
+        Insert: {
+          amount: number
+          boarding_status: string
+          class_name: string
+          created_at?: string
+          id?: string
+          term_id: string
+        }
+        Update: {
+          amount?: number
+          boarding_status?: string
+          class_name?: string
+          created_at?: string
+          id?: string
+          term_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_fee_structures_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "welile_school_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_school_gate_logs: {
         Row: {
           agent_id: string
@@ -69338,6 +69825,74 @@ export type Database = {
           },
         ]
       }
+      welile_school_partnerships: {
+        Row: {
+          agent_id: string
+          agreement_path: string | null
+          bursar_name: string | null
+          bursar_phone: string | null
+          created_at: string
+          id: string
+          payout_account_name: string | null
+          payout_account_number: string | null
+          payout_method: string | null
+          payout_provider: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          agreement_path?: string | null
+          bursar_name?: string | null
+          bursar_phone?: string | null
+          created_at?: string
+          id?: string
+          payout_account_name?: string | null
+          payout_account_number?: string | null
+          payout_method?: string | null
+          payout_provider?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school_id: string
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          agreement_path?: string | null
+          bursar_name?: string | null
+          bursar_phone?: string | null
+          created_at?: string
+          id?: string
+          payout_account_name?: string | null
+          payout_account_number?: string | null
+          payout_method?: string | null
+          payout_provider?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school_id?: string
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_partnerships_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: true
+            referencedRelation: "welile_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_school_profiles: {
         Row: {
           age: number | null
@@ -69363,6 +69918,7 @@ export type Database = {
           needs_free_smartphone: boolean
           next_of_kin: string | null
           phone: string | null
+          photo_path: string | null
           registered_by: string
           residence_village: string | null
           role: string
@@ -69405,6 +69961,7 @@ export type Database = {
           needs_free_smartphone?: boolean
           next_of_kin?: string | null
           phone?: string | null
+          photo_path?: string | null
           registered_by?: string
           residence_village?: string | null
           role: string
@@ -69447,6 +70004,7 @@ export type Database = {
           needs_free_smartphone?: boolean
           next_of_kin?: string | null
           phone?: string | null
+          photo_path?: string | null
           registered_by?: string
           residence_village?: string | null
           role?: string
@@ -69468,6 +70026,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "welile_school_profiles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "welile_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_school_terms: {
+        Row: {
+          created_at: string
+          created_by: string
+          end_date: string
+          id: string
+          name: string
+          plan_due_date: string | null
+          school_id: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          end_date: string
+          id?: string
+          name: string
+          plan_due_date?: string | null
+          school_id: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          end_date?: string
+          id?: string
+          name?: string
+          plan_due_date?: string | null
+          school_id?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_terms_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "welile_schools"
@@ -77081,6 +77683,7 @@ export type Database = {
         Returns: boolean
       }
       _agent_products_authorized: { Args: never; Returns: boolean }
+      _agent_red_flags: { Args: { p_agent: string }; Returns: Json }
       _agent_rule_judged_week_start: { Args: never; Returns: string }
       _agent_rule_week_start: { Args: { p_day: string }; Returns: string }
       _agent_vetting_ensure: {
@@ -77090,6 +77693,8 @@ export type Database = {
           created_at: string
           email: string | null
           email_verified_at: string | null
+          face_match_confirmed_at: string | null
+          face_match_confirmed_by: string | null
           gps1_accuracy_m: number | null
           gps1_captured_at: string | null
           gps1_lat: number | null
@@ -77098,6 +77703,8 @@ export type Database = {
           gps2_captured_at: string | null
           gps2_lat: number | null
           gps2_lng: number | null
+          home_lc1_letter_bucket: string | null
+          home_lc1_letter_path: string | null
           id_back_path: string | null
           id_captured_at: string | null
           id_changed_at: string | null
@@ -77109,6 +77716,9 @@ export type Database = {
           id_source: string | null
           in_scope: boolean
           nok_agent_id: string | null
+          nok_call_note: string | null
+          nok_confirmed_at: string | null
+          nok_confirmed_by: string | null
           nok_name: string | null
           nok_phone: string | null
           nok_relationship: string | null
@@ -77162,6 +77772,10 @@ export type Database = {
       _agent_vetting_take_id_snapshot: {
         Args: { p_uid: string }
         Returns: undefined
+      }
+      _agent_vetting_v2_missing: {
+        Args: { p_agent: string }
+        Returns: string[]
       }
       _agent_week_active_days: {
         Args: { p_agent: string; p_week_start: string }
@@ -77304,6 +77918,10 @@ export type Database = {
         Returns: {
           id: string
         }[]
+      }
+      _approve_pending_portfolio_core: {
+        Args: { p_actor: string; p_portfolio_id: string }
+        Returns: string
       }
       _asset_register_category_code: {
         Args: { p_category: string }
@@ -77610,6 +78228,87 @@ export type Database = {
             }
             Returns: string
           }
+      _co_support_disburse_landlord_float: {
+        Args: { p_commitment_id: string }
+        Returns: Json
+      }
+      _co_support_expire_stale: {
+        Args: { p_rent_request_id?: string }
+        Returns: number
+      }
+      _co_support_first_name: { Args: { p_user: string }; Returns: string }
+      _co_support_fmt: { Args: { p_amount: number }; Returns: string }
+      _co_support_house_lead_checks: {
+        Args: { p_house_id: string; p_lead: string }
+        Returns: Json
+      }
+      _co_support_house_problem: {
+        Args: { p_house_id: string }
+        Returns: string
+      }
+      _co_support_invite_json: {
+        Args: { p_invite_id: string; p_viewer: string }
+        Returns: Json
+      }
+      _co_support_lead_checks: {
+        Args: { p_lead: string; p_rent_request_id: string }
+        Returns: Json
+      }
+      _co_support_lock: {
+        Args: { p_a: string; p_b?: string; p_rent_request_id: string }
+        Returns: undefined
+      }
+      _co_support_new_code: { Args: never; Returns: string }
+      _co_support_open_half: {
+        Args: {
+          p_gross: number
+          p_invite_id: string
+          p_partner: string
+          p_rent: number
+          p_role: string
+        }
+        Returns: Json
+      }
+      _co_support_open_house_half: {
+        Args: {
+          p_gross: number
+          p_invite_id: string
+          p_partner: string
+          p_rent: number
+          p_role: string
+        }
+        Returns: Json
+      }
+      _co_support_pair_pending_portfolios: {
+        Args: { p_portfolio_id: string }
+        Returns: string[]
+      }
+      _co_support_plan_problem: {
+        Args: { p_partner: string; p_rent_request_id: string }
+        Returns: string
+      }
+      _co_support_require_partner: {
+        Args: { p_uid: string }
+        Returns: undefined
+      }
+      _co_support_require_partner_house: {
+        Args: { p_uid: string }
+        Returns: undefined
+      }
+      _co_support_split: {
+        Args: { p_rent: number }
+        Returns: {
+          gross: number
+          invitee_rent: number
+          invitee_share: number
+          lead_rent: number
+          lead_share: number
+        }[]
+      }
+      _co_support_status: {
+        Args: { p_declined_at: string; p_expires_at: string; p_status: string }
+        Returns: string
+      }
       _complete_allocation_return: {
         Args: {
           p_auto?: boolean
@@ -77640,6 +78339,7 @@ export type Database = {
       }
       _cto_dossier_allowed: { Args: never; Returns: boolean }
       _desk_gate: { Args: { p_desks: string[] }; Returns: boolean }
+      _desk_people: { Args: { p_stage: string }; Returns: string[] }
       _desk_stage_counts: {
         Args: never
         Returns: {
@@ -77655,6 +78355,7 @@ export type Database = {
       _desk_take_stage_snapshot: { Args: never; Returns: number }
       _desk_viewer_ok: { Args: { p_roles: string[] }; Returns: boolean }
       _direct_client_call: { Args: never; Returns: boolean }
+      _docs_rule_applies: { Args: { p_created: string }; Returns: boolean }
       _dormant_bike_leases: {
         Args: { p_agent?: string }
         Returns: {
@@ -77671,6 +78372,10 @@ export type Database = {
         }[]
       }
       _e28_phone9: { Args: { p: string }; Returns: string }
+      _e84_queue_release_sms: {
+        Args: { p_rent_request_id: string }
+        Returns: number
+      }
       _eligible_agents: {
         Args: never
         Returns: {
@@ -77700,9 +78405,51 @@ export type Database = {
         Args: { p_day: string; p_meal_id: string }
         Returns: undefined
       }
+      _funder_direct_release_covered_receivables: {
+        Args: { p_funder: string }
+        Returns: number
+      }
+      _funder_direct_release_note: {
+        Args: {
+          p_agent_id: string
+          p_allocation_id: string
+          p_rent_request_id: string
+        }
+        Returns: undefined
+      }
       _funder_nudge_stats: {
         Args: { p_day: string; p_partner_id: string }
         Returns: Json
+      }
+      _funder_release_claim: {
+        Args: {
+          p_audience: string
+          p_channel: string
+          p_rent_request_id: string
+        }
+        Returns: boolean
+      }
+      _funder_release_finish: {
+        Args: {
+          p_audience: string
+          p_channel: string
+          p_detail: string
+          p_recipient: string
+          p_rent_request_id: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      _funder_release_notify_plan: {
+        Args: {
+          p_agent_id: string
+          p_allocation_id: string
+          p_amount: number
+          p_landlord_id: string
+          p_partner_id: string
+          p_rent_request_id: string
+        }
+        Returns: undefined
       }
       _funders_board_authority: { Args: { p_uid: string }; Returns: string }
       _funders_board_is_counted: {
@@ -78189,6 +78936,7 @@ export type Database = {
         }
         Returns: Json
       }
+      _request_incomplete: { Args: { p_request_id: string }; Returns: string[] }
       _request_kind_json: { Args: { p_request_id: string }; Returns: Json }
       _return_cycle_can_request: {
         Args: { _user_id: string }
@@ -79886,6 +80634,8 @@ export type Database = {
           manager_verified_at: string | null
           manager_verified_by: string | null
           next_roi_due_date: string | null
+          nin_photo_back_bucket: string | null
+          nin_photo_back_path: string | null
           nin_photo_bucket: string | null
           nin_photo_path: string | null
           number_of_payments: number | null
@@ -80014,6 +80764,10 @@ export type Database = {
         Returns: Json
       }
       agent_vetting_confirm_email: { Args: never; Returns: Json }
+      agent_vetting_confirm_item: {
+        Args: { p_agent_id: string; p_item: string; p_note?: string }
+        Returns: Json
+      }
       agent_vetting_confirm_phone: { Args: never; Returns: Json }
       agent_vetting_detail: { Args: { p_agent_id: string }; Returns: Json }
       agent_vetting_distance_m: {
@@ -80052,6 +80806,10 @@ export type Database = {
           p_passport_photo_check?: Json
           p_passport_photo_path?: string
         }
+        Returns: Json
+      }
+      agent_vetting_save_home_lc1: {
+        Args: { p_bucket: string; p_path: string }
         Returns: Json
       }
       agent_vetting_save_residence: {
@@ -82553,6 +83311,18 @@ export type Database = {
         Args: { p_message?: string; p_rent_request_ids: string[] }
         Returns: number
       }
+      cfo_partner_released_today: {
+        Args: never
+        Returns: {
+          agent_name: string
+          allocation_status: string
+          amount: number
+          flags: string[]
+          landlord_name: string
+          plan_label: string
+          rent_request_id: string
+        }[]
+      }
       cfo_payroll_history: {
         Args: never
         Returns: {
@@ -83053,6 +83823,31 @@ export type Database = {
       cleanup_mcp_public_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_system_events: { Args: never; Returns: undefined }
       cmo_referral_access_ok: { Args: { _uid: string }; Returns: boolean }
+      co_support_accept: { Args: { p_code: string }; Returns: Json }
+      co_support_cancel: { Args: { p_invite_id: string }; Returns: Json }
+      co_support_create: { Args: { p_rent_request_id: string }; Returns: Json }
+      co_support_create_house: { Args: { p_house_id: string }; Returns: Json }
+      co_support_decline: { Args: { p_code: string }; Returns: Json }
+      co_support_fund_alone: { Args: { p_invite_id: string }; Returns: Json }
+      co_support_integrity_check: {
+        Args: never
+        Returns: {
+          invite_id: string
+          problem: string
+          rent_request_id: string
+        }[]
+      }
+      co_support_my_invites: { Args: never; Returns: Json }
+      co_support_preview: { Args: { p_code: string }; Returns: Json }
+      co_support_reinvite: {
+        Args: { p_invite_id: string; p_new_link?: boolean }
+        Returns: Json
+      }
+      co_support_staff_cancel: {
+        Args: { p_invite_id: string; p_reason: string }
+        Returns: Json
+      }
+      co_support_staff_list: { Args: { p_limit?: number }; Returns: Json }
       collect_due_agent_advance_installment: {
         Args: { p_agent_id: string }
         Returns: number
@@ -85522,6 +86317,7 @@ export type Database = {
         Args: { p_week_start: string }
         Returns: number
       }
+      funded_money_flow: { Args: { p_days?: number }; Returns: Json }
       funder_booked_houses: { Args: never; Returns: Json }
       funder_card_preview: { Args: { p_request_id: string }; Returns: Json }
       funder_create_pending_portfolio: {
@@ -85568,6 +86364,8 @@ export type Database = {
         Args: { p_house_ids: string[]; p_reason?: string }
         Returns: Json
       }
+      funder_release_sms_dispatch: { Args: never; Returns: undefined }
+      funder_selection_auto_release: { Args: never; Returns: Json }
       funder_support_capacity: { Args: { p_user_id: string }; Returns: number }
       funder_support_capacity__impl: {
         Args: { p_user_id: string }
@@ -95081,6 +95879,7 @@ export type Database = {
           national_id_card_number: string | null
           national_id_given_name: string | null
           national_id_name: string | null
+          national_id_photo_back_path: string | null
           national_id_photo_path: string | null
           national_id_surname: string | null
           occupation: string | null
@@ -95216,6 +96015,8 @@ export type Database = {
           manager_verified_at: string | null
           manager_verified_by: string | null
           next_roi_due_date: string | null
+          nin_photo_back_bucket: string | null
+          nin_photo_back_path: string | null
           nin_photo_bucket: string | null
           nin_photo_path: string | null
           number_of_payments: number | null
@@ -95582,6 +96383,7 @@ export type Database = {
         }[]
       }
       pipeline_i_can_view: { Args: { p_request_id: string }; Returns: boolean }
+      pipeline_incomplete_queue: { Args: { p_limit?: number }; Returns: Json }
       pipeline_link_call: {
         Args: {
           p_call_session_id: string
@@ -96204,6 +97006,7 @@ export type Database = {
           decided_at: string | null
           department_id: string | null
           department_key: string | null
+          extra_deferrals: number
           final_stage: string
           hr_decided_at: string | null
           hr_decided_by: string | null
@@ -97557,6 +98360,15 @@ export type Database = {
         Args: { p_allocation_id: string; p_reason: string }
         Returns: Json
       }
+      request_attach_document: {
+        Args: {
+          p_bucket: string
+          p_kind: string
+          p_path: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
       request_bank_account_change: {
         Args: {
           p_account_name: string
@@ -97570,10 +98382,12 @@ export type Database = {
         Args: { p_ledger_id: string; p_portfolio_id: string; p_reason: string }
         Returns: string
       }
+      request_desk_history: { Args: { p_request_id: string }; Returns: Json }
       request_exception_otp: {
         Args: { p_kind: string; p_reason: string; p_target_ids: string[] }
         Returns: Json
       }
+      request_identity_photos: { Args: { p_request_id: string }; Returns: Json }
       request_landlord_number_change: {
         Args: {
           p_field: string
@@ -99229,6 +100043,7 @@ export type Database = {
           decided_at: string | null
           department_id: string | null
           department_key: string | null
+          extra_deferrals: number
           final_stage: string
           hr_decided_at: string | null
           hr_decided_by: string | null
@@ -102605,6 +103420,118 @@ export type Database = {
           src: string
           unit_id: string
         }[]
+      }
+      welile_school_partnership_editable: {
+        Args: { p_school_id: string }
+        Returns: boolean
+      }
+      welile_school_partnership_review: {
+        Args: { p_decision: string; p_note: string; p_partnership_id: string }
+        Returns: {
+          agent_id: string
+          agreement_path: string | null
+          bursar_name: string | null
+          bursar_phone: string | null
+          created_at: string
+          id: string
+          payout_account_name: string | null
+          payout_account_number: string | null
+          payout_method: string | null
+          payout_provider: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_partnerships"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      welile_school_partnership_save: {
+        Args: {
+          p_agreement_path: string
+          p_bursar_name: string
+          p_bursar_phone: string
+          p_payout_account_name: string
+          p_payout_account_number: string
+          p_payout_method: string
+          p_payout_provider: string
+          p_school_id: string
+        }
+        Returns: {
+          agent_id: string
+          agreement_path: string | null
+          bursar_name: string | null
+          bursar_phone: string | null
+          created_at: string
+          id: string
+          payout_account_name: string | null
+          payout_account_number: string | null
+          payout_method: string | null
+          payout_provider: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_partnerships"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      welile_school_partnership_submit: {
+        Args: { p_school_id: string }
+        Returns: {
+          agent_id: string
+          agreement_path: string | null
+          bursar_name: string | null
+          bursar_phone: string | null
+          created_at: string
+          id: string
+          payout_account_name: string | null
+          payout_account_number: string | null
+          payout_method: string | null
+          payout_provider: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_partnerships"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      welile_school_term_delete: {
+        Args: { p_term_id: string }
+        Returns: undefined
+      }
+      welile_school_term_save: {
+        Args: {
+          p_end_date: string
+          p_fees: Json
+          p_name: string
+          p_school_id: string
+          p_start_date: string
+          p_term_id: string
+        }
+        Returns: string
       }
       welile_schools_agent_ok: { Args: never; Returns: boolean }
       welile_schools_ops_ok: { Args: never; Returns: boolean }

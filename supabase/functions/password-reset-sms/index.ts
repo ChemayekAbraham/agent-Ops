@@ -3,6 +3,7 @@ import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logOtpUsage } from "../_shared/otpUsageLog.ts";
 import { redactSmsCodes } from "../_shared/redactSmsCodes.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,7 +50,7 @@ async function requireAdminCaller(
   });
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return deny(401, "Unauthorized");
-  const { data: authData, error: authError } = await adminClient.auth.getUser(token);
+  const { data: authData, error: authError } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
   const caller = authData?.user;
   if (authError || !caller) return deny(401, "Unauthorized");
   const { data: roleRows, error: roleError } = await adminClient

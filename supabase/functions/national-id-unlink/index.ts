@@ -8,6 +8,7 @@
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,7 +34,7 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false } },
     );
 
-    const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
     const caller = userData?.user;
     if (userErr || !caller) return json({ error: "Unauthorized" }, 401);
 

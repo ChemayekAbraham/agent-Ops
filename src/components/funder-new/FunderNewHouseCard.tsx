@@ -13,10 +13,12 @@ import {
   itemMonthlyReturn,
   readyPlanPlace,
   readyPlanTitle,
+  isUncheckedEmptyHouse,
 } from './utils';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
 import { FundersBoardTag, tagKindFor } from './FundersBoardTag';
 import type { BoardTag } from '@/lib/fundersBoard';
+import { CoSupportStartButton } from '@/components/co-support/CoSupportStartButton';
 
 /** Photo-led listing for /dashboard/funder-new. */
 export function FunderNewHouseCard({
@@ -52,9 +54,11 @@ export function FunderNewHouseCard({
   const monthlyReturn = itemMonthlyReturn(category, item, partnerPay);
   const photo = firstPhoto(category, item);
   const coords = itemCoordinates(item, category);
+  const unchecked = isUncheckedEmptyHouse(category, item);
 
   return (
     <article
+      data-unchecked={unchecked ? 'true' : undefined}
       className={cn(
         'relative my-3 min-w-0 overflow-hidden rounded-lg border border-border bg-muted shadow-none transition-[border-color,box-shadow] sm:my-0 sm:shadow-sm',
         'sm:hover:shadow-md',
@@ -63,7 +67,7 @@ export function FunderNewHouseCard({
     >
       <div className="relative aspect-[16/10] w-full bg-muted">
         {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
-        {boardTagsOn ? null : (
+        {boardTagsOn || unchecked ? null : (
           <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -175,6 +179,8 @@ export function FunderNewHouseCard({
               <span className="text-[10px] font-semibold leading-none">Location</span>
             </Button>
           ) : null}
+          {/* Not checked by Welile yet: no Fund button and no action line. */}
+          {unchecked ? null : (
           <Button
             variant="default"
             className={cn(
@@ -188,11 +194,18 @@ export function FunderNewHouseCard({
             aria-pressed={selected}
           >
             {selected ? <Check className="h-4 w-4 text-white" aria-hidden /> : null}
-            {/* Every house on the funder feed is verified (p_verified_only). */}
             {selected ? 'Selected' : 'Fund this House'}
           </Button>
+          )}
 
         </div>
+        {/* Co-support: Rent Plans and verified empty houses (house hook). */}
+        <CoSupportStartButton
+          rentRequestId={isEmpty ? null : (item as FunderNewReadyPlan).rent_request_id}
+          houseId={isEmpty ? (item as FunderNewEmptyHouse).house_id : null}
+          planAmount={amount}
+          showExplanation={false}
+        />
       </div>
     </article>
   );

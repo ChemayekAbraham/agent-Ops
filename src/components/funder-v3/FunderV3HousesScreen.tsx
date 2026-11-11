@@ -371,8 +371,13 @@ export function FunderV3HousesScreen({
   const counting = api.feedLoading || listLoadingOverride;
 
   const counts = api.boardCounts;
-  const titleRow = counts ? (
-    // E72b (tags on): "{ready_total} ready to fund · UGX {ready_total_ugx}", then "{verified} verified · {pending} pending verification".
+  const titleRow = api.boardTagsOn && !counts ? (
+    // E72b (tags on), funders: the grouped list without header totals (those are COO/CEO only).
+    <div className="flex min-w-0 items-center gap-2">
+      <h2 className="fv3-t-base font-bold text-foreground">Houses to fund</h2>
+    </div>
+  ) : counts ? (
+    // E72b (tags on), COO/CEO: "{ready_total} ready to fund · UGX {ready_total_ugx}", then "{verified} verified · {pending} pending verification".
     <div className="flex min-w-0 flex-col gap-0.5">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h2 className="fv3-t-base font-bold text-foreground">Houses to fund</h2>

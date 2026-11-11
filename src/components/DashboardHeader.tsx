@@ -520,7 +520,7 @@ const DashboardHeader = memo(function DashboardHeader({
                     <DropdownMenuItem
                       onClick={() => {
                         hapticTap();
-                        navigate('/agent/welile-schools');
+                        navigate('/schools');
                       }}
                       className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
                     >

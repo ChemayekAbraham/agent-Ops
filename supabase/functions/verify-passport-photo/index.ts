@@ -9,6 +9,7 @@
  * Read-only. No wallet, ledger or database writes happen here.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,7 +72,7 @@ Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
   if (!token) return err("Sign in to continue", 401);
-  const { data: authData, error: authErr } = await admin.auth.getUser(token);
+  const { data: authData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
   if (authErr || !authData?.user) return err("Sign in to continue", 401);
 
   let body: { image_base64?: unknown; source?: unknown; subject_user_id?: unknown };

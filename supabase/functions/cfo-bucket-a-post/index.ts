@@ -5,6 +5,7 @@
 // so every server safeguard inside the function still applies.
 import postgres from "npm:postgres@3.4.4";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +23,7 @@ Deno.serve(async (req) => {
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (!token) return json({ error: "not_authenticated" }, 401);
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const { data: u, error: ue } = await admin.auth.getUser(token);
+  const { data: u, error: ue } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
   if (ue || !u?.user) return json({ error: "not_authenticated" }, 401);
 
   let body: any;

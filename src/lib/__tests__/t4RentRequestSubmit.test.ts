@@ -1,9 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), upload: vi.fn(), captureGps: vi.fn() }));
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), upload: vi.fn(), captureGps: vi.fn(), updates: [] as [string, unknown][], updateResult: { data: [{ id: 'tenant-1' }], error: null } as { data: unknown; error: unknown } }));
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     rpc: mocks.rpc,
+    from: (table: string) => {
+      const b: Record<string, unknown> = {};
+      b.update = (v: unknown) => { mocks.updates.push([table, v]); return b; };
+      b.eq = () => b;
+      b.select = () => b;
+      b.maybeSingle = async () => ({ data: null, error: null });
+      b.then = (resolve: (v: unknown) => unknown) => Promise.resolve(mocks.updateResult).then(resolve);
+      return b;
+    },
     storage: { from: () => ({ upload: mocks.upload, getPublicUrl: (p: string) => ({ data: { publicUrl: `https://cdn/${p}` } }) }) },
   },
 }));
@@ -13,12 +22,14 @@ vi.mock('@/lib/captureGps', () => ({
   isGpsRequiredError: (m: unknown) => /gps/i.test(String(m ?? '')),
 }));
 
-import { finishRenewalIntake, postRenewal, resubmitT4Request } from '@/lib/t4RentRequestSubmit';
+import { attachT4Documents, finishRenewalIntake, postRenewal, resubmitT4Request, saveProfileIdBack, uploadNewRequestDocs } from '@/lib/t4RentRequestSubmit';
 
 const calls = () => mocks.rpc.mock.calls.map(([fn, args]) => [fn, args]);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.updates = [];
+  mocks.updateResult = { data: [{ id: 'tenant-1' }], error: null };
   mocks.upload.mockResolvedValue({ error: null });
   mocks.rpc.mockResolvedValue({ data: { ok: true }, error: null });
 });
@@ -106,5 +117,70 @@ describe('renewal', () => {
     mocks.rpc.mockClear();
     await finishRenewalIntake('agent-1', 'new-req', null, 'LC1 is away until Friday');
     expect(calls()).toEqual([['agent_note_lc1_missing', { p_request_id: 'new-req', p_reason: 'LC1 is away until Friday' }]]);
+  });
+});
+
+describe('DOCS-1: attachT4Documents', () => {
+  it('uploads new photos to tenant-ids / lc-letters, then attaches each with request_attach_document', async () => {
+    const front = new File(['f'], 'front.jpg', { type: 'image/jpeg' });
+    const letter = new File(['l'], 'letter.png', { type: 'image/png' });
+    const problems = await attachT4Documents('agent-1', 'req-1', {
+      id_front: front,
+      id_back: { bucket: 'tenant-ids', path: 'tenant-1/old/national_id_back.jpg' },
+      lc1_letter: letter,
+    });
+    expect(problems).toEqual([]);
+    expect(mocks.upload).toHaveBeenCalledTimes(2);
+    expect(calls()).toEqual([
+      ['request_attach_document', { p_request_id: 'req-1', p_kind: 'id_front', p_bucket: 'tenant-ids', p_path: expect.stringMatching(/^agent-1\/req-1\/national_id_\d+\.jpg$/) }],
+      // Already stored: attached as it is, no upload.
+      ['request_attach_document', { p_request_id: 'req-1', p_kind: 'id_back', p_bucket: 'tenant-ids', p_path: 'tenant-1/old/national_id_back.jpg' }],
+      ['request_attach_document', { p_request_id: 'req-1', p_kind: 'lc1_letter', p_bucket: 'lc-letters', p_path: expect.stringMatching(/^agent-1\/req-1\/lc_letter_\d+\.png$/) }],
+    ]);
+  });
+
+  it('returns each failure with the server’s message as-is and keeps going', async () => {
+    mocks.upload.mockResolvedValueOnce({ error: { message: 'new row violates row-level security policy' } });
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'DOC_KIND_UNKNOWN: id_back' } });
+    const problems = await attachT4Documents('agent-1', 'req-1', {
+      id_front: new File(['f'], 'front.jpg', { type: 'image/jpeg' }),
+      id_back: { bucket: 'tenant-ids', path: 'x/back.jpg' },
+    });
+    expect(problems).toEqual([
+      'National ID front photo: new row violates row-level security policy',
+      'National ID back photo: DOC_KIND_UNKNOWN: id_back',
+    ]);
+  });
+});
+
+describe('DOCS-1: before the insert / before the renewal', () => {
+  const jpg = (n: string) => new File([n], `${n}.jpg`, { type: 'image/jpeg' });
+
+  it('uploadNewRequestDocs stores the three photos under one new folder, before any request exists', async () => {
+    const docs = await uploadNewRequestDocs('agent-1', { idFront: jpg('f'), idBack: jpg('b'), lcLetter: jpg('l') });
+    expect(docs.idFront).toEqual({ bucket: 'tenant-ids', path: expect.stringMatching(/^agent-1\/new-[^/]+\/national_id_\d+\.jpg$/) });
+    expect(docs.idBack).toEqual({ bucket: 'tenant-ids', path: expect.stringMatching(/^agent-1\/new-[^/]+\/national_id_back_\d+\.jpg$/) });
+    expect(docs.lcLetter).toEqual({ bucket: 'lc-letters', path: expect.stringMatching(/^agent-1\/new-[^/]+\/lc_letter_\d+\.jpg$/) });
+    const folder = (p: string) => p.split('/')[1];
+    expect(folder(docs.idBack.path)).toBe(folder(docs.idFront.path));
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('uploadNewRequestDocs names the photo that failed, with the storage message as-is', async () => {
+    mocks.upload.mockResolvedValueOnce({ error: null }).mockResolvedValueOnce({ error: { message: 'Payload too large' } });
+    await expect(uploadNewRequestDocs('agent-1', { idFront: jpg('f'), idBack: jpg('b'), lcLetter: jpg('l') }))
+      .rejects.toThrow('National ID back photo: Payload too large');
+  });
+
+  it('saveProfileIdBack uploads the back and puts it on the tenant’s profile', async () => {
+    expect(await saveProfileIdBack('agent-1', 'tenant-1', jpg('b'))).toBeNull();
+    expect(mocks.updates).toEqual([
+      ['profiles', { national_id_photo_back_path: expect.stringMatching(/^agent-1\/profile-tenant-1\/national_id_back_\d+\.jpg$/) }],
+    ]);
+  });
+
+  it('saveProfileIdBack returns the server error as-is', async () => {
+    mocks.updateResult = { data: null, error: { message: 'permission denied for table profiles' } };
+    expect(await saveProfileIdBack('agent-1', 'tenant-1', jpg('b'))).toBe('National ID back photo: permission denied for table profiles');
   });
 });

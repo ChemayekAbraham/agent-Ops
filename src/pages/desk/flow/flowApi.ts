@@ -90,11 +90,21 @@ export function flowWords(deskId: string): { in: string; out: string } {
   return { in: 'In', out: 'Out' };
 }
 
-/** What OUT was made of: "forwarded 7 · returned 1 · rejected 1"; "funded 9" where OUT means funded. */
+/** What OUT was made of: "26 forwarded · 8 sent back · 6 rejected"; "funded 9" where OUT means funded. */
 export function outBreakdown(p: FlowPeriod | null | undefined, deskId: string): string | null {
   if (!p) return null;
   if (fundedDesk(deskId)) return `funded ${countText(p.out_n)}`;
-  return `forwarded ${countText(p.forwarded_n)} · returned ${countText(p.returned_n)} · rejected ${countText(p.rejected_n)}`;
+  return `${countText(p.forwarded_n)} forwarded · ${countText(p.returned_n)} sent back · ${countText(p.rejected_n)} rejected`;
+}
+
+/**
+ * The line under a stage desk's Out figure: "Out 40 = 26 forwarded · 8 sent back · 6 rejected",
+ * so Out can be read against the next desk's In (only the forwarded part arrives there).
+ * Null where OUT means funded (Funders, Partner Ops, CFO, the command centre) or with no data.
+ */
+export function outSplitLine(p: FlowPeriod | null | undefined, deskId: string): string | null {
+  if (!p || fundedDesk(deskId)) return null;
+  return `${flowWords(deskId).out} ${countText(p.out_n)} = ${outBreakdown(p, deskId)}`;
 }
 
 /** What the two columns mean on this desk, for the card's hint. */

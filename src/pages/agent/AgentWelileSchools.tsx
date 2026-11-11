@@ -1,8 +1,13 @@
 import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, ChevronDown, Camera } from 'lucide-react';
+import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershipPanel';
+import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
+import StudentPhotoCapture from '@/components/welile-schools/StudentPhotoCapture';
+import StudentProfileSummary from '@/components/welile-schools/StudentProfileSummary';
+import { flushPendingPhotos, uploadStudentPhoto } from '@/lib/welileSchoolsPhoto';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -21,7 +26,7 @@ import {
   buildSchoolSignupLink, buildSignupMessage, toIntlDigits, smartphoneFields,
   readLockedSchool, writeLockedSchool, saveProfile, flushPendingProfiles, readPendingProfiles, markSignupSent,
   saveGateLog, flipGateLogDirection, flushPendingGateLogs, readPendingGateLogs, readLocalGateLogs, writeLocalGateLogs,
-  computeGateMovementSummary, formatEatTime,
+  computeGateMovementSummary, formatEatTime, classLevelsFor, isListedClass, isTertiaryLearner,
   type SchoolRow, type SchoolProfileRow, type SchoolGateLogRow,
 } from '@/lib/welileSchools';
 
@@ -29,6 +34,26 @@ const db = supabase as any;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1"><Label className="text-sm">{label}</Label>{children}</div>;
+}
+
+/** Class picker grouped nursery to university, the school's own level first. A native select, so phones show their own picker. */
+function ClassGradeSelect({ schoolLevel, value, onChange }: { schoolLevel?: string | null; value: string; onChange: (v: string) => void }) {
+  const groups = classLevelsFor(schoolLevel);
+  return (
+    <div className="relative">
+      <select aria-label="Class, grade or year" value={value} onChange={(e) => onChange(e.target.value)}
+        className={cn('flex h-14 w-full appearance-none rounded-lg border border-input bg-background px-4 pr-10 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring', !value && 'text-muted-foreground')}>
+        <option value="" disabled>Choose class</option>
+        {value && !isListedClass(value) && <optgroup label="Saved earlier"><option value={value}>{value}</option></optgroup>}
+        {groups.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.classes.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </optgroup>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+    </div>
+  );
 }
 
 function Chips({ options, value, onChange }: { options: readonly string[]; value: string; onChange: (v: string) => void }) {
@@ -50,9 +75,13 @@ export default function AgentWelileSchools() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [locked, setLocked] = useState<SchoolRow | null>(() => readLockedSchool());
+  // Opened from the Welile Schools home (/schools): ?mode= picks the tab, ?new=1 starts a new school.
+  const [params] = useSearchParams();
+  const startNew = params.get('new') === '1';
+  const initialMode = params.get('mode');
+  const [locked, setLocked] = useState<SchoolRow | null>(() => (startNew ? null : readLockedSchool()));
   const [draft, setDraft] = useState<Partial<SchoolRow>>(EMPTY_SCHOOL);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(startNew);
   const [dirRegion, setDirRegion] = useState<string | null>(null);
   const [dirDistrict, setDirDistrict] = useState<string | null>(null);
   const [dirSearch, setDirSearch] = useState('');
@@ -60,7 +89,7 @@ export default function AgentWelileSchools() {
   const [gpsBusy, setGpsBusy] = useState(false);
   const [pendingCount, setPendingCount] = useState(() => readPendingProfiles().length);
   const [gatePendingCount, setGatePendingCount] = useState(() => readPendingGateLogs().length);
-  const [mode, setMode] = useState<'gate' | 'register'>('gate');
+  const [mode, setMode] = useState<'gate' | 'register' | 'partner'>(() => (initialMode === 'register' || initialMode === 'partner' ? initialMode : 'gate'));
 
   const { data: schools = [] } = useQuery({
     queryKey: ['welile-schools-list'],
@@ -76,7 +105,9 @@ export default function AgentWelileSchools() {
       flushPendingProfiles().then((n) => {
         setPendingCount(readPendingProfiles().length);
         if (n) toast.success(`${n} saved registration${n > 1 ? 's' : ''} sent`);
-      });
+        // Photos link to their profile by client_ref, so they go once the profiles are up.
+        return flushPendingPhotos();
+      }).then((n) => { if (n) toast.success(`${n} student photo${n > 1 ? 's' : ''} uploaded`); });
       flushPendingGateLogs().then((n) => {
         setGatePendingCount(readPendingGateLogs().length);
         if (n) toast.success(`${n} saved gate log${n > 1 ? 's' : ''} sent`);
@@ -121,9 +152,8 @@ export default function AgentWelileSchools() {
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border">
         <div className="flex items-center gap-2 px-3 py-2">
-          <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => navigate('/dashboard/agent')} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
-          <GraduationCap className="h-5 w-5 text-primary" />
-          <h1 className="text-base font-bold flex-1">Welile Schools</h1>
+          <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => navigate('/schools')} aria-label="Back to Welile Schools home"><ArrowLeft className="h-5 w-5" /></Button>
+          <WelileSchoolsBrand />
           {pendingCount + gatePendingCount > 0 && <Badge variant="outline" className="gap-1"><CloudOff className="h-3 w-3" />{pendingCount + gatePendingCount} waiting</Badge>}
         </div>
         {locked && (
@@ -165,11 +195,9 @@ export default function AgentWelileSchools() {
 
         {locked && user && (
           <>
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label="School gate mode">
-              <Button variant={mode === 'gate' ? 'default' : 'outline'} aria-pressed={mode === 'gate'} className="min-h-12 gap-1 whitespace-normal" onClick={() => setMode('gate')}><LogIn className="h-4 w-4 shrink-0" />🚪 Daily Gate Log (IN / OUT)</Button>
-              <Button variant={mode === 'register' ? 'default' : 'outline'} aria-pressed={mode === 'register'} className="min-h-12 gap-1 whitespace-normal" onClick={() => setMode('register')}><GraduationCap className="h-4 w-4 shrink-0" />➕ Register New Person / Asset</Button>
-            </div>
-            {mode === 'gate' ? (
+            {mode === 'partner' ? (
+              <SchoolPartnershipPanel school={locked} />
+            ) : mode === 'gate' ? (
               <DailyGateLogView school={locked} agentId={user.id} onQueued={() => setGatePendingCount(readPendingGateLogs().length)} onSwitchToRegister={() => setMode('register')} />
             ) : (
               <GateRegistration school={locked} agentId={user.id} onQueued={() => { setPendingCount(readPendingProfiles().length); setGatePendingCount(readPendingGateLogs().length); }} />
@@ -289,14 +317,22 @@ export function SchoolRegistration({ draft, setDraft, captureGps, gpsBusy, savin
 }
 
 function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; agentId: string; onQueued: () => void }) {
-  const [role, setRole] = useState<string>('pupil');
+  // Only students are registered for now; the other roles stay in PROFILE_ROLES for later.
+  const role = 'pupil';
   const [f, setF] = useState<Partial<SchoolProfileRow>>({});
   const [hasPhone, setHasPhone] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
   const [last, setLast] = useState<{ row: SchoolProfileRow; saved: boolean } | null>(null);
   const [count, setCount] = useState(0);
   const [logEntry, setLogEntry] = useState(true);
+  const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraProblem, setCameraProblem] = useState<string | null>(null);
+  // After a save the form is replaced by the student's profile summary until "Register the next student".
+  const [summary, setSummary] = useState<{ photoUrl: string | null } | null>(null);
+  const topRef = useRef<HTMLDivElement>(null);
   const group = roleGroup(role);
+  const tertiary = group === 'pupil' && isTertiaryLearner(f.class_grade, school.school_level);
   const set = (k: keyof SchoolProfileRow) => (e: React.ChangeEvent<HTMLInputElement>) => setF((d) => ({ ...d, [k]: e.target.value }));
   const num = (v: unknown) => (v === '' || v == null ? null : Number(String(v).replace(/\D/g, '')) || null);
 
@@ -304,6 +340,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     if (group !== 'asset' && !f.full_name?.trim()) { toast.error('Enter the full name'); return; }
     if (group === 'asset' && !f.facility_type) { toast.error('Choose the facility type'); return; }
     if (group !== 'asset' && hasPhone === null) { toast.error('Answer: has a smartphone?'); return; }
+    if (group === 'pupil' && !photo && !cameraProblem) { toast.error("Take the student's photo"); return; }
     setSaving(true);
     const id = safeUUID();
     const row: SchoolProfileRow = {
@@ -312,6 +349,8 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
       date_of_birth: f.date_of_birth || null,
       ...(group === 'asset' ? { has_smartphone: null, needs_free_smartphone: false, smartphone_status: null } : smartphoneFields(hasPhone)),
     };
+    // Upload the face photo first so the profile is saved with its path; offline, it waits on the phone.
+    if (group === 'pupil' && photo) row.photo_path = await uploadStudentPhoto(school.id, id, id, photo.blob);
     const res = await saveProfile(row);
     if (group !== 'asset' && logEntry) {
       const gid = safeUUID();
@@ -329,32 +368,41 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     setSaving(false);
     setLast(res);
     setCount((c) => c + 1);
-    if (!res.saved) { onQueued(); toast.message('No connection — saved on this phone, will send automatically'); }
-    else toast.success(group === 'asset' ? 'Facility registered' : `${f.full_name} registered`);
-    setF({}); setHasPhone(null);
+    const who = group === 'asset' ? (f.facility_type || 'Facility') : (f.full_name?.trim() || 'Person');
+    if (!res.saved) { onQueued(); toast.message('Saved on this phone', { description: `${who} will upload automatically when you are back online.` }); }
+    else toast.success('Registration successful', { description: `${who} is registered at ${school.name}.` });
+    // The summary keeps the photo's preview URL; it is released on "Register the next student".
+    setSummary({ photoUrl: group === 'pupil' ? photo?.url ?? null : null });
+    setF({}); setHasPhone(null); setPhoto(null);
+    // The summary replaces the form; bring its top into view after saving at the bottom.
+    topRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  };
+
+  const registerNext = () => {
+    if (summary?.photoUrl) URL.revokeObjectURL(summary.photoUrl);
+    setSummary(null);
+    topRef.current?.scrollIntoView({ block: 'start' });
   };
 
   return (
-    <div className="space-y-4">
+    <div ref={topRef} className="space-y-4 scroll-mt-32">
+      {summary && last ? (
+        <>
+          <StudentProfileSummary row={last.row} saved={last.saved} photoUrl={summary.photoUrl} school={school} onNext={registerNext} />
+          {last.row.has_smartphone && <SignupLinkCard row={last.row} saved={last.saved} school={school} agentId={agentId} />}
+          {last.row.needs_free_smartphone && (
+            <Card className="p-3 border-primary/40 bg-primary/5 flex gap-2"><Gift className="h-5 w-5 text-primary shrink-0" /><p className="text-sm">{last.row.full_name} is in the Free Smartphone queue.</p></Card>
+          )}
+        </>
+      ) : (
+      <>
       <div className="flex gap-3 p-4 bg-primary/5 border-l-4 border-primary rounded-lg">
         <Bot className="h-6 w-6 text-primary shrink-0" />
-        <div><p className="text-sm font-semibold">🎉 {school.name} is locked!</p><p className="text-sm text-muted-foreground">Who are you registering at the gate right now?</p></div>
+        <div><p className="text-sm font-semibold">🎉 {school.name} is locked!</p><p className="text-sm text-muted-foreground">Register each student with their parent or guardian's details.</p></div>
       </div>
-      {last && last.row.has_smartphone && <SignupLinkCard row={last.row} saved={last.saved} school={school} agentId={agentId} />}
-      {last && last.row.needs_free_smartphone && (
-        <Card className="p-3 border-primary/40 bg-primary/5 flex gap-2"><Gift className="h-5 w-5 text-primary shrink-0" /><p className="text-sm">{last.row.full_name} is in the Free Smartphone queue.</p></Card>
-      )}
 
       <Card className="p-4 space-y-3">
-        <div className="flex items-center justify-between"><h2 className="font-semibold">Register at the gate</h2><Badge variant="secondary">{count} this session</Badge></div>
-        <div className="grid grid-cols-2 gap-2">
-          {PROFILE_ROLES.map((r) => (
-            <button key={r.key} type="button" onClick={() => setRole(r.key)}
-              className={cn('min-h-[52px] px-2 rounded-xl border text-sm font-medium', role === r.key ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
-              {r.label}
-            </button>
-          ))}
-        </div>
+        <div className="flex items-center justify-between"><h2 className="font-semibold">Register a student</h2><Badge variant="secondary">{count} this session</Badge></div>
 
         {group === 'asset' ? (
           <>
@@ -365,23 +413,68 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
         ) : (
           <>
             <Field label="Full name"><Input value={f.full_name ?? ''} onChange={set('full_name')} /></Field>
+            {group === 'pupil' && (
+              <div className="space-y-2">
+                <Label className="text-sm">Student photo</Label>
+                {photo ? (
+                  <div className="flex items-center gap-3 rounded-xl border border-border p-3">
+                    <img src={photo.url} alt="Student photo" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <p className="flex items-center gap-1.5 text-sm font-semibold"><CheckCircle2 className="h-4 w-4 text-emerald-600" />Photo taken</p>
+                      <p className="text-xs text-muted-foreground">Saved with this student when you save.</p>
+                    </div>
+                    <Button variant="outline" size="sm" className="min-h-[40px]" onClick={() => setCameraOpen(true)}>Retake</Button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setCameraOpen(true)}
+                    className="flex min-h-[96px] w-full items-center gap-4 rounded-xl border-2 border-dashed border-primary/50 bg-primary/5 p-4 text-left hover:bg-primary/10">
+                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Camera className="h-6 w-6" /></span>
+                    <span>
+                      <span className="block font-semibold">Take the student's photo</span>
+                      <span className="block text-sm text-muted-foreground">Fit their face inside the oval on screen.</span>
+                    </span>
+                  </button>
+                )}
+                {cameraProblem && !photo && <p className="text-xs text-amber-700 dark:text-amber-400">{cameraProblem} You can save without a photo for now.</p>}
+                <StudentPhotoCapture open={cameraOpen} studentName={f.full_name} onClose={() => setCameraOpen(false)}
+                  onUnavailable={(reason) => { setCameraOpen(false); setCameraProblem(reason); }}
+                  onCapture={(blob) => setPhoto((old) => { if (old) URL.revokeObjectURL(old.url); return { blob, url: URL.createObjectURL(blob) }; })} />
+              </div>
+            )}
             <Field label="Gender"><Chips options={['Female', 'Male']} value={f.gender ?? ''} onChange={(v) => setF((d) => ({ ...d, gender: v }))} /></Field>
+            {group === 'pupil' && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className={tertiary ? 'col-span-2' : ''}>
+                  <Field label="Class / Grade / Year"><ClassGradeSelect schoolLevel={school.school_level} value={f.class_grade ?? ''}
+                    onChange={(v) => setF((d) => ({
+                      ...d, class_grade: v,
+                      // Drop answers the newly chosen level does not ask for.
+                      ...(isTertiaryLearner(v, school.school_level) ? { stream: null, boarding_status: null } : { phone: null, whatsapp: null, email: null }),
+                    }))} /></Field>
+                </div>
+                {/* No streams or dormitories beyond secondary school. */}
+                {!tertiary && (
+                  <Field label="Stream / Dormitory"><Input value={f.stream ?? ''} onChange={set('stream')} /></Field>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date of birth"><Input type="date" value={f.date_of_birth ?? ''} onChange={set('date_of_birth')} /></Field>
               <Field label="Age"><Input inputMode="numeric" value={(f.age as any) ?? ''} onChange={set('age')} /></Field>
-              <Field label="Phone"><Input inputMode="tel" value={f.phone ?? ''} onChange={set('phone')} /></Field>
-              <Field label="WhatsApp"><Input inputMode="tel" value={f.whatsapp ?? ''} onChange={set('whatsapp')} /></Field>
+              {/* A learner's own contacts only from vocational / university level; younger students are reached through the guardian. */}
+              {(group !== 'pupil' || tertiary) && (
+                <>
+                  <Field label="Phone (optional)"><Input inputMode="tel" value={f.phone ?? ''} onChange={set('phone')} /></Field>
+                  <Field label="WhatsApp (optional)"><Input inputMode="tel" value={f.whatsapp ?? ''} onChange={set('whatsapp')} /></Field>
+                </>
+              )}
             </div>
-            <Field label="Email (optional)"><Input type="email" value={f.email ?? ''} onChange={set('email')} /></Field>
+            {(group !== 'pupil' || tertiary) && <Field label="Email (optional)"><Input type="email" value={f.email ?? ''} onChange={set('email')} /></Field>}
             <Field label="National ID / School ID / Admission No."><Input value={f.id_number ?? ''} onChange={set('id_number')} /></Field>
 
             {group === 'pupil' && (
               <>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Class / Grade / Year"><Input value={f.class_grade ?? ''} onChange={set('class_grade')} /></Field>
-                  <Field label="Stream / Dormitory"><Input value={f.stream ?? ''} onChange={set('stream')} /></Field>
-                </div>
-                <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>
+                {!tertiary && <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>}
                 <Field label="Parent / guardian full name"><Input value={f.guardian_name ?? ''} onChange={set('guardian_name')} /></Field>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="Guardian phone"><Input inputMode="tel" value={f.guardian_phone ?? ''} onChange={set('guardian_phone')} /></Field>
@@ -431,8 +524,10 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
             <LogIn className="h-4 w-4 shrink-0" />🟢 Also log as ENTERED (IN) at gate right now
           </button>
         )}
-        <Button className="w-full min-h-[52px] text-base" onClick={submit} disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save & next person</Button>
+        <Button className="w-full min-h-[52px] text-base" onClick={submit} disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save student</Button>
       </Card>
+      </>
+      )}
     </div>
   );
 }

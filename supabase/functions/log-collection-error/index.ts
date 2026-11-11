@@ -28,6 +28,7 @@
 // throw away the evidence we most need.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,7 +89,7 @@ Deno.serve(async (req: Request) => {
     let agentId: string | null = null;
     if (token) {
       try {
-        const { data } = await admin.auth.getUser(token);
+        const { data } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
         agentId = data?.user?.id ?? null;
       } catch {
         agentId = null; // An expired token is the case this exists to serve.

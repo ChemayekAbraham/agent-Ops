@@ -33,6 +33,18 @@ describe('balance-sheet classification: A24 Special Advances Receivable', () => 
     ]);
   });
 
+  it('staff loans (A27) report under Loans and Advances to Employees, not the flagged block', () => {
+    const r = classifyAssets([line('A27', 'Staff loans receivable', 120000)]);
+    expect(groupOf([line('A27', 'Staff loans receivable', 120000)], 'Staff loans receivable')).toBe('Loans and Advances to Employees');
+    expect(r.groups.find((g) => g.label === 'Loans and Advances to Employees')!.value).toBe(120000);
+    expect(r.flagged.value).toBe(0);
+  });
+
+  it('the shareholder receivable (A26) reports with the A23 share receivable, not the flagged block', () => {
+    expect(groupOf([line('A26', 'Receivable from shareholders — shares paid from company float', 3352500)],
+      'Receivable from shareholders — shares paid from company float')).toBe('Receivables from Partner Products and Services');
+  });
+
   it('an unknown account code is still flagged for review', () => {
     expect(groupOf([line('A99', 'Something new', 5)], 'Something new')).toBe(FLAGGED_LABEL);
   });

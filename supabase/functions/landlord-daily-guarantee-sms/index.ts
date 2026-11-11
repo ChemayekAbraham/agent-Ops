@@ -1,5 +1,6 @@
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 // Manual CORS headers (project standard — do not import corsHeaders).
 const corsHeaders = {
@@ -192,7 +193,7 @@ Deno.serve(async (req) => {
     if (isTest) {
       const authHeader = req.headers.get("Authorization");
       const token = authHeader?.replace(/^Bearer\s+/i, "") ?? "";
-      const { data: userData } = await admin.auth.getUser(token);
+      const { data: userData } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
       const caller = userData?.user;
       if (!caller) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {

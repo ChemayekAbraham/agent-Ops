@@ -2,6 +2,7 @@ import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,7 +33,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Unauthorized' }, 401)
     }
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await adminClient.auth.getUser(token)
+    const { data: { user }, error: authError } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult())
     if (authError || !user) return json({ error: 'Unauthorized' }, 401)
 
     const { data: roles } = await adminClient

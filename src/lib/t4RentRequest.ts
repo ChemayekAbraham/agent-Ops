@@ -11,9 +11,10 @@
  * live Agent Ops gate (_ao_gate_missing = _sc1_missing + _ao_items_missing +
  * photo review), in every mode: house photos (at least 3), landlord details,
  * rent amount, GPS, family size and work/business (not for renewals; work also
- * counts when profiles.occupation is set), the LC1 letter or the LC1 confirmed
- * by phone, the tenant's full name (2+ names), a tenant ID, and no other open
- * request for the tenant. Its 'form' items are what this form itself needs to
+ * counts when profiles.occupation is set), the tenant's full name (2+ names),
+ * no other open request for the tenant, and (DOCS-1, E75) photos of the
+ * National ID front and back and of the LC1 letter. A typed NIN is optional and
+ * an LC1 phone confirmation no longer counts. Its 'form' items are what this form itself needs to
  * send (consent, the resubmit note, the chat's other answers).
  * The database routes every new or resubmitted request to the Service Centre
  * (E58).
@@ -134,7 +135,7 @@ export function hasTenantId(p: TenantIdFields | null | undefined): boolean {
 
 /** The Agent Ops gate, in its own order. */
 export const GATE_ITEMS = [
-  'photos', 'landlord', 'rent', 'gps', 'familySize', 'work', 'lcLetter', 'tenantName', 'tenantId', 'openRequest',
+  'photos', 'landlord', 'rent', 'gps', 'familySize', 'work', 'lcLetter', 'tenantName', 'idFront', 'idBack', 'openRequest',
 ] as const;
 /** What the form itself needs before it can send. */
 export const FORM_ITEMS = [
@@ -152,9 +153,10 @@ export const T4_ITEM_LABELS: Record<T4ItemKey, string> = {
   gps: 'House GPS',
   familySize: 'Family size',
   work: 'Work / business',
-  lcLetter: 'LC1 letter photo (or the LC1 confirmed by phone)',
+  lcLetter: 'LC1 letter photo',
   tenantName: 'Tenant’s full name (2 or more names)',
-  tenantId: 'Tenant’s ID: type the NIN',
+  idFront: 'National ID photo — front',
+  idBack: 'National ID photo — back',
   openRequest: 'No other open request for this tenant',
   plan: 'Rent Plan (how it is paid back)',
   tenantPhone: 'Tenant’s phone number',

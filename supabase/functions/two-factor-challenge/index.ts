@@ -6,6 +6,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isStaffUser } from "../_shared/staffMfa.ts";
 import { generateCode, hashCode, isUnusableEmail, maskEmail } from "../_shared/twoFactorEmail.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,7 +35,7 @@ Deno.serve(async (req) => {
   try {
     const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
     if (!token) return json({ error: "Not signed in" }, 401);
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     const user = userData?.user;
     if (userErr || !user) return json({ error: "Not signed in" }, 401);
 

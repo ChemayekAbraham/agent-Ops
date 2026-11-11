@@ -2,6 +2,7 @@
 // and records the attempt + outcome in `gmail_reconnect_audit` for the
 // staff audit trail (timestamps, latency, error details).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,7 +27,7 @@ Deno.serve(async (req) => {
     const auth = req.headers.get('Authorization') ?? '';
     const token = auth.replace(/^Bearer\s+/i, '');
     if (token) {
-      const { data: u } = await adminClient.auth.getUser(token);
+      const { data: u } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
       initiatedBy = u?.user?.id ?? null;
       initiatedByEmail = u?.user?.email ?? null;
     }

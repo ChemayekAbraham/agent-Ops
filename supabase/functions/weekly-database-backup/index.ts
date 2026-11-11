@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 import { BACKUP_LINK_TTL_HOURS, BACKUP_LINK_TTL_SECONDS, DEFAULT_BACKUP_RECIPIENTS } from "../_shared/backupDelivery.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const RECIPIENTS = DEFAULT_BACKUP_RECIPIENTS;
 const SIGNED_URL_TTL_SECONDS = BACKUP_LINK_TTL_SECONDS;
@@ -68,7 +69,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
     if (token) {
-      const { data: userData } = await supabase.auth.getUser(token);
+      const { data: userData } = await (bearerHasSub(token) ? supabase.auth.getUser(token) : noUserResult());
       const uid = userData?.user?.id;
       if (uid) {
         const { data: profile } = await supabase

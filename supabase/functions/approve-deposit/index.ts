@@ -6,6 +6,7 @@ import { logDepositDecision } from "../_shared/depositDecisionAudit.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 import { resolveOwnedRecipientEmail } from "../_shared/ownedRecipientEmail.ts";
 import { customerMoneyFloatPlatformLegs, isCustomerMoneyFloatDeposit } from "../_shared/depositBooking.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -126,7 +127,7 @@ Deno.serve(async (req) => {
       const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } },
       });
-      const { data: { user: authUser }, error: userError } = await supabaseUser.auth.getUser();
+      const { data: { user: authUser }, error: userError } = await (bearerHasSub(authHeader) ? supabaseUser.auth.getUser() : noUserResult());
       if (userError || !authUser) {
         return new Response(
           JSON.stringify({ error: "Unauthorized" }),

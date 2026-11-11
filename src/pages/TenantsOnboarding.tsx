@@ -230,6 +230,8 @@ export default function TenantsOnboarding() {
   const photoShaRef = useRef<string | null>(null);
 
   const [idPhoto, setIdPhoto] = useState<PhotoSlot | null>(null);
+  /* DOCS-1: the back of the National ID is required too. */
+  const [idPhotoBack, setIdPhotoBack] = useState<PhotoSlot | null>(null);
   const [lcLetter, setLcLetter] = useState<PhotoSlot | null>(null);
   const [idCheck, setIdCheck] = useState<{
     checking: boolean;
@@ -472,7 +474,7 @@ export default function TenantsOnboarding() {
   const ninTakenByOther = idCheck.nin_known === true && idCheck.nin_is_you === false;
   const phoneTakenByOther = idCheck.phone_known === true && idCheck.phone_is_you === false;
 
-  const addPhoto = async (file: File, target: 'tenant' | 'id' | 'house' | 'lc_letter') => {
+  const addPhoto = async (file: File, target: 'tenant' | 'id' | 'id_back' | 'house' | 'lc_letter') => {
     const type = (file.type || '').toLowerCase();
     const name = file.name.toLowerCase();
     const typeOk = ALLOWED_PHOTO_TYPES.includes(type) || (!type && /\.(jpe?g|png)$/.test(name));
@@ -493,6 +495,7 @@ export default function TenantsOnboarding() {
       const slot: PhotoSlot = { file: opt.file, preview: opt.previewUrl };
       if (target === 'tenant') { setTenantPhoto(slot); photoShaRef.current = null; void runPassportCheck(slot.file); }
       else if (target === 'id') setIdPhoto(slot);
+      else if (target === 'id_back') setIdPhotoBack(slot);
       else if (target === 'lc_letter') setLcLetter(slot);
       else setHousePhotos((p) => [...p, slot].slice(0, 4));
     } catch {
@@ -547,11 +550,11 @@ export default function TenantsOnboarding() {
   const missing = tenantRequestMissing({
     rentAmount, minRent: MIN_RENT, maxRent: MAX_RENT, durationOk,
     firstName, lastName, phone, nin,
-    hasIdPhoto: !!idPhoto, hasPassportPhoto: !!tenantPhoto,
+    hasIdFront: !!idPhoto, hasIdBack: !!idPhotoBack, hasPassportPhoto: !!tenantPhoto,
     familySize, work: occupation,
     address, hasVillage: !!location, hasGps: !!gps, housePhotoCount: housePhotos.length,
     landlordName: chosenLandlord?.name ?? '', landlordPhone: chosenLandlord?.phone ?? '',
-    hasLcLetter: !!lcLetter, lc1Name: lc1?.name ?? '', lc1Phone: lc1?.phone ?? '',
+    hasLcLetter: !!lcLetter,
     declared,
   });
   const missingOn = (step: number) => missing.filter((m) => m.step === step);
@@ -612,6 +615,7 @@ export default function TenantsOnboarding() {
         Promise.all(housePhotos.map((p) => toDataUrl(p.file))),
       ]);
       const idB64 = idPhoto ? await toDataUrl(idPhoto.file) : null;
+      const idBackB64 = idPhotoBack ? await toDataUrl(idPhotoBack.file) : null;
       const lcLetterB64 = lcLetter ? await toDataUrl(lcLetter.file) : null;
 
       const { data, error } = await supabase.functions.invoke('tenant-self-onboarding', {
@@ -648,6 +652,7 @@ export default function TenantsOnboarding() {
           tenant_photo_sha256: photoShaRef.current ?? photoCheck?.sha256 ?? null,
 
           id_photo: idB64,
+          id_photo_back: idBackB64,
           lc_letter: lcLetterB64,
           house_photos: housesB64,
           ...(consentParams?.id_owner_phone ? { id_owner_phone: consentParams.id_owner_phone } : {}),
@@ -1328,14 +1333,19 @@ export default function TenantsOnboarding() {
                 {/* Rent and period sit side by side on desktop, stacked on mobile. */}
                 <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
                   <div className="space-y-2">
-                    <Label className="text-[13.5px] font-semibold">
-                      Monthly rent <span className="text-destructive">*</span>
+                    <Label htmlFor="tenant-monthly-rent" className="text-[13.5px] font-semibold">
+                      Monthly rent (one month only) <span className="text-destructive">*</span>
                     </Label>
+                    <p id="tenant-monthly-rent-help" className="text-xs text-muted-foreground">
+                      If the landlord wants several months together, enter ONE month. Landlord Ops will confirm the monthly rent with the landlord.
+                    </p>
                     <div className="relative">
                       <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-muted-foreground">
                         UGX
                       </span>
                       <Input
+                        id="tenant-monthly-rent"
+                        aria-describedby="tenant-monthly-rent-help"
                         inputMode="numeric"
                         aria-invalid={rentInvalid}
                         className={cn(
@@ -1484,7 +1494,7 @@ export default function TenantsOnboarding() {
                 </Field>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="National ID (NIN)" hint="10 to 14 letters and numbers, exactly as on your card. Or add a photo of your ID below.">
+                  <Field label="National ID (NIN)" hint="Optional. 10 to 14 letters and numbers, exactly as on your card.">
                     <Input value={nin} onChange={(e) => setNin(e.target.value.toUpperCase())} placeholder="CM9001234567AB" className="font-mono" />
                     {!idCheck.checking && idCheck.nin_is_you && <Hint icon={CheckCircle2} tone="ok">This National ID matches your account.</Hint>}
                     {!idCheck.checking && ninTakenByOther && <Hint icon={AlertTriangle} tone="bad">This National ID is already registered to another account. Please check the number.</Hint>}
@@ -1553,8 +1563,10 @@ export default function TenantsOnboarding() {
                       </>
                     )}
                   </div>
-                  <PhotoBox label="National ID photo" hint="Front of the card, all text readable. Needed if you did not type your NIN."
+                  <PhotoBox label="National ID — front" required hint="Front of the card, all text readable."
                     slot={idPhoto} onPick={(f) => addPhoto(f, 'id')} onClear={() => setIdPhoto(null)} />
+                  <PhotoBox label="National ID — back" required hint="Back of the card, all text readable."
+                    slot={idPhotoBack} onPick={(f) => addPhoto(f, 'id_back')} onClear={() => setIdPhotoBack(null)} />
                 </div>
 
               </div>
@@ -1711,7 +1723,7 @@ export default function TenantsOnboarding() {
                 )}
 
                 <p className="text-sm text-muted-foreground">
-                  Your LC1: add the chairperson’s name and phone, or a photo of the stamped LC1 letter. One of them is required.
+                  Your LC1: a photo of the stamped LC1 letter is required. The chairperson’s name and phone are optional.
                 </p>
                 <Lc1ChairpersonPicker
                   value={lc1}
@@ -1726,7 +1738,8 @@ export default function TenantsOnboarding() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <PhotoBox
                     label="LC1 introduction letter"
-                    hint="A photo of the letter stamped by your LC1. Needed if you did not add the LC1 chairperson above."
+                    required
+                    hint="A photo of the letter stamped by your LC1."
                     slot={lcLetter}
                     onPick={(f) => addPhoto(f, 'lc_letter')}
                     onClear={() => setLcLetter(null)}
@@ -1758,7 +1771,8 @@ export default function TenantsOnboarding() {
                   <ReviewItem label="National ID (NIN)" value={cleanNin(nin) || '—'} numeric />
                   <ReviewItem label="Language" value={language} />
                   <ReviewItem label="Passport photo" value={tenantPhoto ? 'Captured' : 'Missing'} ok={!!tenantPhoto} />
-                  <ReviewItem label="National ID photo" value={idPhoto ? 'Captured' : cleanNin(nin) ? 'Not added (NIN given)' : 'Missing'} ok={!!idPhoto || !!cleanNin(nin)} />
+                  <ReviewItem label="National ID — front" value={idPhoto ? 'Captured' : 'Missing'} ok={!!idPhoto} />
+                  <ReviewItem label="National ID — back" value={idPhotoBack ? 'Captured' : 'Missing'} ok={!!idPhotoBack} />
                   <ReviewItem label="Work or business" value={occupation.trim() || '—'} />
                   <ReviewItem label="Household" value={parseFamilySize(familySize) ? `${parseFamilySize(familySize)} people` : '—'} />
                 </ReviewCard>
@@ -1788,7 +1802,7 @@ export default function TenantsOnboarding() {
                   />
                   <ReviewItem label="LC1 chairperson" value={lc1?.name || '—'} />
                   <ReviewItem label="LC1 phone" value={lc1?.phone || '—'} numeric />
-                  <ReviewItem label="LC1 letter" value={lcLetter ? 'Attached' : 'Not attached'} ok={!!lcLetter} />
+                  <ReviewItem label="LC1 letter" value={lcLetter ? 'Attached' : 'Missing'} ok={!!lcLetter} />
                 </ReviewCard>
 
                 <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/40 p-4">

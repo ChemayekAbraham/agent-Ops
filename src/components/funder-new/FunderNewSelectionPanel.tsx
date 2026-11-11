@@ -29,18 +29,48 @@ function useMonthlyAtOwnRate(): (total: number) => number | null {
  * a caller that does not actually post anything returns nothing, so the
  * screen never claims a support that was not recorded.
  */
-export type FunderFundResult = { submitted: boolean; reference?: string | null };
+export type FunderFundResult = {
+  submitted: boolean;
+  reference?: string | null;
+  /** True only when the server moved the rent to the agent's landlord float. */
+  releasedToAgent?: boolean;
+  /** House bookings are not a rent release. */
+  supportKind?: 'rent' | 'house';
+  landlordNames?: string[];
+  rentRequestIds?: string[];
+};
 
-/** Same three steps the "How support works" dialog promises, in order. */
-const NEXT_STEPS = [
-  { title: 'Operational review', text: 'The team verifies your booking and completes the normal approval step.' },
-  { title: 'Support becomes active', text: 'Once approved, the homes you funded go live through the existing process.' },
-  { title: 'Track it in your portfolio', text: 'Follow your supported homes and Rent profit share from your portfolio.' },
+/** What the partner sees after a direct release. No operational review. */
+const RELEASED_STEPS = [
+  { title: 'With the agent', text: 'Your rent has gone to the agent, who will pay the landlord within 24 hours.' },
+  { title: 'Landlord is paid', text: 'The agent pays the landlord from that float.' },
+  { title: 'Track Rent profit share', text: 'Follow your supported homes and Rent profit share from your portfolio.' },
+];
+
+const RECORDED_STEPS = [
+  { title: 'Support recorded', text: 'Your support is recorded. The rent has not moved to the agent yet.' },
+  { title: 'Float covers the rent', text: 'When your float covers the rent and Welile Cover, it goes to the agent.' },
+  { title: 'Track Rent profit share', text: 'Follow your supported homes and Rent profit share from your portfolio.' },
+];
+
+const HOUSE_STEPS = [
+  { title: 'House support recorded', text: 'Your house support is recorded.' },
+  { title: 'A tenant is placed', text: 'An agent places a tenant in the usual way.' },
+  { title: 'Track Rent profit share', text: 'Follow your supported homes and Rent profit share from your portfolio.' },
 ];
 
 /** Snapshot taken at submit time: the parent may clear the selection as soon
  *  as the support is posted, and the success view must still show real figures. */
-type FunderReceipt = { count: number; total: number; balanceAfter: number; reference: string | null };
+type FunderReceipt = {
+  count: number;
+  total: number;
+  balanceAfter: number;
+  reference: string | null;
+  releasedToAgent: boolean;
+  supportKind: 'rent' | 'house';
+  landlordNames: string[];
+  rentRequestIds: string[];
+};
 
 /** Sticky bar — rendered only while at least one compatible home is selected. */
 export function FunderNewSelectionBar({
@@ -286,7 +316,7 @@ export function FunderNewReviewDialog({
           <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-3 text-muted-foreground">
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
             <p className="min-w-0 flex-1 text-sm leading-relaxed">
-              Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is completed. Rent profit share shown are estimates{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}.
+              Selecting and reviewing homes is planning only. Support starts when you confirm. When your float covers the rent, it goes to the agent, who pays the landlord within 24 hours. Rent profit share shown are estimates{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}.
             </p>
           </div>
         </div>
@@ -332,23 +362,34 @@ export function FunderNewReviewDialog({
                   Support submitted
                 </DialogTitle>
                 <DialogDescription>
-                  Your support for {receipt.count === 1 ? 'one home' : `${receipt.count} homes`} is in. Nothing else is needed from you right now.
+                  {receipt.releasedToAgent
+                    ? 'Your rent has gone to the agent, who will pay the landlord within 24 hours.'
+                    : receipt.supportKind === 'house'
+                      ? 'Your house support is recorded.'
+                      : 'Your support is recorded. The rent has not moved to the agent yet.'}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-2 rounded-2xl border bg-muted/40 p-4 text-sm">
-                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Total support</span><span className="font-semibold">{formatDynamic(receipt.total)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">{receipt.releasedToAgent ? 'Amount paid (rent + 2% Welile Cover)' : 'Support amount (rent + 2% Welile Cover)'}</span><span className="font-semibold">{formatDynamic(receipt.total)}</span></div>
+                {receipt.landlordNames.length > 0 ? (
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Landlord</span><span className="text-right font-semibold">{receipt.landlordNames.join(', ')}</span></div>
+                ) : null}
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Estimated monthly Rent profit share</span><span className="font-semibold text-success">{monthlyAt15(receipt.total) === null ? '—' : formatDynamic(monthlyAt15(receipt.total))}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance after</span><span className="font-semibold">{formatDynamic(receipt.balanceAfter)}</span></div>
                 {receipt.reference ? (
-                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Booking reference</span><span className="break-all text-right font-semibold">{receipt.reference}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Reference</span><span className="break-all text-right font-semibold">{receipt.reference}</span></div>
                 ) : null}
               </div>
+
+              {receipt.releasedToAgent && receipt.rentRequestIds.length > 0 ? (
+                <DirectReleaseReceipts rentRequestIds={receipt.rentRequestIds} />
+              ) : null}
 
               <div>
                 <p className="text-sm font-semibold">What happens next</p>
                 <ol className="mt-2 space-y-2">
-                  {NEXT_STEPS.map((step, index) => (
+                  {(receipt.releasedToAgent ? RELEASED_STEPS : receipt.supportKind === 'house' ? HOUSE_STEPS : RECORDED_STEPS).map((step, index) => (
                     <li key={step.title} className="flex gap-3 rounded-2xl border bg-primary/5 p-3">
                       <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">{index + 1}</span>
                       <div className="min-w-0">
@@ -409,11 +450,20 @@ export function FunderNewReviewDialog({
                       if (result?.submitted) {
                         // Stay on this dialog and flip it to the success view, so the
                         // result is on screen rather than in a toast that disappears.
+                        // Names are snapshotted here: the parent may clear the selection
+                        // as soon as the support is posted.
+                        const landlordNames = (result.landlordNames && result.landlordNames.length > 0)
+                          ? result.landlordNames
+                          : items.map((item) => item.landlordName).filter((name): name is string => !!name && name.trim().length > 0);
                         setReceipt({
                           count: items.length,
                           total,
                           balanceAfter: Math.max(0, (available ?? 0) - total),
                           reference: result.reference ?? null,
+                          releasedToAgent: result.releasedToAgent === true,
+                          supportKind: result.supportKind === 'house' ? 'house' : 'rent',
+                          landlordNames,
+                          rentRequestIds: result.rentRequestIds ?? items.filter((item) => item.category === 'ready').map((item) => item.id),
                         });
                       } else {
                         setConfirmOpen(false);
@@ -435,6 +485,50 @@ export function FunderNewReviewDialog({
         </DialogContent>
       </Dialog>
     </Dialog>
+  );
+}
+
+/**
+ * Receipt from the verified-plan pack (PR 83). Only the receipt actions are
+ * shown here. Tenant and agent phone numbers are not rendered.
+ */
+function DirectReleaseReceipts({ rentRequestIds }: { rentRequestIds: string[] }) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const run = async (id: string, kind: 'download' | 'print') => {
+    setBusyId(`${kind}:${id}`);
+    try {
+      const { fetchFunderVerifiedPlan } = await import('@/lib/funderVerifiedPlan');
+      const { downloadFunderRentReceiptPdf, printFunderRentReceipt } = await import('@/lib/funderVerifiedPlanPdf');
+      const result = await fetchFunderVerifiedPlan(id);
+      if (result.state !== 'ready' || !result.plan.funding) {
+        toast.error('The receipt is not ready yet. Your reference above is still valid.');
+        return;
+      }
+      if (kind === 'download') await downloadFunderRentReceiptPdf(result.plan);
+      else if (!printFunderRentReceipt(result.plan)) toast.error('Allow pop-ups to print, or use Download receipt.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not prepare the receipt.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-semibold">Receipt</p>
+      {rentRequestIds.map((id) => (
+        <div key={id} className="grid grid-cols-2 gap-2">
+          <Button type="button" className="h-11 rounded-xl" disabled={busyId !== null} onClick={() => void run(id, 'download')}>
+            {busyId === `download:${id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Download receipt
+          </Button>
+          <Button type="button" variant="outline" className="h-11 rounded-xl" disabled={busyId !== null} onClick={() => void run(id, 'print')}>
+            Print receipt
+          </Button>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -544,7 +638,7 @@ const POINTS = [
 const HOW_STEPS = [
   { icon: Wallet, text: 'Deposit to your Welile wallet' },
   { icon: TrendingUp, text: 'Tap Fund' },
-  { icon: Send, text: 'Welile sends the money straight to the landlord.' },
+  { icon: Send, text: 'The rent goes to the agent, who pays the landlord within 24 hours.' },
 ];
 
 function SalesSheet({ item }: { item: FunderNewSelectionItem }) {

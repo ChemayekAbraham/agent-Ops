@@ -15,11 +15,11 @@ import {
 const COMPLETE: TenantRequestInput = {
   rentAmount: 300000, minRent: 50000, maxRent: 10000000, durationOk: true,
   firstName: 'Robert', lastName: 'Mugisha', phone: '0771234567', nin: 'CM9001234567AB',
-  hasIdPhoto: false, hasPassportPhoto: true,
+  hasIdFront: true, hasIdBack: true, hasPassportPhoto: true,
   familySize: '4', work: 'Boda rider',
   address: 'Plot 14, behind Kabalagala market', hasVillage: true, hasGps: true, housePhotoCount: 3,
   landlordName: 'Peter Okello', landlordPhone: '0772000111',
-  hasLcLetter: false, lc1Name: 'Sarah Namuli', lc1Phone: '0701000222',
+  hasLcLetter: true,
   declared: true,
 };
 const keys = (over: Partial<TenantRequestInput>): TenantItemKey[] => tenantRequestMissing({ ...COMPLETE, ...over }).map((m) => m.key);
@@ -33,14 +33,15 @@ describe('tenantRequestMissing: Submit stays locked until every item is in', () 
 
   it('an empty form lists every item, each with the step that fixes it', () => {
     const empty = tenantRequestMissing({
-      ...COMPLETE, rentAmount: 0, firstName: '', lastName: '', phone: '', nin: '', hasPassportPhoto: false,
-      familySize: '', work: '', address: '', hasVillage: false, hasGps: false, housePhotoCount: 0,
-      landlordName: '', landlordPhone: '', lc1Name: '', lc1Phone: '', declared: false,
+      ...COMPLETE, rentAmount: 0, firstName: '', lastName: '', phone: '', nin: '', hasIdFront: false, hasIdBack: false,
+      hasPassportPhoto: false, familySize: '', work: '', address: '', hasVillage: false, hasGps: false, housePhotoCount: 0,
+      landlordName: '', landlordPhone: '', hasLcLetter: false, declared: false,
     });
+    // An empty NIN is fine (optional); the three photos are not.
     expect(empty.map((m) => [m.key, m.step])).toEqual([
-      ['rent', 2], ['fullName', 3], ['phone', 3], ['nationalId', 3], ['passportPhoto', 3], ['familySize', 3], ['work', 3],
+      ['rent', 2], ['fullName', 3], ['phone', 3], ['idFront', 3], ['idBack', 3], ['passportPhoto', 3], ['familySize', 3], ['work', 3],
       ['address', 4], ['village', 4], ['gps', 4], ['housePhotos', 4],
-      ['landlord', 5], ['lc1', 5], ['declared', 6],
+      ['landlord', 5], ['lcLetter', 5], ['declared', 6],
     ]);
   });
 
@@ -49,11 +50,17 @@ describe('tenantRequestMissing: Submit stays locked until every item is in', () 
     expect(keys({ firstName: 'R' })).toEqual(['fullName']);
   });
 
-  it('national ID: a valid NIN, or a photo of the ID when no NIN is typed', () => {
-    expect(keys({ nin: '' })).toEqual(['nationalId']);
-    expect(keys({ nin: '', hasIdPhoto: true })).toEqual([]);
-    // A typed NIN must be a valid one, even with a photo.
-    expect(keys({ nin: 'CM12', hasIdPhoto: true })).toEqual(['nationalId']);
+  it('DOCS-1: a photo of the FRONT of the National ID is required', () => {
+    expect(keys({ hasIdFront: false })).toEqual(['idFront']);
+  });
+
+  it('DOCS-1: a photo of the BACK of the National ID is required', () => {
+    expect(keys({ hasIdBack: false })).toEqual(['idBack']);
+  });
+
+  it('DOCS-1: the NIN is optional; a typed one must be valid', () => {
+    expect(keys({ nin: '' })).toEqual([]);
+    expect(keys({ nin: 'CM12' })).toEqual(['nationalId']);
     expect(keys({ nin: 'CM9001234567ABCD' })).toEqual(['nationalId']);
   });
 
@@ -96,10 +103,8 @@ describe('tenantRequestMissing: Submit stays locked until every item is in', () 
     expect(keys({ work: '  ab  ' })).toEqual(['work']);
   });
 
-  it('LC1: the letter photo, or the chairperson’s name and a valid phone', () => {
-    expect(keys({ lc1Name: '', lc1Phone: '' })).toEqual(['lc1']);
-    expect(keys({ lc1Phone: '0701' })).toEqual(['lc1']);
-    expect(keys({ lc1Name: '', lc1Phone: '', hasLcLetter: true })).toEqual([]);
+  it('DOCS-1: a photo of the LC1 letter is required; the chairperson’s contact does not replace it', () => {
+    expect(keys({ hasLcLetter: false })).toEqual(['lcLetter']);
   });
 
   it('the declaration box must be ticked', () => {

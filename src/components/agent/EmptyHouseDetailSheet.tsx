@@ -24,6 +24,7 @@ import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
+import { CoSupportStartButton } from '@/components/co-support/CoSupportStartButton';
 import { AgentCareNote } from '@/components/partner/AgentCareNote';
 import { prettyName, formatHouseCategory } from '@/lib/formatting';
 import { useRelatedHouses } from '@/hooks/useRelatedHouses';
@@ -435,6 +436,10 @@ export function EmptyHouseDetailSheet({
                 <span className="truncate">Fund this house</span>
               </Button>
             </div>
+          )}
+
+          {isPartner && (
+            <CoSupportStartButton houseId={house.house_id} planAmount={pay(Number(house.monthly_rent) || 0)} />
           )}
 
           {onTogglePick && (

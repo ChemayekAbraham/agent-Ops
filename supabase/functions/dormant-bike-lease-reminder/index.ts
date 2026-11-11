@@ -2,6 +2,7 @@ import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isPhoneBlocked } from "../_shared/smsExceptions.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,7 +39,7 @@ Deno.serve(async (req) => {
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     if (!token) return json({ error: "Unauthorised" }, 401);
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const { data: u } = await admin.auth.getUser(token);
+    const { data: u } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (!u?.user) return json({ error: "Unauthorised" }, 401);
     const { data: ok } = await admin.rpc("_has_enabled_role", {
       p_user: u.user.id, p_roles: ["agent_ops", "manager", "coo", "ceo", "cfo", "super_admin"],

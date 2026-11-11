@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { notifyLc1Bonus } from "../_shared/notifyLc1Bonus.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
     const anonClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user: caller }, error: userErr } = await anonClient.auth.getUser();
+    const { data: { user: caller }, error: userErr } = await (bearerHasSub(authHeader) ? anonClient.auth.getUser() : noUserResult());
     if (userErr || !caller) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
