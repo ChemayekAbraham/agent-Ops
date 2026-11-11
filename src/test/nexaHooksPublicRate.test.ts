@@ -34,7 +34,8 @@ describe('requestAssistantPublicReply', () => {
     const fetch = vi.spyOn(globalThis, 'fetch');
     const text = await requestAssistantPublicReply([{ role: 'user', content: 'financial inclusion' }], new AbortController().signal, vi.fn());
     expect(fetch).not.toHaveBeenCalled();
-    expect(text).toContain('15% per month');
+    expect(text).toContain('New partners earn a 15% Rent profit share per month for 12 months.');
+    expect(text).toContain('guaranteed as set out in your partnership agreement.');
     expect(text).not.toMatch(/\b10% per month/);
     expect(mocks.rpc).toHaveBeenCalledWith('get_partner_return_policy');
   });
@@ -43,7 +44,8 @@ describe('requestAssistantPublicReply', () => {
     mocks.rpc.mockResolvedValue({ data: null, error: { message: 'down' } });
     const text = await requestAssistantPublicReply([{ role: 'user', content: 'financial inclusion' }], new AbortController().signal, vi.fn());
     expect(text).not.toMatch(/\d+% per month/);
-    expect(text).toContain('at the rate shown in the Welile app');
+    expect(text).toContain('New partners earn a 15% Rent profit share per month for 12 months.');
+    expect(text).not.toContain('UGX 100,000 illustrates');
   });
 
   it("sends a signed-in person's Returns question to the server", async () => {
@@ -58,7 +60,7 @@ describe('requestAssistantPublicReply', () => {
     const fetch = vi.spyOn(globalThis, 'fetch');
     const text = await requestAssistantPublicReply([{ role: 'user', content: 'What are supporter returns for supporting a tenant?' }], new AbortController().signal, vi.fn());
     expect(fetch).not.toHaveBeenCalled();
-    expect(text).toContain('15% per month');
+    expect(text).toContain('New partners earn a 15% Rent profit share per month for 12 months.');
   });
 });
 
@@ -69,7 +71,7 @@ describe('useWelileAI', () => {
     await act(async () => { await result.current.sendMessage('financial inclusion'); });
     await waitFor(() => expect(result.current.messages).toHaveLength(2));
     expect(fetch).not.toHaveBeenCalled();
-    expect(result.current.messages[1].content).toContain('15% per month');
+    expect(result.current.messages[1].content).toContain('New partners earn a 15% Rent profit share per month for 12 months.');
     expect(result.current.messages[1].content).not.toMatch(/\b10% per month/);
   });
 

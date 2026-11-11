@@ -1,20 +1,18 @@
 import { buildSignupPersuasionPitch } from './nexaSignup.ts';
 import { isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply, WELILE_COM_AND_WELILEAPP_PUBLIC_CATALOG } from './nexaPublicCatalog.ts';
-import { formatRatePct, monthlyReturnFor, rateOrNull } from './partnerReturnPolicy.ts';
+import { monthlyReturnFor, rateOrNull } from './partnerReturnPolicy.ts';
 
 /**
- * Partner Returns wording for every public guide. `rate` is the live PUBLIC new-partner rate
- * (get_partner_return_policy().new_contract_rate), or null when it is unknown. Null gives sentences
- * without any number: these guides never state a rate they were not given (fail closed). A person's
- * own rate never comes through here; signed-in Returns questions are answered by the server tools.
+ * Approved new-partner wording (Benjamin, 11 Nov 2026). The sentence is fixed.
+ * `rate` stays in the signature so callers do not change; worked examples elsewhere still use the live rate.
+ * A person's own rate never comes through here; signed-in questions are answered by the server tools.
  */
 const ugxN = (n: number) => Math.round(n).toLocaleString('en-US');
 const noFinalPeriod = (s: string) => s.replace(/\.$/, '');
+const APPROVED_NEW_PARTNER_SENTENCE = 'New partners earn a 15% Rent profit share per month for 12 months. Your principal and Rent profit share are guaranteed as set out in your partnership agreement.';
 export function newPartnerReturnsSentence(rate: number | null): string {
-  const pct = formatRatePct(rateOrNull(rate));
-  return pct
-    ? `New partners: illustrative Returns of ${pct} per month, not guaranteed. Existing partners keep their own rate.`
-    : 'New partners: illustrative monthly Returns at the rate shown in the Welile app, not guaranteed. Existing partners keep their own rate.';
+  void rate;
+  return `${APPROVED_NEW_PARTNER_SENTENCE} Existing partners keep their own rate.`;
 }
 /** "UGX 100,000 illustrates ..." at the given rate; '' when there is no rate. */
 export function returnsExampleSentence(rate: number | null): string {
@@ -55,8 +53,7 @@ export function isAccountOrBalanceQuery(text: string): boolean {
   return extractPhoneNumberFromText(text) !== null || /\b(?:my|account|remaining|investment)\b.*\b(?:portfolio|balance|status|payouts?|rewards?|rent|investment)\b|\b(?:portfolio|investment status|payout status|rent balance|account balance)\b/i.test(text);
 }
 export function buildAccountPhoneAndDashboardGuideReply(text = '', rate: number | null = null): string {
-  const pct = formatRatePct(rateOrNull(rate));
-  const scheduleNote = pct ? `your portfolio's own rate; new partners ${pct} per month` : "your portfolio's own rate";
+  const scheduleNote = "your portfolio's own rate";
   const intro = extractPhoneNumberFromText(text)
     ? 'Use the registered Welile phone number you provided to sign in. A phone number alone does not verify ownership; I cannot share private account figures here.'
     : 'What is your registered Welile phone number (07XX XXX XXX or +256...)? Never share your password or one-time code here. Your number alone does not verify ownership; private figures are only available on your own signed-in dashboard.';
@@ -101,7 +98,7 @@ export function isWalletHowToQuery(text: string): boolean {
     || /\bhow\b.*\b(?:deposit|withdraw|transfer)\b/i.test(text);
 }
 export function buildWelileWalletGuideReply(rate: number | null = null): string {
-  return `**Step 1 — Sign In / Sign Up**\nOpen [Sign In / Open Welile Wallet](${toAuthGatedUrl('/dashboard')}) with your registered phone number.\n\n**Step 2 — Deposit Money**\nTap **Deposit** on your Wallet card. Choose **MTN Mobile Money** (*165# / Merchant Code **090777**) or **Airtel Money** (*185# / Merchant Code **4380664**). Enter the amount and approve the prompt, or submit the Transaction ID for verification. Confirm success on your dashboard; verification is not guaranteed to be instant.\n\n**Step 3 — Use Your Wallet**\n- **Supporters:** Tap **Fund a Tenant** on [Sign In / Open Funder Dashboard](${toAuthGatedUrl('/dashboard/funder-new')}) to support verified houses. ${newPartnerReturnsSentence(rate)} Returns are credited to your wallet every 30 days only under approved terms.\n- **Tenants:** Pay daily rent from your wallet, or keep funds for enabled automatic daily deductions. On-time paid days grow Access Limit by **UGX 10,000/day up to UGX 30,000,000**; missed days reduce it by **UGX 7,000/day**.\n- **Transfers & Receipts:** Use available transfer controls for eligible wallet buckets or another user and view digital receipts. Operational float is company money and cannot be withdrawn.\n\n**Step 4 — Withdraw Available Funds**\nTap **Withdraw** on your Withdrawable Wallet to request eligible Returns or commissions to your registered MTN/Airtel number or through a Welile Merchant Agent. Available balance, approval and contract/notice rules apply; committed principal is not withdrawable anytime.`;
+  return `**Step 1 — Sign In / Sign Up**\nOpen [Sign In / Open Welile Wallet](${toAuthGatedUrl('/dashboard')}) with your registered phone number.\n\n**Step 2 — Deposit Money**\nTap **Deposit** on your Wallet card. Choose **MTN Mobile Money** (*165# / Merchant Code **090777**) or **Airtel Money** (*185# / Merchant Code **4380664**). Enter the amount and approve the prompt, or submit the Transaction ID for verification. Confirm success on your dashboard; verification is not guaranteed to be instant.\n\n**Step 3 — Use Your Wallet**\n- **Supporters:** Tap **Fund a Tenant** on [Sign In / Open Funder Dashboard](${toAuthGatedUrl('/dashboard/funder-new')}) to support verified houses. ${newPartnerReturnsSentence(rate)} Returns are credited to your wallet every 30 days only under approved terms.\n- **Tenants:** Pay daily rent from your wallet, or keep funds for enabled automatic daily deductions. On-time paid days grow Access Limit by **UGX 10,000/day up to UGX 30,000,000**; missed days reduce it.\n- **Transfers & Receipts:** Use available transfer controls for eligible wallet buckets or another user and view digital receipts. Operational float is company money and cannot be withdrawn.\n\n**Step 4 — Withdraw Available Funds**\nTap **Withdraw** on your Withdrawable Wallet to request eligible Returns or commissions to your registered MTN/Airtel number or through a Welile Merchant Agent. Available balance, approval and contract/notice rules apply; committed principal is not withdrawable anytime.`;
 }
 export function isPromissoryNoteQuery(text: string): boolean {
   return /\bpromissory\s+notes?\b|\bpledge(?:d)?\b.*\b(?:date|support|commitment|renew|fulfil|fulfill)\b|\b(?:renew|update|fulfil|fulfill)\b.*\bpledge\b/i.test(text);
@@ -110,7 +107,7 @@ export function buildPromissoryNoteReminderReply(rate: number | null = null): st
   return `If you created a **Promissory Note** (pledged support commitment), **fulfill your promissory note** by depositing into your Welile Wallet (MTN Merchant **090777** / Airtel **4380664**), then completing the support commitment on your dashboard. Alternatively, **renew/update your promissory note date** before the pledge date passes. This helps keep your matched tenant's landlord payout on schedule. ${newPartnerReturnsSentence(rate)} Returns start only after funding, approval and contract terms. [Sign In / Fulfill or Renew Promissory Note](${toAuthGatedUrl('/dashboard/funder-new')}).`;
 }
 export const AGENT_COLLECTIONS_PLAYBOOK_LINKS = ['https://welileapp.com/dashboard/agent', 'https://welileapp.com/tenants-onboarding'] as const;
-export const AGENT_COLLECTIONS_PLAYBOOK_RULES = 'Welile Entebbe collections playbook: (1) never use police, lockouts, intimidation or harsh threats; treat tenants respectfully and coach them positively; (2) promise and show tenants more money: up to UGX 30,000,000 (UGX 30M) Rent Access Limit if they pay well and on time (+UGX 10,000/day for every on-time daily payment, up to UGX 30,000,000; missed days reduce it by UGX 7,000/day); (3) promise a Top-Up as soon as their tenants hit 70% repayment on their current Rent Plan; (4) always share https://welileapp.com/dashboard/agent and https://welileapp.com/tenants-onboarding.';
+export const AGENT_COLLECTIONS_PLAYBOOK_RULES = 'Welile Entebbe collections playbook: (1) never use police, lockouts, intimidation or harsh threats; treat tenants respectfully and coach them positively; (2) promise and show tenants more money: up to UGX 30,000,000 (UGX 30M) Rent Access Limit if they pay well and on time (+UGX 10,000/day for every on-time daily payment, up to UGX 30,000,000; missed days reduce it); (3) promise a Top-Up as soon as their tenants hit 70% repayment on their current Rent Plan; (4) always share https://welileapp.com/dashboard/agent and https://welileapp.com/tenants-onboarding.';
 
 export function isAgentCollectionsCoachingQuery(text: string): boolean {
   const t = text.toLowerCase();
@@ -124,7 +121,7 @@ export function buildAgentCollectionsCoachingGuideReply(isAuthenticated = false)
   return `**Welile Entebbe Collections Playbook**
 
 1. **Never use police or harsh threats.** Treat every tenant with respect. No police, lockouts or intimidation — coach them positively and agree a small daily amount they can keep.
-2. **Show them more money: up to UGX 30,000,000 (UGX 30M).** Every on-time daily payment grows their Rent Access Limit by **+UGX 10,000/day, up to UGX 30,000,000**. Missed days reduce it by **UGX 7,000/day**. Paying well and on time is how they unlock more.
+2. **Show them more money: up to UGX 30,000,000 (UGX 30M).** Every on-time daily payment grows their Rent Access Limit by **+UGX 10,000/day, up to UGX 30,000,000**. Missed days reduce it. Paying well and on time is how they unlock more.
 3. **Promise a Top-Up at 70% repayment.** As soon as your tenants hit **70% repayment** on their current Rent Plan, they qualify for a top-up — more rent support, early.
 4. **Share both links:**
    - Agent dashboard: https://welileapp.com/dashboard/agent
@@ -148,7 +145,7 @@ export function buildNexaPublicGuideReply(text: string, isAuthenticated = false,
 Explore **30/60/90-day Rent Plans**: Welile pays your landlord upfront for the approved, funded amount, then you repay on your approved schedule. Identity, Tenant, Landlord and property verification and approval still apply; submitting a request is not a promise of funding.
 
 **Build your Rent Access Limit**
-On-time paid days grow your limit by **+UGX 10,000/day up to UGX 30,000,000**. Missed days reduce it by **UGX 7,000/day**. This programme illustration is not your current limit or a guarantee of access. No traditional bank collateral is required; verification and approved Rent Plan terms remain necessary.
+On-time paid days grow your limit by **+UGX 10,000/day up to UGX 30,000,000**. Missed days reduce it. This programme illustration is not your current limit or a guarantee of access. No traditional bank collateral is required; verification and approved Rent Plan terms remain necessary.
 
 **Your next steps**
 1. ${link('Request Rent Support', '/register-tenant')} and complete your tenant details.
@@ -202,7 +199,7 @@ export function buildFinancialAccessFallbackReply(raw = '', isAuthenticated = fa
 Financial inclusion means access to useful, affordable payments, savings, support and productive assets. Compare eligibility, total repayment, rates, risks and withdrawal terms before committing; a repayment record is not automatic approval.
 
 **1. Credit & Limit Building Without Collateral**
-Welile uses daily rent repayment history as an alternative financial reputation. On-time paid days grow your **Welile Rent Access Limit by +UGX 10,000/day up to UGX 30,000,000**; missed days reduce it by **UGX 7,000/day**. This is a programme illustration, not your current limit or a guarantee of access. Explore Rent Support without traditional bank collateral; identity, verification and approved Rent Plan terms still apply. ${link('Get Rent Support', '/register-tenant')}.
+Welile uses daily rent repayment history as an alternative financial reputation. On-time paid days grow your **Welile Rent Access Limit by +UGX 10,000/day up to UGX 30,000,000**; missed days reduce it. This is a programme illustration, not your current limit or a guarantee of access. Explore Rent Support without traditional bank collateral; identity, verification and approved Rent Plan terms still apply. ${link('Get Rent Support', '/register-tenant')}.
 
 **2. Wealth & Monthly Rewards Access**
 Explore tenant rent facilitation with **UGX 50,000+**, subject to available plans and approved minimums. ${joinSentences(newPartnerReturnsSentence(rate), returnsExampleSentence(rate))} Review verified **Tenant + Landlord + GPS** homes and Promissory Notes. Committed capital requires **90-day withdrawal notice** under approved terms. Welile provides an operational guarantee for every tenant you support. ${link('Support a Tenant', '/dashboard/funder-new')}.

@@ -1,5 +1,5 @@
 import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
-import { Check, ChevronRight, Clock, Home, Navigation } from 'lucide-react';
+import { Check, ChevronRight, Home, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -63,12 +63,7 @@ export function FunderNewHouseCard({
     >
       <div className="relative aspect-[16/10] w-full bg-muted">
         {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
-        {boardTagsOn ? null : isEmpty ? (
-          <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            Pending verification
-          </div>
-        ) : (
+        {boardTagsOn ? null : (
           <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -86,7 +81,7 @@ export function FunderNewHouseCard({
               <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
               <path d="m9 12 2 2 4-4" stroke="white" />
             </svg>
-            Verified tenant
+            {isEmpty ? 'Verified House' : 'Verified tenant'}
           </div>
         )}
 
@@ -150,7 +145,7 @@ export function FunderNewHouseCard({
               {monthlyReturn === null ? 'Support this home' : <>Earn <span className="font-semibold text-primary">{formatDynamic(monthlyReturn)}</span> monthly</>}
             </p>
           </div>
-          <span className="inline-flex flex-none items-center gap-0.5 text-xs font-semibold text-foreground" aria-hidden>
+          <span className="inline-flex flex-none items-center gap-0.5 text-xs font-semibold text-primary" aria-hidden>
             Details
             <ChevronRight className="h-4 w-4" />
           </span>
@@ -171,11 +166,11 @@ export function FunderNewHouseCard({
               <svg viewBox="0 0 24 24" className="!h-5 !w-5" aria-hidden>
                 <path
                   d="M12 1.5a8 8 0 0 0-8 8c0 5.6 6.6 11.8 7.3 12.5a1 1 0 0 0 1.4 0c.7-.7 7.3-6.9 7.3-12.5a8 8 0 0 0-8-8Z"
-                  fill="#EA4335"
-                  stroke="#B3261E"
+                  fill="hsl(var(--warning))"
+                  stroke="hsl(var(--warning))"
                   strokeWidth="1"
                 />
-                <circle cx="12" cy="9.5" r="3" fill="#8C1D18" />
+                <circle cx="12" cy="9.5" r="3" fill="hsl(var(--card))" />
               </svg>
               <span className="text-[10px] font-semibold leading-none">Location</span>
             </Button>
@@ -193,7 +188,8 @@ export function FunderNewHouseCard({
             aria-pressed={selected}
           >
             {selected ? <Check className="h-4 w-4 text-white" aria-hidden /> : null}
-            {selected ? 'Selected' : isEmpty ? 'Pending verification' : 'Fund this House'}
+            {/* Every house on the funder feed is verified (p_verified_only). */}
+            {selected ? 'Selected' : 'Fund this House'}
           </Button>
 
         </div>

@@ -2,7 +2,9 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffec
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { AlertTriangle, Home, ListFilter, Loader2 } from 'lucide-react';
 import type { FunderListingsViewApi, FeedEntry } from '@/components/supporter/FunderHouseListingsSection';
-import { itemId, sortLabel } from '@/components/funder-new/utils';
+import { itemId, readyPlanPlace, readyPlanTitle, sortLabel } from '@/components/funder-new/utils';
+import { useRentPlanFundChoice } from '@/components/supporter/FunderFundChooser';
+import type { FunderNewReadyPlan } from '@/components/funder-new/types';
 import { FunderV3HouseCard } from './FunderV3HouseCard';
 import { FunderBoardItemCard } from '@/components/funder-new/FunderBoardItemCard';
 import { straightLineDistance } from '@/components/funder-new/distance';
@@ -54,6 +56,7 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
   { api, scrollRef, highlightedId, scrollPaddingTop = 0, onHoverCard, reducedMotion = false, demoteMode = false, demoteChecked, onDemoteToggle, onDemoteToggleBoard },
   ref,
 ) {
+  const fundChoice = useRentPlanFundChoice();
   const {
     items,
     feedLoading,
@@ -155,7 +158,20 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
         selected={api.isSelected(entry.category, id)}
         distance={api.distanceFor(entry)}
         onSave={() => api.toggleSave(entry.category, id)}
-        onSelect={() => api.toggleSelect(entry.category, entry.item)}
+        onSelect={() => {
+          if (entry.category !== 'ready' || api.isSelected(entry.category, id)) {
+            api.toggleSelect(entry.category, entry.item);
+            return;
+          }
+          const plan = entry.item as FunderNewReadyPlan;
+          fundChoice.ask({
+            rentRequestId: plan.rent_request_id,
+            title: readyPlanTitle(plan),
+            place: readyPlanPlace(plan),
+            landlordName: plan.landlord_name,
+            rentAmount: Number(plan.funding_amount || 0),
+          }, () => api.toggleSelect(entry.category, entry.item));
+        }}
         onDetail={() => api.openDetail(entry.category, entry.item)}
         priority={index === 0}
         highlighted={highlightedId === cardId}
@@ -171,6 +187,7 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
 
   return (
     <div className="flex flex-col gap-3" data-testid="fv3-list">
+      {fundChoice.chooser}
       {withinFloatApplied ? (
         <p className="px-1 fv3-t-xs text-muted-foreground">
           Within-balance is applied to the homes already loaded, because the read service has no balance filter.

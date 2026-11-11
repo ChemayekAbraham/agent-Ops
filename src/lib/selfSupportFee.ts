@@ -52,3 +52,22 @@ export function selfSupportProxyFee(rent: number, policy: SelfSupportFeePolicy):
   const gross = selfSupportGross(rent, policy);
   return Number.isFinite(gross) && Number.isFinite(rent) ? Math.max(0, gross - rent) : 0;
 }
+
+export type FundCoverOption = 'welile' | 'momo' | 'cash' | 'support';
+
+/** Welile Cover for a fund option. Private agreement (support team) is never charged. */
+export function welileCoverForOption(option: FundCoverOption, rent: number, policy: SelfSupportFeePolicy): number {
+  if (option === 'support') return 0;
+  return selfSupportProxyFee(rent, policy);
+}
+
+function ugx(amount: number): string {
+  return `UGX ${Math.round(amount).toLocaleString('en-US')}`;
+}
+
+/** Sentence shown before a direct or cash payment. Null while the policy is off. */
+export function welileCoverSentence(rent: number, policy: SelfSupportFeePolicy): string | null {
+  const fee = welileCoverForOption('momo', rent, policy);
+  if (!(fee > 0) || !(rent > 0)) return null;
+  return `${ugx(rent)} rent to the landlord, plus ${ugx(fee)} Welile Cover from your Welile wallet when Welile confirms this payment.`;
+}

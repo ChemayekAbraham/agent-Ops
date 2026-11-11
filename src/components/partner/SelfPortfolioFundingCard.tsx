@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 
 import { SelfPortfolioDeployDialog } from './SelfPortfolioDeployDialog';
 import { SelfPortfolioPlanDetailSheet } from './SelfPortfolioPlanDetailSheet';
+import { useRentPlanFundChoice } from '@/components/supporter/FunderFundChooser';
 import { PlanShareButton } from './PlanShareButton';
 import { SlotAmount } from './SlotAmount';
 import {
@@ -1028,6 +1029,8 @@ export function SelfPortfolioFundingCard({
     setPage((current) => Math.min(current, pageCount - 1));
   }, [pageCount]);
 
+  const fundChoice = useRentPlanFundChoice();
+
   const toggle = (id: string) => {
     if (selected.includes(id)) {
       setSelected((prev) => prev.filter((x) => x !== id));
@@ -1722,7 +1725,17 @@ export function SelfPortfolioFundingCard({
                         disabled={heldByOther || busy}
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggle(plan.rent_request_id);
+                          if (isSelected) {
+                            toggle(plan.rent_request_id);
+                            return;
+                          }
+                          fundChoice.ask({
+                            rentRequestId: plan.rent_request_id,
+                            title: plan.house_category ? plan.house_category.replace(/-/g, ' ') : 'Rent Plan',
+                            place: plan.request_city || plan.tenant_location || '',
+                            landlordName: plan.landlord_name,
+                            rentAmount: Number(plan.funding_amount || 0),
+                          }, () => toggle(plan.rent_request_id));
                         }}
                         aria-label={`${isSelected ? 'Remove selected Rent Plan' : 'Fund this House'} for ${plan.tenant_full_name ?? plan.tenant_first_name ?? 'tenant'}`}
                         aria-pressed={isSelected}
@@ -1908,6 +1921,7 @@ export function SelfPortfolioFundingCard({
         onDeployed={handleDeployed}
       />
 
+      {fundChoice.chooser}
       <SelfPortfolioPlanDetailSheet
         plan={detailPlan}
         open={!!detailPlan}

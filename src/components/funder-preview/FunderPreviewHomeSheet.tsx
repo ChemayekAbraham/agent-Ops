@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   Check,
+  ExternalLink,
   Heart,
   Home,
   Loader2,
@@ -27,7 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { createHouseShareLink, houseShareMessageFor } from '@/lib/houseSupportShare';
 import { createPlanShareLink, planShareFallbackDescription, planShareTitle } from '@/lib/planShareLink';
 import type { FunderNewCategory, FunderNewEmptyHouse, FunderNewReadyPlan } from '@/components/funder-new/types';
-import { isHouseVerified, itemAmount, toSelectionItem } from '@/components/funder-new/utils';
+import { isHouseVerified, itemAmount, itemCoordinates, toSelectionItem } from '@/components/funder-new/utils';
 import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { AgentCareNote } from '@/components/partner/AgentCareNote';
 
@@ -121,11 +122,17 @@ export function FunderPreviewHomeSheet({
   if (!entry) return null;
   const view = toSelectionItem(entry.category, entry.item, partnerPay);
   const photos = photosOf(entry);
-  const verified = isHouseVerified(entry.category, entry.item);
+  // Tenant-ready entries come from the COO-reviewed fundable-plan service; their landlords are verified.
+  const verified = entry.category === 'ready' || isHouseVerified(entry.category, entry.item);
   const rooms = entry.category === 'empty' ? (entry.item as FunderNewEmptyHouse).number_of_rooms : null;
   const placeLine = [view.place, rooms ? `${rooms} ${rooms === 1 ? 'room' : 'rooms'}` : null, distanceLabel]
     .filter(Boolean)
     .join(' · ');
+  // Only a recorded GPS pin gets a map link; a missing pin is never guessed.
+  const coords = itemCoordinates(entry.item, entry.category);
+  const mapsUrl = coords
+    ? `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`
+    : null;
 
   /**
    * Share the open home or Rent Plan. Both categories get a real, trackable
@@ -264,17 +271,36 @@ export function FunderPreviewHomeSheet({
               {verified ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-[13px] font-semibold text-primary">
                   <BadgeCheck className="h-3.5 w-3.5 fill-primary text-primary [&_path:last-child]:stroke-white" strokeWidth={2.5} aria-hidden />
-                  Verified house
+                  {entry.category === 'ready' ? 'Verified landlord' : 'Verified house'}
                 </span>
               ) : null}
             </div>
 
             <div className="space-y-1">
               <h2 className="text-[26px] font-bold leading-tight tracking-tight">{view.title}</h2>
-              <p className="flex items-center gap-1.5 text-[15px] text-muted-foreground">
-                <MapPin className="h-4 w-4 flex-none" aria-hidden />
-                {placeLine}
-              </p>
+              {mapsUrl ? (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open ${view.title} in ${view.place} in Google Maps (opens a new tab)`}
+                  className="mt-1 flex min-h-12 items-center gap-2.5 rounded-2xl border bg-card py-2 pl-2 pr-3 text-foreground no-underline transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span aria-hidden className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[10px] bg-primary/10 text-primary">
+                    <MapPin className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-[15px] font-semibold">{placeLine}</span>
+                    <span className="text-[13px] font-semibold text-primary">Open in Google Maps</span>
+                  </span>
+                  <ExternalLink className="h-[18px] w-[18px] flex-none text-primary" aria-hidden />
+                </a>
+              ) : (
+                <p className="flex items-center gap-1.5 text-[15px] text-muted-foreground">
+                  <MapPin className="h-4 w-4 flex-none" aria-hidden />
+                  {placeLine}
+                </p>
+              )}
             </div>
 
             <section aria-labelledby="preview-how-h" className="space-y-3 rounded-[20px] border bg-card p-4">
@@ -346,10 +372,6 @@ export function FunderPreviewHomeSheet({
                 </dd>
               </div>
             </dl>
-            <AgentCareNote
-              kind={entry.category === 'empty' ? 'house' : 'tenant'}
-              rent={itemAmount(entry.category, entry.item)}
-            />
 
             <ul aria-label="Why you can trust this home" className="space-y-2.5">
               {trustRows(entry.item, entry.category).map(({ icon: Icon, text }) => (
@@ -361,6 +383,10 @@ export function FunderPreviewHomeSheet({
                 </li>
               ))}
             </ul>
+            <AgentCareNote
+              kind={entry.category === 'empty' ? 'house' : 'tenant'}
+              rent={itemAmount(entry.category, entry.item)}
+            />
           </div>
         </div>
 

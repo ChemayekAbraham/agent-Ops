@@ -13,7 +13,7 @@ import { formatRatePct, monthlyReturnFor, rateOrNull } from './partnerReturnPoli
 export const MIN_AMOUNT = 20_000;
 export const MAX_AMOUNT = 500_000_000;
 export const MAX_MONTHS = 36;
-export const RETURNS_DISCLAIMER = 'Illustrative only, not guaranteed. Returns depend on approved plan terms and capital is at risk.';
+export const RETURNS_DISCLAIMER = 'New partners earn a 15% Rent profit share per month for 12 months. Your principal and Rent profit share are guaranteed as set out in your partnership agreement.';
 
 export type ReturnsMode = 'simple' | 'compound';
 export interface ReturnsEstimate {

@@ -24,13 +24,14 @@ import { CashPositionInsights } from '@/components/cfo/CashPositionInsights';
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.rpc.mockImplementation(async (name: string, args: any = {}) => {
-    if (name === 'get_cfo_daily_cash_flow') {
+    if (name === 'get_cfo_daily_cash_movement') {
       const days = Number(args.p_days);
       return {
         data: Array.from({ length: days }, (_, i) => ({
           day: `2026-10-${String(25 - i).padStart(2, '0')}`,
           inflow: 1_000_000,
           outflow: 400_000,
+          corrections: 0,
         })),
         error: null,
       };
@@ -68,7 +69,7 @@ describe('Cash Position overview date range', () => {
 
     fireEvent.change(select, { target: { value: '1' } });
     await waitFor(() =>
-      expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_daily_cash_flow', { p_days: 1 }),
+      expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_daily_cash_movement', { p_days: 1 }),
     );
   });
 

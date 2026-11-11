@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readMonthlyPlans, saveMonthlyPlan, monthlyPlansKey, type MonthlyProjectPlan } from './monthlyProjectPlans';
+import { readMonthlyPlans, saveMonthlyPlan, monthlyPlansKey, type MonthlyProjectPlan } from './monthlyProjectPlans.data';
 
 const plan: MonthlyProjectPlan = { projectId: 'car', projectName: 'Welile Car', month: '2026-11', budget: 1000000, targets: 'Register 10 customers', updatedAt: '2026-11-09T09:08:00Z' };
 describe('Monthly project planning', () => {
