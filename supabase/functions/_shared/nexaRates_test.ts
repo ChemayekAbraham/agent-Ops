@@ -28,21 +28,21 @@ const guides = (rate: number | null): Record<string, string> => ({
   pitch: buildSignupPersuasionPitch("supporter", false, rate),
 });
 
-Deno.test("guides: rate 15 quotes 15% per month and never 10%", () => {
-  for (const [name, text] of Object.entries(guides(15))) {
-    assert(text.includes("15% per month"), name);
+const APPROVED = "New partners earn a 15% Rent profit share per month for 12 months. Your principal and Rent profit share are guaranteed as set out in your partnership agreement.";
+
+Deno.test("guides: approved new-partner sentence, never the old Returns claim", () => {
+  for (const rate of [15, 10, null]) for (const [name, text] of Object.entries(guides(rate))) {
+    assert(text.includes(APPROVED), name);
+    assert(!text.includes("illustrative Returns"), name);
+    assert(!text.includes("UGX 7,000"), name);
     assert(!text.includes("10% per month"), name);
     assert(text.includes("Existing partners keep their own rate"), name);
   }
 });
 
-Deno.test("guides: rate 10 quotes 10% per month", () => {
-  for (const [name, text] of Object.entries(guides(10))) assert(text.includes("10% per month"), name);
-});
-
-Deno.test("guides: no rate -> no number, no /month example", () => {
+Deno.test("guides: no rate -> no worked UGX example", () => {
   for (const [name, text] of Object.entries(guides(null))) {
-    assert(text.includes("rate shown in the Welile app"), name);
+    assert(text.includes(APPROVED), name);
     assert(!/\d+(\.\d+)?% per month/.test(text), name);
     assert(!text.includes("UGX 100,000 illustrates"), name);
     assert(!/UGX [\d,]+\/month/.test(text), name);
@@ -64,12 +64,15 @@ Deno.test("guides: the UGX 100,000 example equals monthlyReturnFor", () => {
   }
   assertEquals(returnsExampleSentence(null), "");
   assertEquals(returnsExampleSentence(0), "");
-  assert(newPartnerReturnsSentence(12.5).includes("12.5% per month"));
+  assert(newPartnerReturnsSentence(12.5).includes(APPROVED));
+  assert(!newPartnerReturnsSentence(12.5).includes("12.5%"));
 });
 
-Deno.test("knowledge(15): the rate, the rule, computed examples; no history", () => {
+Deno.test("knowledge(15): the approved sentence, the rule, computed examples; no history", () => {
   const k = buildSupporterReturnsKnowledge(15);
-  assert(k.includes("15% a month"));
+  assert(k.includes(APPROVED));
+  assert(!k.includes("illustrative, not guaranteed"));
+  assert(!k.includes("capital is at risk"));
   assert(k.includes("Existing partners keep the rate"));
   assert(!k.includes("20% per month") && !k.includes("15% per month") && !k.includes("10% per month"));
   assert(!k.includes("everyone joining now starts"), "old rate-history sentence");
@@ -90,19 +93,22 @@ Deno.test("knowledge(15): the rate, the rule, computed examples; no history", ()
 });
 
 Deno.test("knowledge(10) and knowledge(null)", () => {
-  assert(buildSupporterReturnsKnowledge(10).includes("10% a month"));
+  assert(buildSupporterReturnsKnowledge(10).includes(APPROVED));
+  assert(buildSupporterReturnsKnowledge(10).includes("Examples at 10%"));
   const none = buildSupporterReturnsKnowledge(null);
   const firstLine = none.split("\n")[1];
-  assert(firstLine.startsWith("New partners earn"), firstLine);
-  assert(!/\d+(\.\d+)?%/.test(firstLine), firstLine);
+  assert(firstLine.startsWith("New partners earn a 15% Rent profit share"), firstLine);
   assert(none.includes("give no figures"));
   assert(!none.includes("Examples at"));
 });
 
-Deno.test("system prompt: the static part never carries a Returns rate", () => {
+Deno.test("system prompt: approved sentence, no old per-month Returns rate phrasing", () => {
   assert(!/\b(10|15|20)% (per month|a month)/.test(NEXA_SALES_SYSTEM_PROMPT));
-  assert(buildNexaSystemPrompt([], false, 15).includes("New partners earn 15% a month"));
-  assert(buildNexaSystemPrompt([], false, null).includes("no number is available right now"));
+  assert(NEXA_SALES_SYSTEM_PROMPT.includes(APPROVED));
+  assert(buildNexaSystemPrompt([], false, 15).includes(APPROVED));
+  assert(buildNexaSystemPrompt([], false, null).includes("give no figures"));
+  assert(!buildNexaSystemPrompt([], false, null).includes("no number is available right now"));
+  assert(!buildNexaSystemPrompt([], false, null).includes("UGX 7,000"));
 });
 
 Deno.test("tool defs: own-rate tool only for a signed-in caller; estimate text follows the rate", () => {

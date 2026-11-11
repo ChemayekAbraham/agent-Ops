@@ -41414,6 +41414,245 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_receipt_corrections: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          kind: string
+          new_receipt_id: string | null
+          proposed: Json
+          reason: string
+          receipt_id: string
+          requested_at: string
+          requested_by: string
+          status: string
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          kind: string
+          new_receipt_id?: string | null
+          proposed?: Json
+          reason: string
+          receipt_id: string
+          requested_at?: string
+          requested_by: string
+          status?: string
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          kind?: string
+          new_receipt_id?: string | null
+          proposed?: Json
+          reason?: string
+          receipt_id?: string
+          requested_at?: string
+          requested_by?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_receipt_corrections_new_receipt_id_fkey"
+            columns: ["new_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "partner_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_receipt_corrections_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "partner_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_receipt_counter: {
+        Row: {
+          id: number
+          last_no: number
+        }
+        Insert: {
+          id: number
+          last_no: number
+        }
+        Update: {
+          id?: number
+          last_no?: number
+        }
+        Relationships: []
+      }
+      partner_receipt_events: {
+        Row: {
+          actor: string | null
+          at: string
+          detail: Json
+          event: string
+          id: number
+          receipt_id: string
+        }
+        Insert: {
+          actor?: string | null
+          at?: string
+          detail?: Json
+          event: string
+          id?: number
+          receipt_id: string
+        }
+        Update: {
+          actor?: string | null
+          at?: string
+          detail?: Json
+          event?: string
+          id?: number
+          receipt_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_receipt_events_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "partner_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_receipts: {
+        Row: {
+          amount: number
+          branch: string
+          cash_confirmed_at: string | null
+          cash_confirmed_by: string | null
+          delivered_at: string | null
+          delivered_via: string | null
+          deposit_request_id: string | null
+          drawn_on: string | null
+          id: string
+          instrument_no: string | null
+          issued_at: string
+          issued_by: string
+          note: string | null
+          payer_phone: string | null
+          payer_user_id: string | null
+          payment_method: string
+          purpose: string
+          receipt_code: string
+          receipt_no: number
+          received_from: string
+          received_on: string
+          status: string
+          superseded_by_id: string | null
+          supersedes_id: string | null
+          verify_token: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          amount: number
+          branch?: string
+          cash_confirmed_at?: string | null
+          cash_confirmed_by?: string | null
+          delivered_at?: string | null
+          delivered_via?: string | null
+          deposit_request_id?: string | null
+          drawn_on?: string | null
+          id?: string
+          instrument_no?: string | null
+          issued_at?: string
+          issued_by: string
+          note?: string | null
+          payer_phone?: string | null
+          payer_user_id?: string | null
+          payment_method: string
+          purpose: string
+          receipt_code: string
+          receipt_no: number
+          received_from: string
+          received_on: string
+          status?: string
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
+          verify_token?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          amount?: number
+          branch?: string
+          cash_confirmed_at?: string | null
+          cash_confirmed_by?: string | null
+          delivered_at?: string | null
+          delivered_via?: string | null
+          deposit_request_id?: string | null
+          drawn_on?: string | null
+          id?: string
+          instrument_no?: string | null
+          issued_at?: string
+          issued_by?: string
+          note?: string | null
+          payer_phone?: string | null
+          payer_user_id?: string | null
+          payment_method?: string
+          purpose?: string
+          receipt_code?: string
+          receipt_no?: number
+          received_from?: string
+          received_on?: string
+          status?: string
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
+          verify_token?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_receipts_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "agent_misrouted_deposits_preview"
+            referencedColumns: ["deposit_id"]
+          },
+          {
+            foreignKeyName: "partner_receipts_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "deposit_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_receipts_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
+          },
+          {
+            foreignKeyName: "partner_receipts_superseded_by_id_fkey"
+            columns: ["superseded_by_id"]
+            isOneToOne: false
+            referencedRelation: "partner_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_receipts_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "partner_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_return_cohort: {
         Row: {
           basis: string
@@ -77598,6 +77837,60 @@ export type Database = {
           existing_total: number
         }[]
       }
+      _partner_receipt_insert: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_branch: string
+          p_deposit_request_id: string
+          p_drawn_on: string
+          p_instrument_no: string
+          p_method: string
+          p_note: string
+          p_payer_phone: string
+          p_payer_user_id: string
+          p_purpose: string
+          p_received_from: string
+          p_received_on: string
+          p_supersedes: string
+        }
+        Returns: {
+          amount: number
+          branch: string
+          cash_confirmed_at: string | null
+          cash_confirmed_by: string | null
+          delivered_at: string | null
+          delivered_via: string | null
+          deposit_request_id: string | null
+          drawn_on: string | null
+          id: string
+          instrument_no: string | null
+          issued_at: string
+          issued_by: string
+          note: string | null
+          payer_phone: string | null
+          payer_user_id: string | null
+          payment_method: string
+          purpose: string
+          receipt_code: string
+          receipt_no: number
+          received_from: string
+          received_on: string
+          status: string
+          superseded_by_id: string | null
+          supersedes_id: string | null
+          verify_token: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "partner_receipts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       _partner_receivable_derecognise_deleted: {
         Args: {
           p_note_id: string
@@ -81306,6 +81599,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_approve_partner_receipt_correction: {
+        Args: { _uid: string }
+        Returns: boolean
+      }
       can_cfo_disburse_bike_leases: {
         Args: { _user_id: string }
         Returns: boolean
@@ -81322,6 +81619,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_issue_partner_receipt: { Args: { _uid: string }; Returns: boolean }
       can_manage_dashboard_access: {
         Args: { _user_id: string }
         Returns: boolean
@@ -81389,6 +81687,7 @@ export type Database = {
         Returns: boolean
       }
       can_view_neexa_inbox: { Args: { _uid: string }; Returns: boolean }
+      can_view_partner_receipts: { Args: { _uid: string }; Returns: boolean }
       can_view_payout_reconciliation: {
         Args: { p_user_id: string }
         Returns: boolean
@@ -82853,6 +83152,45 @@ export type Database = {
         Args: { p_note: string; p_sale_id: string }
         Returns: string
       }
+      confirm_partner_receipt_cash: {
+        Args: { p_receipt_id: string }
+        Returns: {
+          amount: number
+          branch: string
+          cash_confirmed_at: string | null
+          cash_confirmed_by: string | null
+          delivered_at: string | null
+          delivered_via: string | null
+          deposit_request_id: string | null
+          drawn_on: string | null
+          id: string
+          instrument_no: string | null
+          issued_at: string
+          issued_by: string
+          note: string | null
+          payer_phone: string | null
+          payer_user_id: string | null
+          payment_method: string
+          purpose: string
+          receipt_code: string
+          receipt_no: number
+          received_from: string
+          received_on: string
+          status: string
+          superseded_by_id: string | null
+          supersedes_id: string | null
+          verify_token: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "partner_receipts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       confirm_payout_number_ownership: {
         Args: { p_number: string }
         Returns: Json
@@ -83669,6 +84007,29 @@ export type Database = {
           p_reason?: string
         }
         Returns: Json
+      }
+      decide_partner_receipt_correction: {
+        Args: { p_approve: boolean; p_correction_id: string; p_note?: string }
+        Returns: {
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          kind: string
+          new_receipt_id: string | null
+          proposed: Json
+          reason: string
+          receipt_id: string
+          requested_at: string
+          requested_by: string
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "partner_receipt_corrections"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       decrement_rent_requested: {
         Args: { p_amount: number; p_summary_id: string }
@@ -88428,6 +88789,15 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      get_partner_receipt_history: {
+        Args: { p_receipt_id: string }
+        Returns: {
+          actor_name: string
+          at: string
+          detail: Json
+          event: string
+        }[]
+      }
       get_partner_return_policy: { Args: never; Returns: Json }
       get_partner_return_report: {
         Args: { p_end: string; p_start: string }
@@ -90823,6 +91193,10 @@ export type Database = {
       }
       invoke_engrep_harvest_commits: { Args: never; Returns: undefined }
       invoke_hr_careers_acknowledge: { Args: never; Returns: undefined }
+      invoke_reconcile_bulk_bank_payout_stuck: {
+        Args: never
+        Returns: undefined
+      }
       is_active_cashout_agent: { Args: { _user_id: string }; Returns: boolean }
       is_active_food_coordinator: {
         Args: { _user_id: string }
@@ -90960,6 +91334,58 @@ export type Database = {
       issue_landlord_payout_receipt: {
         Args: { p_payout_id: string; p_processed_by?: string }
         Returns: Json
+      }
+      issue_partner_receipt: {
+        Args: {
+          p_amount: number
+          p_branch?: string
+          p_deposit_request_id?: string
+          p_drawn_on?: string
+          p_instrument_no?: string
+          p_method: string
+          p_note?: string
+          p_payer_phone?: string
+          p_payer_user_id?: string
+          p_purpose: string
+          p_received_from: string
+          p_received_on: string
+        }
+        Returns: {
+          amount: number
+          branch: string
+          cash_confirmed_at: string | null
+          cash_confirmed_by: string | null
+          delivered_at: string | null
+          delivered_via: string | null
+          deposit_request_id: string | null
+          drawn_on: string | null
+          id: string
+          instrument_no: string | null
+          issued_at: string
+          issued_by: string
+          note: string | null
+          payer_phone: string | null
+          payer_user_id: string | null
+          payment_method: string
+          purpose: string
+          receipt_code: string
+          receipt_no: number
+          received_from: string
+          received_on: string
+          status: string
+          superseded_by_id: string | null
+          supersedes_id: string | null
+          verify_token: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "partner_receipts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       issue_tenant_dashboard_link: {
         Args: {
@@ -92181,6 +92607,45 @@ export type Database = {
       mark_in_app_notification_read: {
         Args: { p_notification_id: string }
         Returns: boolean
+      }
+      mark_partner_receipt_delivered: {
+        Args: { p_receipt_id: string; p_via: string }
+        Returns: {
+          amount: number
+          branch: string
+          cash_confirmed_at: string | null
+          cash_confirmed_by: string | null
+          delivered_at: string | null
+          delivered_via: string | null
+          deposit_request_id: string | null
+          drawn_on: string | null
+          id: string
+          instrument_no: string | null
+          issued_at: string
+          issued_by: string
+          note: string | null
+          payer_phone: string | null
+          payer_user_id: string | null
+          payment_method: string
+          purpose: string
+          receipt_code: string
+          receipt_no: number
+          received_from: string
+          received_on: string
+          status: string
+          superseded_by_id: string | null
+          supersedes_id: string | null
+          verify_token: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "partner_receipts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       mark_proxy_commission_completed: {
         Args: { p_id: string; p_note?: string }
@@ -94257,6 +94722,10 @@ export type Database = {
           rate: number
         }[]
       }
+      partner_receipts_daily_closing: {
+        Args: { p_day?: string }
+        Returns: Json
+      }
       partner_record_staff_ok: { Args: never; Returns: boolean }
       partner_return_cutoff_at: { Args: never; Returns: string }
       partner_returns_visible_to_caller: {
@@ -96039,6 +96508,11 @@ export type Database = {
         Returns: number
       }
       recalculate_credit_limit: { Args: { p_user_id: string }; Returns: number }
+      receipt_archive_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      receipt_phone_key: { Args: { p: string }; Returns: string }
       receivables_category_frame: {
         Args: never
         Returns: {
@@ -97013,6 +97487,34 @@ export type Database = {
         Args: { p_member_id: string; p_reason: string }
         Returns: Json
       }
+      request_partner_receipt_correction: {
+        Args: {
+          p_kind: string
+          p_proposed?: Json
+          p_reason: string
+          p_receipt_id: string
+        }
+        Returns: {
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          kind: string
+          new_receipt_id: string | null
+          proposed: Json
+          reason: string
+          receipt_id: string
+          requested_at: string
+          requested_by: string
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "partner_receipt_corrections"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       request_payout_number_change: {
         Args: {
           p_name: string
@@ -97462,6 +97964,48 @@ export type Database = {
           ward: string
         }[]
       }
+      search_partner_receipts: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_method?: string
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: {
+          amount: number
+          branch: string
+          cash_confirmed_at: string
+          cash_confirmed_by_name: string
+          delivered_at: string
+          delivered_via: string
+          deposit_request_id: string
+          drawn_on: string
+          id: string
+          instrument_no: string
+          issued_at: string
+          issued_by: string
+          issued_by_name: string
+          note: string
+          payer_phone: string
+          payment_method: string
+          pending_correction_id: string
+          purpose: string
+          receipt_code: string
+          receipt_no: number
+          received_from: string
+          received_on: string
+          status: string
+          superseded_by_id: string
+          supersedes_id: string
+          total_count: number
+          verify_token: string
+          void_reason: string
+          voided_at: string
+        }[]
+      }
       search_people_for_dashboard_access: {
         Args: { p_term: string }
         Returns: {
@@ -97479,6 +98023,37 @@ export type Database = {
           full_name: string
           id: string
           phone: string
+        }[]
+      }
+      search_receipt_archive: {
+        Args: {
+          p_direction?: string
+          p_from?: string
+          p_limit?: number
+          p_method?: string
+          p_offset?: number
+          p_search?: string
+          p_source?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: {
+          amount: number
+          client_name: string
+          client_phone: string
+          direction: string
+          event_at: string
+          id: string
+          issued_by_name: string
+          link_token: string
+          method: string
+          purpose: string
+          receipt_no: number
+          receipt_ref: string
+          replaced_by_no: number
+          source: string
+          status: string
+          total_count: number
         }[]
       }
       search_supporters: {
