@@ -82,7 +82,8 @@ async function renderSection() {
 beforeEach(() => rpc.mockReset());
 afterEach(() => cleanup());
 
-describe('funders houses list: header totals are COO/CEO only', () => {
+// The first render loads the whole section module cold (about 5 s), so allow more than the default.
+describe('funders houses list: header totals are COO/CEO only', { timeout: 20_000 }, () => {
   it('funder view: grouped list with group headers, no totals', async () => {
     mockRpc(false);
     await renderSection();
