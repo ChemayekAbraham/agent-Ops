@@ -5,7 +5,7 @@ import { render, screen } from '@testing-library/react';
 vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 
 import StudentProfileSummary from '@/components/welile-schools/StudentProfileSummary';
-import { parseStudentQr, showsStream, studentCode, studentQrValue, type SchoolProfileRow } from '@/lib/welileSchools';
+import { isTertiaryLearner, parseStudentQr, showsStream, studentCode, studentQrValue, type SchoolProfileRow } from '@/lib/welileSchools';
 
 const ID = '3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90';
 const row: SchoolProfileRow = {
@@ -72,5 +72,14 @@ describe('showsStream', () => {
   });
   it('keeps it for a free-text class saved before the dropdown', () => {
     expect(showsStream('senior 2', 'Secondary/High School')).toBe(true);
+  });
+});
+
+describe('isTertiaryLearner', () => {
+  it('is true only beyond secondary school', () => {
+    expect(isTertiaryLearner('Year 1')).toBe(true);
+    expect(isTertiaryLearner('Certificate year 2')).toBe(true);
+    expect(isTertiaryLearner('S6')).toBe(false);
+    expect(isTertiaryLearner('', 'University/Tertiary')).toBe(true);
   });
 });

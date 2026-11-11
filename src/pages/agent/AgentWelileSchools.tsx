@@ -26,7 +26,7 @@ import {
   buildSchoolSignupLink, buildSignupMessage, toIntlDigits, smartphoneFields,
   readLockedSchool, writeLockedSchool, saveProfile, flushPendingProfiles, readPendingProfiles, markSignupSent,
   saveGateLog, flipGateLogDirection, flushPendingGateLogs, readPendingGateLogs, readLocalGateLogs, writeLocalGateLogs,
-  computeGateMovementSummary, formatEatTime, classLevelsFor, isListedClass, showsStream,
+  computeGateMovementSummary, formatEatTime, classLevelsFor, isListedClass, isTertiaryLearner,
   type SchoolRow, type SchoolProfileRow, type SchoolGateLogRow,
 } from '@/lib/welileSchools';
 
@@ -332,6 +332,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
   const [summary, setSummary] = useState<{ photoUrl: string | null } | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const group = roleGroup(role);
+  const tertiary = group === 'pupil' && isTertiaryLearner(f.class_grade, school.school_level);
   const set = (k: keyof SchoolProfileRow) => (e: React.ChangeEvent<HTMLInputElement>) => setF((d) => ({ ...d, [k]: e.target.value }));
   const num = (v: unknown) => (v === '' || v == null ? null : Number(String(v).replace(/\D/g, '')) || null);
 
@@ -443,12 +444,16 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
             <Field label="Gender"><Chips options={['Female', 'Male']} value={f.gender ?? ''} onChange={(v) => setF((d) => ({ ...d, gender: v }))} /></Field>
             {group === 'pupil' && (
               <div className="grid grid-cols-2 gap-2">
-                <div className={showsStream(f.class_grade, school.school_level) ? '' : 'col-span-2'}>
+                <div className={tertiary ? 'col-span-2' : ''}>
                   <Field label="Class / Grade / Year"><ClassGradeSelect schoolLevel={school.school_level} value={f.class_grade ?? ''}
-                    onChange={(v) => setF((d) => ({ ...d, class_grade: v, ...(showsStream(v, school.school_level) ? {} : { stream: null }) }))} /></Field>
+                    onChange={(v) => setF((d) => ({
+                      ...d, class_grade: v,
+                      // Drop answers the newly chosen level does not ask for.
+                      ...(isTertiaryLearner(v, school.school_level) ? { stream: null, boarding_status: null } : { phone: null, whatsapp: null, email: null }),
+                    }))} /></Field>
                 </div>
                 {/* No streams or dormitories beyond secondary school. */}
-                {showsStream(f.class_grade, school.school_level) && (
+                {!tertiary && (
                   <Field label="Stream / Dormitory"><Input value={f.stream ?? ''} onChange={set('stream')} /></Field>
                 )}
               </div>
@@ -456,15 +461,20 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date of birth"><Input type="date" value={f.date_of_birth ?? ''} onChange={set('date_of_birth')} /></Field>
               <Field label="Age"><Input inputMode="numeric" value={(f.age as any) ?? ''} onChange={set('age')} /></Field>
-              <Field label="Phone (optional)"><Input inputMode="tel" value={f.phone ?? ''} onChange={set('phone')} /></Field>
-              <Field label="WhatsApp (optional)"><Input inputMode="tel" value={f.whatsapp ?? ''} onChange={set('whatsapp')} /></Field>
+              {/* A learner's own contacts only from vocational / university level; younger students are reached through the guardian. */}
+              {(group !== 'pupil' || tertiary) && (
+                <>
+                  <Field label="Phone (optional)"><Input inputMode="tel" value={f.phone ?? ''} onChange={set('phone')} /></Field>
+                  <Field label="WhatsApp (optional)"><Input inputMode="tel" value={f.whatsapp ?? ''} onChange={set('whatsapp')} /></Field>
+                </>
+              )}
             </div>
-            <Field label="Email (optional)"><Input type="email" value={f.email ?? ''} onChange={set('email')} /></Field>
+            {(group !== 'pupil' || tertiary) && <Field label="Email (optional)"><Input type="email" value={f.email ?? ''} onChange={set('email')} /></Field>}
             <Field label="National ID / School ID / Admission No."><Input value={f.id_number ?? ''} onChange={set('id_number')} /></Field>
 
             {group === 'pupil' && (
               <>
-                <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>
+                {!tertiary && <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>}
                 <Field label="Parent / guardian full name"><Input value={f.guardian_name ?? ''} onChange={set('guardian_name')} /></Field>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="Guardian phone"><Input inputMode="tel" value={f.guardian_phone ?? ''} onChange={set('guardian_phone')} /></Field>

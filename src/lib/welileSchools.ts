@@ -419,3 +419,8 @@ export function showsStream(classValue: string | null | undefined, schoolLevel?:
   const level = group?.level ?? (classValue ? null : schoolLevel ?? null);
   return !level || !TERTIARY_LEVELS.includes(level);
 }
+
+/** Vocational and university learners: their own phone, WhatsApp and email; no stream, dormitory or day/boarding. */
+export function isTertiaryLearner(classValue: string | null | undefined, schoolLevel?: string | null): boolean {
+  return !showsStream(classValue, schoolLevel);
+}
