@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
-  AlertTriangle, ArrowDownLeft, ArrowUpRight, Ban, ChevronLeft, ChevronRight, Copy, Download, ExternalLink,
+  AlertTriangle, ArrowDownLeft, ArrowUpRight, Ban, ChevronLeft, ChevronRight, Copy, Download, Eye,
   FileSpreadsheet, FilePlus2, Loader2, Receipt, Search, User, X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -14,10 +14,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useReceiptAccess } from '@/hooks/usePartnerReceipts';
 import {
-  ARCHIVE_PAGE_SIZE, PAYOUT_RECEIPT_BASE_URL, fetchPartnerReceiptRow, resolveRange, useClientCard, useReceiptArchive, useReceiptArchiveSummary,
+  ARCHIVE_PAGE_SIZE, PAYOUT_RECEIPT_BASE_URL, resolveRange, useClientCard, useReceiptArchive, useReceiptArchiveSummary,
   type ArchiveDirection, type ClientCardData, type ArchiveFilters, type ArchiveRange, type ArchiveRow, type ArchiveSource, type ArchiveStatus,
 } from '@/hooks/useReceiptArchive';
-import { downloadPartnerReceiptPdf } from '@/lib/partnerReceiptPdf';
+import { loadReceiptCopy } from '@/hooks/useReceiptCopy';
+import { downloadReceiptCopy, prettyPhone } from '@/lib/receiptCopy';
+import { ReceiptDetailDrawer } from './ReceiptDetailDrawer';
 import { formatUGX } from '@/lib/rentCalculations';
 import { finopsPath } from '@/lib/financialOpsRoutes';
 import { cn } from '@/lib/utils';
@@ -40,14 +42,6 @@ const RANGES: { id: ArchiveRange; label: string }[] = [
   { id: 'today', label: 'Today' }, { id: 'yesterday', label: 'Yesterday' }, { id: 'week', label: 'This week' }, { id: 'custom', label: 'Custom' },
 ];
 const RANGE_LABEL: Record<ArchiveRange, string> = { today: 'Today', yesterday: 'Yesterday', week: 'This week', custom: 'Custom range' };
-
-/** 0772123456 -> 0772 123 456. Anything that is not a 10-digit local number is shown as it was stored. */
-function prettyPhone(p: string | null): string {
-  if (!p) return '';
-  const d = p.replace(/\D/g, '');
-  const local = d.startsWith('256') && d.length === 12 ? `0${d.slice(3)}` : d;
-  return local.length === 10 ? `${local.slice(0, 4)} ${local.slice(4, 7)} ${local.slice(7)}` : p;
-}
 
 function readFilters(sp: URLSearchParams): ArchiveFilters {
   const range = sp.get('range') as ArchiveRange | null;
@@ -75,6 +69,7 @@ export function ReceiptArchiveHome() {
   const client = useClientCard(f.search);
   const [typed, setTyped] = useState(f.search);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<ArchiveRow | null>(null);
 
   /** Change filters in the URL, keeping every other query param (the page may carry its own). */
   const set = (patch: Partial<Record<'q' | 'dir' | 'range' | 'from' | 'to' | 'method' | 'source' | 'status' | 'page', string>>, keepPage = false) =>
@@ -111,9 +106,8 @@ export function ReceiptArchiveHome() {
   const fail = (e: unknown) => toast({ title: 'Could not do that', description: e instanceof Error ? e.message : String(e), variant: 'destructive' });
 
   const downloadPdf = async (r: ArchiveRow) => {
-    if (r.receipt_no == null) return;
     setBusyId(r.id);
-    try { await downloadPartnerReceiptPdf(await fetchPartnerReceiptRow(r.receipt_no, r.id)); } catch (e) { fail(e); } finally { setBusyId(null); }
+    try { await downloadReceiptCopy((await loadReceiptCopy(r)).copy); } catch (e) { fail(e); } finally { setBusyId(null); }
   };
   const copyLink = async (token: string) => {
     const url = `${PAYOUT_RECEIPT_BASE_URL}${token}`;
@@ -282,7 +276,7 @@ export function ReceiptArchiveHome() {
                       </div>
                     </td></tr>
                   ) : rows.map((row) => (
-                    <ArchiveTableRow key={`${row.source}-${row.id}`} row={row} busy={busyId === row.id} onPdf={downloadPdf} onCopy={copyLink} />
+                    <ArchiveTableRow key={`${row.source}-${row.id}`} row={row} busy={busyId === row.id} onView={setViewing} onPdf={downloadPdf} onCopy={copyLink} />
                   ))}
                 </tbody>
               </table>
@@ -318,6 +312,7 @@ export function ReceiptArchiveHome() {
           </TabsContent>
         )}
       </Tabs>
+      <ReceiptDetailDrawer row={viewing} onClose={() => setViewing(null)} canIssue={canIssue} />
     </div>
   );
 }
@@ -410,7 +405,7 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
   );
 }
 
-function ArchiveTableRow({ row, busy, onPdf, onCopy }: { row: ArchiveRow; busy: boolean; onPdf: (r: ArchiveRow) => void; onCopy: (token: string) => void }) {
+function ArchiveTableRow({ row, busy, onView, onPdf, onCopy }: { row: ArchiveRow; busy: boolean; onView: (r: ArchiveRow) => void; onPdf: (r: ArchiveRow) => void; onCopy: (token: string) => void }) {
   const isIn = row.direction === 'in';
   const at = new Date(row.event_at);
   const dead = row.status !== 'issued';
@@ -443,20 +438,16 @@ function ArchiveTableRow({ row, busy, onPdf, onCopy }: { row: ArchiveRow; busy: 
       </td>
       <td className="px-3 py-2">
         <div className="flex items-center justify-end gap-1">
-          {row.source === 'partner_receipt' && (
-            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => onPdf(row)} disabled={busy} title="Download PDF" aria-label={`Download PDF for receipt ${row.receipt_ref}`}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            </Button>
-          )}
+          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => onView(row)} title="View receipt" aria-label={`View receipt ${row.receipt_ref}`}>
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => onPdf(row)} disabled={busy} title="Download PDF" aria-label={`Download PDF for receipt ${row.receipt_ref}`}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          </Button>
           {row.source === 'payout' && row.link_token && (
-            <>
-              <Button size="sm" variant="ghost" className="h-8 px-2" asChild title="Open receipt page">
-                <a href={`${PAYOUT_RECEIPT_BASE_URL}${row.link_token}`} target="_blank" rel="noopener noreferrer" aria-label={`Open receipt ${row.receipt_ref}`}><ExternalLink className="h-4 w-4" /></a>
-              </Button>
-              <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => onCopy(row.link_token!)} title="Copy public link" aria-label={`Copy link for receipt ${row.receipt_ref}`}>
-                <Copy className="h-4 w-4" />
-              </Button>
-            </>
+            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => onCopy(row.link_token!)} title="Copy public link" aria-label={`Copy link for receipt ${row.receipt_ref}`}>
+              <Copy className="h-4 w-4" />
+            </Button>
           )}
         </div>
       </td>
