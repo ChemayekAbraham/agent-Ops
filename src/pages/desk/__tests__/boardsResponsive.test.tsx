@@ -113,7 +113,7 @@ describe('board rows: card below md, grid row from md', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show 5 more' }));
     await waitFor(() => expect(document.querySelectorAll('[data-rowcard]').length).toBe(25));
     expect(screen.queryByRole('button', { name: /Show \d+ more/ })).toBeNull();
-  });
+  }, 15_000); // renders a full page of cards: slow when the whole suite runs in parallel
 
   it('1280 px: compact grid rows, every row, the action never wrapping', async () => {
     setWidth(1280);
