@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { WHATSAPP_URL } from '@/components/ai-chat/assistantConfig';
 import SchoolsOnboarding from '@/components/welile-schools/SchoolsOnboarding';
+import SchoolsPhotoCarousel from '@/components/welile-schools/SchoolsPhotoCarousel';
 import {
   computeGateMovementSummary, readLockedSchool, readPendingGateLogs, readPendingProfiles, writeLockedSchool,
   type SchoolGateLogRow, type SchoolRow,
@@ -294,6 +295,7 @@ function AgentHome({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-4">
+      <SchoolsPhotoCarousel />
       {school ? (
         <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
           <MapPin className="h-5 w-5 shrink-0 text-primary" aria-hidden />
