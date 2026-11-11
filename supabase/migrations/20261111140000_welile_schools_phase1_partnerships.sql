@@ -103,6 +103,9 @@ create policy mfa_required_for_staff on public.welile_school_fee_structures
 -- Grants: signed-in users read (RLS decides what), service_role does everything, anon nothing.
 revoke all on public.welile_school_partnerships, public.welile_school_terms, public.welile_school_fee_structures from anon, public;
 grant select on public.welile_school_partnerships, public.welile_school_terms, public.welile_school_fee_structures to authenticated;
+-- Supabase's default privileges still hand authenticated write grants on new tables; take them back.
+revoke insert, update, delete, truncate, references, trigger
+  on public.welile_school_partnerships, public.welile_school_terms, public.welile_school_fee_structures from authenticated;
 grant select, insert, update, delete on public.welile_school_partnerships, public.welile_school_terms, public.welile_school_fee_structures to service_role;
 
 -- ─── Helper: may the caller edit this school's partnership set-up? ───────────
