@@ -161,14 +161,14 @@ export function SpecialAdvancesPanel() {
                           size="sm"
                           variant="ghost"
                           className="h-7 px-2 text-xs"
-                          aria-label={`View details for ${a.reference}`}
+                          aria-label={`Record repayment for ${a.reference}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenId(a.id);
                           }}
                         >
                           <Eye className="mr-1 h-3.5 w-3.5" />
-                          View details
+                          Record Repayment
                         </Button>
                       </td>
                     </tr>
