@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring } from 'framer-motion';
-import { Calculator, Eye, EyeOff, Wallet } from 'lucide-react';
+import { Calculator, Eye, EyeOff } from 'lucide-react';
 import { usePartnerPortfolios } from '@/hooks/usePartnerPortfolios';
 import { computeAccrual, normalizePortfolioState } from '@/lib/portfolioAccrual';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -162,7 +162,7 @@ function ActionButton({
  * Premium bank-card style summary of the partner's deployed capital.
  * Additive card — does not replace the wallet hero card.
  */
-export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore }: Props) {
+export function PartnerPortfolioWalletCard({ onCalculator, onMore }: Props) {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { portfolios, loading } = usePartnerPortfolios();
@@ -387,7 +387,6 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
 
       {/* ACTION ROW */}
       <div className="bg-muted/70 backdrop-blur rounded-2xl p-2.5 shadow-md border border-border/70 flex items-center justify-around">
-        <ActionButton label="Portfolios" onClick={onPortfolios} icon={<Wallet className="w-4 h-4" />} />
         <ActionButton label="Calculator" onClick={onCalculator} icon={<Calculator className="w-4 h-4" />} />
       </div>
     </div>
