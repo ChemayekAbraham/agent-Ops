@@ -312,7 +312,8 @@ export function SchoolRegistration({ draft, setDraft, captureGps, gpsBusy, savin
 }
 
 function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; agentId: string; onQueued: () => void }) {
-  const [role, setRole] = useState<string>('pupil');
+  // Only students are registered for now; the other roles stay in PROFILE_ROLES for later.
+  const role = 'pupil';
   const [f, setF] = useState<Partial<SchoolProfileRow>>({});
   const [hasPhone, setHasPhone] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
@@ -376,7 +377,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
       )}
       <div className="flex gap-3 p-4 bg-primary/5 border-l-4 border-primary rounded-lg">
         <Bot className="h-6 w-6 text-primary shrink-0" />
-        <div><p className="text-sm font-semibold">🎉 {school.name} is locked!</p><p className="text-sm text-muted-foreground">Who are you registering at the gate right now?</p></div>
+        <div><p className="text-sm font-semibold">🎉 {school.name} is locked!</p><p className="text-sm text-muted-foreground">Register each student with their parent or guardian's details.</p></div>
       </div>
       {last && last.row.has_smartphone && <SignupLinkCard row={last.row} saved={last.saved} school={school} agentId={agentId} />}
       {last && last.row.needs_free_smartphone && (
@@ -384,15 +385,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
       )}
 
       <Card className="p-4 space-y-3">
-        <div className="flex items-center justify-between"><h2 className="font-semibold">Register at the gate</h2><Badge variant="secondary">{count} this session</Badge></div>
-        <div className="grid grid-cols-2 gap-2">
-          {PROFILE_ROLES.map((r) => (
-            <button key={r.key} type="button" onClick={() => setRole(r.key)}
-              className={cn('min-h-[52px] px-2 rounded-xl border text-sm font-medium', role === r.key ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
-              {r.label}
-            </button>
-          ))}
-        </div>
+        <div className="flex items-center justify-between"><h2 className="font-semibold">Register a student</h2><Badge variant="secondary">{count} this session</Badge></div>
 
         {group === 'asset' ? (
           <>

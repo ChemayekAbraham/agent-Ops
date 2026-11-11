@@ -84,7 +84,7 @@ export const ROLE_INTRO: Record<SchoolsRole, RoleIntro> = {
   agent: {
     title: 'Run Welile Schools at your school',
     points: [
-      { title: 'Register the school and everyone in it', body: 'Pupils, staff, parents and facilities, with daily gate in and out.' },
+      { title: 'Register the school and its students', body: 'Each student with their parent or guardian, plus daily gate in and out.' },
       { title: 'Set up the partnership', body: 'Bursar, payout account, terms and fees, sent to ops for approval.' },
       { title: 'Sign up families', body: 'Help parents start School Fees Plans and follow up late payers.' },
     ],

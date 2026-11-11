@@ -193,7 +193,7 @@ function AgentExplore({ signedIn }: { signedIn: boolean }) {
   const navigate = useNavigate();
   const tools = [
     { icon: DoorOpen, title: 'Gate log', body: 'Record everyone in and out each day.' },
-    { icon: UserPlus, title: 'Register people', body: 'Pupils, staff, parents and facilities.' },
+    { icon: UserPlus, title: 'Register students', body: 'Each student with their parent or guardian.' },
     { icon: Building2, title: 'School set-up', body: 'Partnership, terms, fees and payout account.' },
     { icon: Receipt, title: 'Sign up families', body: 'Start School Fees Plans and follow up payments.' },
   ];
@@ -342,7 +342,7 @@ function AgentHome({ userId }: { userId: string }) {
 
       <section aria-label="Quick actions" className="grid grid-cols-2 gap-2">
         <ActionTile icon={DoorOpen} label="Gate log" hint="Record in and out" primary onClick={() => open('gate')} />
-        <ActionTile icon={UserPlus} label="Register a person" hint="Pupils, staff, parents" onClick={() => open('register')} />
+        <ActionTile icon={UserPlus} label="Register a student" hint="With parent or guardian details" onClick={() => open('register')} />
         <ActionTile icon={Building2} label="School set-up" hint={status ? STATUS_LABEL[status] : 'Partnership, terms, fees'} onClick={() => open('partner')} />
         <ActionTile icon={Receipt} label="Sign up a family" hint="Coming soon"
           onClick={() => toast.message('Family sign-up for School Fees Plans opens soon', { description: 'It starts once this school is an approved partner.' })} />
