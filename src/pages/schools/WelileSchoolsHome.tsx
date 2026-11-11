@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  AlertCircle, ArrowLeft, Building2, ChevronRight, CloudOff, DoorOpen, GraduationCap, Handshake, Hourglass,
-  IdCard, Loader2, MapPin, MessageSquareText, Receipt, School, Smartphone, TrendingDown, UserPlus, Users,
+  AlertCircle, ArrowLeft, Banknote, Building2, ChevronRight, ClipboardCheck, CloudOff, DoorOpen, FileSignature, GraduationCap,
+  Handshake, Hourglass, IdCard, Loader2, LogIn, MapPin, MessageCircle, MessageSquareText, Receipt, RotateCcw, School,
+  Smartphone, TrendingDown, UserPlus, Users,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import welileLogo from '@/assets/welile-logo.png';
@@ -13,13 +14,16 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { WHATSAPP_URL } from '@/components/ai-chat/assistantConfig';
+import SchoolsOnboarding from '@/components/welile-schools/SchoolsOnboarding';
 import {
   computeGateMovementSummary, readLockedSchool, readPendingGateLogs, readPendingProfiles, writeLockedSchool,
   type SchoolGateLogRow, type SchoolRow,
 } from '@/lib/welileSchools';
 import { STATUS_LABEL, fetchSchoolSetup, missingForSubmit, todayKampala, type PartnershipStatus } from '@/lib/welileSchoolsPartnership';
 import {
-  agentAttention, availableSchoolsRoles, readStoredSchoolsRole, resolveSchoolsRole, writeStoredSchoolsRole,
+  ROLE_INTRO, SCHOOLS_ROLES, SCHOOLS_ROLE_LABEL, agentAttention, canWorkAsSchoolAgent, clearStoredSchoolsRole,
+  readStoredSchoolsRole, roleFromQuery, writeStoredSchoolsRole,
   type AttentionItem, type SchoolsRole,
 } from '@/lib/welileSchoolsHome';
 
@@ -38,27 +42,38 @@ const STATUS_TONE: Record<PartnershipStatus, string> = {
   suspended: 'bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-200',
 };
 
-/** /schools — one Welile Schools home for school agents and parents, with a role switcher. */
+const ROLE_ICON: Record<SchoolsRole, typeof Users> = { parent: Users, school: Building2, agent: IdCard };
+const SHORT_LABEL: Record<SchoolsRole, string> = { parent: 'Parent', school: 'School', agent: 'Agent' };
+
+function whatsapp(text: string) {
+  return `${WHATSAPP_URL}?text=${encodeURIComponent(text)}`;
+}
+
+/**
+ * /schools — public Welile Schools entry point. First visit: an onboarding funnel
+ * (welcome → who are you → what you get). After that: a separate home per role
+ * (parent, school owner, Welile agent) with a switcher. No sign-in needed; only
+ * the agent's real work asks for one.
+ */
 export default function WelileSchoolsHome() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, roles, loading } = useAuth();
-  const available = useMemo(() => availableSchoolsRoles(roles ?? []), [roles]);
-  const [role, setRole] = useState<SchoolsRole>(() => resolveSchoolsRole(available, readStoredSchoolsRole()));
+  const [role, setRole] = useState<SchoolsRole | null>(() => roleFromQuery(location.search) ?? readStoredSchoolsRole());
 
-  useEffect(() => { setRole((r) => resolveSchoolsRole(available, r)); }, [available]);
-  useEffect(() => { if (!loading && !user) navigate('/auth', { replace: true }); }, [loading, user, navigate]);
+  useEffect(() => {
+    const fromLink = roleFromQuery(location.search);
+    if (fromLink) { setRole(fromLink); writeStoredSchoolsRole(fromLink); }
+  }, [location.search]);
 
-  const choose = (r: SchoolsRole) => { setRole(r); writeStoredSchoolsRole(r); };
-
-  if (loading || !user) {
-    return <div className="flex min-h-screen items-center justify-center bg-background"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
-  }
+  const choose = (r: SchoolsRole) => { setRole(r); writeStoredSchoolsRole(r); window.scrollTo({ top: 0 }); };
+  const restart = () => { clearStoredSchoolsRole(); setRole(null); window.scrollTo({ top: 0 }); };
 
   return (
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-xl items-center gap-2 px-3 py-2">
-          <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Back" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard'))}>
+          <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Back" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <img src={welileLogo} alt="" aria-hidden className="h-7 w-auto rounded-lg" />
@@ -69,19 +84,135 @@ export default function WelileSchoolsHome() {
       </header>
 
       <main className="mx-auto max-w-xl space-y-4 p-3">
-        {available.length > 1 && (
-          <div role="tablist" aria-label="View Welile Schools as" className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
-            {([['agent', 'School agent', IdCard], ['parent', 'Parent', Users]] as const).map(([key, label, Icon]) => (
-              <button key={key} type="button" role="tab" aria-selected={role === key} onClick={() => choose(key)}
-                className={cn('flex min-h-[44px] items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-colors',
-                  role === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-                <Icon className="h-4 w-4" aria-hidden />{label}
-              </button>
-            ))}
-          </div>
+        {role === null ? (
+          <SchoolsOnboarding wordmarkClass={styles.wordmark} onDone={choose} />
+        ) : (
+          <>
+            <div role="tablist" aria-label="Explore Welile Schools as" className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1">
+              {SCHOOLS_ROLES.map((key) => {
+                const Icon = ROLE_ICON[key];
+                return (
+                  <button key={key} type="button" role="tab" aria-selected={role === key} aria-label={SCHOOLS_ROLE_LABEL[key]} onClick={() => choose(key)}
+                    className={cn('flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg text-sm font-semibold transition-colors',
+                      role === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden />{SHORT_LABEL[key]}
+                  </button>
+                );
+              })}
+            </div>
+            {role === 'parent' && <ParentHome />}
+            {role === 'school' && <SchoolOwnerHome />}
+            {role === 'agent' && (
+              loading ? <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+                : user && canWorkAsSchoolAgent(roles) ? <AgentHome userId={user.id} />
+                  : <AgentExplore signedIn={!!user} />
+            )}
+            <button type="button" onClick={restart} className="mx-auto flex min-h-[44px] items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+              <RotateCcw className="h-4 w-4" aria-hidden />See the introduction again
+            </button>
+          </>
         )}
-        {role === 'agent' ? <AgentHome userId={user.id} /> : <ParentHome />}
       </main>
+    </div>
+  );
+}
+
+// ─── School owner view ────────────────────────────────────────────────────────
+
+function SchoolOwnerHome() {
+  const steps = [
+    { icon: MapPin, title: 'A Welile agent visits your school', body: 'They register the school and agree a partnership with you.' },
+    { icon: FileSignature, title: 'You share your terms and fees', body: 'Term dates, fee per class, and the account Welile pays into.' },
+    { icon: ClipboardCheck, title: 'Welile approves the partnership', body: 'Families at your school can then apply for School Fees Plans.' },
+    { icon: Banknote, title: 'Fees arrive at the start of term', body: 'For every student on a plan, paid straight to your account.' },
+  ];
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-4 p-5">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+          <Building2 className="h-6 w-6 text-primary" aria-hidden />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-lg font-bold leading-tight">{ROLE_INTRO.school.title}</h2>
+          <p className="text-sm text-muted-foreground">Partner with Welile and get paid upfront for students whose families pay daily.</p>
+        </div>
+        <ul className="space-y-3">
+          {ROLE_INTRO.school.points.map((p) => (
+            <li key={p.title} className="flex gap-3">
+              <TrendingDown className="mt-0.5 h-5 w-5 shrink-0 rotate-180 text-primary" aria-hidden />
+              <span><span className="block text-sm font-semibold">{p.title}</span><span className="block text-sm text-muted-foreground">{p.body}</span></span>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <section aria-labelledby="ws-owner-steps">
+        <h2 id="ws-owner-steps" className="mb-2 text-sm font-semibold">How the partnership works</h2>
+        <ol className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+          {steps.map(({ icon: Icon, title, body }, i) => (
+            <li key={title} className="flex gap-3 p-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">{i + 1}</span>
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 text-sm font-semibold"><Icon className="h-4 w-4 text-primary" aria-hidden />{title}</span>
+                <span className="block text-sm text-muted-foreground">{body}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <Button asChild className="min-h-[52px] w-full gap-2 text-base">
+        <a href={whatsapp('Hello Welile, I run a school and would like to become a Welile Schools partner.')} target="_blank" rel="noopener noreferrer">
+          <MessageCircle className="h-5 w-5" aria-hidden />Partner with Welile
+        </a>
+      </Button>
+      <p className="text-center text-xs text-muted-foreground">Opens WhatsApp. A Welile agent will arrange a visit.</p>
+    </div>
+  );
+}
+
+// ─── Agent view for visitors (not signed in, or not a Welile agent) ──────────
+
+function AgentExplore({ signedIn }: { signedIn: boolean }) {
+  const navigate = useNavigate();
+  const tools = [
+    { icon: DoorOpen, title: 'Gate log', body: 'Record everyone in and out each day.' },
+    { icon: UserPlus, title: 'Register people', body: 'Pupils, staff, parents and facilities.' },
+    { icon: Building2, title: 'School set-up', body: 'Partnership, terms, fees and payout account.' },
+    { icon: Receipt, title: 'Sign up families', body: 'Start School Fees Plans and follow up payments.' },
+  ];
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-2 p-5">
+        <h2 className="text-lg font-bold leading-tight">{ROLE_INTRO.agent.title}</h2>
+        <p className="text-sm text-muted-foreground">Welile agents run Welile Schools at each partner school. These are the tools you get.</p>
+      </Card>
+      <div className="grid grid-cols-2 gap-2">
+        {tools.map(({ icon: Icon, title, body }) => (
+          <div key={title} className="rounded-2xl border border-border bg-card p-3">
+            <Icon className="h-5 w-5 text-primary" aria-hidden />
+            <p className="mt-2 text-sm font-semibold">{title}</p>
+            <p className="text-xs text-muted-foreground">{body}</p>
+          </div>
+        ))}
+      </div>
+      {signedIn ? (
+        <>
+          <Button asChild className="min-h-[52px] w-full gap-2 text-base">
+            <a href={whatsapp('Hello Welile, I would like to become a Welile Schools agent.')} target="_blank" rel="noopener noreferrer">
+              <MessageCircle className="h-5 w-5" aria-hidden />Become a Welile agent
+            </a>
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">Your account is not a Welile agent account yet.</p>
+        </>
+      ) : (
+        <>
+          <Button className="min-h-[52px] w-full gap-2 text-base" onClick={() => navigate('/auth')}>
+            <LogIn className="h-5 w-5" aria-hidden />Sign in to start
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">Already a Welile agent? Sign in to open your schools.</p>
+        </>
+      )}
     </div>
   );
 }
@@ -292,6 +423,12 @@ function ParentHome() {
         <Receipt className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
         <p className="text-sm text-muted-foreground">Your plan, today's amount and your payments will appear here once you have a plan.</p>
       </div>
+
+      <Button asChild variant="outline" className="min-h-[48px] w-full gap-2">
+        <a href={whatsapp('Hello Welile, I would like to know more about School Fees Plans for my child.')} target="_blank" rel="noopener noreferrer">
+          <MessageCircle className="h-5 w-5" aria-hidden />Ask Welile on WhatsApp
+        </a>
+      </Button>
     </div>
   );
 }
