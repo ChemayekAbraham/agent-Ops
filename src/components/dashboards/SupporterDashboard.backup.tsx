@@ -45,8 +45,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
 import { 
-  CreditCard, Calculator, FileText, ChevronDown, BadgeCheck, Wallet, ChevronRight, ArrowLeft
+  CreditCard, Calculator, FileText, ChevronDown, BadgeCheck, Wallet, ChevronRight, ArrowLeft,
+  Handshake, HandCoins, Rocket
 } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
@@ -66,7 +68,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 // Agreement
 import { useSupporterAgreement } from '@/hooks/useSupporterAgreement';
-import { LockedOverlay } from '@/components/supporter/agreement/LockedOverlay';
 
 // Menu drawer
 import { hapticTap } from '@/lib/haptics';
@@ -104,6 +105,12 @@ import { MissionBanner } from '@/components/mission/MissionBanner';
 
 // Everything below the first screen, and every drawer / modal that starts closed, loads in its own
 // chunk so the wallet card and portfolio list are not waiting on code the visitor may never open.
+type OpportunityView = 'managed' | 'direct' | 'angel';
+const OPPORTUNITY_TITLES: Record<OpportunityView, string> = {
+  managed: 'Support tenants via Welile',
+  direct: 'Fund',
+  angel: 'Angel pool',
+};
 const FunderCapitalOpportunities = lazyNamed(() => import('@/components/supporter/FunderCapitalOpportunities'), 'FunderCapitalOpportunities');
 const SupportedHouseReturnsSection = lazyNamed(() => import('@/components/supporter/SupportedHouseReturnsSection'), 'SupportedHouseReturnsSection');
 const FunderWalletHubSection = lazyWithRetry(() => import('@/components/supporter/FunderWalletHubSection'));
@@ -154,6 +161,7 @@ export default function SupporterDashboardBackup({
   });
   const [showPaymentPartners, setShowPaymentPartners] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
+  const [opportunityView, setOpportunityView] = useState<OpportunityView | null>(null);
   const [showViewAgreementModal, setShowViewAgreementModal] = useState(false);
   const [viewAgreementTab, setViewAgreementTab] = useState<'summary' | 'full'>('summary');
   const [localHasAccepted, setLocalHasAccepted] = useState<boolean | null>(null);
@@ -277,12 +285,9 @@ export default function SupporterDashboardBackup({
 
   // Scroll to opportunities
   useEffect(() => {
-    if (location.hash === '#opportunities') {
-      setTimeout(() => {
-        const el = document.getElementById('opportunities');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
-    }
+    // The opportunity cards now live in the header menu; an old #opportunities
+    // link opens the recommended one (Fund) instead of scrolling.
+    if (location.hash === '#opportunities') setOpportunityView('direct');
   }, [location.hash]);
 
   // Listen for open-deposit event from OpportunitySummaryCard
@@ -433,8 +438,21 @@ export default function SupporterDashboardBackup({
     ]);
   };
 
+  // Capital opportunities open from the header menu, each in its own sheet.
+  const openOpportunity = (view: OpportunityView) => {
+    hapticTap();
+    if (!effectiveHasAccepted) {
+      setShowAgreementModal(true);
+      return;
+    }
+    setOpportunityView(view);
+  };
+
   const menuItems = [
     { icon: CreditCard, label: 'Add Funding', onClick: () => setShowPaymentPartners(true) },
+    { icon: Handshake, label: 'Support tenants', onClick: () => openOpportunity('managed'), separator: true },
+    { icon: HandCoins, label: 'Fund', onClick: () => openOpportunity('direct') },
+    { icon: Rocket, label: 'Angel pool', onClick: () => openOpportunity('angel') },
   ];
 
   return (
@@ -489,10 +507,7 @@ export default function SupporterDashboardBackup({
                 setInvestmentsTab('accounts');
                 setShowInvestments(true);
               }}
-              onExploreOpportunities={() => {
-                const el = document.getElementById('opportunities');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
+              onExploreOpportunities={() => openOpportunity('direct')}
             />
           </WidgetErrorBoundary>
 
@@ -505,29 +520,7 @@ export default function SupporterDashboardBackup({
 
 
 
-          {/* ═══ SECTION: OPPORTUNITIES ═══ */}
-          <div id="opportunities" className="relative scroll-mt-4 space-y-4">
-            <div className="flex items-center gap-2 px-1">
-              <div className="w-1 h-5 rounded-full bg-primary" />
-              <h2 className="text-sm font-black text-foreground tracking-tight">Capital Opportunities</h2>
-            </div>
-            {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
-            <WidgetErrorBoundary label="Capital opportunities">
-              {loading && virtualHouses.length === 0 ? (
-                <div className="space-y-3">
-                  <WidgetCardSkeleton />
-                  <WidgetCardSkeleton />
-                </div>
-              ) : (
-                <>
-                  <FunderApprovalBanner className="mb-3" />
-                  <Suspense fallback={<WidgetCardSkeleton />}>
-                    <FunderCapitalOpportunities />
-                  </Suspense>
-                </>
-              )}
-            </WidgetErrorBoundary>
-          </div>
+          {/* Capital opportunities moved to the header menu (openOpportunity). */}
 
           {/* ═══ MY FUNDED HOUSES (collapsible) ═══ */}
           {virtualHouses.length > 0 && (
@@ -578,6 +571,25 @@ export default function SupporterDashboardBackup({
           <InviteAndEarnCard variant="supporter" compact />
         </main>
       </div>
+      <Sheet open={opportunityView !== null} onOpenChange={(open) => { if (!open) setOpportunityView(null); }}>
+        <SheetContent side="bottom" className="h-[92dvh] overflow-y-auto rounded-t-2xl px-3 pb-8 pt-4">
+          <SheetHeader className="mb-3 px-1 text-left">
+            {/* Managed and Angel pool show their own heading; only Fund needs this one on screen. */}
+            <SheetTitle className={opportunityView === 'direct' ? 'text-base' : 'sr-only'}>
+              {opportunityView ? OPPORTUNITY_TITLES[opportunityView] : 'Capital Opportunities'}
+            </SheetTitle>
+          </SheetHeader>
+          {opportunityView && (
+            <WidgetErrorBoundary label="Capital opportunities">
+              <FunderApprovalBanner className="mb-3" />
+              <Suspense fallback={<WidgetCardSkeleton />}>
+                <FunderCapitalOpportunities key={opportunityView} initialView={opportunityView} embedded />
+              </Suspense>
+            </WidgetErrorBoundary>
+          )}
+        </SheetContent>
+      </Sheet>
+
       <Suspense fallback={null}>
         {mountMenu && (
           <SupporterMenuDrawer
