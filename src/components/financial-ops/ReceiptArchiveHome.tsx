@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   AlertTriangle, ArrowDownLeft, ArrowUpRight, Ban, ChevronLeft, ChevronRight, Copy, Download, ExternalLink,
-  FileSpreadsheet, FilePlus2, Loader2, Receipt, Search, X,
+  FileSpreadsheet, FilePlus2, Loader2, Receipt, Search, User, X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useReceiptAccess } from '@/hooks/usePartnerReceipts';
 import {
-  ARCHIVE_PAGE_SIZE, PAYOUT_RECEIPT_BASE_URL, fetchPartnerReceiptRow, resolveRange, useReceiptArchive, useReceiptArchiveSummary,
-  type ArchiveDirection, type ArchiveFilters, type ArchiveRange, type ArchiveRow, type ArchiveSource, type ArchiveStatus,
+  ARCHIVE_PAGE_SIZE, PAYOUT_RECEIPT_BASE_URL, fetchPartnerReceiptRow, resolveRange, useClientCard, useReceiptArchive, useReceiptArchiveSummary,
+  type ArchiveDirection, type ClientCardData, type ArchiveFilters, type ArchiveRange, type ArchiveRow, type ArchiveSource, type ArchiveStatus,
 } from '@/hooks/useReceiptArchive';
 import { downloadPartnerReceiptPdf } from '@/lib/partnerReceiptPdf';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -72,6 +72,7 @@ export function ReceiptArchiveHome() {
   const access = useReceiptAccess();
   const list = useReceiptArchive(f);
   const summary = useReceiptArchiveSummary(f);
+  const client = useClientCard(f.search);
   const [typed, setTyped] = useState(f.search);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -237,6 +238,10 @@ export function ReceiptArchiveHome() {
             {searching && <span className="text-xs text-muted-foreground">Searching all dates</span>}
           </div>
 
+          {/* Client behind a phone-number search */}
+          {client.isLoading && <Skeleton className="h-28 w-full rounded-xl" />}
+          {client.data && <ClientCard data={client.data} />}
+
           {/* Table */}
           {list.isError ? (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive flex items-start gap-2" role="alert">
@@ -314,6 +319,62 @@ export function ReceiptArchiveHome() {
         )}
       </Tabs>
     </div>
+  );
+}
+
+function ClientCard({ data }: { data: ClientCardData }) {
+  // Several different numbers match what was typed: no single client to show, so ask for the full number.
+  if (!data.phone) {
+    return (
+      <div className="rounded-xl border bg-card p-3 text-sm text-muted-foreground" role="status">
+        {data.otherNumbers} different phone numbers match. Type the full number to see one client's receipts.
+      </div>
+    );
+  }
+  const initial = (data.name ?? '?').trim().charAt(0).toUpperCase() || '?';
+  return (
+    <section className="rounded-xl border bg-card p-4 space-y-3" aria-label="Client summary">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="h-11 w-11 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold" aria-hidden="true">
+            {data.name ? initial : <User className="h-5 w-5" />}
+          </span>
+          <div className="min-w-0">
+            <div className="font-bold text-lg leading-tight truncate">{data.name || 'Name not recorded'}</div>
+            <div className="text-sm text-muted-foreground tabular-nums">{prettyPhone(data.phone)}</div>
+          </div>
+        </div>
+        <Badge variant="secondary" className="text-xs">
+          {data.truncated ? '200+' : data.receipts} receipt{data.receipts === 1 ? '' : 's'}
+        </Badge>
+      </div>
+
+      <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div>
+          <dt className="text-xs text-muted-foreground">Total in</dt>
+          <dd className="text-lg font-black tabular-nums text-emerald-600 dark:text-emerald-400">{formatUGX(data.inTotal)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Total out</dt>
+          <dd className="text-lg font-black tabular-nums text-amber-600 dark:text-amber-400">{formatUGX(data.outTotal)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">First receipt</dt>
+          <dd className="text-lg font-black tabular-nums">{data.firstAt ? format(new Date(data.firstAt), 'dd MMM yyyy') : '—'}</dd>
+        </div>
+      </dl>
+
+      {data.names.length > 1 && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm" role="note">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" aria-hidden="true" />
+          <span>{data.names.length} names used on this number: {data.names.join(', ')}.</span>
+        </div>
+      )}
+      {data.truncated && (
+        <p className="text-xs text-muted-foreground">Totals cover the 200 most recent receipts on this number.</p>
+      )}
+      <p className="text-xs text-muted-foreground">Totals count issued receipts only. Paper receipts before No. 4300 don't have phone numbers recorded.</p>
+    </section>
   );
 }
 

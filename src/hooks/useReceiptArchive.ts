@@ -113,6 +113,81 @@ export function useReceiptArchiveSummary(f: Pick<ArchiveFilters, 'range' | 'from
   });
 }
 
+/** Mirrors the database rule: a phone search is digits (with + ( ) - and spaces), 6+ digits or starting 0 or +. */
+export function looksLikePhone(s: string): boolean {
+  const t = s.trim();
+  if (!/^\+?[0-9][0-9 ()-]*$/.test(t)) return false;
+  return t.replace(/\D/g, '').length >= 6 || /^[+0]/.test(t);
+}
+
+/** Last 9 digits: 0772123456, 772123456 and +256 772 123 456 are the same number. */
+export function phoneKey(p: string | null): string {
+  const d = (p ?? '').replace(/\D/g, '');
+  return d.length >= 9 ? d.slice(-9) : d;
+}
+
+/** What the person typed, reduced the way the database reduces it: drop 256 or a leading 0. */
+function searchDigits(s: string): string {
+  let d = s.replace(/\D/g, '');
+  if (d.startsWith('256') && d.length >= 12) d = d.slice(3);
+  else if (d.startsWith('0')) d = d.slice(1);
+  return d;
+}
+
+export interface ClientCardData {
+  /** Set when exactly one phone number matches; otherwise null and `otherNumbers` says how many matched. */
+  phone: string | null;
+  otherNumbers: number;
+  name: string | null;
+  /** Every distinct name used on this number. More than one is a flag for review, not an accusation. */
+  names: string[];
+  receipts: number;
+  inTotal: number;
+  outTotal: number;
+  firstAt: string | null;
+  /** True when the client has more receipts than were read (200). */
+  truncated: boolean;
+}
+
+const CLIENT_CARD_LIMIT = 200;
+
+/**
+ * The client behind a phone-number search: totals across ALL of their receipts, whatever date range or filters the table uses.
+ * Money totals count issued receipts only (voided and corrected ones are not money that moved).
+ */
+export function useClientCard(search: string) {
+  const q = search.trim();
+  return useQuery({
+    queryKey: ['receipt-archive-client', q],
+    enabled: looksLikePhone(q),
+    queryFn: async (): Promise<ClientCardData | null> => {
+      const rows = await call<ArchiveRow[]>('search_receipt_archive', { p_search: q, p_limit: CLIENT_CARD_LIMIT, p_offset: 0 });
+      const d = searchDigits(q);
+      const hits = rows.filter((r) => d !== '' && phoneKey(r.client_phone).includes(d));
+      if (hits.length === 0) return null;
+      const keys = new Set(hits.map((r) => phoneKey(r.client_phone)));
+      if (keys.size > 1) {
+        return { phone: null, otherNumbers: keys.size, name: null, names: [], receipts: 0, inTotal: 0, outTotal: 0, firstAt: null, truncated: false };
+      }
+      const names = Array.from(new Map(
+        hits.map((r) => (r.client_name ?? '').trim()).filter(Boolean).map((n) => [n.toLowerCase(), n] as const),
+      ).values());
+      const live = hits.filter((r) => r.status === 'issued');
+      return {
+        phone: hits[0].client_phone,
+        otherNumbers: 0,
+        name: hits[0].client_name,
+        names,
+        receipts: hits.length,
+        inTotal: live.filter((r) => r.direction === 'in').reduce((s, r) => s + Number(r.amount), 0),
+        outTotal: live.filter((r) => r.direction === 'out').reduce((s, r) => s + Number(r.amount), 0),
+        firstAt: hits.reduce((min, r) => (r.event_at < min ? r.event_at : min), hits[0].event_at),
+        truncated: (rows[0]?.total_count ?? 0) > CLIENT_CARD_LIMIT,
+      };
+    },
+  });
+}
+
 /** The full partner receipt row, needed to draw its PDF. The list only carries what the table shows. */
 export async function fetchPartnerReceiptRow(receiptNo: number, id: string): Promise<PartnerReceiptRow> {
   const rows = await call<PartnerReceiptRow[]>('search_partner_receipts', { p_search: String(receiptNo), p_limit: 10, p_offset: 0 });
