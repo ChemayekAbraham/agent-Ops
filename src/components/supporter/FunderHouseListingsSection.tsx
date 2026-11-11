@@ -216,8 +216,9 @@ export function FunderHouseListingsSection({
     setFilters((current) => ({ ...current, sort: 'nearest' }));
   }, [origin, sortTouched]);
 
-  // By default the list shows only Rent Plans with a verified tenant. Houses
-  // still pending verification are opt-in from the Filters drawer.
+  // By default the list shows only Rent Plans with a verified tenant. Empty
+  // houses (also verified: the feed asks for p_verified_only) are opt-in from
+  // the Filters drawer.
   const [includePending, setIncludePending] = useState(false);
   // E72b: with the funders board tags on, the grouped list always ends with
   // the Empty house cards; the switch is for the plain list only.
@@ -860,9 +861,9 @@ export function FunderHouseListingsSection({
               <Clock className="h-5 w-5" aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold">Include houses pending verification</span>
+              <span className="block text-sm font-semibold">Include empty houses</span>
               <span className="block text-xs text-muted-foreground">
-                By default only Rent Plans with a verified tenant are shown.
+                Verified houses waiting for a tenant. By default only Rent Plans with a verified tenant are shown.
               </span>
             </span>
             <Switch checked={includePending} onCheckedChange={setIncludePending} />

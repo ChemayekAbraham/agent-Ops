@@ -147,6 +147,8 @@ const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const AgentDashboardNew = lazy(() => import("./pages/AgentDashboardNew"));
+// The T4 rent request form: the one place agents post, resubmit or renew a rent request.
+const T4RentRequestHost = lazy(() => import("./components/agent/rentRequestAssistant/T4RentRequestHost"));
 const FunderDashboardNew = lazy(() => import("./pages/FunderDashboardNew"));
 const FunderLandingPreview = lazy(() => import("./pages/FunderLandingPreview"));
 // Frozen snapshot of the funder dashboard — see SupporterDashboard.backup.tsx.
@@ -1187,6 +1189,7 @@ const App = () => {
                         <Suspense fallback={null}>
                           <DeferredExtras />
                           <GlobalFloatingWidgets />
+                          <Suspense fallback={null}><T4RentRequestHost /></Suspense>
                           <Toaster />
                           <SonnerToaster />
                           <BuildUpdateWatcher />

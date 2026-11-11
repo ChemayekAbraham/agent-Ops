@@ -21,12 +21,11 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAgentRejectedRequests, type AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
-import { AgentEditRentRequestDialog } from './AgentEditRentRequestDialog';
+import { openT4RentRequest } from '@/lib/t4RentRequest';
 
 export function AgentRejectedRequestsSection() {
   const qc = useQueryClient();
   const { data: requests, isLoading, refetch } = useAgentRejectedRequests();
-  const [editing, setEditing] = useState<AgentRejectedRequest | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AgentRejectedRequest | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -151,7 +150,7 @@ export function AgentRejectedRequestsSection() {
                 <Button
                   size="sm"
                   className="flex-1 gap-1.5"
-                  onClick={() => setEditing(req)}
+                  onClick={() => openT4RentRequest({ mode: 'resubmit', rejected: req, entry: 'rejected-requests', onDone: onResubmitted })}
                   disabled={lockedFromResubmit}
                   title={
                     lockedFromResubmit
@@ -178,13 +177,6 @@ export function AgentRejectedRequestsSection() {
           </Card>
         );
       })}
-
-      <AgentEditRentRequestDialog
-        request={editing}
-        open={!!editing}
-        onOpenChange={(o) => { if (!o) setEditing(null); }}
-        onResubmitted={onResubmitted}
-      />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) { setDeleteTarget(null); setDeleteReason(''); } }}>
         <AlertDialogContent>

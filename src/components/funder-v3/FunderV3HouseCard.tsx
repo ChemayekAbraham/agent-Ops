@@ -237,7 +237,8 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
             )}
           >
             {selected ? <Check className="h-4 w-4 flex-none" aria-hidden /> : <Sprout className="h-4 w-4 flex-none" aria-hidden />}
-            <span className="truncate">{selected ? 'Selected' : isEmpty ? 'Pending verification' : 'Fund this House'}</span>
+            <span className="truncate">{/* Every house on the funder feed is verified (p_verified_only). */}
+              {selected ? 'Selected' : 'Fund this House'}</span>
           </button>
         </div>
       </div>

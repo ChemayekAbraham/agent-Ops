@@ -26,7 +26,7 @@ import { HouseBonusTimeline } from './HouseBonusTimeline';
 import { HighlightText } from '@/components/shared/HighlightText';
 import { useFilterKeyboardShortcuts } from '@/hooks/useFilterKeyboardShortcuts';
 import { HouseDetailSheet } from './HouseDetailSheet';
-import AgentRentRequestDialog from './AgentRentRequestDialog';
+import { openT4RentRequest } from '@/lib/t4RentRequest';
 import { MoveInOfferBadge } from '@/components/house/MoveInOfferBadge';
 import RegisterLandlordDialog from './RegisterLandlordDialog';
 
@@ -62,13 +62,6 @@ export function AgentListingsSheet({ open, onOpenChange, onListHouse, vacantOnly
   // dialog with this house preselected so the new tenant is linked in one go.
   const [swapTarget, setSwapTarget] = useState<HouseListing | null>(null);
   const [swapping, setSwapping] = useState(false);
-  const [swapHouseForLink, setSwapHouseForLink] = useState<{
-    id: string; title: string; address: string | null; region: string | null;
-    district: string | null; house_category: string | null; monthly_rent: number | null;
-    short_code: string | null; latitude: number | null; longitude: number | null;
-    landlord_id: string | null; landlord_name: string | null; landlord_phone: string | null;
-    image_urls: string[] | null;
-  } | null>(null);
   const [chipsCollapsed, setChipsCollapsed] = useState(false);
   const [registerLandlordOpen, setRegisterLandlordOpen] = useState(false);
   const emptyPrimaryRef = useRef<HTMLButtonElement>(null);
@@ -244,7 +237,7 @@ export function AgentListingsSheet({ open, onOpenChange, onListHouse, vacantOnly
   };
 
   // Single "Swap tenant" flow: move the current tenant out and immediately open
-  // the rent request dialog with this house preselected so the agent links the
+  // the T4 rent request form with this house preselected so the agent links the
   // new tenant without re-searching. One confirmation, then straight to the form.
   const handleSwap = async () => {
     if (!swapTarget || !user?.id) return;
@@ -257,7 +250,7 @@ export function AgentListingsSheet({ open, onOpenChange, onListHouse, vacantOnly
         .eq('agent_id', user.id);
       if (error) throw error;
       const landlord = swapTarget.landlord_id ? enrichment.landlords[swapTarget.landlord_id] : null;
-      setSwapHouseForLink({
+      openT4RentRequest({ mode: 'new', entry: 'swap-tenant', onDone: () => refresh(), prefill: { house: {
         id: swapTarget.id,
         title: swapTarget.title,
         address: swapTarget.address ?? null,
@@ -272,7 +265,7 @@ export function AgentListingsSheet({ open, onOpenChange, onListHouse, vacantOnly
         landlord_name: landlord?.name ?? null,
         landlord_phone: landlord?.phone ?? null,
         image_urls: swapTarget.image_urls ?? null,
-      });
+      } } });
       setSwapTarget(null);
       refresh();
     } catch (err: any) {
@@ -1217,14 +1210,6 @@ export function AgentListingsSheet({ open, onOpenChange, onListHouse, vacantOnly
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-    {swapHouseForLink && (
-      <AgentRentRequestDialog
-        open={!!swapHouseForLink}
-        onOpenChange={(o) => { if (!o) setSwapHouseForLink(null); }}
-        onSuccess={() => { setSwapHouseForLink(null); refresh(); }}
-        preselectHouse={swapHouseForLink}
-      />
-    )}
     <RegisterLandlordDialog
       open={registerLandlordOpen}
       onOpenChange={setRegisterLandlordOpen}

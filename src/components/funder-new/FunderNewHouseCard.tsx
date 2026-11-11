@@ -188,7 +188,8 @@ export function FunderNewHouseCard({
             aria-pressed={selected}
           >
             {selected ? <Check className="h-4 w-4 text-white" aria-hidden /> : null}
-            {selected ? 'Selected' : isEmpty ? 'Pending verification' : 'Fund this House'}
+            {/* Every house on the funder feed is verified (p_verified_only). */}
+            {selected ? 'Selected' : 'Fund this House'}
           </Button>
 
         </div>
