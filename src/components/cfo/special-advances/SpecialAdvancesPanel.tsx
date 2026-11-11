@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Scale, Clock, Sparkles } from 'lucide-react';
+import { Plus, Scale, Clock, Sparkles, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -93,26 +93,27 @@ export function SpecialAdvancesPanel() {
                     <th className="px-3 py-2 text-right font-medium">Principal</th>
                     <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Total repayable</th>
                     <th className="px-3 py-2 text-left font-medium">Status</th>
+                    <th className="px-3 py-2 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {list.isLoading && (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
                         Loading...
                       </td>
                     </tr>
                   )}
                   {list.isError && (
                     <tr>
-                      <td colSpan={5} role="alert" className="py-8 text-center text-destructive">
+                      <td colSpan={6} role="alert" className="py-8 text-center text-destructive">
                         {describeSpecialAdvanceError(list.error)}
                       </td>
                     </tr>
                   )}
                   {!list.isLoading && !list.isError && items.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
                         No Special Advances recorded{status ? ' with this status' : ''}.
                       </td>
                     </tr>
@@ -153,6 +154,22 @@ export function SpecialAdvancesPanel() {
                         >
                           {STATUS_LABEL[a.status]}
                         </Badge>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs"
+                          aria-label={`View details for ${a.reference}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenId(a.id);
+                          }}
+                        >
+                          <Eye className="mr-1 h-3.5 w-3.5" />
+                          View details
+                        </Button>
                       </td>
                     </tr>
                   ))}
