@@ -324,6 +324,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
   const [last, setLast] = useState<{ row: SchoolProfileRow; saved: boolean } | null>(null);
   const [count, setCount] = useState(0);
   const [logEntry, setLogEntry] = useState(true);
+  const topRef = useRef<HTMLDivElement>(null);
   const group = roleGroup(role);
   const set = (k: keyof SchoolProfileRow) => (e: React.ChangeEvent<HTMLInputElement>) => setF((d) => ({ ...d, [k]: e.target.value }));
   const num = (v: unknown) => (v === '' || v == null ? null : Number(String(v).replace(/\D/g, '')) || null);
@@ -357,13 +358,27 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     setSaving(false);
     setLast(res);
     setCount((c) => c + 1);
-    if (!res.saved) { onQueued(); toast.message('No connection — saved on this phone, will send automatically'); }
-    else toast.success(group === 'asset' ? 'Facility registered' : `${f.full_name} registered`);
+    const who = group === 'asset' ? (f.facility_type || 'Facility') : (f.full_name?.trim() || 'Person');
+    if (!res.saved) { onQueued(); toast.message('Saved on this phone', { description: `${who} will upload automatically when you are back online.` }); }
+    else toast.success('Registration successful', { description: `${who} is registered at ${school.name}.` });
     setF({}); setHasPhone(null);
+    // The confirmation sits above the form; bring it into view after saving at the bottom.
+    topRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   };
 
   return (
-    <div className="space-y-4">
+    <div ref={topRef} className="space-y-4 scroll-mt-32">
+      {last && (
+        <div role="status" aria-live="polite" className={cn('flex gap-3 rounded-2xl border p-4', last.saved ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30' : 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30')}>
+          {last.saved ? <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden /> : <CloudOff className="h-6 w-6 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />}
+          <div className="min-w-0">
+            <p className="font-semibold">{last.saved ? 'Registration successful' : 'Saved on this phone'}</p>
+            <p className="text-sm text-muted-foreground">
+              {last.row.full_name || last.row.facility_type || 'This record'}{last.saved ? ` is registered at ${school.name}.` : ' will upload automatically when you are back online.'}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="flex gap-3 p-4 bg-primary/5 border-l-4 border-primary rounded-lg">
         <Bot className="h-6 w-6 text-primary shrink-0" />
         <div><p className="text-sm font-semibold">🎉 {school.name} is locked!</p><p className="text-sm text-muted-foreground">Who are you registering at the gate right now?</p></div>
