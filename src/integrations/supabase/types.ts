@@ -7359,6 +7359,8 @@ export type Database = {
           created_at: string
           email: string | null
           email_verified_at: string | null
+          face_match_confirmed_at: string | null
+          face_match_confirmed_by: string | null
           gps1_accuracy_m: number | null
           gps1_captured_at: string | null
           gps1_lat: number | null
@@ -7367,6 +7369,8 @@ export type Database = {
           gps2_captured_at: string | null
           gps2_lat: number | null
           gps2_lng: number | null
+          home_lc1_letter_bucket: string | null
+          home_lc1_letter_path: string | null
           id_back_path: string | null
           id_captured_at: string | null
           id_changed_at: string | null
@@ -7378,6 +7382,9 @@ export type Database = {
           id_source: string | null
           in_scope: boolean
           nok_agent_id: string | null
+          nok_call_note: string | null
+          nok_confirmed_at: string | null
+          nok_confirmed_by: string | null
           nok_name: string | null
           nok_phone: string | null
           nok_relationship: string | null
@@ -7406,6 +7413,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           email_verified_at?: string | null
+          face_match_confirmed_at?: string | null
+          face_match_confirmed_by?: string | null
           gps1_accuracy_m?: number | null
           gps1_captured_at?: string | null
           gps1_lat?: number | null
@@ -7414,6 +7423,8 @@ export type Database = {
           gps2_captured_at?: string | null
           gps2_lat?: number | null
           gps2_lng?: number | null
+          home_lc1_letter_bucket?: string | null
+          home_lc1_letter_path?: string | null
           id_back_path?: string | null
           id_captured_at?: string | null
           id_changed_at?: string | null
@@ -7425,6 +7436,9 @@ export type Database = {
           id_source?: string | null
           in_scope?: boolean
           nok_agent_id?: string | null
+          nok_call_note?: string | null
+          nok_confirmed_at?: string | null
+          nok_confirmed_by?: string | null
           nok_name?: string | null
           nok_phone?: string | null
           nok_relationship?: string | null
@@ -7453,6 +7467,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           email_verified_at?: string | null
+          face_match_confirmed_at?: string | null
+          face_match_confirmed_by?: string | null
           gps1_accuracy_m?: number | null
           gps1_captured_at?: string | null
           gps1_lat?: number | null
@@ -7461,6 +7477,8 @@ export type Database = {
           gps2_captured_at?: string | null
           gps2_lat?: number | null
           gps2_lng?: number | null
+          home_lc1_letter_bucket?: string | null
+          home_lc1_letter_path?: string | null
           id_back_path?: string | null
           id_captured_at?: string | null
           id_changed_at?: string | null
@@ -7472,6 +7490,9 @@ export type Database = {
           id_source?: string | null
           in_scope?: boolean
           nok_agent_id?: string | null
+          nok_call_note?: string | null
+          nok_confirmed_at?: string | null
+          nok_confirmed_by?: string | null
           nok_name?: string | null
           nok_phone?: string | null
           nok_relationship?: string | null
@@ -23162,6 +23183,75 @@ export type Database = {
             referencedColumns: ["portfolio_id"]
           },
         ]
+      }
+      funder_release_notice_log: {
+        Row: {
+          audience: string
+          channel: string
+          created_at: string
+          detail: string | null
+          id: string
+          recipient: string | null
+          rent_request_id: string
+          status: string
+        }
+        Insert: {
+          audience: string
+          channel: string
+          created_at?: string
+          detail?: string | null
+          id?: string
+          recipient?: string | null
+          rent_request_id: string
+          status: string
+        }
+        Update: {
+          audience?: string
+          channel?: string
+          created_at?: string
+          detail?: string | null
+          id?: string
+          recipient?: string | null
+          rent_request_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      funder_release_sms: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          message: string
+          phone: string
+          rent_request_id: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          message: string
+          phone: string
+          rent_request_id: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          message?: string
+          phone?: string
+          rent_request_id?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: []
       }
       funders_board_baseline_items: {
         Row: {
@@ -53839,6 +53929,24 @@ export type Database = {
           },
         ]
       }
+      rpc_result_cache: {
+        Row: {
+          computed_at: string
+          key: string
+          payload: Json
+        }
+        Insert: {
+          computed_at: string
+          key: string
+          payload: Json
+        }
+        Update: {
+          computed_at?: string
+          key?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
       saved_houses: {
         Row: {
           created_at: string
@@ -77359,6 +77467,7 @@ export type Database = {
         Returns: boolean
       }
       _agent_products_authorized: { Args: never; Returns: boolean }
+      _agent_red_flags: { Args: { p_agent: string }; Returns: Json }
       _agent_rule_judged_week_start: { Args: never; Returns: string }
       _agent_rule_week_start: { Args: { p_day: string }; Returns: string }
       _agent_vetting_ensure: {
@@ -77368,6 +77477,8 @@ export type Database = {
           created_at: string
           email: string | null
           email_verified_at: string | null
+          face_match_confirmed_at: string | null
+          face_match_confirmed_by: string | null
           gps1_accuracy_m: number | null
           gps1_captured_at: string | null
           gps1_lat: number | null
@@ -77376,6 +77487,8 @@ export type Database = {
           gps2_captured_at: string | null
           gps2_lat: number | null
           gps2_lng: number | null
+          home_lc1_letter_bucket: string | null
+          home_lc1_letter_path: string | null
           id_back_path: string | null
           id_captured_at: string | null
           id_changed_at: string | null
@@ -77387,6 +77500,9 @@ export type Database = {
           id_source: string | null
           in_scope: boolean
           nok_agent_id: string | null
+          nok_call_note: string | null
+          nok_confirmed_at: string | null
+          nok_confirmed_by: string | null
           nok_name: string | null
           nok_phone: string | null
           nok_relationship: string | null
@@ -77440,6 +77556,10 @@ export type Database = {
       _agent_vetting_take_id_snapshot: {
         Args: { p_uid: string }
         Returns: undefined
+      }
+      _agent_vetting_v2_missing: {
+        Args: { p_agent: string }
+        Returns: string[]
       }
       _agent_week_active_days: {
         Args: { p_agent: string; p_week_start: string }
@@ -77922,6 +78042,7 @@ export type Database = {
       }
       _cto_dossier_allowed: { Args: never; Returns: boolean }
       _desk_gate: { Args: { p_desks: string[] }; Returns: boolean }
+      _desk_people: { Args: { p_stage: string }; Returns: string[] }
       _desk_stage_counts: {
         Args: never
         Returns: {
@@ -77998,6 +78119,36 @@ export type Database = {
       _funder_nudge_stats: {
         Args: { p_day: string; p_partner_id: string }
         Returns: Json
+      }
+      _funder_release_claim: {
+        Args: {
+          p_audience: string
+          p_channel: string
+          p_rent_request_id: string
+        }
+        Returns: boolean
+      }
+      _funder_release_finish: {
+        Args: {
+          p_audience: string
+          p_channel: string
+          p_detail: string
+          p_recipient: string
+          p_rent_request_id: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      _funder_release_notify_plan: {
+        Args: {
+          p_agent_id: string
+          p_allocation_id: string
+          p_amount: number
+          p_landlord_id: string
+          p_partner_id: string
+          p_rent_request_id: string
+        }
+        Returns: undefined
       }
       _funders_board_authority: { Args: { p_uid: string }; Returns: string }
       _funders_board_is_counted: {
@@ -80311,6 +80462,10 @@ export type Database = {
         Returns: Json
       }
       agent_vetting_confirm_email: { Args: never; Returns: Json }
+      agent_vetting_confirm_item: {
+        Args: { p_agent_id: string; p_item: string; p_note?: string }
+        Returns: Json
+      }
       agent_vetting_confirm_phone: { Args: never; Returns: Json }
       agent_vetting_detail: { Args: { p_agent_id: string }; Returns: Json }
       agent_vetting_distance_m: {
@@ -80349,6 +80504,10 @@ export type Database = {
           p_passport_photo_check?: Json
           p_passport_photo_path?: string
         }
+        Returns: Json
+      }
+      agent_vetting_save_home_lc1: {
+        Args: { p_bucket: string; p_path: string }
         Returns: Json
       }
       agent_vetting_save_residence: {
@@ -85877,6 +86036,7 @@ export type Database = {
         Args: { p_house_ids: string[]; p_reason?: string }
         Returns: Json
       }
+      funder_release_sms_dispatch: { Args: never; Returns: undefined }
       funder_support_capacity: { Args: { p_user_id: string }; Returns: number }
       funder_support_capacity__impl: {
         Args: { p_user_id: string }
@@ -97892,10 +98052,12 @@ export type Database = {
         Args: { p_ledger_id: string; p_portfolio_id: string; p_reason: string }
         Returns: string
       }
+      request_desk_history: { Args: { p_request_id: string }; Returns: Json }
       request_exception_otp: {
         Args: { p_kind: string; p_reason: string; p_target_ids: string[] }
         Returns: Json
       }
+      request_identity_photos: { Args: { p_request_id: string }; Returns: Json }
       request_landlord_number_change: {
         Args: {
           p_field: string
