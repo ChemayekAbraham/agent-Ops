@@ -1,6 +1,6 @@
 import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, Handshake } from 'lucide-react';
 import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershipPanel';
@@ -51,9 +51,13 @@ export default function AgentWelileSchools() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [locked, setLocked] = useState<SchoolRow | null>(() => readLockedSchool());
+  // Opened from the Welile Schools home (/schools): ?mode= picks the tab, ?new=1 starts a new school.
+  const [params] = useSearchParams();
+  const startNew = params.get('new') === '1';
+  const initialMode = params.get('mode');
+  const [locked, setLocked] = useState<SchoolRow | null>(() => (startNew ? null : readLockedSchool()));
   const [draft, setDraft] = useState<Partial<SchoolRow>>(EMPTY_SCHOOL);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(startNew);
   const [dirRegion, setDirRegion] = useState<string | null>(null);
   const [dirDistrict, setDirDistrict] = useState<string | null>(null);
   const [dirSearch, setDirSearch] = useState('');
@@ -61,7 +65,7 @@ export default function AgentWelileSchools() {
   const [gpsBusy, setGpsBusy] = useState(false);
   const [pendingCount, setPendingCount] = useState(() => readPendingProfiles().length);
   const [gatePendingCount, setGatePendingCount] = useState(() => readPendingGateLogs().length);
-  const [mode, setMode] = useState<'gate' | 'register' | 'partner'>('gate');
+  const [mode, setMode] = useState<'gate' | 'register' | 'partner'>(() => (initialMode === 'register' || initialMode === 'partner' ? initialMode : 'gate'));
 
   const { data: schools = [] } = useQuery({
     queryKey: ['welile-schools-list'],
@@ -122,7 +126,7 @@ export default function AgentWelileSchools() {
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border">
         <div className="flex items-center gap-2 px-3 py-2">
-          <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => navigate('/dashboard/agent')} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => navigate('/schools')} aria-label="Back to Welile Schools home"><ArrowLeft className="h-5 w-5" /></Button>
           <GraduationCap className="h-5 w-5 text-primary" />
           <h1 className="text-base font-bold flex-1">Welile Schools</h1>
           {pendingCount + gatePendingCount > 0 && <Badge variant="outline" className="gap-1"><CloudOff className="h-3 w-3" />{pendingCount + gatePendingCount} waiting</Badge>}
