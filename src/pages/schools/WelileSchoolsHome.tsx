@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import welileLogo from '@/assets/welile-logo.png';
+import styles from './WelileSchoolsHome.module.css';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
