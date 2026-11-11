@@ -224,9 +224,15 @@ export function cooChips(row: CooRow, concerns?: ConcernSummary): ChipModel[] {
 }
 
 /** The sentences under a row, most important first: serious concern, then frozen or held. */
-export function cooLines(row: CooRow): string[] {
+/** A concern the server raised itself ("System (E77): …"): shown under a blocked row word for word. */
+export const isSystemConcern = (note: string | null | undefined): note is string => /^System \(E\d+\)/.test(note ?? '');
+
+export function cooLines(row: CooRow, concerns?: ConcernSummary): string[] {
   const out: string[] = [];
-  if (row.concern_block === true) out.push(CONCERN_BLOCK_LINE);
+  if (row.concern_block === true) {
+    out.push(CONCERN_BLOCK_LINE);
+    if (isSystemConcern(concerns?.latest)) out.push(concerns!.latest as string);
+  }
   const l = cooLine(row);
   if (l) out.push(l);
   return out;
@@ -332,7 +338,7 @@ function CooRowLine({
     </span>
   );
 
-  const lines = cooLines(row);
+  const lines = cooLines(row, concerns);
 
   if (layout === 'card') {
     return (

@@ -8,6 +8,7 @@ import { Skeleton } from './Skeleton';
 import { CallLog } from './CallLog';
 import { asIs, isRecordOnly, needsNote, passMovesOnServer, rejectMovesOnServer, runMove, transferThenPass } from './deskActions';
 import { passBlock } from './passBlock';
+import { IdentityBanner, IdentityPanel } from './identityPhotos';
 import { answeredCallOnFile, awarenessCallsKey, callTime, stageSince, useAwarenessCalls } from './callOnFile';
 import { toast } from 'sonner';
 import { afterServerPass } from './boardApi';
@@ -601,6 +602,9 @@ export function ReviewDrawer({
           {req && (
             // Hidden rather than unmounted on the Photos tab, so ticks and notes survive a tab switch.
             <div className={photosTab && tab !== 'review' ? 'hidden' : 'space-y-5'}>
+              {/* ── E77: who the tenant and the agent are, before anything else ── */}
+              <IdentityPanel requestId={requestId} />
+
               {/* ── The facts, as the agent recorded them ── */}
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">What the agent sent</h3>
@@ -794,6 +798,8 @@ export function ReviewDrawer({
               {/* ── The decision ── */}
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">Your decision</h3>
+                {/* E77: the server's identity flags, red, above the buttons. */}
+                <IdentityBanner requestId={requestId} />
                 {callDesk && canPass && (
                   <p data-call-on-file className={`text-sm ${statusText.ok}`} style={{ margin: 0 }}>
                     {onFile
