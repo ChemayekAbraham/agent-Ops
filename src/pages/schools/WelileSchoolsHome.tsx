@@ -61,7 +61,9 @@ export default function WelileSchoolsHome() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <img src={welileLogo} alt="" aria-hidden className="h-7 w-auto rounded-lg" />
-          <h1 className="flex-1 text-base font-bold">Welile Schools</h1>
+          <h1 className="flex-1 text-lg font-bold">
+            <span className={`${styles.wordmark} text-xl text-primary`}>Welile</span> Schools
+          </h1>
         </div>
       </header>
 
