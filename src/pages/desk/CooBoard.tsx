@@ -19,6 +19,22 @@ import { MissingLine, SendBackIncompleteSheet } from './incomplete';
 import { missingChip } from './boardRowModel';
 import { awaitingRentRequestIds } from '@/lib/fundersBoard';
 import { useCooDemoted } from './fundersBoard/DemotedPanel';
+import {
+  AgentGradeBadge,
+  AgentGradeBody,
+  ConcernBody,
+  DemotedBody,
+  Explain,
+  FailingBody,
+  FrozenBody,
+  GradeBody,
+  HoldBody,
+  KindBody,
+  RatingsBody,
+  agentGradeText,
+  type CooRatingsFull,
+  type RedFlag,
+} from './cooBadges';
 
 /**
  * The COO's "Ready for your push": approved requests graded A–D from the three
@@ -30,14 +46,7 @@ import { useCooDemoted } from './fundersBoard/DemotedPanel';
  * retired budget and are not read.
  */
 
-export type CooRatings = {
-  agent_ops: number | null;
-  tenant_ops: number | null;
-  landlord_ops: number | null;
-  average: number | null;
-  grade: string | null;
-  partly_rated: boolean;
-};
+export type CooRatings = CooRatingsFull;
 
 export type CooRow = {
   id: string;
@@ -49,6 +58,10 @@ export type CooRow = {
   tenant: string | null;
   agent: string | null;
   agent_grade: string | null;
+  /** The agent's collections, % of what was due (E74 explains it). */
+  agent_pct?: number | null;
+  /** Grade X only: why the agent is red-flagged (label + detail). */
+  agent_red_flags?: RedFlag[] | null;
   landlord: string | null;
   landlord_verified: boolean | null;
   rent: number | null;
@@ -226,6 +239,9 @@ export function cooChips(row: CooRow, concerns?: ConcernSummary): ChipModel[] {
     out.push({ key: 'hold', text: up ? 'On hold · time up' : 'On hold', tone: up ? 'bad' : 'idle', title: w.note ?? undefined });
   }
   if (row.ratings?.partly_rated) out.push({ key: 'partly', text: 'partly rated', tone: 'idle' });
+  // E74: failing tenant checks get their own chip, so they can be opened and read.
+  const failing = row.flags?.failing ?? [];
+  if (failing.length > 0) out.push({ key: 'failing', text: `${failing.length} failing ${failing.length === 1 ? 'check' : 'checks'}`, tone: 'warn' });
   return out;
 }
 
@@ -288,28 +304,55 @@ function CooRowLine({
   concerns?: ConcernSummary;
 }) {
   const frozen = row.frozen;
-  const kindChip = row.kind ? [<KindChip key="kind" kind={row.kind} />] : [];
-  const chips = [...kindChip, ...cooChips(row, concerns).map((c) =>
-    c.key === 'frozen' ? (
-      <button
-        key={c.key}
-        type="button"
-        onClick={() => onAgent(row)}
-        aria-label={`Frozen — open ${row.agent ?? 'the agent'}'s rent plans`}
-        className={`rounded-full ${CALM} ${FOCUS} hover:opacity-80`}
-        style={{ display: 'inline-flex', padding: 0, border: 0, background: 'none', cursor: 'pointer' }}
-        data-frozen-chip
-      >
+  // E74: every badge opens a small panel that explains it (popover from md, a sheet on a phone).
+  const kindChip = row.kind
+    ? [
+        <Explain key="kind" label={`${row.kind.label ?? 'Request kind'}: what it means`} badge={<KindChip kind={row.kind} />}>
+          <KindBody kind={row.kind} />
+        </Explain>,
+      ]
+    : [];
+  const chipBody = (key: string) => {
+    switch (key) {
+      case 'concerns':
+        return <ConcernBody summary={concerns} blocking={row.concern_block === true} />;
+      case 'demoted':
+        return <DemotedBody note={row.waiting?.note} />;
+      case 'frozen':
+        return row.frozen ? <FrozenBody frozen={row.frozen} onAgent={() => onAgent(row)} /> : null;
+      case 'hold':
+        return row.waiting ? <HoldBody waiting={row.waiting} /> : null;
+      case 'partly':
+        return <RatingsBody ratings={row.ratings} />;
+      case 'failing':
+        return <FailingBody failing={row.flags?.failing ?? []} passes={row.flags?.passes} total={row.flags?.total} />;
+      default:
+        return null;
+    }
+  };
+  const chips = [
+    ...kindChip,
+    ...cooChips(row, concerns).map((c) => {
+      const chip = (
         <Chip tone={c.tone} title={c.title} strong={c.strong}>
           {c.text}
         </Chip>
-      </button>
-    ) : (
-      <Chip key={c.key} tone={c.tone} title={c.title} strong={c.strong}>
-        {c.text}
-      </Chip>
-    ),
-  )];
+      );
+      const body = chipBody(c.key);
+      return body ? (
+        <Explain key={c.key} label={`${c.text}: what it means`} badge={<span data-chip={c.key} {...(c.key === 'frozen' ? { 'data-frozen-chip': true } : {})}>{chip}</span>}>
+          {body}
+        </Explain>
+      ) : (
+        <span key={c.key}>{chip}</span>
+      );
+    }),
+  ];
+  const ratingsBadge = (
+    <Explain label="Desk ratings: what they mean" badge={<span className="tabular-nums text-foreground underline decoration-dotted underline-offset-2" data-ratings>{ratingsText(row.ratings)}</span>}>
+      <RatingsBody ratings={row.ratings} />
+    </Explain>
+  );
   const menu = (close: () => void) => (
     <>
       <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
@@ -322,7 +365,9 @@ function CooRowLine({
       {/* Rank and grade never shrink or wrap beside a long name. */}
       <span className={`${LABEL} tabular-nums`} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{row.rank ?? '—'}.</span>
       <span style={{ flexShrink: 0, display: 'inline-flex' }}>
-        <GradeBadge grade={row.grade} />
+        <Explain label={`Request grade ${row.grade ?? 'not set'}: what it means`} badge={<GradeBadge grade={row.grade} />}>
+          <GradeBody grade={row.grade} avg={row.avg} ratings={row.ratings} />
+        </Explain>
       </span>
       <span style={{ overflowWrap: 'anywhere' }}>{row.tenant ?? '—'}</span>
     </span>
@@ -343,7 +388,11 @@ function CooRowLine({
       ) : (
         <span style={{ overflowWrap: 'anywhere' }}>{row.agent ?? 'No agent'}</span>
       )}
-      {row.agent_grade && <GradeBadge grade={row.agent_grade} />}
+      {row.agent_grade && (
+        <Explain label={`Agent grade ${agentGradeText(row.agent_grade)}: what it means`} badge={<AgentGradeBadge grade={row.agent_grade} />}>
+          <AgentGradeBody grade={row.agent_grade} pct={row.agent_pct} flags={row.agent_red_flags ?? []} />
+        </Explain>
+      )}
     </span>
   );
 
@@ -376,7 +425,7 @@ function CooRowLine({
             <>
               <span title={moneyFull(row.rent)}>{moneyCard(row.rent)}</span>
               <span>{daysShort(row.days_here)}</span>
-              <span title="Agent Ops · Tenant Ops · Landlord Ops ratings">{ratingsText(row.ratings)}</span>
+              {ratingsBadge}
             </>
           }
           primary={isPushable(row) ? { label: 'Push to funders', onClick: () => onPush(row) } : undefined}
@@ -408,8 +457,8 @@ function CooRowLine({
           <span className="text-muted-foreground">{agent}</span>
         </span>
       )}
-      <span className="tabular-nums text-foreground" style={{ whiteSpace: 'nowrap' }} title="Agent Ops · Tenant Ops · Landlord Ops ratings">
-        {ratingsText(row.ratings)}
+      <span className="tabular-nums text-foreground" style={{ whiteSpace: 'nowrap' }}>
+        {ratingsBadge}
       </span>
       <span className="tabular-nums text-foreground" style={{ textAlign: 'right', whiteSpace: 'nowrap' }} title={moneyFull(row.rent)}>
         {moneyCard(row.rent)}
