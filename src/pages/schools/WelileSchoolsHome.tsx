@@ -406,6 +406,7 @@ function ActionTile({ icon: Icon, label, hint, onClick, primary }: { icon: typeo
 function ParentHome() {
   return (
     <div className="space-y-4">
+      <SchoolsPhotoCarousel />
       <Card className="space-y-4 p-5">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
           <GraduationCap className="h-6 w-6 text-primary" aria-hidden />
