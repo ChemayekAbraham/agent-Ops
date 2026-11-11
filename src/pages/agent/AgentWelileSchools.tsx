@@ -377,8 +377,8 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date of birth"><Input type="date" value={f.date_of_birth ?? ''} onChange={set('date_of_birth')} /></Field>
               <Field label="Age"><Input inputMode="numeric" value={(f.age as any) ?? ''} onChange={set('age')} /></Field>
-              <Field label="Phone"><Input inputMode="tel" value={f.phone ?? ''} onChange={set('phone')} /></Field>
-              <Field label="WhatsApp"><Input inputMode="tel" value={f.whatsapp ?? ''} onChange={set('whatsapp')} /></Field>
+              <Field label="Phone (optional)"><Input inputMode="tel" value={f.phone ?? ''} onChange={set('phone')} /></Field>
+              <Field label="WhatsApp (optional)"><Input inputMode="tel" value={f.whatsapp ?? ''} onChange={set('whatsapp')} /></Field>
             </div>
             <Field label="Email (optional)"><Input type="email" value={f.email ?? ''} onChange={set('email')} /></Field>
             <Field label="National ID / School ID / Admission No."><Input value={f.id_number ?? ''} onChange={set('id_number')} /></Field>
