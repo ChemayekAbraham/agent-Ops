@@ -13,8 +13,10 @@ import { releaseTone, waitedText } from './AwaitingRelease';
  *
  *   Released to agents: 12 · UGX 8,400,000
  *   With agents, landlord not paid: 3 · UGX 2,100,000 · oldest 30 h   (amber > 24 h, red > 72 h)
- *   Paid to landlords: 7 · UGX 4,900,000 · Plans live: 2
+ *   LIVE (landlord paid): 9 · UGX 6,300,000
  *
+ * A plan is live the moment the landlord receives the money, so "paid to the
+ * landlord" and "plan live" are one line, from the server's `live`.
  * Refetched every 30 s so the figures move as agents pay landlords. A tap
  * (not on the wall view) lists the items with their stage. A skeleton while
  * loading, the server's words on a failure: never a zero it has not been told.
@@ -23,7 +25,8 @@ import { releaseTone, waitedText } from './AwaitingRelease';
 export const MONEY_FLOW_DAYS = 30;
 export const MONEY_FLOW_REFRESH_MS = 30_000;
 
-export type FlowStage = 'with_agent' | 'part_paid' | 'paid_to_landlord' | 'plan_live';
+/** 'paid_to_landlord' and 'plan_live' are the older names for 'live'. */
+export type FlowStage = 'with_agent' | 'part_paid' | 'live' | 'paid_to_landlord' | 'plan_live';
 export type MoneyFlowItem = {
   rent_request_id?: string;
   tenant: string | null;
@@ -39,6 +42,9 @@ export type MoneyFlow = {
   released: CountUgx;
   with_agent: CountUgx & { oldest_hours: number | null };
   part_paid: { count: number; ugx_paid: number; ugx_left: number };
+  /** Landlord paid = plan live. */
+  live: CountUgx;
+  /** Kept by the server for compatibility; `live` is what the desks show. */
   paid_to_landlord: CountUgx;
   plan_live: CountUgx;
   items: MoneyFlowItem[];
@@ -66,6 +72,10 @@ export function useMoneyFlow(enabled = true) {
         part_paid: { count: num(pp.count), ugx_paid: num(pp.ugx_paid), ugx_left: num(pp.ugx_left) },
         paid_to_landlord: cu(d.paid_to_landlord),
         plan_live: cu(d.plan_live),
+        // `live` from the server; should it be missing, the two older parts add up to it.
+        live: d.live
+          ? cu(d.live)
+          : { count: cu(d.paid_to_landlord).count + cu(d.plan_live).count, ugx: cu(d.paid_to_landlord).ugx + cu(d.plan_live).ugx },
         items: Array.isArray(d.items) ? (d.items as MoneyFlowItem[]) : [],
       };
     },
@@ -95,19 +105,18 @@ export function moneyFlowLines(f: MoneyFlow): { key: string; text: string; tone:
       tone: 'warn',
     });
   }
-  out.push({
-    key: 'paid',
-    text: `Paid to landlords: ${fmt('int', f.paid_to_landlord.count)} · ${moneyFull(f.paid_to_landlord.ugx)} · Plans live: ${fmt('int', f.plan_live.count)}`,
-    tone: 'idle',
-  });
+  // The final line: the landlord has the money, so the plan is live.
+  out.push({ key: 'live', text: `LIVE (landlord paid): ${fmt('int', f.live.count)} · ${moneyFull(f.live.ugx)}`, tone: 'ok' });
   return out;
 }
 
 export const STAGE_WORDS: Record<string, { text: string; tone: Status }> = {
   with_agent: { text: 'With agent', tone: 'warn' },
   part_paid: { text: 'Part paid', tone: 'warn' },
-  paid_to_landlord: { text: 'Paid to landlord', tone: 'ok' },
-  plan_live: { text: 'Plan live', tone: 'ok' },
+  live: { text: 'LIVE', tone: 'ok' },
+  // Older stage names for the same thing.
+  paid_to_landlord: { text: 'LIVE', tone: 'ok' },
+  plan_live: { text: 'LIVE', tone: 'ok' },
 };
 
 const notAuthorized = (e: unknown) => {
