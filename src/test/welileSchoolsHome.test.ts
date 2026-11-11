@@ -3,29 +3,42 @@ import { describe, it, expect, vi } from 'vitest';
 // The test environment has no Supabase URL; these helpers never touch the client.
 vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 
-import { agentAttention, availableSchoolsRoles, resolveSchoolsRole } from '@/lib/welileSchoolsHome';
+import {
+  ROLE_INTRO, SCHOOLS_ROLES, agentAttention, canWorkAsSchoolAgent, isSchoolsRole, roleFromQuery,
+} from '@/lib/welileSchoolsHome';
 
-describe('availableSchoolsRoles', () => {
-  it('gives agents and ops both views, agent first', () => {
-    expect(availableSchoolsRoles(['tenant', 'agent'])).toEqual(['agent', 'parent']);
-    expect(availableSchoolsRoles(['agent_ops'])).toEqual(['agent', 'parent']);
+describe('canWorkAsSchoolAgent', () => {
+  it('is true for agents and Welile Schools ops', () => {
+    expect(canWorkAsSchoolAgent(['tenant', 'agent'])).toBe(true);
+    expect(canWorkAsSchoolAgent(['agent_ops'])).toBe(true);
   });
-  it('gives everyone else the parent view only', () => {
-    expect(availableSchoolsRoles(['tenant', 'supporter'])).toEqual(['parent']);
-    expect(availableSchoolsRoles([])).toEqual(['parent']);
+  it('is false for everyone else, and when signed out', () => {
+    expect(canWorkAsSchoolAgent(['tenant', 'supporter'])).toBe(false);
+    expect(canWorkAsSchoolAgent([])).toBe(false);
+    expect(canWorkAsSchoolAgent(null)).toBe(false);
   });
 });
 
-describe('resolveSchoolsRole', () => {
-  it('keeps a remembered choice that is still allowed', () => {
-    expect(resolveSchoolsRole(['agent', 'parent'], 'parent')).toBe('parent');
+describe('roles and the funnel', () => {
+  it('offers three separate homes in switcher order', () => {
+    expect(SCHOOLS_ROLES).toEqual(['parent', 'school', 'agent']);
   });
-  it('drops a remembered agent choice once the agent role is gone', () => {
-    expect(resolveSchoolsRole(['parent'], 'agent')).toBe('parent');
+  it('has an intro with three points for every role', () => {
+    SCHOOLS_ROLES.forEach((r) => expect(ROLE_INTRO[r].points).toHaveLength(3));
   });
-  it('defaults to the first available view', () => {
-    expect(resolveSchoolsRole(['agent', 'parent'], null)).toBe('agent');
-    expect(resolveSchoolsRole(['agent', 'parent'], 'nonsense')).toBe('agent');
+  it('accepts only known roles', () => {
+    expect(isSchoolsRole('school')).toBe(true);
+    expect(isSchoolsRole('admin')).toBe(false);
+    expect(isSchoolsRole(null)).toBe(false);
+  });
+  it('reads a role from a link so the funnel can be skipped', () => {
+    expect(roleFromQuery('?role=parent')).toBe('parent');
+    expect(roleFromQuery('?role=landlord')).toBeNull();
+    expect(roleFromQuery('')).toBeNull();
+  });
+  it('never uses the word loan or interest in what visitors read', () => {
+    const copy = JSON.stringify(ROLE_INTRO).toLowerCase();
+    expect(copy).not.toMatch(/\bloan|\binterest\b/);
   });
 });
 

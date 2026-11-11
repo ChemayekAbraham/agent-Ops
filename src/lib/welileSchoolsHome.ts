@@ -1,10 +1,20 @@
 /**
- * Welile Schools home: one screen for school agents and parents, with a role
- * switcher. These helpers hold the rules so the page stays presentation only.
+ * Welile Schools home: a public entry point (/schools, no sign-in) with an
+ * onboarding funnel and a separate home for each role — parent, school owner and
+ * Welile agent. These helpers hold the rules so the pages stay presentation only.
  */
 import type { PartnershipStatus } from '@/lib/welileSchoolsPartnership';
 
-export type SchoolsRole = 'agent' | 'parent';
+export type SchoolsRole = 'parent' | 'school' | 'agent';
+
+/** Switcher order: the two outside audiences first, Welile's own agents last. */
+export const SCHOOLS_ROLES: SchoolsRole[] = ['parent', 'school', 'agent'];
+
+export const SCHOOLS_ROLE_LABEL: Record<SchoolsRole, string> = {
+  parent: 'Parent',
+  school: 'School owner',
+  agent: 'Welile agent',
+};
 
 /** Mirrors the database's welile_schools_agent_ok(): agents and Welile Schools ops. */
 export const SCHOOL_AGENT_ROLES = [
@@ -12,27 +22,74 @@ export const SCHOOL_AGENT_ROLES = [
   'agent_ops', 'manager', 'super_admin', 'coo', 'ceo', 'cto', 'operations',
 ] as const;
 
+/** Set once the visitor finishes the funnel; holds the role they picked or last viewed. */
 export const SCHOOLS_ROLE_KEY = 'welile:schools-home:role';
 
-/** Everyone can open the parent view; the agent view needs a Welile Schools agent role. */
-export function availableSchoolsRoles(userRoles: readonly string[]): SchoolsRole[] {
-  const isAgent = userRoles.some((r) => (SCHOOL_AGENT_ROLES as readonly string[]).includes(r));
-  return isAgent ? ['agent', 'parent'] : ['parent'];
+/** Can this signed-in account do the agent's real work (gate log, registrations, set-up)? */
+export function canWorkAsSchoolAgent(userRoles: readonly string[] | null | undefined): boolean {
+  return (userRoles ?? []).some((r) => (SCHOOL_AGENT_ROLES as readonly string[]).includes(r));
 }
 
-/** The remembered choice when it is still allowed, else agent first for agents. */
-export function resolveSchoolsRole(available: SchoolsRole[], stored: string | null): SchoolsRole {
-  if (stored && (available as string[]).includes(stored)) return stored as SchoolsRole;
-  return available[0];
+export function isSchoolsRole(value: unknown): value is SchoolsRole {
+  return typeof value === 'string' && (SCHOOLS_ROLES as string[]).includes(value);
 }
 
-export function readStoredSchoolsRole(): string | null {
-  try { return localStorage.getItem(SCHOOLS_ROLE_KEY); } catch { return null; }
+/** The remembered role, or null when the visitor has not been through the funnel yet. */
+export function readStoredSchoolsRole(): SchoolsRole | null {
+  try {
+    const v = localStorage.getItem(SCHOOLS_ROLE_KEY);
+    return isSchoolsRole(v) ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 export function writeStoredSchoolsRole(role: SchoolsRole) {
   try { localStorage.setItem(SCHOOLS_ROLE_KEY, role); } catch { /* storage blocked */ }
 }
+
+export function clearStoredSchoolsRole() {
+  try { localStorage.removeItem(SCHOOLS_ROLE_KEY); } catch { /* storage blocked */ }
+}
+
+/** `?role=parent` (e.g. from an SMS link) skips the funnel straight to that home. */
+export function roleFromQuery(search: string): SchoolsRole | null {
+  const v = new URLSearchParams(search).get('role');
+  return isSchoolsRole(v) ? v : null;
+}
+
+export interface RoleIntro {
+  title: string;
+  points: { title: string; body: string }[];
+}
+
+/** The funnel's second step: what each role gets from Welile Schools. */
+export const ROLE_INTRO: Record<SchoolsRole, RoleIntro> = {
+  parent: {
+    title: 'Keep your child in school from day one',
+    points: [
+      { title: 'Welile pays the school', body: 'Your child\'s term fees go straight to the school at the start of term.' },
+      { title: 'You pay in small daily amounts', body: 'Pay any amount, any day, by MTN or Airtel.' },
+      { title: 'Pay early, pay less', body: 'The facilitation fee is worked out daily on what you still owe.' },
+    ],
+  },
+  school: {
+    title: 'Get full fees at the start of every term',
+    points: [
+      { title: 'Paid upfront', body: 'Welile pays each enrolled student\'s fees into your account at the start of term.' },
+      { title: 'Less time chasing balances', body: 'Parents repay Welile, not your bursar.' },
+      { title: 'More students enrolled', body: 'A Welile agent at your school signs families up.' },
+    ],
+  },
+  agent: {
+    title: 'Run Welile Schools at your school',
+    points: [
+      { title: 'Register the school and everyone in it', body: 'Pupils, staff, parents and facilities, with daily gate in and out.' },
+      { title: 'Set up the partnership', body: 'Bursar, payout account, terms and fees, sent to ops for approval.' },
+      { title: 'Sign up families', body: 'Help parents start School Fees Plans and follow up late payers.' },
+    ],
+  },
+};
 
 export type AttentionKind = 'pick_school' | 'finish_setup' | 'changes_requested' | 'awaiting_approval' | 'rejected' | 'offline_queue';
 
