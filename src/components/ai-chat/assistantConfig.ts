@@ -1,5 +1,5 @@
 /** The assistant's display name — change it here only. */
-export const ASSISTANT_NAME = 'Clara';
+export const ASSISTANT_NAME = 'Nexa';
 export const HELP_URL = 'https://help.welileapp.com';
 export const WHATSAPP_URL = 'https://wa.me/256777607640';
 

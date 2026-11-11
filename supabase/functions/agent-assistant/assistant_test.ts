@@ -481,6 +481,29 @@ Deno.test("personas keep their own tools: a partner cannot call agent tools and 
   assertEquals(names("none").sort(), ["ask_clarification", "calculate_rent_plan", "search_help_center"]);
 });
 
+Deno.test("prompt: the assistant is Nexa and states the support rules", () => {
+  const rules = [
+    "You are Nexa, the Welile assistant",
+    "Your name is Nexa. Never call yourself Clara or any other name.",
+    "https://wa.me/256777607640 (+256777607640)",
+    "Never say a request was sent, passed on, forwarded or escalated",
+    "list every one of the user's own houses",
+    "no 'high volume'",
+    "no 'the queue is long'",
+  ];
+  for (const ctx of [
+    { todayKampala: "2026-11-11", persona: "agent" as const, page: "agent_dashboard" as const },
+    { todayKampala: "2026-11-11", persona: "partner" as const, page: "funder_dashboard" as const },
+    { todayKampala: "2026-11-11", persona: "none" as const, page: "funder_dashboard" as const },
+    { todayKampala: "2026-11-11", persona: "none" as const, page: "other" as const },
+  ]) {
+    const prompt = buildSystemPrompt(ctx);
+    for (const rule of rules) assert(prompt.includes(rule), rule);
+    assert(!prompt.includes("You are Clara"));
+    assert(!prompt.includes("\u2014"));
+  }
+});
+
 Deno.test("partner prompt: partner topics only, masked payouts, no agent earning facts, no banned wording as advice", () => {
   const p = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard" });
   assert(p.includes("ending 245") && p.includes("portfolio"));

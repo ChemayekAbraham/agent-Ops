@@ -52,7 +52,7 @@ export function AgentAssistant({ hideLauncher = false, compact = false }: {
   const bubbleBottom = 'calc(var(--fab-above-nav) + 4.25rem)';
 
   return <>
-    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" style={{ zIndex: LAUNCHER_Z }} className={`gradient-assistant fixed bottom-[var(--fab-above-nav)] right-4 ${compact ? 'h-12 w-12' : 'h-14 w-14'} overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`} data-testid="assistant-launcher"><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
+    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Nexa" aria-haspopup="dialog" style={{ zIndex: LAUNCHER_Z }} className={`gradient-assistant fixed bottom-[var(--fab-above-nav)] right-4 ${compact ? 'h-12 w-12' : 'h-14 w-14'} overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`} data-testid="assistant-launcher"><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
     {!open && !hideLauncher && !compact && !!user && phase !== 'done' && createPortal(
       <AnimatePresence>
         {phase === 'in' && (
