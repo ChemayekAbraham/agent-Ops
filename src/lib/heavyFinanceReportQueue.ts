@@ -203,10 +203,14 @@ function pump() {
 }
 
 async function callRpc(name: HeavyFinanceReportName, args: Record<string, unknown>): Promise<unknown> {
-  const { data, error } = await (supabase.rpc as (
+  // The generated `rpc` type is a generic overload set, so it does not overlap
+  // with the plain call shape used here; go through `unknown` (behaviour is
+  // unchanged: same function, same arguments).
+  const rpc = supabase.rpc as unknown as (
     fn: string,
     params?: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: unknown }>)(name, args);
+  ) => Promise<{ data: unknown; error: unknown }>;
+  const { data, error } = await rpc(name, args);
   if (error) throw error;
   return data;
 }
