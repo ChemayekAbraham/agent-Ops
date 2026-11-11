@@ -133,7 +133,7 @@ BEGIN
 
   RETURN v_result;
 END;
-$function$
+$function$;
 
 REVOKE ALL ON FUNCTION public.get_agent_active_breakdown(timestamp with time zone, timestamp with time zone) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_agent_active_breakdown(timestamp with time zone, timestamp with time zone) TO authenticated, postgres, service_role;
@@ -424,7 +424,7 @@ BEGIN
     'generated_at', now()
   );
 END;
-$function$
+$function$;
 
 REVOKE ALL ON FUNCTION public.get_agent_ops_overview(timestamp with time zone, timestamp with time zone) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_agent_ops_overview(timestamp with time zone, timestamp with time zone) TO authenticated, postgres, service_role;
@@ -883,7 +883,7 @@ SELECT jsonb_build_object(
 
   RETURN v_result;
 END;
-$function$
+$function$;
 
 REVOKE ALL ON FUNCTION public.get_payables_predictive_forecast(text, integer, date) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_payables_predictive_forecast(text, integer, date) TO authenticated, postgres, service_role;
