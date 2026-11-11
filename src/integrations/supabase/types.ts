@@ -22893,6 +22893,81 @@ export type Database = {
         }
         Relationships: []
       }
+      funder_offplatform_rent_payments: {
+        Row: {
+          amount: number
+          confirm_note: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          cover_fee_amount: number
+          cover_fee_charged_at: string | null
+          cover_fee_ledger_group_id: string | null
+          cover_fee_status: string
+          created_at: string
+          funder_id: string
+          id: string
+          method: string
+          paid_at: string | null
+          provider: string | null
+          proxy_agent_id: string | null
+          receipt_photo_path: string | null
+          reference: string | null
+          reject_note: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rent_request_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          confirm_note?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          cover_fee_amount?: number
+          cover_fee_charged_at?: string | null
+          cover_fee_ledger_group_id?: string | null
+          cover_fee_status?: string
+          created_at?: string
+          funder_id: string
+          id?: string
+          method: string
+          paid_at?: string | null
+          provider?: string | null
+          proxy_agent_id?: string | null
+          receipt_photo_path?: string | null
+          reference?: string | null
+          reject_note?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rent_request_id: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          confirm_note?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          cover_fee_amount?: number
+          cover_fee_charged_at?: string | null
+          cover_fee_ledger_group_id?: string | null
+          cover_fee_status?: string
+          created_at?: string
+          funder_id?: string
+          id?: string
+          method?: string
+          paid_at?: string | null
+          provider?: string | null
+          proxy_agent_id?: string | null
+          receipt_photo_path?: string | null
+          reference?: string | null
+          reject_note?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rent_request_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       funder_pending_portfolios: {
         Row: {
           amount: number
@@ -77823,6 +77898,8 @@ export type Database = {
         Args: { p_note_id: string; p_user: string }
         Returns: boolean
       }
+      _offplatform_cover_charge: { Args: { p_id: string }; Returns: Json }
+      _offplatform_cover_staff_ok: { Args: never; Returns: boolean }
       _ontology_board_stage: { Args: { p_board: string }; Returns: string }
       _ontology_document_text: { Args: never; Returns: string }
       _ontology_inventory: { Args: never; Returns: Json }
@@ -85471,6 +85548,22 @@ export type Database = {
       }
       funder_pending_committed: { Args: { p_user_id: string }; Returns: number }
       funder_pending_hold: { Args: { p_user_id: string }; Returns: number }
+      funder_plan_is_verified: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
+      }
+      funder_record_offplatform_rent_payment: {
+        Args: {
+          p_amount: number
+          p_method: string
+          p_paid_at?: string
+          p_provider?: string
+          p_receipt_photo_path?: string
+          p_reference?: string
+          p_rent_request_id: string
+        }
+        Returns: Json
+      }
       funder_release_booked_houses: {
         Args: { p_house_ids: string[]; p_reason?: string }
         Returns: Json
@@ -85516,6 +85609,14 @@ export type Database = {
           total_repayment: number
           village: string
         }[]
+      }
+      funder_verified_plan_payout_contact: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
+      }
+      funder_verified_rent_plan_dossier: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
       }
       funders_board_can_demote: { Args: never; Returns: boolean }
       funders_board_counter: { Args: never; Returns: Json }
@@ -99084,9 +99185,17 @@ export type Database = {
           ts: string
         }[]
       }
+      staff_confirm_offplatform_rent_payment: {
+        Args: { p_id: string; p_note?: string }
+        Returns: Json
+      }
       staff_create_redemption_request: {
         Args: { p_portfolio_id: string; p_reason: string }
         Returns: string
+      }
+      staff_list_offplatform_rent_payments: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: Json
       }
       staff_loan_accrue_interest: {
         Args: never
@@ -99254,6 +99363,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      staff_reject_offplatform_rent_payment: {
+        Args: { p_id: string; p_note?: string }
+        Returns: Json
+      }
       staff_requisition_assert_signer: {
         Args: {
           p_prior: string[]
@@ -99377,6 +99490,10 @@ export type Database = {
           final_stage: string
           stage: string
         }[]
+      }
+      staff_retry_offplatform_cover_fee: {
+        Args: { p_id: string }
+        Returns: Json
       }
       staff_save_intake_details: {
         Args: {
