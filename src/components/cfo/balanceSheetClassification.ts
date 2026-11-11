@@ -147,6 +147,27 @@ const ASSET_ACCOUNT_MAP: Record<string, string> = {
 
 
 
+/**
+ * Plain names for the ledger accounts behind a receivables line, so the CFO sees the real source of each amount
+ * (the account's catalogue label is kept as a fallback). Presentation only.
+ */
+export const ASSET_SOURCE_LABELS: Record<string, string> = {
+  A3: 'Rent Plans — owed by tenants',
+  A6: 'Welile Homes and landlord products — owed by landlords',
+  A7: 'Promissory notes signed by partners — not yet paid',
+  A23: 'Angel Pool share paid from company float — owed by Pius',
+  A24: 'Special advances',
+  A26: 'Shares paid from company float — owed by shareholders',
+  A27: 'Staff loans and salary advances — owed by employees',
+};
+
+/** The ledger source name for a Balance Sheet line: plain name plus account code. */
+export function assetSourceLabel(line: PositionLine): string {
+  const code = accountCodeOf(line);
+  const name = (code && ASSET_SOURCE_LABELS[code]) || line.label;
+  return code ? `${name} (${code})` : name;
+}
+
 /* ── Liabilities ───────────────────────────────────────────────────────── */
 
 export const MARKETPLACE_LIABILITY_CATEGORIES = [

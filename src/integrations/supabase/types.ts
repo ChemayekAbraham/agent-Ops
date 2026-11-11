@@ -20246,6 +20246,84 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_daily_tieout: {
+        Row: {
+          as_at: string
+          assets: Json
+          bs_difference: number | null
+          cash_flow: Json | null
+          changes: Json
+          error: string | null
+          finished_at: string | null
+          id: string
+          run_as: string | null
+          run_date: string
+          started_at: string
+          status: string
+          tb_difference: number | null
+          ties: Json
+          total_assets: number | null
+          trigger: string
+        }
+        Insert: {
+          as_at: string
+          assets?: Json
+          bs_difference?: number | null
+          cash_flow?: Json | null
+          changes?: Json
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          run_as?: string | null
+          run_date: string
+          started_at?: string
+          status: string
+          tb_difference?: number | null
+          ties?: Json
+          total_assets?: number | null
+          trigger?: string
+        }
+        Update: {
+          as_at?: string
+          assets?: Json
+          bs_difference?: number | null
+          cash_flow?: Json | null
+          changes?: Json
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          run_as?: string | null
+          run_date?: string
+          started_at?: string
+          status?: string
+          tb_difference?: number | null
+          ties?: Json
+          total_assets?: number | null
+          trigger?: string
+        }
+        Relationships: []
+      }
+      fin_daily_tieout_settings: {
+        Row: {
+          id: number
+          note: string | null
+          run_as: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          note?: string | null
+          run_as: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          note?: string | null
+          run_as?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fin_pnl_lines: {
         Row: {
           account_code: string
@@ -85562,6 +85640,7 @@ export type Database = {
         }
         Returns: string
       }
+      fin_run_daily_tieout: { Args: { p_trigger?: string }; Returns: string }
       fin_s12_assert_controls: { Args: never; Returns: undefined }
       fin_s12_txn_financial_writes: { Args: never; Returns: number }
       fin_s14_assert_controls: { Args: never; Returns: undefined }
