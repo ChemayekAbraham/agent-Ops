@@ -69918,6 +69918,7 @@ export type Database = {
           needs_free_smartphone: boolean
           next_of_kin: string | null
           phone: string | null
+          photo_path: string | null
           registered_by: string
           residence_village: string | null
           role: string
@@ -69960,6 +69961,7 @@ export type Database = {
           needs_free_smartphone?: boolean
           next_of_kin?: string | null
           phone?: string | null
+          photo_path?: string | null
           registered_by?: string
           residence_village?: string | null
           role: string
@@ -70002,6 +70004,7 @@ export type Database = {
           needs_free_smartphone?: boolean
           next_of_kin?: string | null
           phone?: string | null
+          photo_path?: string | null
           registered_by?: string
           residence_village?: string | null
           role?: string
@@ -78369,6 +78372,10 @@ export type Database = {
         }[]
       }
       _e28_phone9: { Args: { p: string }; Returns: string }
+      _e84_queue_release_sms: {
+        Args: { p_rent_request_id: string }
+        Returns: number
+      }
       _eligible_agents: {
         Args: never
         Returns: {
@@ -86310,6 +86317,7 @@ export type Database = {
         Args: { p_week_start: string }
         Returns: number
       }
+      funded_money_flow: { Args: { p_days?: number }; Returns: Json }
       funder_booked_houses: { Args: never; Returns: Json }
       funder_card_preview: { Args: { p_request_id: string }; Returns: Json }
       funder_create_pending_portfolio: {
@@ -86357,6 +86365,7 @@ export type Database = {
         Returns: Json
       }
       funder_release_sms_dispatch: { Args: never; Returns: undefined }
+      funder_selection_auto_release: { Args: never; Returns: Json }
       funder_support_capacity: { Args: { p_user_id: string }; Returns: number }
       funder_support_capacity__impl: {
         Args: { p_user_id: string }
