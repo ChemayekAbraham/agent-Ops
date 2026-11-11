@@ -109,7 +109,7 @@ function ChooserBody({
         receiptPhotoPath: photoPath,
       });
       if (!result.ok) {
-        toast.error(result.missing
+        toast.error('missing' in result && result.missing
           ? 'Welile cannot record this payment yet. Nothing was saved and your balance was not charged.'
           : 'This payment was not recorded. Your balance was not charged.');
         return;
