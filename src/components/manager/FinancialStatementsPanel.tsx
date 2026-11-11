@@ -746,13 +746,7 @@ function FinancialStatementsPanelInner() {
   );
   const drillCtx = useMemo<DrillContextValue>(() => ({ open: setDrillLabel }), []);
 
-  // fin_cash_flow resolves the whole ledger like the balance sheet does. Start it only once its figures are shown:
-  // the Cash Flow tab, or the reconciliation card under generated statements (not while the Balance Sheet tab loads).
-  const [cashFlowOpened, setCashFlowOpened] = useState(activeTab === 'cashflow');
-  useEffect(() => {
-    if (activeTab === 'cashflow' || (data && activeTab !== 'balance')) setCashFlowOpened(true);
-  }, [activeTab, data]);
-  const { data: cashFlow, error: cashFlowError } = useStatementOfCashFlows(drillDates.start, drillDates.end, cashFlowOpened);
+  const { data: cashFlow, error: cashFlowError } = useStatementOfCashFlows(drillDates.start, drillDates.end);
   // The income statements resolve ledger legs the same way the balance sheet does, so running
   // them while the Balance Sheet tab loads makes both compete for the database. Start them the
   // first time the Income tab is opened (and keep them afterwards).

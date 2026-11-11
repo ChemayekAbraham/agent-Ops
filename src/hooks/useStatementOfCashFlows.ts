@@ -65,12 +65,7 @@ export interface StatementOfCashFlows {
 
 const ALL_TIME_START = new Date('2000-01-01T00:00:00Z');
 
-/**
- * `enabled` = false holds the request. fin_cash_flow resolves the whole ledger (about 1 GB of temp disk per run), so
- * the Financial Statements panel only starts it when the Cash Flow figures are actually shown; running it alongside
- * the Balance Sheet made both exceed the request time limit.
- */
-export function useStatementOfCashFlows(start: Date | null, end: Date | null, enabled: boolean = true) {
+export function useStatementOfCashFlows(start: Date | null, end: Date | null) {
   const [data, setData] = useState<StatementOfCashFlows | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,10 +78,6 @@ export function useStatementOfCashFlows(start: Date | null, end: Date | null, en
   const toIso = useMemo(() => (endMs === null ? new Date() : new Date(endMs)).toISOString(), [endMs]);
 
   const load = useCallback(async () => {
-    if (!enabled) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
     setData(null); // never show or export the previous period's figures while the new period loads
@@ -101,7 +92,7 @@ export function useStatementOfCashFlows(start: Date | null, end: Date | null, en
       setData(rpc as unknown as StatementOfCashFlows);
     }
     setLoading(false);
-  }, [enabled, fromIso, toIso]);
+  }, [fromIso, toIso]);
 
   useEffect(() => { void load(); }, [load]);
 

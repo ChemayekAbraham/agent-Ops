@@ -9,7 +9,6 @@ import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useReceivablesTotal } from '@/hooks/useReceivables';
 import { cfoReportRetry } from '@/hooks/cfoReportRetry';
-import { resetSofpRequestCache } from '@/lib/sofpRequest';
 
 function deferred<T>() {
   let resolve: (value: T) => void = () => {};
@@ -33,7 +32,6 @@ const verifications = [
 
 beforeEach(() => {
   vi.clearAllMocks();
-  resetSofpRequestCache();
   mocks.ranges.mockResolvedValue({ data: verifications, error: null });
   mocks.from.mockImplementation(() => {
     const chain: any = {};
