@@ -281,7 +281,7 @@ export function FunderPreviewPlanFlow({
                         <p className="truncate text-[13px] text-muted-foreground">
                           {item.place} · {item.category === 'ready' ? 'Tenant ready' : 'Empty home'}
                         </p>
-                        <p className="text-[15px] font-bold tabular-nums">{formatDynamic(item.amount)}</p>
+                        <p className="text-[15px] font-bold tabular-nums text-primary">{formatDynamic(item.amount)}</p>
                       </div>
                       <button
                         type="button"
@@ -317,18 +317,18 @@ export function FunderPreviewPlanFlow({
                   <dt className="text-[15px] text-muted-foreground">
                     Plan total · {items.length} {items.length === 1 ? 'home' : 'homes'}
                   </dt>
-                  <dd className="text-[15px] font-semibold tabular-nums">{formatDynamic(total)}</dd>
+                  <dd className="text-[15px] font-semibold tabular-nums text-primary">{formatDynamic(total)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-2 py-3">
                   <dt className="flex items-center gap-2 text-[15px] text-muted-foreground">
                     <Wallet className="h-[18px] w-[18px]" aria-hidden />
                     Support balance
                   </dt>
-                  <dd className="text-[15px] font-semibold tabular-nums">{formatDynamic(capacity ?? 0)}</dd>
+                  <dd className="text-[15px] font-semibold tabular-nums text-primary">{formatDynamic(capacity ?? 0)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-2 border-t py-3">
                   <dt className="text-[15px] font-bold">Still needed</dt>
-                  <dd className="text-lg font-bold tabular-nums">{formatDynamic(shortfall ?? 0)}</dd>
+                  <dd className="text-lg font-bold tabular-nums text-primary">{formatDynamic(shortfall ?? 0)}</dd>
                 </div>
               </dl>
 
