@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, Handshake } from 'lucide-react';
 import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershipPanel';
+import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -127,8 +128,7 @@ export default function AgentWelileSchools() {
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border">
         <div className="flex items-center gap-2 px-3 py-2">
           <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => navigate('/schools')} aria-label="Back to Welile Schools home"><ArrowLeft className="h-5 w-5" /></Button>
-          <GraduationCap className="h-5 w-5 text-primary" />
-          <h1 className="text-base font-bold flex-1">Welile Schools</h1>
+          <WelileSchoolsBrand />
           {pendingCount + gatePendingCount > 0 && <Badge variant="outline" className="gap-1"><CloudOff className="h-3 w-3" />{pendingCount + gatePendingCount} waiting</Badge>}
         </div>
         {locked && (

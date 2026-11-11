@@ -7,8 +7,8 @@ import {
   Smartphone, TrendingDown, UserPlus, Users,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import welileLogo from '@/assets/welile-logo.png';
-import styles from './WelileSchoolsHome.module.css';
+import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
+import { wordmarkClass } from '@/components/welile-schools/wordmark';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -77,17 +77,14 @@ export default function WelileSchoolsHome() {
           <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Back" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <img src={welileLogo} alt="" aria-hidden className="h-7 w-auto rounded-lg" />
-          <h1 className="min-w-0 flex-1 truncate text-lg font-bold">
-            <span className={`${styles.wordmark} text-xl text-primary`}>Welile</span> Schools
-          </h1>
+          <WelileSchoolsBrand />
           {role !== null && <RoleSwitcher role={role} onChange={choose} />}
         </div>
       </header>
 
       <main className="mx-auto max-w-xl space-y-4 p-3">
         {role === null ? (
-          <SchoolsOnboarding wordmarkClass={styles.wordmark} onDone={choose} />
+          <SchoolsOnboarding wordmarkClass={wordmarkClass} onDone={choose} />
         ) : (
           <>
             {role === 'parent' && <ParentHome />}
