@@ -38,12 +38,19 @@ describe('assistant hello bubble', () => {
     expect(bubble?.textContent).toContain('need help?');
   });
 
-  it('is still up just before 20 seconds and gone once the fade has run', () => {
+  it('stays up instead of hiding on a timer', () => {
     vi.useFakeTimers();
     render(tree(false));
-    act(() => { vi.advanceTimersByTime(19_000); });
+    act(() => { vi.advanceTimersByTime(10 * 60_000); });
     expect(document.body.querySelector(BUBBLE)).not.toBeNull();
-    act(() => { vi.advanceTimersByTime(2_000); });
+    expect(document.body.querySelector(BUBBLE)?.textContent).toContain('need help?');
+  });
+
+  it('goes away when dismissed and does not come back', () => {
+    render(tree(false));
+    const dismiss = document.body.querySelector('[aria-label="Dismiss this greeting"]');
+    expect(dismiss).not.toBeNull();
+    fireEvent.click(dismiss!);
     expect(document.body.querySelector(BUBBLE)).toBeNull();
   });
 
