@@ -16,7 +16,9 @@ export type VettingStepKey =
   | 'location'
   | 'national_id'
   | 'passport_photo'
-  | 'next_of_kin';
+  | 'next_of_kin'
+  /** v2 (E78): the LC1 letter for the agent's home. Done-ness comes from the server missing list. */
+  | 'home_lc1';
 
 export type VettingResidence = {
   region: string | null;
