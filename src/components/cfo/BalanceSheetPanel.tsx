@@ -22,6 +22,7 @@ import {
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
+import DailyTieoutCard from '@/components/cfo/DailyTieoutCard';
 import { useReceivablesBreakdown } from '@/hooks/useReceivables';
 import { format, endOfDay } from 'date-fns';
 import {
@@ -1261,6 +1262,8 @@ export default function BalanceSheetPanel() {
               />
             </div>
           </div>
+
+          <DailyTieoutCard />
 
           {data.subledger_ties && data.subledger_ties.length > 0 && (
             <div className="rounded-lg border border-border p-3 space-y-2">
