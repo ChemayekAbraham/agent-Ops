@@ -18,6 +18,7 @@ import { captureGps, isGpsRequiredError } from '@/lib/captureGps';
 import { renewRpcArgs, type RenewalChoice } from '@/lib/renewalAdvice';
 import { attachLc1Letter, noteLc1Missing, saveIntakeDetails } from '@/lib/agentIntakeDetails';
 import { uploadLcLetter } from '@/lib/rentRequestAssistantSubmit';
+import { safeUUID } from '@/lib/safeUUID';
 import { OPEN_REQUEST_STATUSES, type TenantIdFields } from '@/lib/t4RentRequest';
 
 type UntypedRpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
@@ -383,4 +384,67 @@ export async function attachT4Documents(
     }
   }
   return problems;
+}
+
+/**
+ * A NEW request (new, swap tenant): uploads the three photos BEFORE the insert, under a fresh folder
+ * (the request id does not exist yet). With the DOCS-1 rule on, the database refuses the insert
+ * without them. Throws the storage error, naming the photo.
+ */
+export async function uploadNewRequestDocs(
+  agentId: string,
+  files: { idFront: File; idBack: File; lcLetter: File },
+): Promise<{ idFront: StoredDoc; idBack: StoredDoc; lcLetter: StoredDoc }> {
+  const folder = `new-${safeUUID()}`;
+  const one = async (kind: DocKind, file: File) => {
+    try {
+      return await uploadDocument(agentId, folder, kind, file);
+    } catch (e) {
+      throw new Error(`${DOC_LABEL[kind]}: ${errorText(e)}`);
+    }
+  };
+  return {
+    idFront: await one('id_front', files.idFront),
+    idBack: await one('id_back', files.idBack),
+    lcLetter: await one('lc1_letter', files.lcLetter),
+  };
+}
+
+/** The tenant profile's ID back photo (E75b column, not in the generated types yet). Null when none or unknown. */
+export async function loadProfileIdBack(tenantId: string): Promise<string | null> {
+  try {
+    const { data, error } = await untypedFrom('profiles').select('national_id_photo_back_path').eq('id', tenantId).maybeSingle();
+    if (error) return null;
+    const path = (data as { national_id_photo_back_path?: string | null } | null)?.national_id_photo_back_path;
+    return path?.trim() ? path : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Renewal: a new ID back photo goes on the tenant's profile (profiles.national_id_photo_back_path)
+ * BEFORE renew_rent_request, which takes the ID photos from the profile or earlier requests.
+ * Returns the server's error, or null.
+ */
+export async function saveProfileIdBack(agentId: string, tenantId: string, file: File): Promise<string | null> {
+  let stored: StoredDoc;
+  try {
+    stored = await uploadDocument(agentId, `profile-${tenantId}`, 'id_back', file);
+  } catch (e) {
+    return `${DOC_LABEL.id_back}: ${errorText(e)}`;
+  }
+  try {
+    const { data, error } = await untypedFrom('profiles')
+      .update({ national_id_photo_back_path: stored.path })
+      .eq('id', tenantId)
+      .select('id');
+    if (error) return `${DOC_LABEL.id_back}: ${errorText(error)}`;
+    if (!data || (data as unknown[]).length === 0) {
+      return `${DOC_LABEL.id_back}: your account cannot update this tenant's profile. Ask a manager.`;
+    }
+    return null;
+  } catch (e) {
+    return `${DOC_LABEL.id_back}: ${errorText(e)}`;
+  }
 }

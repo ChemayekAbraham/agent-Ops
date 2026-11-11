@@ -112,6 +112,15 @@ export interface AssistantSubmitInput {
   workLocation: string;
   /** "No LC1 letter yet" reason; sent through agent_note_lc1_missing when there is no letter. */
   noLc1Reason: string | null;
+  /**
+   * DOCS-1 (E75/E75b): the ID front, ID back and LC1 letter photos, already uploaded. They go in the
+   * insert itself: with the docs rule on, the database refuses a rent request without them.
+   */
+  docs?: {
+    idFront: { bucket: string; path: string };
+    idBack: { bucket: string; path: string };
+    lcLetter: { bucket: string; path: string };
+  } | null;
 }
 
 export type AssistantSubmitResult =
@@ -401,6 +410,13 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
         agent_guarantor_consent_at: new Date().toISOString(),
         agent_guarantor_consent_version: 'v1',
         tenant_photo_url: tenantPhotoUrl,
+        ...(input.docs
+          ? {
+              nin_photo_path: input.docs.idFront.path, nin_photo_bucket: input.docs.idFront.bucket,
+              nin_photo_back_path: input.docs.idBack.path, nin_photo_back_bucket: input.docs.idBack.bucket,
+              lc_letter_path: input.docs.lcLetter.path, lc_letter_bucket: input.docs.lcLetter.bucket,
+            }
+          : {}),
         ...landlordPayoutFields(input.landlordPayoutDay),
       } as Loose)
       .select('id')
@@ -503,6 +519,8 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
     const error = (caught ?? {}) as { message?: string; hint?: string; details?: string };
     const msg: string = error.message || 'Failed to post the rent request';
     const all = `${msg} ${error.hint ?? ''} ${error.details ?? ''}`;
+    // DOCS-1: the database names the missing document photos; shown exactly as it says.
+    if (/DOCS_MISSING/i.test(all)) return { ok: false, reason: 'other', message: msg, raw: error };
     if (/DUPLICATE_AFTER_REJECTION/i.test(all)) {
       const uuidRe = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
       return {

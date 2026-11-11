@@ -61,6 +61,9 @@ import {
 import {
   attachRenewalPhotos,
   attachT4Documents,
+  loadProfileIdBack,
+  saveProfileIdBack,
+  uploadNewRequestDocs,
   findOpenRequest,
   finishRenewalIntake,
   loadRequestOnFile,
@@ -449,6 +452,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
           setTenantOnFile(tenant);
           if (tenant.full_name) setTenantNameParts(splitPersonName(tenant.full_name));
           if (tenant.national_id) setNationalId(tenant.national_id.toUpperCase());
+        }
+        // DOCS-1: the ID back counts when it is on the previous plan OR on the tenant's profile.
+        if (!plan?.docs.id_back && r.tenantId && (await loadProfileIdBack(r.tenantId)) && !cancelled) {
+          setIdBack({ file: null, preview: '' });
         }
       })();
       return () => { cancelled = true; };
@@ -978,6 +985,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     const patch = resubmitPatch(original, after);
     // The request had no GPS; send the one captured at the house now.
     if (!gpsOnFile && gps) { patch.request_latitude = gps.lat; patch.request_longitude = gps.lng; }
+    // DOCS-1: new photos are attached to this existing request first (request_attach_document).
+    const attachErrors = await attachT4Documents(user.id, rejected.id, {
+      id_front: idFront?.file ?? null, id_back: idBack?.file ?? null, lc1_letter: lcLetter?.file ?? null,
+    });
+    if (attachErrors.length) { setPosting(false); setError(attachErrors.join(' · ')); return; }
     const res = await resubmitT4Request({
       agentId: user.id,
       requestId: rejected.id,
@@ -985,7 +997,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       note,
       photos: housePhotos.map((p) => (p ? (p.file ?? p.preview) : null)),
       extraPhotoUrls: urls.slice(4),
-      // The LC1 letter goes with the ID photos below, through request_attach_document.
+      // The LC1 letter was attached above with the ID photos.
       lcLetter: null,
       noLc1Reason: null,
       details: rejected.registration_type === 'renewal'
@@ -994,12 +1006,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     });
     // Server errors are shown as they come.
     if ('message' in res) { setPosting(false); setError(res.message); return; }
-    // New photos only: the ones on file are already on this request.
-    const docErrors = await attachT4Documents(user.id, rejected.id, {
-      id_front: idFront?.file ?? null, id_back: idBack?.file ?? null, lc1_letter: lcLetter?.file ?? null,
-    });
     setPosting(false);
-    showSent(res.requestId, res, docErrors);
+    showSent(res.requestId, res);
   };
 
   const postRenewalPlan = async () => {
@@ -1024,6 +1032,17 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         const saved = await saveTenantProfile(renewal.tenantId, { fullName: nameChanged ? tenantName : null, nationalId: ninNew ? nationalId : null });
         if (!saved.ok) { setError(saved.message); return; }
       }
+      // DOCS-1: renew_rent_request reuses the previous plan's LC1 letter and carries the ID photos over,
+      // so what is missing is filled in first: a new ID back on the tenant's profile, a new ID front
+      // or LC1 letter attached to the previous plan (request_attach_document).
+      if (idBack?.file && renewal.tenantId) {
+        const backError = await saveProfileIdBack(user.id, renewal.tenantId, idBack.file);
+        if (backError) { setError(backError); return; }
+      }
+      const prevErrors = await attachT4Documents(user.id, renewal.prevId, {
+        id_front: idFront?.file ?? null, lc1_letter: lcLetter?.file ?? null,
+      });
+      if (prevErrors.length) { setError(prevErrors.join(' · ')); return; }
       const newId = await postRenewal(
         renewal.prevId,
         choice,
@@ -1033,13 +1052,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       setRentText(String(choice.newRent));
       const photoError = await attachRenewalPhotos(user.id, newId, housePhotos.map((p) => (p ? (p.file ?? p.preview) : null)));
       const o = await finishRenewalIntake(user.id, newId, null, null);
-      // The new request gets the ID photos and the LC1 letter: new ones uploaded, or the ones on the previous plan.
-      const docErrors = await attachT4Documents(user.id, newId, {
-        id_front: idFront?.file ?? docsOnFile.id_front,
-        id_back: idBack?.file ?? docsOnFile.id_back,
-        lc1_letter: lcLetter?.file ?? docsOnFile.lc1_letter,
-      });
-      showSent(newId, { ...o, lc1AttachError: o.lc1AttachError ?? (photoError ? `House photos not saved: ${photoError}` : null) }, docErrors);
+      showSent(newId, { ...o, lc1AttachError: o.lc1AttachError ?? (photoError ? `House photos not saved: ${photoError}` : null) });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -1077,8 +1090,18 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         return;
       }
     }
+    // DOCS-1: the three photos are uploaded first; their paths go in the insert itself.
+    let docs: Awaited<ReturnType<typeof uploadNewRequestDocs>>;
+    try {
+      docs = await uploadNewRequestDocs(user.id, { idFront: idFront!.file!, idBack: idBack!.file!, lcLetter: lcLetter!.file! });
+    } catch (e) {
+      setPosting(false);
+      setError(e instanceof Error ? e.message : String(e));
+      return;
+    }
     const res = await submitAssistantRentRequest({
       agentId: user.id,
+      docs,
       incomeType,
       earnerCycle,
       fees,
@@ -1111,9 +1134,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       noLc1Reason: null,
     });
     if (res.ok) {
-      const docErrors = await attachT4Documents(user.id, res.rentRequestId, {
-        id_front: idFront?.file ?? null, id_back: idBack?.file ?? null, lc1_letter: lcLetter?.file ?? null,
-      });
       setPosting(false);
       hapticSuccess();
       setResult({
@@ -1123,7 +1143,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         intakeError: res.intakeError,
         lc1AttachError: res.lc1AttachError,
         lc1NoteError: res.lc1NoteError,
-        docErrors,
+        docErrors: [],
       });
       onSuccess?.(res.rentRequestId);
       request?.onDone?.(res.rentRequestId);

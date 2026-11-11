@@ -264,7 +264,7 @@ describe('the three new gate items', () => {
 describe('T4 renewal', () => {
   const renewal = { prevId: 'prev-1', tenantId: 'tenant-1', tenantName: 'John Mukasa', tenantPhone: '0783123456', currentRent: 300000, currentDays: 30, landlordName: 'Peter Okello' };
 
-  it('needs the LC1 letter, then renews through the tenant’s code and attaches all three documents to the new request', async () => {
+  it('needs the LC1 letter; attaches it to the previous plan BEFORE renewing, so the renewal reuses it', async () => {
     mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), lc_letter_path: null };
     mocks.renewalStart.mockResolvedValue({ newRent: 320000, newDays: 30, dailyRepayment: 14000, totalRepayment: 420000, changed: false, reasonCode: null, explanation: '', evidenceUrl: null });
     mocks.rpc.mockImplementation(async (fn: string) => (fn === 'renew_rent_request' ? { data: 'new-req', error: null } : { data: { ok: true }, error: null }));
@@ -286,13 +286,15 @@ describe('T4 renewal', () => {
     expect(mocks.renewalStart).toHaveBeenCalledWith({ prevId: 'prev-1', tenantName: 'John Mukasa', currentRent: 300000, currentDays: 30 });
     // GPS is on file, so the renewal sends none of its own.
     expect(mocks.rpc).toHaveBeenCalledWith('renew_rent_request', { p_prev_request_id: 'prev-1', p_new_rent_amount: 320000, p_new_days: 30 });
-    // DOCS-1: the ID photos on the previous plan and the new LC1 letter are attached to the new request.
-    const attaches = mocks.rpc.mock.calls.filter(([fn]) => fn === 'request_attach_document').map(([, a]) => a);
-    expect(attaches).toEqual([
-      { p_request_id: 'new-req', p_kind: 'id_front', p_bucket: 'tenant-ids', p_path: 'tenant-1/old/national_id.jpg' },
-      { p_request_id: 'new-req', p_kind: 'id_back', p_bucket: 'tenant-ids', p_path: 'tenant-1/old/national_id_back.jpg' },
-      { p_request_id: 'new-req', p_kind: 'lc1_letter', p_bucket: 'lc-letters', p_path: expect.stringMatching(/^agent-1\/new-req\/lc_letter_\d+\.jpg$/) },
+    // DOCS-1: only the new letter, on the previous plan, and before renew_rent_request (which reuses it).
+    // The ID photos are already on the previous plan, so nothing else is attached; nothing goes on the new request.
+    const calls = mocks.rpc.mock.calls.map(([fn, a]) => [fn, a]);
+    const attachAt = calls.findIndex(([fn]) => fn === 'request_attach_document');
+    const renewAt = calls.findIndex(([fn]) => fn === 'renew_rent_request');
+    expect(calls.filter(([fn]) => fn === 'request_attach_document')).toEqual([
+      ['request_attach_document', { p_request_id: 'prev-1', p_kind: 'lc1_letter', p_bucket: 'lc-letters', p_path: expect.stringMatching(/^agent-1\/prev-1\/lc_letter_\d+\.jpg$/) }],
     ]);
+    expect(attachAt).toBeLessThan(renewAt);
     expect(mocks.rpc).not.toHaveBeenCalledWith('agent_attach_lc1_letter', expect.anything());
     expect(onDone).toHaveBeenCalledWith('new-req');
   });
@@ -309,6 +311,31 @@ describe('T4 renewal', () => {
     expect(await screen.findByText(/Add a photo of the stamped LC1 letter/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Renew Rent Plan/ })).toBeNull();
     expect(mocks.renewalStart).not.toHaveBeenCalled();
+  });
+
+  it('DOCS-1: no ID back photo on the plan or the profile: listed; once taken it goes on the profile BEFORE renewing', async () => {
+    mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), nin_photo_back_path: null };
+    mocks.renewalStart.mockResolvedValue({ newRent: 300000, newDays: 30, dailyRepayment: 14000, totalRepayment: 420000, changed: false, reasonCode: null, explanation: '', evidenceUrl: null });
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'renew_rent_request' ? { data: 'new-req', error: null } : { data: { ok: true }, error: null }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    await waitFor(() => expect(listed('gate')).toEqual(['National ID photo — back']));
+    fix(/National ID photo — back/);
+    fireEvent.change(await screen.findByLabelText('National ID back photo'), { target: { files: [new File(['b'], 'back.jpg', { type: 'image/jpeg' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+    await screen.findByTestId('t4-ready');
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    const profileUpdate = mocks.update.mock.calls.findIndex(([table]) => table === 'profiles');
+    expect(mocks.update.mock.calls[profileUpdate]).toEqual(['profiles', { national_id_photo_back_path: expect.stringMatching(/^agent-1\/profile-tenant-1\/national_id_back_\d+\.jpg$/) }]);
+    const renewOrder = mocks.rpc.mock.invocationCallOrder[mocks.rpc.mock.calls.findIndex(([fn]) => fn === 'renew_rent_request')];
+    expect(mocks.update.mock.invocationCallOrder[profileUpdate]).toBeLessThan(renewOrder);
+  });
+
+  it('DOCS-1: an ID back photo on the tenant’s profile counts for a renewal', async () => {
+    mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), nin_photo_back_path: null };
+    mocks.tables.profiles = { ...TENANT, national_id_photo_back_path: 'tenant-1/profile/national_id_back.jpg' };
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    await screen.findByTestId('t4-ready');
   });
 
   it('does nothing when the agent or tenant backs out of the renewal', async () => {

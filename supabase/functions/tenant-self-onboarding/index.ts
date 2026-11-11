@@ -463,7 +463,8 @@ Deno.serve(async (req) => {
         .from("profiles").select("avatar_url").eq("id", userId).maybeSingle();
       if (prof?.avatar_url) tenantPhotoUrl = prof.avatar_url as string;
     }
-    // The required documents are stored before the insert too, so a request never exists without them.
+    // The required documents are stored before the insert too and go in the insert itself: with the
+    // DOCS-1 rule on (E75/E75b), the database refuses a rent request without them.
     // National ID and the LC1 letter are private documents.
     const ninPhotoPath = await uploadTo("tenant-ids", id_photo, `${userId}/${assetFolder}/national_id.jpg`);
     if (!ninPhotoPath) return err("The photo of the front of your National ID could not be saved. Use a JPG or PNG under 5 MB and try again.", 400);
@@ -503,9 +504,15 @@ Deno.serve(async (req) => {
       tenant_self_applied: true,
       // Present at INSERT so the tenant-photo trigger is satisfied.
       tenant_photo_url: tenantPhotoUrl,
+      // DOCS-1: the ID front and back and the LC1 letter, present at INSERT for the same reason.
+      nin_photo_path: ninPhotoPath, nin_photo_bucket: "tenant-ids",
+      nin_photo_back_path: ninPhotoBackPath, nin_photo_back_bucket: "tenant-ids",
+      lc_letter_path: lcLetterPath, lc_letter_bucket: "lc-letters",
     };
     const { data: rentReq, error: rErr } = await admin
       .from("rent_requests").insert(insertPayload as any).select("id, rent_amount, duration_days, access_fee, request_fee, total_repayment, daily_repayment").single();
+    // DOCS-1: the database names the missing document photos; passed on exactly as it says.
+    if (rErr && /DOCS_MISSING/.test(rErr.message ?? "")) return err(rErr.message, 400);
     if (rErr || !rentReq) return err(`Could not post your rent request: ${rErr?.message ?? "unknown"}`, 500);
 
     /* ---- Remaining documents -------------------------------------------- */
@@ -514,19 +521,8 @@ Deno.serve(async (req) => {
       const url = await uploadDataUrl(house_photos[i], `${userId}/${assetFolder}/house_${i}.jpg`);
       if (url) houseUrls.push(url);
     }
-    {
-      const patch: Record<string, unknown> = {
-        nin_photo_path: ninPhotoPath, nin_photo_bucket: "tenant-ids",
-        lc_letter_path: lcLetterPath, lc_letter_bucket: "lc-letters",
-      };
-      if (houseUrls.length) patch.house_image_urls = houseUrls;
-      const { error: dErr } = await admin.from("rent_requests").update(patch).eq("id", rentReq.id);
-      if (dErr) console.warn("[tenant-self-onboarding] document patch failed", dErr.message);
-      // The back of the ID (E75 columns) in its own update, so a problem there cannot lose the rest.
-      const { error: bErr } = await admin.from("rent_requests")
-        .update({ nin_photo_back_path: ninPhotoBackPath, nin_photo_back_bucket: "tenant-ids" } as any)
-        .eq("id", rentReq.id);
-      if (bErr) console.warn("[tenant-self-onboarding] ID back patch failed", bErr.message);
+    if (houseUrls.length) {
+      await admin.from("rent_requests").update({ house_image_urls: houseUrls }).eq("id", rentReq.id);
     }
     if (tenantPhotoUrl) await admin.from("profiles").update({ avatar_url: tenantPhotoUrl }).eq("id", userId);
 
