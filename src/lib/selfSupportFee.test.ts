@@ -4,6 +4,8 @@ import {
   parseSelfSupportFeePolicy,
   selfSupportGross,
   selfSupportProxyFee,
+  welileCoverForOption,
+  welileCoverSentence,
 } from './selfSupportFee';
 
 const ON = { enabled: true, rate: 0.02, roundTo: 100 };
@@ -31,6 +33,27 @@ describe('selfSupportGross (mirrors public.self_support_gross)', () => {
   it('leaves zero and bad input alone', () => {
     expect(selfSupportGross(0, ON)).toBe(0);
     expect(selfSupportProxyFee(Number.NaN, ON)).toBe(0);
+  });
+});
+
+describe('Welile Cover on direct and cash funding', () => {
+  it('uses the same 2% rounding as self_support_gross', () => {
+    expect(welileCoverSentence(300_000, ON)).toBe(
+      'UGX 300,000 rent to the landlord, plus UGX 6,000 Welile Cover from your Welile wallet when Welile confirms this payment.',
+    );
+    expect(welileCoverForOption('momo', 300_000, ON)).toBe(6_000);
+    expect(welileCoverForOption('cash', 300_000, ON)).toBe(6_000);
+    expect(welileCoverForOption('welile', 300_000, ON)).toBe(6_000);
+  });
+
+  it('charges nothing on a private agreement with the support team', () => {
+    expect(welileCoverForOption('support', 300_000, ON)).toBe(0);
+  });
+
+  it('shows no fee and charges none while the policy is off', () => {
+    expect(welileCoverSentence(300_000, SELF_SUPPORT_FEE_OFF)).toBeNull();
+    expect(welileCoverForOption('momo', 300_000, SELF_SUPPORT_FEE_OFF)).toBe(0);
+    expect(welileCoverForOption('cash', 300_000, SELF_SUPPORT_FEE_OFF)).toBe(0);
   });
 });
 
