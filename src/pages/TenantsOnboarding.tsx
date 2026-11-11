@@ -39,6 +39,7 @@ import { getSignupDeviceFp } from '@/lib/signupGuard';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
@@ -1438,8 +1439,9 @@ export default function TenantsOnboarding() {
                   {!idCheck.checking && idCheck.phone_is_you && <Hint icon={CheckCircle2} tone="ok">This is the number on your account.</Hint>}
                   {!idCheck.checking && phoneTakenByOther && <Hint icon={AlertTriangle} tone="bad">This number is already registered on Welile. Sign in with it instead.</Hint>}
                   {!idCheck.checking && phoneTakenByOther && !user && (
-                    <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => navigate(authHref(false))}>
-                      Sign in — your answers are kept on this device
+                    <Button type="button" variant="link" className="h-auto min-h-9 max-w-full justify-start gap-2 whitespace-normal px-0 py-1 text-left text-xs font-semibold leading-relaxed" onClick={() => navigate(authHref(false))}>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span>Sign in - your answers are kept on this device</span>
                     </Button>
                   )}
                 </Field>
@@ -1755,50 +1757,56 @@ export default function TenantsOnboarding() {
                   </p>
                 )}
 
-                {/* Create your account — visitors only. Logic: sendAccountCode /
-                    createAccountAndSubmit. Markup is minimal; styling is Gemini's. */}
+                {/* Visitor account presentation keeps the existing account actions. */}
                 {!user && (
-                  <div className="space-y-3 rounded-xl border bg-card p-4">
+                  <section aria-labelledby="tenant-account-heading" className="space-y-4 rounded-xl border bg-card p-4 sm:p-5">
+                    <div className="flex items-center gap-2 border-b pb-2.5">
+                      <UserPlus className="h-[15px] w-[15px] shrink-0 text-primary" aria-hidden="true" />
+                      <h3 id="tenant-account-heading" className="text-[13.5px] font-bold text-foreground">Create your account</h3>
+                    </div>
                     <div>
-                      <p className="flex items-center gap-1.5 text-sm font-bold">
-                        <UserPlus className="h-4 w-4 text-primary" /> Create your account
-                      </p>
-                      <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
-                        Your account uses your phone number <span className="font-semibold tabular-nums text-foreground">{phone || '—'}</span>.
+                      <p className="text-[13px] leading-relaxed text-muted-foreground">
+                        Your account uses your phone number <span className="break-words font-semibold tabular-nums text-foreground">{phone || '-'}</span>.
                         Choose a password to sign in with later. We will text a code to confirm the number, then send your request.
                       </p>
                     </div>
 
                     {accountStage === 'details' ? (
-                      <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <Field label="Password">
                           <Input type="password" autoComplete="new-password" value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder={`At least ${MIN_PASSWORD} characters`} />
+                            placeholder={`At least ${MIN_PASSWORD} characters`} aria-label="Password" className="h-11 bg-background" />
                         </Field>
                         <Field label="Confirm password">
                           <Input type="password" autoComplete="new-password" value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)} />
+                            onChange={(e) => setConfirmPassword(e.target.value)} aria-label="Confirm password" className="h-11 bg-background" />
                         </Field>
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Field label={`Code sent to ${phone}`}>
-                          <Input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otpCode}
-                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                            placeholder="6-digit code" className="tabular-nums tracking-widest" />
+                          <InputOTP inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otpCode}
+                            onChange={(value) => setOtpCode(value.replace(/\D/g, '').slice(0, 6))}
+                            aria-label="6-digit code" pattern="[0-9]*" containerClassName="w-full">
+                            <InputOTPGroup className="w-full max-w-[288px]">
+                              {Array.from({ length: 6 }, (_, index) => (
+                                <InputOTPSlot key={index} index={index} className="h-12 min-w-0 flex-1 bg-background text-lg font-semibold tabular-nums" />
+                              ))}
+                            </InputOTPGroup>
+                          </InputOTP>
                         </Field>
-                        <div className="flex flex-wrap items-center gap-3 text-xs">
-                          <button type="button" className="font-semibold text-primary disabled:opacity-50"
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                          <Button type="button" variant="link" className="h-auto min-h-9 whitespace-normal px-0 py-1 text-left text-xs font-semibold"
                             disabled={otp.cooldownSeconds > 0 || otp.otpLoading || creatingAccount}
                             onClick={() => void sendAccountCode()}>
                             {otp.cooldownSeconds > 0 ? `Send a new code in ${otp.cooldownSeconds}s` : 'Send a new code'}
-                          </button>
-                          <button type="button" className="font-semibold text-muted-foreground"
+                          </Button>
+                          <Button type="button" variant="link" className="h-auto min-h-9 px-0 py-1 text-xs font-semibold text-muted-foreground"
                             disabled={creatingAccount}
                             onClick={() => { setAccountStage('details'); setOtpCode(''); }}>
                             Change password
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -1806,7 +1814,7 @@ export default function TenantsOnboarding() {
                     {accountError && (
                       <div className="flex items-start gap-2.5 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                        <div className="min-w-0 text-[13px] leading-relaxed text-muted-foreground">
+                        <div className="min-w-0 break-words text-[13px] leading-relaxed text-muted-foreground">
                           {accountError}
                           {phoneHasAccount && (
                             <Button type="button" variant="link" className="h-auto p-0 pl-1 text-[13px]"
@@ -1817,7 +1825,7 @@ export default function TenantsOnboarding() {
                         </div>
                       </div>
                     )}
-                  </div>
+                  </section>
                 )}
 
                 {/* A failure has to survive the toast — tenants miss those. */}
