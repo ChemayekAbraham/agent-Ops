@@ -40,6 +40,38 @@ const ts = (v: unknown) => {
 };
 
 /**
+ * A fundable Rent Plan built from a selectable Verified board item, for the
+ * moments its own page of the fundable-plans read has not loaded yet. The
+ * server checks everything again when the funder picks it.
+ */
+export function boardItemToReadyPlan(item: BoardItem): FunderNewReadyPlan {
+  const photos = item.photos.length > 0 ? item.photos : item.mainPhoto ? [item.mainPhoto] : [];
+  return {
+    rent_request_id: item.id,
+    funding_amount: item.rentAmount,
+    duration_days: item.durationDays,
+    daily_repayment: item.dailyRepayment,
+    request_city: item.city,
+    house_category: item.houseCategory,
+    projected_end_date: null,
+    repayment_cadence: null,
+    tenant_full_name: null,
+    tenant_first_name: item.tenantFirstName,
+    tenant_location: null,
+    tenant_avatar_url: null,
+    landlord_name: null,
+    landlord_phone: null,
+    lc1_chairperson_name: null,
+    house_image_urls: photos.length > 0 ? photos : null,
+    request_latitude: item.lat,
+    request_longitude: item.lng,
+    proxy_agent_phone: null,
+    held_by: null,
+    hold_expires_at: null,
+  };
+}
+
+/**
  * E72b grouped funders list: Verified, Booked, Funded, Pending verification
  * (in the server's order), then Empty houses. Never mixed. The chosen sort
  * applies inside each group only; "Nearest first" never hides anything; only a
@@ -63,10 +95,19 @@ export function buildBoardGroups<E extends FeedEntry>(args: {
   const byTag = new Map<BoardTag, BoardRow<E>[]>(BOARD_GROUPS.map((t) => [t, []]));
 
   for (const item of board) {
-    const plan = item.tag === 'verified' ? readyById.get(item.id) : undefined;
-    if (plan) {
-      used.add(item.id);
-      byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${item.id}`, tag: 'verified', entry: plan });
+    if (item.tag === 'verified') used.add(item.id);
+    const loaded = item.tag === 'verified' ? readyById.get(item.id) : undefined;
+    // A Verified card follows the server's `selectable`, never what has loaded so far:
+    //  • selectable → always the fundable card. The fundable plans arrive in pages
+    //    (6, then 12 at a time), so until its page lands the card is built from the
+    //    board item itself rather than shown as "View only".
+    //  • not selectable (held by a funder) → view only, unless the plan the feed
+    //    returned is held by this viewer (the feed only returns their own holds).
+    if (item.tag === 'verified' && (item.selectable || (loaded && (loaded.item as FunderNewReadyPlan).held_by))) {
+      if (loaded) byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${item.id}`, tag: 'verified', entry: loaded });
+      else if (boardItemMatches(item, filters)) {
+        byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${item.id}`, tag: 'verified', entry: { category: 'ready', item: boardItemToReadyPlan(item) } as E });
+      }
     } else if (boardItemMatches(item, filters)) {
       byTag.get(item.tag)!.push({ kind: 'board', cardId: `board:${item.id}`, tag: item.tag, item });
     }

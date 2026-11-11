@@ -513,8 +513,11 @@ export interface BoardItem {
   houseCategory: string | null;
   city: string | null;
   mainPhoto: string | null;
+  /** Up to five photos (the server's photos[1:5]). */
+  photos: string[];
   rentAmount: number;
   durationDays: number | null;
+  dailyRepayment: number | null;
   lat: number | null;
   lng: number | null;
   /** When it went on the board (or was booked/funded): the server's order inside a group. */
@@ -556,8 +559,10 @@ export function parseBoardItems(data: unknown): BoardItems {
       houseCategory: optStr(x.house_category),
       city: optStr(x.city),
       mainPhoto: optStr(x.main_photo),
+      photos: Array.isArray(x.photos) ? x.photos.filter((u): u is string => typeof u === 'string' && !!u.trim()) : [],
       rentAmount: num(x.rent_amount),
       durationDays: optNum(x.duration_days),
+      dailyRepayment: optNum(x.daily_repayment),
       lat: optNum(x.lat),
       lng: optNum(x.lng),
       sortAt: optStr(x.sort_at),

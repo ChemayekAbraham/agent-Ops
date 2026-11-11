@@ -148,26 +148,28 @@ export default function FunderV3Harness() {
     if (!boardTagsOn) return null;
     return entry.category === 'empty' ? 'empty_house' : 'verified';
   };
-  // E72b fixture board: the two fundable plans are Verified, plus one Verified held by a funder,
+  // E72b fixture board: the two fundable plans are Verified, plus one Verified held by a funder, one Verified not loaded yet,
   // Booked, Funded and Pending verification items (view only). The real grouping helper builds the list.
   const board = useMemo<{ items: BoardItem[]; counts: BoardItemsCounts } | null>(() => {
     if (!boardMode) return null;
     const make = (id: string, tag: BoardItem['tag'], i: number, extra: Partial<BoardItem> = {}): BoardItem => ({
       id, tag, selectable: tag === 'verified', held: false, tenantFirstName: ['Grace', 'Moses', 'Ruth', 'Isaac'][i % 4],
       houseCategory: ['Single Room', 'Double Room', 'Self Contained', 'Two Bedroom House'][i % 4], city: ['Kira', 'Ntinda', 'Nansana', 'Mukono'][i % 4],
-      mainPhoto: null, rentAmount: 250000 + i * 50000, durationDays: 30, lat: 0.33 + i * 0.012, lng: 32.55 + i * 0.015, sortAt: null, ...extra,
+      mainPhoto: null, photos: [], rentAmount: 250000 + i * 50000, durationDays: 30, dailyRepayment: null, lat: 0.33 + i * 0.012, lng: 32.55 + i * 0.015, sortAt: null, ...extra,
     });
     const items: BoardItem[] = [
       make('plan-0', 'verified', 0),
       make('plan-1', 'verified', 1),
       make('rq-held', 'verified', 2, { selectable: false, held: true }),
+      // Selectable on the server but its page of fundable plans has not loaded: still a fundable card.
+      make('rq-late', 'verified', 8),
       make('rq-b1', 'booked', 3), make('rq-b2', 'booked', 4),
       make('rq-f1', 'funded', 5),
       make('rq-p1', 'pending_verification', 6), make('rq-p2', 'pending_verification', 7),
     ];
     return {
       items,
-      counts: { verified: 3, verified_ugx: 900000, booked: 2, funded: 1, pending_verification: 2, pending_verification_ugx: 1050000, ready_total: 5, ready_total_ugx: 1950000 },
+      counts: { verified: 4, verified_ugx: 1550000, booked: 2, funded: 1, pending_verification: 2, pending_verification_ugx: 1050000, ready_total: 6, ready_total_ugx: 2600000 },
     };
   }, [boardMode]);
   const boardGroups = useMemo(() => {
@@ -204,7 +206,8 @@ export default function FunderV3Harness() {
     boardTagsOn,
     boardTagOf: tagOf,
     boardGroups,
-    boardCounts: board?.counts ?? null,
+    // Header totals are COO/CEO only (funders_board_can_demote), like the live section.
+    boardCounts: demote ? board?.counts ?? null : null,
     boardPins,
     items,
     filteredTotal: state === 'empty' ? 0 : total,
