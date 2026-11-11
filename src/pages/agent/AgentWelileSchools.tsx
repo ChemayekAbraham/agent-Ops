@@ -2,10 +2,9 @@ import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, Handshake } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, Handshake, ChevronDown } from 'lucide-react';
 import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershipPanel';
 import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -34,24 +33,23 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div className="space-y-1"><Label className="text-sm">{label}</Label>{children}</div>;
 }
 
-/** Class picker grouped nursery to university, the school's own level first. */
+/** Class picker grouped nursery to university, the school's own level first. A native select, so phones show their own picker. */
 function ClassGradeSelect({ schoolLevel, value, onChange }: { schoolLevel?: string | null; value: string; onChange: (v: string) => void }) {
   const groups = classLevelsFor(schoolLevel);
   return (
-    <Select value={value || undefined} onValueChange={onChange}>
-      <SelectTrigger aria-label="Class, grade or year" className="h-14 rounded-lg text-base"><SelectValue placeholder="Choose class" /></SelectTrigger>
-      <SelectContent className="max-h-[60vh]">
-        {value && !isListedClass(value) && (
-          <SelectGroup><SelectLabel>Saved earlier</SelectLabel><SelectItem value={value}>{value}</SelectItem></SelectGroup>
-        )}
+    <div className="relative">
+      <select aria-label="Class, grade or year" value={value} onChange={(e) => onChange(e.target.value)}
+        className={cn('flex h-14 w-full appearance-none rounded-lg border border-input bg-background px-4 pr-10 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring', !value && 'text-muted-foreground')}>
+        <option value="" disabled>Choose class</option>
+        {value && !isListedClass(value) && <optgroup label="Saved earlier"><option value={value}>{value}</option></optgroup>}
         {groups.map((g) => (
-          <SelectGroup key={g.label}>
-            <SelectLabel>{g.label}</SelectLabel>
-            {g.classes.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-          </SelectGroup>
+          <optgroup key={g.label} label={g.label}>
+            {g.classes.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </optgroup>
         ))}
-      </SelectContent>
-    </Select>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+    </div>
   );
 }
 
