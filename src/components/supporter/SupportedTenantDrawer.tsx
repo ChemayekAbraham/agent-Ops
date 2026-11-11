@@ -13,6 +13,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { formatUGX } from '@/lib/rentCalculations';
 import { MapPin, Phone, Home, CalendarDays, Landmark, ImageOff, User } from 'lucide-react';
 import type { SupportedTenant } from '@/hooks/useSupportedTenants';
+import { FunderVerifiedPlanPack } from '@/components/supporter/FunderVerifiedPlanPack';
 
 interface Props {
   tenant: SupportedTenant | null;
@@ -151,7 +152,10 @@ export function SupportedTenantDrawer({ tenant, open, onOpenChange }: Props) {
           <Row icon={<Home className="h-4 w-4" />} label="Property type" value={tenant.house_category ? tenant.house_category.replace(/_/g, ' ') : 'Not specified'} />
           <Row icon={<MapPin className="h-4 w-4" />} label="Location" value={location} />
           <Row icon={<User className="h-4 w-4" />} label="Landlord" value={tenant.landlord_name || 'Not linked'} />
-          <Row icon={<Phone className="h-4 w-4" />} label="Landlord phone" value={tenant.landlord_phone || 'Not provided'} />
+        </div>
+
+        <div className="mx-4 mb-5">
+          <FunderVerifiedPlanPack rentRequestId={tenant.rent_request_id} />
         </div>
 
         <p className="px-4 pb-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tenant & plan</p>
