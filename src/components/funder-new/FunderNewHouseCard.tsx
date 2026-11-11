@@ -166,11 +166,11 @@ export function FunderNewHouseCard({
               <svg viewBox="0 0 24 24" className="!h-5 !w-5" aria-hidden>
                 <path
                   d="M12 1.5a8 8 0 0 0-8 8c0 5.6 6.6 11.8 7.3 12.5a1 1 0 0 0 1.4 0c.7-.7 7.3-6.9 7.3-12.5a8 8 0 0 0-8-8Z"
-                  fill="#EA4335"
-                  stroke="#B3261E"
+                  fill="hsl(var(--secondary))"
+                  stroke="hsl(var(--secondary-foreground))"
                   strokeWidth="1"
                 />
-                <circle cx="12" cy="9.5" r="3" fill="#8C1D18" />
+                <circle cx="12" cy="9.5" r="3" fill="hsl(var(--secondary-foreground))" />
               </svg>
               <span className="text-[10px] font-semibold leading-none">Location</span>
             </Button>
