@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { ArrowLeft, ArrowRight, Building2, Check, IdCard, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import pupilsPhoto from '@/assets/welile-schools-pupils.jpg';
+import studentsPhoto from '@/assets/welile-schools-students.jpg';
 import { ROLE_INTRO, SCHOOLS_ROLES, SCHOOLS_ROLE_LABEL, type SchoolsRole } from '@/lib/welileSchoolsHome';
 
 const ROLE_CARD: Record<SchoolsRole, { icon: typeof Users; line: string }> = {
@@ -31,7 +33,9 @@ export default function SchoolsOnboarding({ wordmarkClass, onDone }: { wordmarkC
 
       {step === 'welcome' && (
         <div className="flex flex-1 flex-col">
-          <div className="flex-1 space-y-4 pt-6">
+          <img src={pupilsPhoto} alt="Two smiling primary school pupils in uniform with school bags"
+            className="aspect-[4/3] w-full rounded-3xl object-cover object-top" width={900} height={675} />
+          <div className="flex-1 space-y-4 pt-5">
             <h2 className="text-3xl font-bold leading-tight tracking-tight">
               Welcome to <span className={cn(wordmarkClass, 'text-primary')}>Welile</span> Schools
             </h2>
@@ -92,6 +96,8 @@ export default function SchoolsOnboarding({ wordmarkClass, onDone }: { wordmarkC
           <button type="button" onClick={() => setStep('role')} className="mb-3 inline-flex min-h-[44px] items-center gap-1 self-start text-sm font-medium text-muted-foreground">
             <ArrowLeft className="h-4 w-4" aria-hidden />Back
           </button>
+          <img src={studentsPhoto} alt="Two smiling students with backpacks and a laptop"
+            className="mb-4 aspect-[16/9] w-full rounded-3xl object-cover object-[50%_20%]" width={900} height={506} loading="lazy" />
           <p className="text-sm font-semibold text-primary">{SCHOOLS_ROLE_LABEL[role]}</p>
           <h2 className="mt-1 text-2xl font-bold leading-tight">{ROLE_INTRO[role].title}</h2>
           <ol className="mt-6 space-y-5">
