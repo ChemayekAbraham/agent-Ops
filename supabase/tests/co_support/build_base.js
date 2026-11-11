@@ -23,5 +23,13 @@ out += fn(`CREATE FUNCTION public.funder_support_tenant_direct(p_rent_request_id
 out += fn(`CREATE FUNCTION public.psm_release_self_funding_line(p_line_id uuid, p_reason text DEFAULT 'Self-support funding cancelled — plan released back to ready to fund'::text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'`, 'live_psm_release_self_funding_line.sql');
 out += fn(`CREATE FUNCTION public.psm_release_plan_on_line_cancel() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'`, 'live_psm_release_plan_on_line_cancel.sql');
 out += `CREATE TRIGGER trg_psm_release_plan_on_line_cancel AFTER UPDATE OF status ON public.partner_self_funding_lines FOR EACH ROW EXECUTE FUNCTION public.psm_release_plan_on_line_cancel();\n\n`;
+// ---- houses (Phase 4): live definitions pulled from production into p4/
+out += rd('stub_houses.sql') + '\n';
+const def = (n) => fs.readFileSync(path.join(S, 'p4', `${n}.def.sql`), 'utf8').replace(/\r\n/g, '\n').trimEnd() + ';\n\n';
+for (const n of ['house_has_live_claim', 'agent_list_empty_house_opportunities', 'approve_pending_portfolio',
+                 'reject_pending_portfolio', 'sync_supported_houses_on_review', 'partner_support_houses',
+                 'trg_e34_empty_house_funding_guard']) out += def(n);
+out += `CREATE TRIGGER trg_sync_supported_houses_on_review AFTER UPDATE OF status ON public.funder_pending_portfolios FOR EACH ROW EXECUTE FUNCTION public.sync_supported_houses_on_review();\n`;
+out += `CREATE TRIGGER trg_e34_empty_house_funding_guard BEFORE INSERT ON public.partner_supported_houses FOR EACH ROW EXECUTE FUNCTION public.trg_e34_empty_house_funding_guard();\n\n`;
 fs.writeFileSync(path.join(S, 'base.sql'), out);
 console.log('base.sql', out.length);

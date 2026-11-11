@@ -61,6 +61,12 @@ describe('share text', () => {
     expect(text).not.toMatch(BANNED);
     expect(coSupportShareText({ partnerShare: 1, url: 'u' })).not.toMatch(BANNED);
   });
+  it('describes an empty house when sharing a house', () => {
+    const h = coSupportShareText({ kind: 'house', houseTitle: '2-bedroom house', city: 'Wakiso', partnerShare: 153000, url: 'u' });
+    expect(h).toContain('an empty house (2-bedroom house) in Wakiso');
+    expect(h).toContain('UGX 153,000');
+    expect(h).not.toMatch(BANNED);
+  });
   it('encodes the WhatsApp link', () => {
     expect(whatsappShareUrl('a b&c')).toBe('https://wa.me/?text=a%20b%26c');
   });
@@ -108,6 +114,11 @@ describe('messages', () => {
         message: 'PARTNER_FUNDS_SHORT: Your half is UGX 153,000. You have UGX 47,000 of operational float. Add float to your wallet, then accept.',
       }),
     ).toBe('Your half is UGX 153,000. You have UGX 47,000 of operational float. Add float to your wallet, then accept.');
+  });
+  it('explains house and Partner Ops refusals', () => {
+    expect(coSupportErrorMessage({ message: 'HOUSE_NOT_AVAILABLE: Another partner is already sharing this house.' })).toMatch(/house is no longer available/);
+    expect(coSupportErrorMessage({ message: 'PENDING_APPROVAL: x' })).toMatch(/Reject it from the approval queue/);
+    expect(coSupportErrorMessage({ message: 'LANDLORD_ALREADY_PAID: x' })).toMatch(/already been paid/);
   });
   it('never shows raw technical text', () => {
     expect(coSupportErrorMessage({ message: 'duplicate key value violates unique constraint' })).toBe(

@@ -189,7 +189,7 @@ CALL tt_run('M06', 'Pay alone without enough float: refused, invite and hold sta
 DECLARE a uuid := tt_person(15, 200000); r jsonb;
 BEGIN
   PERFORM tt_as(a); r := co_support_create(tt_plan(300000));
-  ASSERT tt_err(format('select co_support_fund_alone(%L)', r->>'id')) LIKE 'PARTNER_FUNDS_SHORT: The full Rent Plan is UGX 306,000%', 'short';
+  ASSERT tt_err(format('select co_support_fund_alone(%L)', r->>'id')) LIKE 'PARTNER_FUNDS_SHORT: The full amount is UGX 306,000%', 'short';
   ASSERT (SELECT status FROM co_support_invites WHERE id = (r->>'id')::uuid) = 'open', 'still open';
   ASSERT funder_float_available(a) = 47000, 'hold intact';
 END $t$);

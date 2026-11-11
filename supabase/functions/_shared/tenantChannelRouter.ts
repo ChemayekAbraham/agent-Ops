@@ -18,7 +18,7 @@
 // routing, record_tenant_notification directly) returns.
 import { notifyTenant } from "./tenantNotify.ts";
 import { loadEvent, renderTemplate, renderSmsTemplate, type NotificationEvent } from "./tenantTemplates.ts";
-import { sendPushToSubscription, cleanupGoneSubscription, type PushPayload } from "./webPushSend.ts";
+import { sendPushToSubscription, removeDeadSubscriptions, type PushPayload, type PushSendResult } from "./webPushSend.ts";
 
 export interface RouteNotificationArgs {
   admin: any;
@@ -131,6 +131,7 @@ async function dispatchPush(
   };
 
   let sent = 0;
+  const outcomes: Array<{ endpoint: string; result: PushSendResult | null }> = [];
   for (const device of devices) {
     try {
       const result = await sendPushToSubscription(device, payload);
@@ -140,8 +141,8 @@ async function dispatchPush(
         p_status: result.ok ? "sent" : "failed",
         p_error: result.ok ? null : "push_send_failed",
       });
+      outcomes.push({ endpoint: device.endpoint, result });
       if (result.ok) sent++;
-      else if (result.gone) await cleanupGoneSubscription(admin, device.endpoint);
     } catch (err) {
       console.error(`[tenantChannelRouter] push failed for device ${device.id}:`, err);
       await admin.rpc("record_push_delivery", {
@@ -152,6 +153,9 @@ async function dispatchPush(
       });
     }
   }
+
+  // Same dead-subscription rule as the broadcast sender.
+  await removeDeadSubscriptions(admin, outcomes, 'tenantChannelRouter');
 
   return { attempted: devices.length, sent };
 }

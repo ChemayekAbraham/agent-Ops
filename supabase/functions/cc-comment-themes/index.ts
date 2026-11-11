@@ -2,6 +2,7 @@
 // Calling Center Report. Read-only: it only receives text and returns counts.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -32,7 +33,7 @@ Deno.serve(async (req) => {
   try {
     const token = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const { data: u } = await admin.auth.getUser(token);
+    const { data: u } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (!u?.user) return json({ error: 'unauthorized' }, 401);
 
     const body = await req.json().catch(() => null);

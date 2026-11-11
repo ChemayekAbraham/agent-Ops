@@ -11,6 +11,7 @@ import {
   flowHint,
   flowWords,
   outBreakdown,
+  outSplitLine,
   ugxShort,
   useDeskFlow,
   type DeskFlow,
@@ -37,6 +38,7 @@ const labelText = { ...cellText, fontSize: '0.85em' };
 
 function PeriodCell({ label, p, deskId, board }: { label: string; p: FlowPeriod | null | undefined; deskId: string; board: boolean }) {
   const out = outBreakdown(p, deskId);
+  const split = outSplitLine(p, deskId);
   const words = flowWords(deskId);
   return (
     <div
@@ -92,6 +94,12 @@ function PeriodCell({ label, p, deskId, board }: { label: string; p: FlowPeriod 
           </tr>
         </tbody>
       </table>
+      {/* Under the Out figure: what Out was made of, so it reads against the next desk's In. */}
+      {split && (
+        <p className={LABEL} data-out-split style={{ margin: 0, overflowWrap: 'anywhere' }}>
+          {split}
+        </p>
+      )}
     </div>
   );
 }

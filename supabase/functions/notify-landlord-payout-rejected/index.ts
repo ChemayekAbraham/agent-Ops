@@ -10,6 +10,7 @@
 // to check without re-sending.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { sendSMS, formatPhoneInternational, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,7 +51,7 @@ Deno.serve(async (req) => {
     // ── Auth: a signed-in Financial Ops / CFO / manager / operations user ──
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "").trim();
     if (!token) return json({ error: "Unauthorized" }, 401);
-    const { data: userRes, error: userErr } = await admin.auth.getUser(token);
+    const { data: userRes, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     const staffUser = userRes?.user;
     if (userErr || !staffUser) return json({ error: "Unauthorized" }, 401);
 

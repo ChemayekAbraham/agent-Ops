@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,7 +82,7 @@ Deno.serve(async (req) => {
     let isManager = false;
     if (authHeader) {
       const token = authHeader.replace(/^Bearer\s+/i, '');
-      const { data: { user } } = await supabase.auth.getUser(token);
+      const { data: { user } } = await (bearerHasSub(token) ? supabase.auth.getUser(token) : noUserResult());
       authenticatedUserId = user?.id ?? null;
       if (authenticatedUserId) {
         const { data: managerRole } = await supabase

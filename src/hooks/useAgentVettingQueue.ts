@@ -204,3 +204,64 @@ export function useRequestIdReupload() {
     },
   });
 }
+
+/* ───────────── E78: the review's own checks, and what is still missing ───────────── */
+
+/** What still stands between this agent and approval (`_agent_vetting_v2_missing`), in the server's words. */
+export function useAgentVettingMissing(agentId: string | null | undefined) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['agent-vetting-missing', agentId],
+    enabled: !!user?.id && !!agentId,
+    staleTime: 15_000,
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await rpc('_agent_vetting_v2_missing', { p_agent: agentId });
+      if (error) throw new Error(error.message);
+      return Array.isArray(data) ? (data as string[]) : [];
+    },
+  });
+}
+
+export type VettingConfirmItem = 'face_match' | 'nok_call';
+
+/**
+ * Agent Ops confirms one item by hand: the selfie matches the ID (`face_match`), or the
+ * next of kin confirmed the agent on a call (`nok_call`, with what they said). The
+ * server's refusal comes back as the error message, unchanged.
+ */
+export function useConfirmVettingItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { agentId: string; item: VettingConfirmItem; note?: string }) => {
+      const { data, error } = await rpc('agent_vetting_confirm_item', {
+        p_agent_id: args.agentId,
+        p_item: args.item,
+        p_note: args.note?.trim() || null,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? {}) as { ok?: boolean; missing_now?: string[] };
+    },
+    onSuccess: (r, args) => {
+      if (Array.isArray(r.missing_now)) qc.setQueryData(['agent-vetting-missing', args.agentId], r.missing_now);
+      qc.invalidateQueries({ queryKey: ['agent-vetting-missing', args.agentId] });
+      qc.invalidateQueries({ queryKey: ['agent-vetting-detail', args.agentId] });
+    },
+  });
+}
+
+/** A short-lived link to the LC1 letter for the agent's home, from its own bucket. */
+export function useHomeLc1Letter(detail: AgentVettingDetail | null | undefined) {
+  const bucket = (detail?.home_lc1_letter_bucket as string | null | undefined) || null;
+  const path = (detail?.home_lc1_letter_path as string | null | undefined) || null;
+  return useQuery({
+    queryKey: ['agent-vetting-lc1', detail?.agent_id, bucket, path],
+    enabled: !!path,
+    staleTime: 4 * 60_000,
+    queryFn: async (): Promise<string | null> => {
+      if (!path) return null;
+      if (!bucket) return identityPhotoUrl(path);
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 300);
+      return error ? null : (data?.signedUrl ?? null);
+    },
+  });
+}

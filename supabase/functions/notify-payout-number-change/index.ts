@@ -9,6 +9,7 @@
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -83,7 +84,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
 
     const { data: roles } = await admin

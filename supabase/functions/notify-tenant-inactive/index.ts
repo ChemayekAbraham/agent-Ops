@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendMimeViaMailgun } from "../_shared/mailgun.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,7 +51,7 @@ Deno.serve(async (req) => {
     // --- Authenticate caller ---
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (userErr || !userData?.user) {
       return new Response(JSON.stringify({ error: "AUTH_REQUIRED" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { countCsvDataRecords, stripCsvHeader } from "../_shared/csvRecords.ts";
 import { EXCLUDED_SECRET_TABLES, parseTableSpec } from "../_shared/fullBackupTables.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 // Table-by-table CSV backup of every base table in schema public (doc 224).
 //
@@ -106,7 +107,7 @@ Deno.serve(async (req) => {
   if (!token) return json({ error: "unauthorized" }, 401);
   let actor = "System (chained run)";
   if (token !== serviceKey) {
-    const { data: userRes, error: userErr } = await supabase.auth.getUser(token);
+    const { data: userRes, error: userErr } = await (bearerHasSub(token) ? supabase.auth.getUser(token) : noUserResult());
     if (userErr || !userRes?.user) return json({ error: "unauthorized" }, 401);
     const { data: roleRows } = await supabase.from("user_roles").select("role").eq("user_id", userRes.user.id);
     const roles = (roleRows ?? []).map((r: { role: string }) => r.role);

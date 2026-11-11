@@ -13,6 +13,7 @@
 // cache mirror updates atomically via apply_wallet_movement.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,7 +39,7 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: userRes, error: authErr } = await userClient.auth.getUser();
+    const { data: userRes, error: authErr } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (authErr || !userRes?.user) return json({ error: "Unauthorized" }, 401);
     const caller = userRes.user;
 

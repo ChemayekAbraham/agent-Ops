@@ -3,6 +3,7 @@ import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { resolveManagedProxy } from "../_shared/partnership-emails.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from '../_shared/cfoApprovalGate.ts';
 import { reserveReturnCycle, walletRecoveryAmount } from '../_shared/returnCycleGuard.ts';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: claimsData, error: claimsError } = await userClient.auth.getUser();
+    const { data: claimsData, error: claimsError } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (claimsError || !claimsData?.user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),

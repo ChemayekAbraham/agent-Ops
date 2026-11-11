@@ -9,6 +9,7 @@ import {
   typedRate,
   typedRateNeedsReload,
 } from "../_shared/partnerReturnPolicy.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -169,7 +170,7 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userErr } = await userClient.auth.getUser();
+    const { data: { user }, error: userErr } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (userErr || !user) return errorResponse("Unauthorized", 401);
 
     // Built per request with the caller as x-welile-actor, so a typed rate the gate queues for the

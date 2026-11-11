@@ -14,6 +14,7 @@ import {
   resolveDepositorEmail,
   sendCashDepositCodeEmail,
 } from "../_shared/cashDepositCodeEmail.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,7 +49,7 @@ Deno.serve(async (req) => {
     );
 
     const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-    const { data: authData, error: authErr } = await admin.auth.getUser(token);
+    const { data: authData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authErr || !authData?.user) return json(401, { error: "Unauthorized" });
     const operator = authData.user;
 

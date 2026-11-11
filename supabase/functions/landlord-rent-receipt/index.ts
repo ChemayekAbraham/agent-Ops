@@ -12,6 +12,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { sendSMS, formatPhoneInternational, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 import { receiptUrl as publicReceiptUrl } from "../_shared/landlordReceipt.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,7 +53,7 @@ Deno.serve(async (req) => {
     const internal = token === SERVICE_ROLE;
     if (!internal) {
       if (!token) return json({ error: "Unauthorized" }, 401);
-      const { data: userRes, error: userErr } = await admin.auth.getUser(token);
+      const { data: userRes, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
       const user = userRes?.user;
       if (userErr || !user) return json({ error: "Unauthorized" }, 401);
 

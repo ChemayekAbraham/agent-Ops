@@ -15,20 +15,33 @@ const Avatar = React.forwardRef<
 ));
 Avatar.displayName = AvatarPrimitive.Root.displayName;
 
+/**
+ * Image URLs (stored and signed) that already failed this session. A failed
+ * avatar falls back to the placeholder and is never requested again, and its
+ * stored URL is not re-signed either.
+ */
+const failedAvatarUrls = new Set<string>();
+
 const AvatarImage = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
 >(({ className, src, onLoadingStatusChange, ...props }, ref) => {
-  // Auto-sign Supabase storage URLs
-  const signedSrc = useSignedUrl(src);
-  const [failedSrc, setFailedSrc] = React.useState<string>();
+  const knownBad = !!src && failedAvatarUrls.has(src);
+  // Auto-sign Supabase storage URLs (skipped for URLs that already failed)
+  const signedSrc = useSignedUrl(knownBad ? undefined : src);
+  const [, force] = React.useReducer((n: number) => n + 1, 0);
+  const usable = !knownBad && signedSrc && !failedAvatarUrls.has(signedSrc) ? signedSrc : undefined;
   return (
     <AvatarPrimitive.Image
       ref={ref}
       className={cn("aspect-square h-full w-full object-cover", className)}
-      src={failedSrc === signedSrc ? undefined : signedSrc || undefined}
+      src={usable}
       onLoadingStatusChange={(status) => {
-        if (status === 'error') setFailedSrc(signedSrc);
+        if (status === 'error') {
+          if (src) failedAvatarUrls.add(src);
+          if (signedSrc) failedAvatarUrls.add(signedSrc);
+          force();
+        }
         onLoadingStatusChange?.(status);
       }}
       {...props}

@@ -6,6 +6,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendSMS, formatPhoneInternational, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 import { suppressSignupPrompt } from "../_shared/smsSignupPrompt.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 // Recipients are existing tenants: no "sign up" line.
 suppressSignupPrompt();
@@ -61,7 +62,7 @@ Deno.serve(async (req) => {
   // ── Test send ─────────────────────────────────────────────────────────────
   if (mode === "test") {
     const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
-    const { data: u } = await admin.auth.getUser(token);
+    const { data: u } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (!u?.user) return json({ error: "Sign in required" }, 401);
     const { data: roles } = await admin.from("user_roles").select("role, enabled").eq("user_id", u.user.id);
     if (!(roles ?? []).some((r: any) => STAFF.includes(r.role) && r.enabled !== false)) {

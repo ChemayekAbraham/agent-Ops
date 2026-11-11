@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { sendSMS, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 import { isPlaceholderRecipient } from "../_shared/recipientMailbox.ts";
 import { maskEmail } from "../_shared/twoFactorEmail.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,7 +139,7 @@ serve(async (req) => {
 
     const token = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
     if (!token) return json({ error: "Unauthorized" }, 401);
-    const { data: authData, error: authErr } = await adminClient.auth.getUser(token);
+    const { data: authData, error: authErr } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
     const caller = authData?.user;
     if (authErr || !caller) return json({ error: "Unauthorized" }, 401);
 

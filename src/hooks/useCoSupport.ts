@@ -4,6 +4,7 @@ import {
   normalizeCoSupportCode,
   type CoSupportInvite,
   type CoSupportPreview,
+  type CoSupportStaffRow,
 } from '@/lib/coSupport';
 
 /**
@@ -27,6 +28,7 @@ export const coSupportKeys = {
   all: ['co-support'] as const,
   preview: (code: string) => ['co-support', 'preview', code] as const,
   mine: ['co-support', 'mine'] as const,
+  staff: ['co-support', 'staff'] as const,
 };
 
 /** The invitation behind a link. Works before sign-in (public fields only). */
@@ -117,6 +119,47 @@ export function useReinviteCoSupport() {
   return useMutation({
     mutationFn: ({ inviteId, newLink }: { inviteId: string; newLink: boolean }) =>
       call<CoSupportInvite>('co_support_reinvite', { p_invite_id: inviteId, p_new_link: newLink }),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * Start sharing a verified empty house (same 48-hour hold as a Rent Plan).
+ * When the partner accepts, both halves wait for Partner Ops, who approve or
+ * reject them together; nothing is debited until then.
+ */
+export function useCreateCoSupportHouse() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (houseId: string) => call<CoSupportInvite>('co_support_create_house', { p_house_id: houseId }),
+    onSuccess: invalidate,
+  });
+}
+
+/** Partner Ops: shared Rent Plans and houses that have funding (or wait for approval). */
+export function useCoSupportStaffList(enabled = true) {
+  return useQuery({
+    queryKey: coSupportKeys.staff,
+    enabled,
+    staleTime: 15_000,
+    queryFn: () => call<CoSupportStaffRow[]>('co_support_staff_list', { p_limit: 100 }),
+  });
+}
+
+export interface CoSupportStaffCancelResult {
+  success: boolean;
+  kind: 'rent_plan' | 'house';
+  plan_released: boolean;
+  refunds_due: Array<{ partner_id: string; partner_first_name: string | null; amount: number; commitment_id: string }> | null;
+  note: string;
+}
+
+/** Partner Ops: cancel both halves of a funded shared Rent Plan or house (reason >= 10 characters). */
+export function useCoSupportStaffCancel() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ inviteId, reason }: { inviteId: string; reason: string }) =>
+      call<CoSupportStaffCancelResult>('co_support_staff_cancel', { p_invite_id: inviteId, p_reason: reason.trim() }),
     onSuccess: invalidate,
   });
 }

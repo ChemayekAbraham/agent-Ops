@@ -1,8 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { HandHeart, Sparkles, ChevronRight } from 'lucide-react';
+import { HandHeart, ChevronRight } from 'lucide-react';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import { formatRatePct } from '@/lib/partnerReturnPolicy';
-import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 
 export type SupportMode = 'self' | 'auto';
 
@@ -24,8 +23,6 @@ export function SupportModeChooserDialog({
   // null while unknown -> the sentence states no rate. Wiring it into the copy is Gemini item 3.
   const { newContractRate } = usePartnerReturnPolicy();
   const newRatePct = formatRatePct(newContractRate);
-  // While Agent Care is on, promissory notes are self-support only (the server refuses company-managed).
-  const { enabled: selfSupportOnly } = useSelfSupportFeePolicy();
   const options: {
     mode: SupportMode;
     title: string;
@@ -45,14 +42,6 @@ export function SupportModeChooserDialog({
       icon: HandHeart,
       tone: 'border-primary/30 bg-primary/5',
     },
-    {
-      mode: 'auto',
-      title: 'Auto support tenant',
-      sub: 'Company handles supporting the tenant',
-      body: 'Welile matches the partner to tenants as they come through — nothing to choose now, the desk does the placing.',
-      icon: Sparkles,
-      tone: 'border-emerald-500/30 bg-emerald-500/5',
-    },
   ];
 
   return (
@@ -66,7 +55,7 @@ export function SupportModeChooserDialog({
         </DialogHeader>
 
         <div className="space-y-2.5">
-          {options.filter((o) => !(selfSupportOnly && o.mode === 'auto')).map((o) => (
+          {options.map((o) => (
             <button
               key={o.mode}
               type="button"
