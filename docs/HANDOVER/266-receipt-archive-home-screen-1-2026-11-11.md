@@ -1,6 +1,10 @@
 # 266 — Receipt Archive home (Screen 1): money in and money out in one searchable list (2026-11-11)
 
-**Status: CODE CHANGE ON `dev/financial-ops`, NOT APPLIED, NOT DEPLOYED, NOT PUSHED.** Nothing in the database was changed. The page shows an error until the migrations below are applied.
+**Status: `20261105180000_partner_receipts.sql` and `20261111090000_receipt_archive_unified.sql` APPLIED to production by Josh on 2026-11-11 (checked: counter 4299, 0 receipts, both archive RPCs executable by `authenticated` and not `anon`, RLS read policy plus staff-MFA restrictive policy on all tables). `20261111100000_partner_receipts_tighten_grants.sql` is written but NOT yet applied. Code is on `dev/financial-ops`, NOT PUSHED.**
+
+**Grants finding (2026-11-11):** after applying, production showed `authenticated` holding every table privilege and `anon` holding SELECT on the four receipt tables (project default privileges). RLS still blocks it (no write policies, protect triggers), so nothing was exposed, but the repo rule is grants as the second lock. The tighten-grants migration removes `anon` access entirely, leaves `authenticated` SELECT only on the three receipt tables, and none on the counter. Re-check with `information_schema.role_table_grants` after applying.
+
+**Also fixed in the partner receipts migration before it was applied:** `can_issue_partner_receipt` ignored `staff_permissions.revoked_at` (a revoked Financial Ops grant could still issue receipts); read policies now wrap `auth.uid()` in a select; staff-MFA restrictive policy added on all four tables.
 
 ## CTO ask
 Replace the paper receipt books with a receipt archive covering money that comes in and money that goes out, searchable by the client's phone number, laid out like the approved mockup (Screen 1 of 6). Digital receipts start at No. 4300 (paper ran to 4299).
