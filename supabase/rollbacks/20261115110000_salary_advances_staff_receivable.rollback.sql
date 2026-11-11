@@ -80,4 +80,4 @@ AS $function$
     || ARRAY['agent_advance_memo_offset']::text[]
     -- 2026-11-10 (CFO draft): platform-only reversal of a float restatement loss booked in error (X6)
     || ARRAY['float_restatement_correction']::text[]) || ARRAY['welile_cover_fee']::text[];
-$function$
+$function$;

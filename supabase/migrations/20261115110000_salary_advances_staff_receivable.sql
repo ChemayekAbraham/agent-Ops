@@ -108,4 +108,4 @@ AS $function$
     || ARRAY['float_restatement_correction']::text[]) || ARRAY['welile_cover_fee']::text[]
     -- 2026-11-11 (CFO): salary advances to employees (A27 Loans and Advances to Employees)
     || ARRAY['salary_advance_disbursed', 'salary_advance_cash_paid', 'salary_advance_recovered', 'salary_advance_recovery_expense']::text[];
-$function$
+$function$;
