@@ -10,7 +10,7 @@ import { publicToolResult } from "../response";
 const GUIDED_PROMPTS = [
   "Check my rent access",
   "See agent commissions",
-  "See supporter Returns",
+  "See supporter Rent profit share",
   "Get guaranteed rent as a landlord",
   "Check my Welile Trust Score",
 ];
@@ -32,8 +32,8 @@ const FAQS: { q: string; a: string; tags: string[] }[] = [
     tags: ["agent", "earn", "commission", "work", "job"],
   },
   {
-    q: "How can I support tenants and earn Returns?",
-    a: "Become a Supporter: your funds help tenants access rent, and you earn periodic Returns. Rates and terms are shown in the app when you sign up. (Terminology: Supporter, not lender; Returns, not interest.)",
+    q: "How can I support tenants and earn Rent profit share?",
+    a: "Become a Supporter: your funds help tenants access rent, and you earn periodic Rent profit share. Rates and terms are shown in the app when you sign up. (Terminology: Supporter, not lender; Rent profit share, not interest.)",
     tags: ["supporter", "invest", "fund", "returns", "earn"],
   },
   {
@@ -53,7 +53,7 @@ const FAQS: { q: string; a: string; tags: string[] }[] = [
   },
   {
     q: "How do I check what I personally qualify for?",
-    a: "Personal figures — your rent access, wallet balance, commissions, or Returns — are shown once you create a free account and sign in. Ask 'check my rent access' or 'see agent commissions' to get started, and I'll share the right signup link.",
+    a: "Personal figures — your rent access, wallet balance, commissions, or Rent profit share — are shown once you create a free account and sign in. Ask 'check my rent access' or 'see agent commissions' to get started, and I'll share the right signup link.",
     tags: ["check", "qualify", "balance", "personal", "account", "my"],
   },
   {
@@ -104,7 +104,7 @@ export default defineTool({
       kind: "info",
       summary: term
         ? `How Welile works — ${faqs.length} answer${faqs.length === 1 ? "" : "s"} about "${term}". All amounts are in UGX.`
-        : "How Welile works: tenants access rent through a flexible Rent Plan, agents serve them in the field, landlords get guaranteed rent, and Supporters earn Returns. All amounts are in UGX.",
+        : "How Welile works: tenants access rent through a flexible Rent Plan, agents serve them in the field, landlords get guaranteed rent, and Supporters earn Rent profit share. All amounts are in UGX.",
       body: [faqText, "", `Try asking:\n${GUIDED_PROMPTS.map((p) => `• ${p}`).join("\n")}`],
       assumptions: [
         "General product information only — nothing here is specific to one person's account.",
@@ -116,7 +116,7 @@ export default defineTool({
         guided_prompts: GUIDED_PROMPTS,
       },
       disclaimers: [
-        "Personal figures (your rent access, wallet, commissions, or Returns) are only visible after you create a free account and sign in.",
+        "Personal figures (your rent access, wallet, commissions, or Rent profit share) are only visible after you create a free account and sign in.",
       ],
       next_steps: [
         "Create a free account to see what you personally qualify for.",

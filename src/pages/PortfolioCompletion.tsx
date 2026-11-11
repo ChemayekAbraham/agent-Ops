@@ -436,7 +436,7 @@ export default function PortfolioCompletion({ preview = false }: { preview?: boo
               <p className="text-xl sm:text-2xl font-black text-primary">{formatUGX(portfolio?.investment_amount ?? 0)}</p>
             </div>
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <SummaryRow label="Monthly Returns" value={preview ? 'Sample terms' : `${portfolio?.roi_percentage ?? 0}%`} />
+              <SummaryRow label="Monthly Rent profit share" value={preview ? 'Sample terms' : `${portfolio?.roi_percentage ?? 0}%`} />
               <SummaryRow label="Duration" value={`${portfolio?.duration_months ?? 0} months`} />
               <SummaryRow label="Mode" value={portfolio?.roi_mode === 'monthly_compounding' ? 'Compounding' : 'Monthly payout'} />
               <SummaryRow label="Reference" value={portfolio?.portfolio_code ?? ''} mono />
@@ -539,11 +539,11 @@ export default function PortfolioCompletion({ preview = false }: { preview?: boo
         <div className="space-y-3">
           <div>
             <h2 className="text-sm font-bold">Payout method</h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Where Welile sends your monthly returns.</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Where Welile sends your monthly Rent profit share.</p>
           </div>
           {paymentNeedsUpdate && (
             <p className="rounded-md border border-amber-500/60 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">
-              You changed your details — enter your payment details again so your returns reach the right account.
+              You changed your details — enter your payment details again so your Rent profit share reach the right account.
             </p>
           )}
 

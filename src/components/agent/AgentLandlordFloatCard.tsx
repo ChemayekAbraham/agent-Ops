@@ -45,7 +45,7 @@ export function AgentLandlordFloatCard({ onPayLandlord, onOpenRecovery, onOpenHi
   // or fully ring-fenced allocation falls back to the "CFO will fund this"
   // state rather than advertising an amount the payout will reject.
   const hasFloat = availableBalance > 0;
-  // Under 50% performance: the card is locked and says why, like a paused money withdrawal. It does not open the withdrawal.
+  // Under the server collection minimum: the card is locked and says why, like a paused money withdrawal. It does not open the withdrawal.
   const { gate, locked } = useLandlordFloatGate();
 
   return (
@@ -97,7 +97,7 @@ export function AgentLandlordFloatCard({ onPayLandlord, onOpenRecovery, onOpenHi
         </div>
       </button>
       {locked && gate?.blockReason && (
-        <p role="alert" className="mx-4 mb-3 -mt-1 rounded-lg bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+        <p role="alert" className="mx-4 mb-3 -mt-1 whitespace-pre-line break-words rounded-lg bg-destructive/10 px-3 py-2.5 text-sm leading-relaxed font-medium text-destructive">
           {gate.blockReason}
         </p>
       )}

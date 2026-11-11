@@ -164,7 +164,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Money In',
       items: [
         { label: 'Rent Collections', icon: Receipt, id: 'rent-collections' },
-        { label: 'Investor Returns', icon: TrendingUp, id: 'roi-requests' },
+        { label: 'Investor Rent profit share', icon: TrendingUp, id: 'roi-requests' },
         { label: 'Partner Top-ups', icon: TrendingUp, id: 'partner-topups' },
       ],
     },
@@ -293,7 +293,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Financial Reports', icon: FileText, id: 'reports' },
         { label: 'Alerts', icon: AlertTriangle, id: 'alerts' },
         { label: 'Withdrawal Approvals', icon: Banknote, id: 'withdrawals' },
-        { label: 'ROI Return Approvals', icon: ShieldCheck, id: 'roi-approvals' },
+        { label: 'Rent profit share Return Approvals', icon: ShieldCheck, id: 'roi-approvals' },
         { label: 'Partners', icon: Handshake, id: 'partners' },
         { label: 'Partner Finance', icon: Receipt, id: 'partner-finance' },
         { label: 'Partner Top-ups', icon: TrendingUp, id: 'partner-topups' },
@@ -456,7 +456,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Welile Operations', icon: Landmark, id: 'welile-operations' },
         { label: 'Financial Health', icon: Shield, id: 'financial' },
         // The Partner Returns switch (CEO-only; others see it read-only). Also on the CFO dashboard under Investor Returns.
-        { label: 'Partner Returns', icon: TrendingUp, id: 'partner-returns' },
+        { label: 'Partner Rent profit share', icon: TrendingUp, id: 'partner-returns' },
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'ceo-pay-approvals' },
         { label: 'Salary Advances', icon: HandCoins, id: 'ceo-pay-advances' },

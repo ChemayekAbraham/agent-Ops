@@ -59,7 +59,7 @@ const statsFor = (newRatePct: string | null) => [
   { value: '5,000+', label: 'Active Users' },
   { value: 'UGX 5K', label: 'Min Deposit' },
   { value: '24/7', label: 'Access' },
-  { value: newRatePct ?? '—', label: 'Supporter Returns (new partners)' },
+  { value: newRatePct ?? '—', label: 'Supporter Rent profit share (new partners)' },
 ];
 
 export default function RentMoney() {
@@ -229,10 +229,10 @@ Join now: ${shareLink}`;
               For Supporters
             </div>
             <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
-              {newRatePct ? `Earn ${newRatePct} Monthly Returns` : 'Earn Monthly Returns'}
+              {newRatePct ? `Earn ${newRatePct} Monthly Rent profit share` : 'Earn Monthly Rent profit share'}
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              Help tenants pay rent and earn monthly Returns. Your contribution is secured by Welile's Operational Assurance.
+              Help tenants pay rent and earn monthly Rent profit share. Your contribution is secured by Welile's Operational Assurance.
             </p>
             <p className="text-sm font-semibold italic text-purple-600 dark:text-purple-400">
               ✨ Welile is turning rent into an asset

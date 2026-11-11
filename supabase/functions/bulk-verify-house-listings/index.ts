@@ -14,6 +14,7 @@
 // (double-click, network retry, resubmit) can never double-credit.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,7 +83,7 @@ Deno.serve(async (req) => {
     const anonClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userErr } = await anonClient.auth.getUser();
+    const { data: { user }, error: userErr } = await (bearerHasSub(authHeader) ? anonClient.auth.getUser() : noUserResult());
     if (userErr || !user) return json({ error: "Unauthorized" }, 401);
 
     const adminClient = createClient(supabaseUrl, serviceKey);

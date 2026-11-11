@@ -80,14 +80,17 @@ export function CashPositionInsights({
   const flow = useQuery({
     queryKey: ['cfo-cash-flow-trend', days],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_cfo_daily_cash_flow', { p_days: days });
+      // Real money received / paid out on the Treasury card basis (moves between cash accounts cancel);
+      // accounting corrections come back separately and are not shown as money received or paid.
+      const { data, error } = await supabase.rpc('get_cfo_daily_cash_movement', { p_days: days });
       if (error) throw error;
       return ((data as Array<Record<string, unknown>>) || []).map((r) => {
         const inflow = Number(r.inflow) || 0;
         const outflow = Number(r.outflow) || 0;
+        const corrections = Number(r.corrections) || 0;
         const dayLabel = new Date(`${String(r.day).slice(0, 10)}T00:00:00`)
           .toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-        return { label: dayLabel, inflow, outflow, net: inflow - outflow };
+        return { label: dayLabel, inflow, outflow, net: inflow - outflow, corrections };
       });
     },
     staleTime: 60_000,
@@ -137,6 +140,7 @@ export function CashPositionInsights({
   const netAll = series.reduce((s, d) => s + d.net, 0);
   const totalInflow = series.reduce((s, d) => s + d.inflow, 0);
   const totalOutflow = series.reduce((s, d) => s + d.outflow, 0);
+  const totalCorrections = series.reduce((s, d) => s + d.corrections, 0);
 
   const insights = [
     inChange !== null && {
@@ -292,6 +296,11 @@ export function CashPositionInsights({
                 </span>
               </div>
             </div>
+            {Math.abs(totalCorrections) >= 1 && (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Accounting corrections in this period, not money received or paid: {totalCorrections >= 0 ? `+${fmt(totalCorrections)}` : fmt(totalCorrections)}
+              </p>
+            )}
           </CardContent>
         </Card>
 

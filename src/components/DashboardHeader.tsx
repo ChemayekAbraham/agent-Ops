@@ -22,6 +22,7 @@ import { Menu, Settings, Download, Home, GraduationCap, Stethoscope, Megaphone, 
 import { useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 
 import { hapticTap } from '@/lib/haptics';
+import { openT4RentRequest } from '@/lib/t4RentRequest';
 import { AppRole, useAuth } from '@/hooks/useAuth';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { cn } from '@/lib/utils';
@@ -335,6 +336,20 @@ const DashboardHeader = memo(function DashboardHeader({
                   align="end" 
                   className="w-56 max-h-[70vh] overflow-y-auto bg-primary-foreground backdrop-blur-xl border shadow-2xl rounded-2xl p-1"
                 >
+                  {/* First for agents: the T4 form is the only way to post a rent request. */}
+                  {currentRole === 'agent' && !isMerchantAgent && (
+                    <DropdownMenuItem
+                      onClick={() => { hapticTap(); openT4RentRequest({ mode: 'new', entry: 'agent-menu' }); }}
+                      onPointerEnter={() => void import('@/components/agent/rentRequestAssistant/RentRequestAssistant').catch(() => {})}
+                      onTouchStart={() => void import('@/components/agent/rentRequestAssistant/RentRequestAssistant').catch(() => {})}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-semibold touch-manipulation bg-primary/10 hover:bg-primary/15 focus:bg-primary/15 border border-primary/30 text-foreground transition-colors shadow-xs"
+                    >
+                      <div className="p-1.5 rounded-lg bg-primary text-primary-foreground shadow-xs">
+                        <FileText className="h-4 w-4" />
+                      </div>
+                      Post a rent request
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onClick={() => navigate('/your-profile')}
                     onPointerEnter={() => void import('@/pages/YourProfile').catch(() => {})}

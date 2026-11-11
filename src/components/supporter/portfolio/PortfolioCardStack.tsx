@@ -161,7 +161,7 @@ export function PortfolioCardStack({
   const a = accruals[front.id];
   const isActive = a.state === 'active';
   const progressPct = Math.round(a.cycleProgress * 100);
-  const period = a.isMonthlyCycle ? 'Monthly Returns' : `${a.cycleDays}-day Returns`;
+  const period = a.isMonthlyCycle ? 'Monthly Rent profit share' : `${a.cycleDays}-day Rent profit share`;
   const isCompounding = front.roi_mode === 'monthly_compounding' || front.auto_reinvest === true;
   const remaining = remainingLabel(a.daysToPayout);
 

@@ -83,7 +83,7 @@ export function SmartphoneJourneyCard() {
     });
     setSaving(false);
     if (error) { toast.error('Could not save', { description: error.message }); return; }
-    toast.success(active ? 'Saved. Your next monthly Returns will pay toward your phone.' : 'Turned off');
+    toast.success(active ? 'Saved. Your next monthly Rent profit share will pay toward your phone.' : 'Turned off');
     setValue(''); setMode(null);
     qc.invalidateQueries({ queryKey: ['my-smartphone-journey'] });
   };
@@ -148,13 +148,13 @@ export function SmartphoneJourneyCard() {
 
       {j.has_portfolio && (
         <div className="rounded-xl border p-3 space-y-3">
-          <p className="text-sm font-semibold flex items-center gap-2"><PiggyBank className="h-4 w-4" /> Use my monthly Returns</p>
+          <p className="text-sm font-semibold flex items-center gap-2"><PiggyBank className="h-4 w-4" /> Use my monthly Rent profit share</p>
           <p className="text-xs text-muted-foreground">
-            When your monthly Returns reach your wallet, this part goes straight to your phone. We never take more than you still owe.
+            When your monthly Rent profit share reach your wallet, this part goes straight to your phone. We never take more than you still owe.
           </p>
           {j.pledge?.active && (
             <p className="text-sm font-medium text-primary">
-              Now: {j.pledge.mode === 'percent' ? `${j.pledge.value}% of each Returns payment` : `${formatUGX(j.pledge.value)} from each Returns payment`}
+              Now: {j.pledge.mode === 'percent' ? `${j.pledge.value}% of each Rent profit share payment` : `${formatUGX(j.pledge.value)} from each Rent profit share payment`}
             </p>
           )}
           <div className="flex gap-2">
@@ -199,7 +199,7 @@ export function SmartphoneJourneyCard() {
           <p className="text-sm font-semibold">Recent payments</p>
           {j.recent.map((p, i) => (
             <div key={i} className="flex justify-between text-xs border-b py-1">
-              <span>{new Date(p.created_at).toLocaleDateString()}{/Returns/.test(p.item_name) ? ' · From monthly Returns' : ''}</span>
+              <span>{new Date(p.created_at).toLocaleDateString()}{/Returns/.test(p.item_name) ? ' · From monthly Rent profit share' : ''}</span>
               <span className="font-medium">{formatUGX(Number(p.amount))}</span>
             </div>
           ))}

@@ -1268,7 +1268,7 @@ export default function WithdrawFlow({
                   : availableBalance)
             : roiCap;
         if (freshMax === null) {
-          toast.error('Your Returns balance could not be checked. Reload the page and try again.', { duration: 6000 });
+          toast.error('Your Rent profit share balance could not be checked. Reload the page and try again.', { duration: 6000 });
           return false;
         }
         if (fresh === null && ledgerAvailable === null) {
@@ -2157,7 +2157,7 @@ export default function WithdrawFlow({
             <ConfirmSummaryCard
               title="Withdrawal Summary"
               items={[
-                { label: 'Wallet', value: source === 'available' ? '💼 Available Balance' : '📈 Returns Earnings' },
+                { label: 'Wallet', value: source === 'available' ? '💼 Available Balance' : '📈 Rent profit share Earnings' },
                 { label: 'Amount', value: formatCurrency(amount, currency), highlight: true },
                 { label: 'Payout Mode', value: payoutMode === 'mobile_money' ? '📱 Mobile Money' : payoutMode === 'bank_transfer' ? '🏦 Bank Transfer' : '💵 Cash Pickup' },
                 { label: 'To', value: getPayoutSummary() },

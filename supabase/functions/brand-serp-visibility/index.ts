@@ -8,6 +8,7 @@
 // Read-only. Requires an authenticated caller.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -143,7 +144,7 @@ Deno.serve(async (req) => {
   // Require an authenticated caller (internal executive panel).
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
-  const { data: userData, error: authErr } = await admin.auth.getUser(token);
+  const { data: userData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
   if (authErr || !userData?.user) {
     return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
       status: 401,

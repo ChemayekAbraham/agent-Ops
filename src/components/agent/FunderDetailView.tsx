@@ -234,7 +234,7 @@ export function FunderDetailView({
                   <p className="text-xs font-bold truncate">{formatUGX(stats.totalInvested)}</p>
                 </div>
                 <div className="rounded-lg bg-background/80 p-2 text-center">
-                  <p className="text-[9px] text-muted-foreground">Returns</p>
+                  <p className="text-[9px] text-muted-foreground">Rent profit share</p>
                   <p className="text-xs font-bold text-success truncate">{formatUGXOrDash(stats.totalROI)}</p>
                 </div>
                 <div className="rounded-lg bg-background/80 p-2 text-center">
@@ -371,10 +371,10 @@ export function FunderDetailView({
               <CardContent className="p-3 space-y-2">
                 <h4 className="text-xs font-semibold flex items-center gap-1.5">
                   <TrendingUp className="h-3.5 w-3.5 text-success" />
-                  Recent ROI Payments ({roiPayments.length})
+                  Recent Rent profit share Payments ({roiPayments.length})
                 </h4>
                 {roiPayments.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-2">No ROI payments yet</p>
+                  <p className="text-xs text-muted-foreground text-center py-2">No Rent profit share payments yet</p>
                 ) : (
                   <div className="space-y-1">
                     {roiPayments.slice(0, 5).map(r => (
@@ -436,7 +436,7 @@ export function FunderDetailView({
                           <p className="text-xs font-bold">{formatUGX(p.investment_amount)}</p>
                         </div>
                         <div className="rounded-lg bg-muted/40 p-2">
-                          <p className="text-[10px] text-muted-foreground">ROI Earned</p>
+                          <p className="text-[10px] text-muted-foreground">Rent profit share Earned</p>
                           <p className="text-xs font-bold text-success">{formatUGXOrDash(p.total_roi_earned)}</p>
                         </div>
                         <div className="rounded-lg bg-muted/40 p-2">
@@ -453,7 +453,7 @@ export function FunderDetailView({
                           <span>Matures: {format(new Date(p.maturity_date), 'dd MMM yyyy')}</span>
                         )}
                         {p.next_roi_date && !p.maturity_date && (
-                          <span>Next ROI: {format(new Date(p.next_roi_date), 'dd MMM')}</span>
+                          <span>Next Rent profit share: {format(new Date(p.next_roi_date), 'dd MMM')}</span>
                         )}
                       </div>
                     </CardContent>
@@ -510,10 +510,10 @@ export function FunderDetailView({
               <CardContent className="p-3 space-y-2">
                 <h4 className="text-xs font-semibold flex items-center gap-1.5">
                   <TrendingUp className="h-3.5 w-3.5 text-success" />
-                  All ROI Payments ({roiPayments.length})
+                  All Rent profit share Payments ({roiPayments.length})
                 </h4>
                 {roiPayments.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-2">No ROI payments</p>
+                  <p className="text-xs text-muted-foreground text-center py-2">No Rent profit share payments</p>
                 ) : (
                   <div className="space-y-1">
                     {roiPayments.map(r => (

@@ -135,6 +135,14 @@ const ASSET_ACCOUNT_MAP: Record<string, string> = {
   // A25 Special Advances impairment allowance (Phase C): a contra-asset with a credit balance, reported under the same
   // heading as A24 so the group shows the net receivable (docs/special-advances/phase-c-impairment.md).
   A25: 'Other Assets',
+  // A26 receivable from shareholders: shares paid from company float, owed back by the shareholder (applied
+  // 2026-11-10). Same nature as A23 (Angel Pool share paid from company float, owed by Pius), so it reports
+  // under the same heading.
+  A26: 'Receivables from Partner Products and Services',
+  // A27 staff loans receivable (applied 2026-11-10): principal lent to employees and not yet recovered. This is
+  // the account the "Loans and Advances to Employees" line was created for; without this entry it fell into the
+  // flagged block and the employee line printed nothing.
+  A27: 'Loans and Advances to Employees',
 };
 
 

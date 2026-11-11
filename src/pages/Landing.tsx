@@ -36,10 +36,10 @@ const intentOptions: IntentOption[] = [
     emoji: '💰',
     title: 'Funder / Supporter',
     intent: 'I want to earn',
-    outcome: 'Earn monthly returns backing real tenants.',
+    outcome: 'Earn monthly Rent profit share backing real tenants.',
     bullets: [
       'Fund a tenant’s rent',
-      'Earn monthly returns',
+      'Earn monthly Rent profit share',
       'Withdraw with 90-day notice',
     ],
     gradient: 'from-emerald-500 to-teal-600',

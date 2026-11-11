@@ -568,7 +568,7 @@ Every public table has RLS enabled and explicit \`GRANT\`s (Data API grants are 
 ## 9.3 Edge Function conventions
 
 - Manually define \`corsHeaders\` — never import a cors package.
-- Authenticate with \`adminClient.auth.getUser(token)\`, then check roles server-side.
+- Authenticate with \`(bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult())\`, then check roles server-side.
 - Pass \`entries\` to \`create_ledger_transaction\` as a **raw JSON array**, never \`JSON.stringify\`.
 - Use only allowlisted ledger categories.
 - Cron-invoked functions must be idempotent and listed in \`config.toml\` with \`verify_jwt = false\` if invoked by \`net.http_post\`.
@@ -823,3 +823,4 @@ Directionally, from current code and memory:
 
 *This document supersedes \`SYSTEM_ARCHITECTURE.md\`, \`welile_architecture_guide.md\` and \`backend\` where they conflict. When code and this document disagree, the code and the database catalog are authoritative — update this file in the same change.*
 `;
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";

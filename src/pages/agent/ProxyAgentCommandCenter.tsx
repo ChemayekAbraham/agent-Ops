@@ -207,7 +207,7 @@ export default function ProxyAgentCommandCenter() {
   }, [inviteSheetOpen]);
 
   const inviteMessage = inviteUrl
-    ? `Join Welile as a partner and start earning monthly returns. Register here: ${inviteUrl}`
+    ? `Join Welile as a partner and start earning monthly Rent profit share. Register here: ${inviteUrl}`
     : '';
 
   const handleInviteWhatsApp = useCallback(() => {

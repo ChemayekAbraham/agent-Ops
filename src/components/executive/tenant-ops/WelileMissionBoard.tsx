@@ -686,13 +686,13 @@ export function WelileMissionBoard() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <p className="text-[9px] font-bold uppercase tracking-wide text-purple-800 leading-none cursor-help underline decoration-dotted underline-offset-2">
-                                ROI payable · {roiCardPeriod === 'day' ? 'next day' : roiCardPeriod === 'week' ? 'next week' : roiCardPeriod === 'month' ? 'next month' : 'custom range'}
+                                Rent profit share payable · {roiCardPeriod === 'day' ? 'next day' : roiCardPeriod === 'week' ? 'next week' : roiCardPeriod === 'month' ? 'next month' : 'custom range'}
                               </p>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-[260px] space-y-1.5">
-                              <p className="text-xs font-semibold">ROI Payable — Selected Window</p>
+                              <p className="text-xs font-semibold">Rent profit share Payable — Selected Window</p>
                               <p className="text-[11px] text-muted-foreground leading-snug">
-                                The total <strong className="text-foreground">Returns</strong> (monthly flat-rate payout) due to active Supporters whose next ROI date falls within the selected window.
+                                The total <strong className="text-foreground">Rent profit share</strong> (monthly flat-rate payout) due to active Supporters whose next Rent profit share date falls within the selected window.
                               </p>
                               <p className="text-[11px] text-muted-foreground leading-snug">
                                 <strong className="text-foreground">How it is calculated:</strong> For every active portfolio, we multiply the <em>investment_amount</em> by the <em>roi_percentage</em> to get the monthly Return owed. We then sum only those with a <em>next_roi_date</em> in the upcoming 31-day window.
@@ -715,7 +715,7 @@ export function WelileMissionBoard() {
                           <TooltipContent side="bottom" className="max-w-[260px] space-y-1.5">
                             <p className="text-xs font-semibold">Aggregated across all active portfolios</p>
                             <p className="text-[11px] text-muted-foreground leading-snug">
-                              This total sums the monthly Returns owed by <strong className="text-foreground">every active portfolio</strong> whose next ROI date falls within the selected window.
+                              This total sums the monthly Rent profit share owed by <strong className="text-foreground">every active portfolio</strong> whose next Rent profit share date falls within the selected window.
                             </p>
                             <p className="text-[11px] text-muted-foreground leading-snug">
                               <strong className="text-foreground">Date range:</strong> {roiPayable.start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} → {roiPayable.end.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -1676,7 +1676,7 @@ function ROIDetailDialog({
         <DialogHeader className="px-4 pt-4 pb-2 border-b border-border">
           <DialogTitle className="text-sm flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
-            ROI payout detail
+            Rent profit share payout detail
           </DialogTitle>
           <p className="text-[11px] text-muted-foreground">
             {p?.account_name || line?.account_name || 'Funder'} · Portfolio {p?.portfolio_code || line?.portfolio_code}
@@ -1701,7 +1701,7 @@ function ROIDetailDialog({
                       <div className="font-semibold tabular-nums">{formatUGX(investment)}</div>
                     </div>
                     <div className="rounded border border-border/70 p-2">
-                      <div className="text-muted-foreground">ROI rate (monthly)</div>
+                      <div className="text-muted-foreground">Rent profit share rate (monthly)</div>
                       <div className="font-semibold tabular-nums">{roiPct}%</div>
                     </div>
                     <div className="rounded border border-border/70 p-2">
@@ -1725,7 +1725,7 @@ function ROIDetailDialog({
                       <div className="font-semibold">{p?.duration_months ?? '—'} months</div>
                     </div>
                     <div className="rounded border border-border/70 p-2">
-                      <div className="text-muted-foreground">Total ROI paid</div>
+                      <div className="text-muted-foreground">Total Rent profit share paid</div>
                       <div className="font-semibold tabular-nums">{formatUGX(Number(p?.total_roi_earned || 0))}</div>
                     </div>
                   </div>
@@ -1805,7 +1805,7 @@ function ROIDetailDialog({
 // ===== ROI payable export helpers (CSV + PDF) =====
 
 function exportRoiPayableCsv(rows: ROIPayableLine[], windowDays: number, total: number) {
-  const header = ['Funder', 'Portfolio', 'Investment (UGX)', 'ROI %', 'Payout date', 'Amount (UGX)'];
+  const header = ['Funder', 'Portfolio', 'Investment (UGX)', 'Rent profit share %', 'Payout date', 'Amount (UGX)'];
   const esc = (v: unknown) => {
     const s = String(v ?? '');
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -1839,14 +1839,14 @@ async function exportRoiPayablePdf(rows: ROIPayableLine[], windowDays: number, t
     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const generatedAt = new Date();
     pdf.setFontSize(14);
-    pdf.text('ROI payable — next cycle', 14, 14);
+    pdf.text('Rent profit share payable — next cycle', 14, 14);
     pdf.setFontSize(9);
     pdf.setTextColor(120);
     pdf.text(`Window: next ${windowDays} day${windowDays === 1 ? '' : 's'} · ${rows.length} portfolio${rows.length === 1 ? '' : 's'} · Total UGX ${Math.round(total).toLocaleString()}`, 14, 20);
     pdf.text(`Generated ${generatedAt.toLocaleString()}`, 14, 25);
     autoTable(pdf, {
       startY: 30,
-      head: [['Funder', 'Portfolio', 'Investment', 'ROI %', 'Payout date', 'Amount']],
+      head: [['Funder', 'Portfolio', 'Investment', 'Rent profit share %', 'Payout date', 'Amount']],
       body: rows.map((r) => [
         r.account_name || 'Funder',
         r.portfolio_code || '',
@@ -2916,10 +2916,10 @@ function ROIPayableDialog({
       <DialogContent className="max-w-2xl p-0 gap-0">
         <DialogHeader className="p-4 pb-2">
           <DialogTitle className="text-base flex items-center gap-2">
-            <Handshake className="h-4 w-4 text-amber-600" /> ROI payable — next cycle
+            <Handshake className="h-4 w-4 text-amber-600" /> Rent profit share payable — next cycle
           </DialogTitle>
           <p className="text-[11px] text-muted-foreground">
-            Returns due to funders by payout date. Pick a window to see each portfolio line, its amount and earliest payout date.
+            Rent profit share due to funders by payout date. Pick a window to see each portfolio line, its amount and earliest payout date.
           </p>
         </DialogHeader>
 
@@ -2998,10 +2998,10 @@ function ROIPayableDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="next_roi_date" className="text-[11px]">Payout date</SelectItem>
-                <SelectItem value="roi_amount" className="text-[11px]">ROI amount</SelectItem>
+                <SelectItem value="roi_amount" className="text-[11px]">Rent profit share amount</SelectItem>
                 <SelectItem value="account_name" className="text-[11px]">Funder name</SelectItem>
                 <SelectItem value="portfolio_code" className="text-[11px]">Portfolio code</SelectItem>
-                <SelectItem value="roi_percentage" className="text-[11px]">ROI %</SelectItem>
+                <SelectItem value="roi_percentage" className="text-[11px]">Rent profit share %</SelectItem>
               </SelectContent>
             </Select>
             <button
@@ -3095,7 +3095,7 @@ function ROIPayableDialog({
           <div className="px-4 pb-4 space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
         ) : searched.length === 0 ? (
           <p className="px-4 pb-6 text-sm text-muted-foreground text-center py-6">
-            No ROI payable in the next {windowDays} day{windowDays !== 1 ? 's' : ''}.
+            No Rent profit share payable in the next {windowDays} day{windowDays !== 1 ? 's' : ''}.
           </p>
         ) : (
           <VirtualisedROIList
@@ -3167,7 +3167,7 @@ function ScheduleRoiConfirmDialog({
       toast.success(`Scheduled payout for ${line.account_name || 'funder'} on ${format(date, 'MMM d, yyyy')}`);
       onScheduled();
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to schedule ROI payout');
+      toast.error(e?.message || 'Failed to schedule Rent profit share payout');
     } finally {
       setBusy(false);
     }
@@ -3180,10 +3180,10 @@ function ScheduleRoiConfirmDialog({
       <DialogContent className="max-w-md p-0 gap-0">
         <DialogHeader className="p-4 pb-2">
           <DialogTitle className="text-base flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-emerald-600" /> Schedule ROI payout
+            <CalendarDays className="h-4 w-4 text-emerald-600" /> Schedule Rent profit share payout
           </DialogTitle>
           <p className="text-[11px] text-muted-foreground">
-            Move the next ROI payout date for this portfolio. The change is recorded with your name and reason for audit.
+            Move the next Rent profit share payout date for this portfolio. The change is recorded with your name and reason for audit.
           </p>
         </DialogHeader>
         {line && (

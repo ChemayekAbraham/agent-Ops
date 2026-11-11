@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   useAgentVettingQueue, useAgentVettingDetail, useAgentVettingPhotos, useDecideAgentVetting,
+  useAgentVettingMissing, useConfirmVettingItem, useHomeLc1Letter,
   type AgentVettingDetail,
   useAgentKycOverview, useAgentKycIdentitySummary,
 } from '@/hooks/useAgentVettingQueue';
@@ -194,6 +195,27 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
   const [reuploadOpen, setReuploadOpen] = useState(false);
   const [reason, setReason] = useState('');
   const reasonOk = reason.trim().length >= 5;
+  // E78: the two checks Agent Ops confirms by hand, and what the server says is still missing.
+  const missing = useAgentVettingMissing(agentId);
+  const confirm = useConfirmVettingItem();
+  const lc1 = useHomeLc1Letter(detailQ.data);
+  const [nokNote, setNokNote] = useState('');
+  const [confirmError, setConfirmError] = useState<{ item: 'face_match' | 'nok_call'; message: string } | null>(null);
+  const [approveError, setApproveError] = useState<string | null>(null);
+  const confirmItem = (item: 'face_match' | 'nok_call') => {
+    setConfirmError(null);
+    confirm.mutate(
+      { agentId, item, note: item === 'nok_call' ? nokNote : undefined },
+      {
+        onSuccess: () => {
+          toast.success(item === 'face_match' ? 'Selfie confirmed against the ID' : 'Next of kin confirmed');
+          if (item === 'nok_call') setNokNote('');
+        },
+        // The server's words, as they are.
+        onError: (e) => setConfirmError({ item, message: (e as Error).message }),
+      },
+    );
+  };
   const sendReupload = async () => {
     try {
       await reupload.mutateAsync({ agentId, reason: reason.trim() });
@@ -224,11 +246,17 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
   if (pinLat != null && pinLng != null) pts.push({ lat: pinLat, lng: pinLng, label: 'Residence pin', tone: 'accent' });
   if (g2.lat != null && g2.lng != null) pts.push({ lat: g2.lat, lng: g2.lng, label: 'At submit', tone: 'primary' });
 
-  const run = (approve: boolean) =>
+  const run = (approve: boolean) => {
+    setApproveError(null);
     decide.mutate({ agentId, approve, note: approve ? undefined : note }, {
       onSuccess: () => { toast.success(approve ? 'Agent verified' : 'Sent back to the agent'); onDone(); },
-      onError: (e) => { toast.error((e as Error).message); detailQ.refetch(); },
+      // "Not ready to approve: …" stays on screen above the buttons, word for word.
+      onError: (e) => { toast.error((e as Error).message); setApproveError((e as Error).message); detailQ.refetch(); missing.refetch(); },
     });
+  };
+  const faceAt = d.face_match_confirmed_at as string | null | undefined;
+  const nokAt = d.nok_confirmed_at as string | null | undefined;
+  const nokOk = nokNote.trim().length >= 5;
 
   const idVerified = (d as { identity_verified?: boolean }).identity_verified === true;
   const Photo = ({ url, alt, missingText }: { url: string | null | undefined; alt: string; missingText?: string }) =>
@@ -263,10 +291,19 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
         <div className="flex items-center gap-4 pt-2"><Avatar className="h-16 w-16 border border-border"><AvatarImage src={d.avatar_url ?? undefined} alt={`${d.name ?? 'Agent'} profile photo`} /><AvatarFallback className="text-lg font-semibold">{(d.name ?? 'A').split(' ').filter(Boolean).slice(0, 2).map((s: string) => s[0]).join('')}</AvatarFallback></Avatar><div className="min-w-0"><SheetTitle className="break-words text-xl">{d.name ?? 'Agent'}</SheetTitle><p className="my-2 text-sm text-muted-foreground">{d.profile_phone ?? d.phone ?? 'No phone on file'}</p><Badge variant={d.status === 'rejected' ? 'destructive' : 'secondary'} className="w-fit whitespace-normal">{VETTING_STATUS_LABEL[d.status]}</Badge></div></div>
       </SheetHeader>
 
-      <Section title="Identity">
-        <div className="max-w-xs space-y-1"><Photo url={photos.data?.passport} alt="Passport photo" />
-          {verdict && <Badge variant={verdict === 'fail' ? 'destructive' : verdict === 'review' ? 'outline' : 'default'}>Photo: {verdict}</Badge>}
+      <Section title="Identity" badge={faceAt ? <Badge variant="outline" className="border-success/30 bg-success/10 text-success">Selfie matches the ID · {abs(faceAt)}</Badge> : undefined}>
+        {/* E78: the passport selfie beside the ID front, for the face check. */}
+        <div className="grid max-w-xl grid-cols-2 gap-3" data-face-check>
+          <div className="min-w-0 space-y-1"><p className="text-xs text-muted-foreground">Passport selfie</p><Photo url={photos.data?.passport} alt="Passport photo" /></div>
+          <div className="min-w-0 space-y-1"><p className="text-xs text-muted-foreground">ID front</p><Photo url={photos.data?.id_front} alt="ID front for the face check" /></div>
         </div>
+        {verdict && <Badge variant={verdict === 'fail' ? 'destructive' : verdict === 'review' ? 'outline' : 'default'}>Photo: {verdict}</Badge>}
+        {!faceAt && (
+          <Button variant="outline" className="min-h-11 w-full sm:w-auto" disabled={confirm.isPending} onClick={() => confirmItem('face_match')}>
+            <Check className="h-4 w-4" />Selfie matches the ID
+          </Button>
+        )}
+        {confirmError?.item === 'face_match' && <p role="alert" className="text-sm text-destructive">{confirmError.message}</p>}
       </Section>
 
       <Section title="National ID" badge={idVerified ? <Badge variant="outline" className="border-success/30 bg-success/10 text-success">ID verified by Admin</Badge> : undefined}>
@@ -309,8 +346,38 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
         )}
       </Section>
 
-      <Section title="Next of kin">
+      {/* Plain markup, not <Section>: Section is redefined on every render, which would remount the note box and drop its focus on each key. */}
+      <section className="space-y-2 border-t border-border pt-3">
+        <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold">Next of kin</h3>{nokAt ? <Badge variant="outline" className="border-success/30 bg-success/10 text-success">Confirmed by call · {abs(nokAt)}</Badge> : null}</div>
         <p className="text-sm">{[d.nok_name, d.nok_phone, d.nok_relationship].filter(Boolean).join(', ') || '—'}{d.nok_source === 'parent_agent' ? ' (parent agent)' : ''}</p>
+        {nokAt ? (
+          d.nok_call_note && <p className="break-words text-sm text-muted-foreground">“{String(d.nok_call_note)}”</p>
+        ) : (
+          <div className="space-y-2" data-nok-call>
+            <label htmlFor="nok-call-note" className="text-sm font-medium">What the next of kin said on the call</label>
+            <Textarea id="nok-call-note" value={nokNote} onChange={(e) => setNokNote(e.target.value)} placeholder="For example: Sister, confirmed he lives in Kawempe and works as an agent." />
+            {!nokOk && <p className="text-xs text-muted-foreground">Required: at least 5 characters.</p>}
+            <Button variant="outline" className="min-h-11 w-full sm:w-auto" disabled={!nokOk || confirm.isPending} onClick={() => confirmItem('nok_call')}>
+              <Check className="h-4 w-4" />Next of kin confirmed by call
+            </Button>
+          </div>
+        )}
+        {confirmError?.item === 'nok_call' && <p role="alert" className="text-sm text-destructive">{confirmError.message}</p>}
+      </section>
+
+      <Section title="LC1 letter for their home">
+        {!d.home_lc1_letter_path ? (
+          <p className="text-sm text-muted-foreground">No LC1 letter uploaded.</p>
+        ) : lc1.isLoading ? (
+          <Skeleton className="h-32 max-w-xs" />
+        ) : lc1.data ? (
+          <div className="max-w-xs space-y-1" data-home-lc1>
+            {/\.pdf($|\?)/i.test(String(d.home_lc1_letter_path)) ? null : <Photo url={lc1.data} alt="Home LC1 letter" />}
+            <a className="inline-flex min-h-11 items-center gap-1 text-sm text-primary" href={lc1.data} target="_blank" rel="noreferrer">Open the LC1 letter <ExternalLink className="h-4 w-4" /></a>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">The LC1 letter could not be opened.</p>
+        )}
       </Section>
 
       <Section title="Activity"><p className="text-sm">{d.rent_requests ?? 0} rent requests, {d.collections ?? 0} collections</p></Section>
@@ -321,6 +388,21 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
           {events.length === 0 && <li className="text-sm text-muted-foreground">No history yet.</li>}
         </ul>
       </Section>
+
+      {/* E78: what the server says is still missing before approval. */}
+      <Section title="Before approval" badge={missing.data && missing.data.length === 0 ? <Badge variant="outline" className="border-success/30 bg-success/10 text-success">Nothing missing</Badge> : undefined}>
+        {missing.isLoading ? (
+          <Skeleton className="h-10 max-w-md" />
+        ) : missing.error ? (
+          <p className="text-sm">{(missing.error as Error).message}</p>
+        ) : (missing.data ?? []).length > 0 ? (
+          <ul className="list-disc space-y-1 pl-5 text-sm" aria-label="Still missing" data-vetting-missing>
+            {(missing.data ?? []).map((m) => <li key={m}>{m}</li>)}
+          </ul>
+        ) : null}
+      </Section>
+
+      {approveError && <p role="alert" className="break-words rounded border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" data-approve-error>{approveError}</p>}
 
       {d.status === 'submitted' && (
         <div className="sticky bottom-0 flex gap-2 border-t border-border bg-background p-3">

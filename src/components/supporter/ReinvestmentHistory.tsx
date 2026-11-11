@@ -75,7 +75,7 @@ export function ReinvestmentHistory() {
         <CardContent className="py-12 text-center">
           <TrendingUp className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
           <p className="text-sm font-medium text-muted-foreground">No reinvestments yet</p>
-          <p className="text-xs text-muted-foreground/70 mt-1">When your ROI is compounded, it will appear here.</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">When your Rent profit share is compounded, it will appear here.</p>
         </CardContent>
       </Card>
     );

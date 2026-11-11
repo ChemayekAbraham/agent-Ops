@@ -302,7 +302,7 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
 
     // An existing partner on their own rate gets no figure from the server (null): leave the line out.
     if (s.monthly_reward !== null) {
-      msg += `\n💰 Monthly Returns: ${formatUGX(s.monthly_reward)}`;
+      msg += `\n💰 Monthly Rent profit share: ${formatUGX(s.monthly_reward)}`;
     }
 
     msg += `\n📅 Payout Cycle: Every 30 days\n🗓️ First Payout: ${s.first_payout_date}`;
@@ -312,7 +312,7 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
     }
 
     if (activationLink) {
-      msg += `\n\n👉 Activate your account to start receiving Returns:\n${activationLink}`;
+      msg += `\n\n👉 Activate your account to start receiving Rent profit share:\n${activationLink}`;
     }
 
     msg += `\n\nRef: ${s.reference_id}`;
@@ -372,7 +372,7 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
               {success.portfolio_code && (
                 <p>Portfolio: <strong className="font-mono text-foreground">{success.portfolio_code}</strong></p>
               )}
-              <p>Monthly Returns: <strong className="text-success">{formatUGXOrDash(success.monthly_reward)}</strong></p>
+              <p>Monthly Rent profit share: <strong className="text-success">{formatUGXOrDash(success.monthly_reward)}</strong></p>
               <p>First payout: <strong className="text-foreground">{success.first_payout_date}</strong></p>
               <p>Your new balance: <strong className="text-foreground">{formatUGX(success.new_balance)}</strong></p>
               <p className="font-mono text-xs">Ref: {success.reference_id}</p>
@@ -584,7 +584,7 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
               <div className="p-3 rounded-lg bg-success/10 border border-success/20 space-y-1">
                 <div className="flex items-center gap-2 text-sm font-medium text-success">
                   <TrendingUp className="h-4 w-4" />
-                  {newRatePct ? `Monthly Returns Preview (${newRatePct} for new partners)` : 'Monthly Returns Preview'}
+                  {newRatePct ? `Monthly Rent profit share Preview (${newRatePct} for new partners)` : 'Monthly Rent profit share Preview'}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Monthly: <strong className="text-foreground">{formatUGXOrDash(monthlyReward)}</strong> ×12 months = <strong className="text-foreground">{formatUGXOrDash(monthlyReward === null ? null : monthlyReward * 12)}</strong>
@@ -642,7 +642,7 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
                     </div>
                     <hr className="border-border" />
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">{newRatePct ? `Monthly Returns (${newRatePct})` : 'Monthly Returns'}</span>
+                      <span className="text-muted-foreground">{newRatePct ? `Monthly Rent profit share (${newRatePct})` : 'Monthly Rent profit share'}</span>
                       <span className="font-medium text-success">{formatUGXOrDash(monthlyReward)}</span>
                     </div>
                     <div className="flex justify-between">

@@ -332,7 +332,7 @@ function exportToCSV(rows: PartnerRow[], portfolios: ExportPortfolio[]) {
 
   const header = [
     'Name', 'Phone', 'Email', 'Status', 'Wallet',
-    'Principal', 'ROI %', 'Returns', 'ROI Mode', 'Payout Day & Date', 'Joined',
+    'Principal', 'Rent profit share %', 'Rent profit share', 'Rent profit share Mode', 'Payout Day & Date', 'Joined',
   ];
 
   const sortedRows = [...rows].sort((a, b) =>
@@ -1600,7 +1600,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     const roi = Number(editPortfolioRoi);
     const duration = Number(editPortfolioDuration);
     if (isNaN(amount) || amount < MIN_INVEST) { toast.error(`Min investment: ${formatUGX(MIN_INVEST)}`); return; }
-    if (isNaN(roi) || roi <= 0 || roi > 100) { toast.error('Monthly Returns rate must be 1-100%'); return; }
+    if (isNaN(roi) || roi <= 0 || roi > 100) { toast.error('Monthly Rent profit share rate must be 1-100%'); return; }
     if (isNaN(duration) || duration < 1 || duration > 120) { toast.error('Duration must be 1-120 months'); return; }
 
     setSavingEditPortfolio(true);
@@ -2152,7 +2152,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       <span className="font-semibold tabular-nums">{formatUGX(r.funded)}</span>
     )},
     { key: 'activeDeals', label: 'Deals', align: 'right', hideOnMobile: true },
-    { key: 'roiPercentage', label: 'Returns', align: 'right', render: (r) => (
+    { key: 'roiPercentage', label: 'Rent profit share', align: 'right', render: (r) => (
       <span className="font-bold text-primary">{r.roiPercentage}%</span>
     )},
     { key: 'roiMode', label: 'Mode', hideOnMobile: true, render: (r) => (
@@ -2538,7 +2538,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   <MiniKPI icon={<Wallet className="h-3.5 w-3.5" />} label="Wallet Balance" value={formatUGX(detailPartner.walletBalance)} variant="primary" />
                   <MiniKPI icon={<Banknote className="h-3.5 w-3.5" />} label="Principal" value={formatUGX(detailPartner.totalFunded)} variant="emerald" />
-                  <MiniKPI icon={<TrendingUp className="h-3.5 w-3.5" />} label="Returns Earned" value={formatUGX(detailPartner.totalROIEarned)} variant="amber" />
+                  <MiniKPI icon={<TrendingUp className="h-3.5 w-3.5" />} label="Rent profit share Earned" value={formatUGX(detailPartner.totalROIEarned)} variant="amber" />
                   <MiniKPI icon={<Briefcase className="h-3.5 w-3.5" />} label="Portfolios" value={detailPartner.portfolios.length + detailSelfCommitments.length} variant="violet" />
                 </div>
 
@@ -2587,11 +2587,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                               {/* Details grid — same shell as investment portfolio cards */}
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 text-xs bg-muted/30 rounded-lg p-2.5">
                                 <div>
-                                  <span className="text-muted-foreground">Returns Rate</span>
+                                  <span className="text-muted-foreground">Rent profit share Rate</span>
                                   <p className="font-bold text-primary">{c.monthly_rate}%</p>
                                 </div>
                                 <div>
-                                  <span className="text-muted-foreground">Monthly Returns</span>
+                                  <span className="text-muted-foreground">Monthly Rent profit share</span>
                                   <p className="font-bold">{formatUGX(Math.round(c.committed_amount * (c.monthly_rate / 100)))}</p>
                                 </div>
                                 <div>
@@ -2841,7 +2841,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                     {autoAppliedTopUps[p.id]?.total > 0 && (
                                        <span
                                          className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 whitespace-nowrap shrink-0"
-                                         title="Parked top-up(s) were automatically merged into principal at the ROI cycle"
+                                         title="Parked top-up(s) were automatically merged into principal at the Rent profit share cycle"
                                        >
                                          ✅ Auto-applied +{formatUGX(autoAppliedTopUps[p.id].total)}
                                        </span>
@@ -2896,7 +2896,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                               )}
                               {pendingTopUps[p.id] && (
                                  <p className="text-[9px] text-muted-foreground mb-1.5 pl-0.5">
-                                   Auto-clears daily — merges into capital only after the next Returns payout is approved (cron runs 7:00 PM EAT)
+                                   Auto-clears daily — merges into capital only after the next Rent profit share payout is approved (cron runs 7:00 PM EAT)
                                  </p>
                               )}
                               {/* Partner-initiated top-ups awaiting verification are reviewed in
@@ -2912,11 +2912,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                               {/* Details grid */}
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 text-xs bg-muted/30 rounded-lg p-2.5">
                                 <div>
-                                  <span className="text-muted-foreground">Returns Rate</span>
+                                  <span className="text-muted-foreground">Rent profit share Rate</span>
                                   <p className="font-bold text-primary">{p.roi_percentage}%</p>
                                 </div>
                                 <div>
-                                  <span className="text-muted-foreground">Monthly Returns</span>
+                                  <span className="text-muted-foreground">Monthly Rent profit share</span>
                                   <p className="font-bold">{formatUGX(monthlyROI)}</p>
                                 </div>
                                 <div>
@@ -3371,7 +3371,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Returns Rate (%)</Label>
+                <Label>Rent profit share Rate (%)</Label>
                 <Input type="number" min={1} max={100} value={addPortfolioRoi}
                   onChange={e => setAddPortfolioRoi(e.target.value)} />
                 <PartnerRateCfoNote policyEnabled={addPortfolioRate.policyEnabled} personRate={addPortfolioRate.personRate} typedRate={addPortfolioRate.value} />
@@ -3385,7 +3385,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Returns Mode</Label>
+                <Label>Rent profit share Mode</Label>
                 <Select value={addPortfolioRoiMode} onValueChange={setAddPortfolioRoiMode}>
                   <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -3414,7 +3414,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                   <span className="font-bold">{formatUGX(Number(addPortfolioAmount))}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Monthly Returns:</span>
+                  <span className="text-muted-foreground">Monthly Rent profit share:</span>
                   <span className="font-bold text-primary">{formatUGXOrDash(monthlyReturnFor(Number(addPortfolioAmount), rateOrNull(addPortfolioRoi)))}</span>
                 </div>
                 <div className="flex justify-between">
@@ -3499,7 +3499,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
               </div>
               {investAmount && Number(investAmount) >= MIN_INVEST && (
                 <div className="text-xs bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-1">
-                  <p>Monthly reward ({investPartner.roiPercentage}%): <strong className="text-primary">{formatUGX(Math.round(Number(investAmount) * (investPartner.roiPercentage / 100)))}</strong></p>
+                  <p>Monthly Rent profit share ({investPartner.roiPercentage}%): <strong className="text-primary">{formatUGX(Math.round(Number(investAmount) * (investPartner.roiPercentage / 100)))}</strong></p>
                   <p>Remaining wallet: <strong>{formatUGX(investPartner.walletBalance - Number(investAmount))}</strong></p>
                 </div>
               )}
@@ -3525,7 +3525,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Pencil className="h-5 w-5 text-primary" /> Edit Partner</DialogTitle>
-            <DialogDescription>Update partner profile, returns rate, and mode.</DialogDescription>
+            <DialogDescription>Update partner profile, Rent profit share rate, and mode.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -3539,7 +3539,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Returns Percentage (%)</Label>
+              <Label className="text-xs">Rent profit share Percentage (%)</Label>
               <Input type="number" min={1} max={100} value={editRoi} onChange={e => setEditRoi(e.target.value)} />
               <PartnerRateCfoNote
                 policyEnabled={partnerReturnPolicy.enabled}
@@ -3555,7 +3555,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Returns Payment Mode</Label>
+              <Label className="text-xs">Rent profit share Payment Mode</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant={editRoiMode === 'monthly_payout' ? 'default' : 'outline'} size="sm" className="text-xs h-9"
                   onClick={() => setEditRoiMode('monthly_payout')}>
@@ -3567,7 +3567,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                 </Button>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                {editRoiMode === 'monthly_compounding' ? 'Returns are reinvested monthly, growing the principal.' : 'Returns are paid out to wallet each month.'}
+                {editRoiMode === 'monthly_compounding' ? 'Rent profit share is reinvested monthly, growing the principal.' : 'Rent profit share is paid out to wallet each month.'}
               </p>
             </div>
             <p className="text-[11px] text-muted-foreground bg-muted/50 rounded-lg p-2.5">
@@ -3675,7 +3675,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
             <AlertDialogDescription asChild>
               <div className="space-y-4 pt-2">
                 <p className="text-sm text-muted-foreground">
-                  You are about to compound the ROI into this portfolio. Review the changes below:
+                  You are about to compound the Rent profit share into this portfolio. Review the changes below:
                 </p>
                 {compoundPreview && (
                   <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
@@ -3684,7 +3684,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                       <span className="font-semibold">{formatUGX(compoundPreview.currentPrincipal)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">ROI ({compoundPreview.roiPercentage}%)</span>
+                      <span className="text-muted-foreground">Rent profit share ({compoundPreview.roiPercentage}%)</span>
                       <span className="font-semibold text-green-600">+ {formatUGX(compoundPreview.roiAmount)}</span>
                     </div>
                     <Separator />
@@ -3769,7 +3769,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
           <DialogHeader>
             <DialogTitle>Redeem portfolio in full</DialogTitle>
             <DialogDescription>
-              {redeemTarget ? `${redeemTarget.portfolio_code} — the full principal of ${formatUGX(Number(redeemTarget.investment_amount) || 0)} is returned and the portfolio is closed. Returns already paid stay on record.` : ''}
+              {redeemTarget ? `${redeemTarget.portfolio_code} — the full principal of ${formatUGX(Number(redeemTarget.investment_amount) || 0)} is returned and the portfolio is closed. Rent profit share already paid stay on record.` : ''}
             </DialogDescription>
           </DialogHeader>
           <Label htmlFor="redeem-reason">Reason (min 10 characters)</Label>
@@ -3792,7 +3792,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
             <DialogDescription>
               This will permanently delete portfolio <strong>{deletePortfolio?.portfolio_code}</strong> ({formatUGX(deletePortfolio?.investment_amount || 0)}).
               The money taken for it is returned to the partner's operational float and any houses it claimed go back to the queue.
-              Portfolios that have paid Returns, have top-ups or have money out with tenants cannot be deleted — redeem those instead.
+              Portfolios that have paid Rent profit share, have top-ups or have money out with tenants cannot be deleted — redeem those instead.
               This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
@@ -3800,7 +3800,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-xs space-y-1">
               <p><strong>Portfolio:</strong> {deletePortfolio?.portfolio_code}</p>
               <p><strong>Amount:</strong> {formatUGX(deletePortfolio?.investment_amount || 0)}</p>
-              <p><strong>ROI:</strong> {deletePortfolio?.roi_percentage}% · {deletePortfolio?.roi_mode === 'monthly_compounding' ? 'Compounding' : 'Payout'}</p>
+              <p><strong>Rent profit share:</strong> {deletePortfolio?.roi_percentage}% · {deletePortfolio?.roi_mode === 'monthly_compounding' ? 'Compounding' : 'Payout'}</p>
               <p><strong>Status:</strong> {deletePortfolio?.status}</p>
             </div>
             <div className="space-y-1.5">
@@ -3851,7 +3851,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Returns Percentage (%)</Label>
+                <Label className="text-xs">Rent profit share Percentage (%)</Label>
                 <Input type="number" min={1} max={100} value={editPortfolioRoi} onChange={e => setEditPortfolioRoi(e.target.value)} />
                 <PartnerRateCfoNote
                   policyEnabled={partnerReturnPolicy.enabled}
@@ -3867,7 +3867,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Returns Mode</Label>
+                <Label className="text-xs">Rent profit share Mode</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <Button variant={editPortfolioRoiMode === 'monthly_payout' ? 'default' : 'outline'} size="sm" className="text-xs h-9"
                     onClick={() => setEditPortfolioRoiMode('monthly_payout')}>
@@ -3907,7 +3907,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
               </div>
               {editPortfolioAmount && Number(editPortfolioAmount) >= MIN_INVEST && editPortfolioRoi && (
                 <div className="text-xs bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-1">
-                  <p>Monthly Returns ({editPortfolioRoi}%): <strong className="text-primary">{formatUGX(Math.round(Number(editPortfolioAmount) * (Number(editPortfolioRoi) / 100)))}</strong></p>
+                  <p>Monthly Rent profit share ({editPortfolioRoi}%): <strong className="text-primary">{formatUGX(Math.round(Number(editPortfolioAmount) * (Number(editPortfolioRoi) / 100)))}</strong></p>
                   <p>Duration: <strong>{editPortfolioDuration} months</strong></p>
                 </div>
               )}
@@ -4240,7 +4240,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
           <DialogHeader>
             <DialogTitle className="text-sm">Apply Pending Principal</DialogTitle>
             <DialogDescription className="text-xs">
-              Merge approved top-ups into the portfolio's active principal immediately instead of waiting for the next ROI cycle.
+              Merge approved top-ups into the portfolio's active principal immediately instead of waiting for the next Rent profit share cycle.
             </DialogDescription>
           </DialogHeader>
           {mergeDialogPortfolioId && approvedTopUps[mergeDialogPortfolioId] && (
@@ -4287,7 +4287,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
               <Ban className="h-4 w-4 text-destructive" /> Cancel Pending Top-Up?
             </DialogTitle>
             <DialogDescription className="text-xs">
-              The parked top-up will be cancelled and the full amount refunded back to the partner's wallet. The next ROI cycle will not include this principal.
+              The parked top-up will be cancelled and the full amount refunded back to the partner's wallet. The next Rent profit share cycle will not include this principal.
             </DialogDescription>
           </DialogHeader>
           {cancelDialogPortfolioId && approvedTopUps[cancelDialogPortfolioId] && (
@@ -5307,7 +5307,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       ]);
       if (openOps && openOps.length > 0) {
         toast.error('Payout already in the approval queue', {
-          description: `A Returns payout for ${p.name} is already awaiting approval. Approve or reject that one first.`,
+          description: `A Rent profit share payout for ${p.name} is already awaiting approval. Approve or reject that one first.`,
         });
         setProcessing(prev => ({ ...prev, [p.portfolioId]: null }));
         return;
@@ -5350,7 +5350,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       // reservation as a duplicate. The database remains the final authority.
       if (!overrideId && ((creditedRows?.length ?? 0) > 0 || ((claimedRows as unknown[] | null)?.length ?? 0) > 0)) {
         toast.error('Already paid this cycle', {
-          description: `${p.name} already received their Returns for the ${cycleAnchor} cycle. It advances after the next due date.`,
+          description: `${p.name} already received their Rent profit share for the ${cycleAnchor} cycle. It advances after the next due date.`,
         });
         setProcessing(prev => ({ ...prev, [p.portfolioId]: null }));
         return;
@@ -5432,7 +5432,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
               ? `[Proxy Agent Wallet ${managed.agentName}] ${p.name}: ${formatUGX(roiAmount)} pending COO approval. Ref: ${refId}`
               : hasProxy
                 ? `[Partner Wallet via Proxy ${managed.agentName}] ${p.name}: ${formatUGX(roiAmount)} pending COO approval. Ref: ${refId}`
-              : `[${modeLabel}] ${p.name} has an ROI payout of ${formatUGX(roiAmount)} pending COO approval. Ref: ${refId}`,
+              : `[${modeLabel}] ${p.name} has an Rent profit share payout of ${formatUGX(roiAmount)} pending COO approval. Ref: ${refId}`,
             type: 'approval_required',
             metadata: { portfolio_id: p.portfolioId, partner_id: p.investorId, roi_amount: roiAmount, reference: refId, pay_mode: mode },
           }))
@@ -5558,14 +5558,14 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       ]);
       if (creditedRows && creditedRows.length > 0) {
         toast.error('Already paid this cycle', {
-          description: `${p.name} already received their ROI for the ${cycleAnchor} cycle.`,
+          description: `${p.name} already received their Rent profit share for the ${cycleAnchor} cycle.`,
         });
         setProcessing(prev => ({ ...prev, [p.portfolioId]: null }));
         return;
       }
       if (openOps && openOps.length > 0) {
         toast.error('Payout already in the approval queue', {
-          description: `An ROI payout for ${p.name} is already awaiting approval.`,
+          description: `A Rent profit share payout for ${p.name} is already awaiting approval.`,
         });
         setProcessing(prev => ({ ...prev, [p.portfolioId]: null }));
         return;
@@ -5634,8 +5634,8 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
         description: payMode === 'different_wallet'
           ? `[Split ROI → ${altRecipient!.full_name}'s Wallet] Cash portion ${formatUGX(cashAmount)} redirected from ${p.name}'s ROI to ${altRecipient!.full_name} (${altRecipient!.phone}). Reinvested: ${formatUGX(reinvestAmount)}. Total ROI: ${formatUGX(roiAmount)}. Reason: ${reason}`
           : hasProxy
-          ? `[Split ROI → Partner Wallet via Proxy ${managed.agentName}] Cash portion ${formatUGX(cashAmount)} to ${p.name}'s partner wallet. Reinvested: ${formatUGX(reinvestAmount)}. Total ROI: ${formatUGX(roiAmount)}. Reason: ${reason}`
-          : `[Split ROI → ${modeLabel}] Cash portion ${formatUGX(cashAmount)} to ${p.name}'s wallet. Reinvested: ${formatUGX(reinvestAmount)}. Total ROI: ${formatUGX(roiAmount)}. Reason: ${reason}`,
+          ? `[Split ROI → Partner Wallet via Proxy ${managed.agentName}] Cash portion ${formatUGX(cashAmount)} to ${p.name}'s partner wallet. Reinvested: ${formatUGX(reinvestAmount)}. Total Rent profit share: ${formatUGX(roiAmount)}. Reason: ${reason}`
+          : `[Split ROI → ${modeLabel}] Cash portion ${formatUGX(cashAmount)} to ${p.name}'s wallet. Reinvested: ${formatUGX(reinvestAmount)}. Total Rent profit share: ${formatUGX(roiAmount)}. Reason: ${reason}`,
         linked_party: user.id,
         // Split-ROI cash portions MUST enter the same approval chain as full
         // ROI payouts (COO → CFO). Using a bare 'pending' status orphaned them
@@ -5732,7 +5732,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
 
       // ── Notifications ──
       const reinvestMsg = isKeepReturns
-        ? `${formatUGX(reinvestAmount)} kept as earned returns (principal unchanged: ${formatUGX(p.investmentAmount)})`
+        ? `${formatUGX(reinvestAmount)} kept as earned Rent profit share (principal unchanged: ${formatUGX(p.investmentAmount)})`
         : `${formatUGX(reinvestAmount)} reinvested into your portfolio. New principal: ${formatUGX(newPrincipal)}`;
       const cashPortionMsg = payMode === 'already_paid' ? 'paid via cash'
         : payMode === 'different_wallet' ? `sent to ${altRecipient!.full_name}'s wallet (pending approval)`
@@ -5993,7 +5993,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                           <p className="text-xs font-bold tabular-nums">{formatUGX(p.investmentAmount)}</p>
                         </div>
                         <div className="rounded-lg bg-muted/50 p-2">
-                          <p className="text-[10px] text-muted-foreground">Returns Due</p>
+                          <p className="text-[10px] text-muted-foreground">Rent profit share Due</p>
                           <p className="text-xs font-bold tabular-nums text-primary">{formatUGX(roiAmount)}</p>
                         </div>
                         <div className="rounded-lg bg-muted/50 p-2">
@@ -6019,7 +6019,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                             </p>
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-muted-foreground">
-                                Taken on approval ({a.pledgeMode === 'percent' ? `${a.pledgeValue}% of Returns` : 'fixed amount'})
+                                Taken on approval ({a.pledgeMode === 'percent' ? `${a.pledgeValue}% of Rent profit share` : 'fixed amount'})
                               </span>
                               <span className="font-bold tabular-nums text-amber-800 dark:text-amber-300">− {formatUGX(a.arrearsDeduction)}</span>
                             </div>
@@ -6049,8 +6049,8 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                           <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
                           <p className="text-xs font-medium text-green-700 dark:text-green-300">
                             {p.processedState === 'pending'
-                              ? 'ROI already in the approval queue for this cycle — cannot pay again.'
-                              : 'ROI already credited this cycle — cannot pay again.'}
+                              ? 'Rent profit share already in the approval queue for this cycle — cannot pay again.'
+                              : 'Rent profit share already credited this cycle — cannot pay again.'}
                           </p>
                         </div>
                       )}
@@ -6150,7 +6150,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                     <p className="text-xs font-bold tabular-nums">{formatUGX(selectedPayout.investmentAmount)}</p>
                   </div>
                   <div className="rounded-lg bg-primary/10 p-2">
-                    <p className="text-[10px] text-muted-foreground">Returns Due</p>
+                    <p className="text-[10px] text-muted-foreground">Rent profit share Due</p>
                     <p className="text-xs font-bold tabular-nums text-primary">{formatUGX(selectedRoiAmount)}</p>
                   </div>
                 </div>
@@ -6268,7 +6268,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                     <p className="text-xs text-muted-foreground">{selectedPayout.phone || selectedPayout.email || 'No contact'}</p>
                   </div>
                   <Badge variant="secondary" className="text-[10px] shrink-0">
-                    {selectedPayout.roiPercentage}% ROI
+                    {selectedPayout.roiPercentage}% Rent profit share
                   </Badge>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
@@ -6277,7 +6277,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                     <p className="text-xs font-bold tabular-nums">{formatUGX(selectedPayout.investmentAmount)}</p>
                   </div>
                   <div className="rounded-lg bg-primary/10 p-2">
-                    <p className="text-[10px] text-muted-foreground">Total Returns</p>
+                    <p className="text-[10px] text-muted-foreground">Total Rent profit share</p>
                     <p className="text-xs font-bold tabular-nums text-primary">{formatUGX(selectedRoiAmount)}</p>
                   </div>
                   <div className="rounded-lg bg-background p-2">
@@ -6341,7 +6341,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                   </div>
                   <div className={cn("rounded-xl border-2 p-3 text-center cursor-pointer transition-all", splitReinvestMode === 'keep_returns' ? "border-amber-500/50 bg-amber-500/10" : "border-border/40 bg-muted/30 hover:border-amber-500/30")} onClick={() => setSplitReinvestMode('keep_returns')}>
                     <PiggyBank className="h-4 w-4 mx-auto mb-1 text-amber-600" />
-                    <p className="text-[10px] text-muted-foreground">Keep as Returns</p>
+                    <p className="text-[10px] text-muted-foreground">Keep as Rent profit share</p>
                     <p className="text-sm font-bold tabular-nums text-amber-600">{formatUGX(selectedRoiAmount - splitCashAmount)}</p>
                     <p className="text-[9px] text-muted-foreground mt-0.5">Principal stays flat</p>
                   </div>
@@ -6444,7 +6444,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                     <CheckCircle2 className="h-5 w-5" />
                   </div>
                   <div>
-                    <DialogTitle className="text-base">ROI Compounded</DialogTitle>
+                    <DialogTitle className="text-base">Rent profit share Compounded</DialogTitle>
                     <DialogDescription className="text-xs">
                       {compoundConfirmation.partnerName} · {compoundConfirmation.portfolioLabel}
                     </DialogDescription>
@@ -6454,7 +6454,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-lg bg-muted/50 border border-border/40 p-2.5">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">ROI Reinvested</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Rent profit share Reinvested</p>
                     <p className="text-sm font-bold tabular-nums">{formatUGX(compoundConfirmation.roiAmount)}</p>
                   </div>
                   <div className="rounded-lg bg-muted/50 border border-border/40 p-2.5">

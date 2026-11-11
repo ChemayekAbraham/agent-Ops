@@ -1,3 +1,4 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Bookmark, Calculator, Fingerprint, HelpCircle, Home, ListFilter, Loader2, SlidersHorizontal, Wallet, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -20,6 +21,7 @@ import { SelfPortfolioPlanDetailSheet } from '@/components/partner/SelfPortfolio
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
 import { FunderNewMapSection } from '@/components/funder-new/FunderNewMapSection';
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
+import { CoSupportWaitingSection } from '@/components/co-support/CoSupportWaitingSection';
 import { FunderNewCalculatorDialog } from '@/components/funder-new/FunderNewCalculatorDialog';
 import { FunderNewHowItWorksDialog } from '@/components/funder-new/FunderNewHowItWorksDialog';
 import { FunderNewReviewDialog, FunderNewSelectionBar } from '@/components/funder-new/FunderNewSelectionPanel';
@@ -40,13 +42,16 @@ import type {
   FunderNewSelectionItem,
   FunderNewSort,
 } from '@/components/funder-new/types';
-import { itemAmount, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { itemAmount, itemId, placeCase, readyPlanPlace, readyPlanTitle, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { useRentPlanFundChoice } from '@/components/supporter/FunderFundChooser';
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
 import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
 
 import { formatDynamic } from '@/lib/currencyFormat';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import type { FunderFundResult } from '@/components/funder-new/FunderNewSelectionPanel';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 import { FunderSavedItemsDialog } from '@/components/funder-new/FunderSavedItemsDialog';
@@ -57,6 +62,8 @@ const DEFAULT_RADIUS_KM = 25;
 const SEARCH_DEBOUNCE_MS = 350;
 
 export default function FunderDashboardNew() {
+  // Agent Care: partner amounts use pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
   const navigate = useNavigate();
   const { user, roles, signOut, switchRole } = useAuth();
   const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
@@ -103,6 +110,7 @@ export default function FunderDashboardNew() {
   const [calculatorOpen, setCalculatorOpen] = useState(false);
   const [howOpen, setHowOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const fundInflight = useRef<{ key: string; task: Promise<FunderFundResult> } | null>(null);
 
 
   // Debounced text search; typing never fires a request per keystroke.
@@ -202,7 +210,7 @@ export default function FunderDashboardNew() {
       : loadedItems.find((e) => itemId(e.category, e.item) === id);
     if (!found) return;
     setSelectedCategory(found.category);
-    setSelectedItems([toSelectionItem(found.category, found.item)]);
+    setSelectedItems([toSelectionItem(found.category, found.item, partnerPay)]);
     setReviewOpen(true);
   }, [feedLoading, loadedItems, searchParams]);
   const feedError = emptyQuery.error || readyQuery.error;
@@ -286,8 +294,10 @@ export default function FunderDashboardNew() {
   };
 
 
+  const fundChoice = useRentPlanFundChoice();
+
   const toggleSelect = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
-    const next = toSelectionItem(category, item);
+    const next = toSelectionItem(category, item, partnerPay);
     setSelectedCategory((current) => (current && current !== category ? category : current ?? category));
     setSelectedItems((current) => {
       const sameCategory = current.filter((entry) => entry.category === category);
@@ -296,7 +306,27 @@ export default function FunderDashboardNew() {
       if (nextList.length === 0) setSelectedCategory(null);
       return nextList;
     });
-  }, []);
+  }, [partnerPay]);
+
+  const requestFund = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
+    if (category !== 'ready') {
+      toggleSelect(category, item);
+      return;
+    }
+    const plan = item as FunderNewReadyPlan;
+    const already = selectedItems.some((entry) => entry.category === 'ready' && entry.id === plan.rent_request_id);
+    if (already) {
+      toggleSelect(category, item);
+      return;
+    }
+    fundChoice.ask({
+      rentRequestId: plan.rent_request_id,
+      title: readyPlanTitle(plan),
+      place: readyPlanPlace(plan),
+      landlordName: plan.landlord_name,
+      rentAmount: Number(plan.funding_amount || 0),
+    }, () => toggleSelect('ready', plan));
+  }, [fundChoice, selectedItems, toggleSelect]);
 
   const removeSelected = (item: FunderNewSelectionItem) => {
     setSelectedItems((current) => {
@@ -335,7 +365,7 @@ export default function FunderDashboardNew() {
     setSelectedItems((current) => {
       const base = replaceExisting ? [] : current.filter((entry) => entry.category === 'empty');
       const merged = new Map(base.map((entry) => [entry.id, entry]));
-      houses.forEach((house) => merged.set(house.house_id, toSelectionItem('empty', house)));
+      houses.forEach((house) => merged.set(house.house_id, toSelectionItem('empty', house, partnerPay)));
       return [...merged.values()];
     });
   };
@@ -383,6 +413,7 @@ export default function FunderDashboardNew() {
       </section>
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 lg:px-8">
+        <CoSupportWaitingSection />
         <FunderNewHero
           summary={summary.data}
           isLoading={summary.isLoading}
@@ -547,7 +578,7 @@ export default function FunderDashboardNew() {
                       )}
                       distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
                       onSave={() => toggleSave(entry.category, id)}
-                      onSelect={() => toggleSelect(entry.category, entry.item)}
+                      onSelect={() => requestFund(entry.category, entry.item)}
                       onDetail={() => openDetail(entry.category, entry.item)}
                       boardTagsOn={boardTagsOn}
                     />
@@ -602,6 +633,7 @@ export default function FunderDashboardNew() {
         onRelatedHouseClick={(h) => setDetailHouse(h as any)}
         remaining={availableBalance ?? undefined}
       />
+      {fundChoice.chooser}
       <SelfPortfolioPlanDetailSheet
         plan={detailPlan}
         open={!!detailPlan}
@@ -647,6 +679,88 @@ export default function FunderDashboardNew() {
         walletLoading={wallet.isLoading}
         walletError={wallet.error}
         onRemove={removeSelected}
+        onFund={async (total) => {
+          const ids = selectedItems.map((item) => item.id);
+          if (ids.length === 0) return;
+          const key = [...ids].sort().join(',');
+          if (fundInflight.current?.key === key) return fundInflight.current.task;
+
+          const task = (async (): Promise<FunderFundResult> => {
+            const category = selectedItems[0].category;
+            const landlordNames = selectedItems
+              .map((item) => item.landlordName)
+              .filter((name): name is string => !!name && name.trim().length > 0);
+            const rentRequestIds = category === 'ready' ? ids : [];
+            try {
+              let reference: string | null = null;
+              let releasedToAgent = false;
+              if (category === 'empty') {
+                const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
+                  p_payload: {
+                    partner_name: (profile?.full_name || '').trim(),
+                    whatsapp_number: (profile?.phone || '').trim(),
+                    phone_number: (profile?.phone || '').trim() || null,
+                    email: (profile?.email || user?.email || '').trim() || null,
+                    amount: Number(total || 0),
+                    contribution_type: 'once_off',
+                  },
+                  p_house_ids: ids,
+                });
+                if (error) throw error;
+                const note = ((data ?? {}) as { note?: { id: string } }).note;
+                if (!note) throw new Error('Booking was not created');
+                const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
+                  p_house_ids: ids,
+                  p_idempotency_key: `fund-${note.id}`,
+                });
+                if (fundErr) throw fundErr;
+                reference = note.id;
+              } else {
+                const { error: claimError } = await supabase.rpc('partner_self_claim_plans', {
+                  p_rent_request_ids: ids,
+                });
+                if (claimError) throw claimError;
+                const { data, error } = await supabase.rpc('funder_support_tenant_direct', {
+                  p_rent_request_ids: ids,
+                  p_promised_deposit_date: null,
+                });
+                if (error) throw error;
+                const payload = (data ?? {}) as {
+                  commitment_id?: string;
+                  portfolio_id?: string;
+                  landlord_float_released?: boolean;
+                };
+                reference = payload.commitment_id ?? payload.portfolio_id ?? null;
+                releasedToAgent = payload.landlord_float_released === true;
+              }
+              setSelectedItems([]);
+              setSelectedCategory(null);
+              window.dispatchEvent(new Event('supporter-contribution-changed'));
+              return {
+                submitted: true,
+                reference,
+                releasedToAgent,
+                supportKind: category === 'empty' ? 'house' : 'rent',
+                landlordNames,
+                rentRequestIds,
+              };
+            } catch (err: unknown) {
+              const raw = String((err as { message?: string })?.message || 'Could not submit support');
+              const message = raw.includes('NO_AGENT_ASSIGNED')
+                ? 'This Rent Plan has no assigned agent, so it cannot be funded.'
+                : raw;
+              toast.error(message);
+              throw err;
+            }
+          })();
+
+          fundInflight.current = { key, task };
+          try {
+            return await task;
+          } finally {
+            if (fundInflight.current?.task === task) fundInflight.current = null;
+          }
+        }}
       />
       <FunderNewSelectionBar
         items={selectedItems}

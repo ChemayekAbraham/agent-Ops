@@ -5,7 +5,7 @@
 // AUTH: the anon-key JWT gateway check (verify_jwt, default true — no
 // supabase/config.toml entry needed or added) is not trusted alone. This
 // function independently validates the bearer token against Supabase auth
-// via a service-role admin client (adminClient.auth.getUser(token)) and
+// via a service-role admin client ((bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult())) and
 // rejects anything that isn't a real, live user — deliberately NOT the
 // weaker pattern seen elsewhere in this codebase (some existing functions
 // only check that an Authorization header is present, or trust a
@@ -38,6 +38,7 @@
 // days-past-due are supplied as facts too, but are not currency figures and
 // are not subject to this specific check.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -144,7 +145,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
     if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await admin.auth.getUser(token);
+    const { data: { user }, error: authError } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
     if (!(await hasAnyOpsRole(admin, user.id))) {

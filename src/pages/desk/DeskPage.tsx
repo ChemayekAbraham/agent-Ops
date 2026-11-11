@@ -19,6 +19,7 @@ import { ReviewStatusProvider } from './reviewStatus';
 import { ReviewDrawer } from './ReviewDrawer';
 import { FunderBoard } from './FunderBoard';
 import { PushQueueCards } from './PushQueueCards';
+import { SelfAppliedCard } from './SelfAppliedQueue';
 import { FundersDashboard } from './cfo/FundersDashboard';
 import { FundersHeadline } from './cfo/FundersHeadline';
 import { FundersBoardCounterCard } from './cfo/FundersBoardCounterCard';
@@ -556,6 +557,8 @@ function DeskView({
 
       {/* The COO reads the push queue and the funders' board before opening the queue (budgets retired 5 Nov). */}
       {checklistOn && desk.id === 'coo' && <PushQueueCards board={board} enabled onCooDesk />}
+      {/* E73: tenants who applied alone and still need an agent — Agent Ops assigns them from the board. */}
+      {checklistOn && desk.id === 'agent-ops' && <SelfAppliedCard board={board} />}
     </>
   );
 

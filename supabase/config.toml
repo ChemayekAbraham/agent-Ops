@@ -28,6 +28,8 @@ project_id = "byrzshwlentqvktcksem"
     verify_jwt = false
   [functions.og-plan]
     verify_jwt = false
+  [functions.og-co-support]
+    verify_jwt = false
   [functions.api]
     verify_jwt = false
   [functions.submit-diagnostics-report]

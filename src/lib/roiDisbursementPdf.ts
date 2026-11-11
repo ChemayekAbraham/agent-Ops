@@ -68,19 +68,19 @@ export async function downloadRoiDisbursementPdf({ filename, periodLabel, report
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(21);
   doc.setTextColor(...PURPLE);
-  doc.text('ROI Disbursement Report', M, y);
+  doc.text('Rent profit share Disbursement Report', M, y);
   y += 15;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
   doc.setTextColor(...MUTED);
-  doc.text(`CFO-approved Returns disbursements — ${periodLabel} window: ${startEat} to ${endEat} (EAT)`, M, y);
+  doc.text(`CFO-approved Rent profit share disbursements — ${periodLabel} window: ${startEat} to ${endEat} (EAT)`, M, y);
   y += 13;
   doc.text(`Welile Technologies Ltd — Kabaale Palm Lane, Uganda · Generated ${generated}`, M, y);
   y += 20;
 
   // ── Summary band ──
   const cards = [
-    { label: 'Total Returns approved', value: ugx(s.total_approved), hint: `${Number(s.portfolios_total ?? 0)} portfolio entries` },
+    { label: 'Total Rent profit share approved', value: ugx(s.total_approved), hint: `${Number(s.portfolios_total ?? 0)} portfolio entries` },
     { label: 'Cash disbursed to wallets', value: ugx(s.cash_total), hint: `${Number(s.payouts_count ?? 0)} payouts` },
     { label: 'Compounded to principal', value: ugx(s.compounded_total), hint: `${Number(s.compounded_portfolios ?? 0)} portfolios` },
     { label: 'Partners affected', value: String(Number(s.partners_affected ?? 0)), hint: `Principal base ${ugx(s.principal_total)}` },
@@ -173,9 +173,9 @@ export async function downloadRoiDisbursementPdf({ filename, periodLabel, report
   };
 
   // ── 1. Cash Returns disbursed to wallets ──
-  heading(`1. Cash Returns disbursed to wallets (${cash.length} payouts)`);
+  heading(`1. Cash Rent profit share disbursed to wallets (${cash.length} payouts)`);
   table(
-    ['#', 'Portfolio phone', 'Partner', 'Paid to', 'Principal', 'Returns paid', 'Time (EAT)'],
+    ['#', 'Portfolio phone', 'Partner', 'Paid to', 'Principal', 'Rent profit share paid', 'Time (EAT)'],
     cash.map((r) => [r.n, r.portfolio_phone, r.partner, r.paid_to, ugx(r.principal), ugx(r.returns_paid), r.time_eat]),
     {
       align: { 0: 'left', 4: 'right', 5: 'right', 6: 'right' },
@@ -185,9 +185,9 @@ export async function downloadRoiDisbursementPdf({ filename, periodLabel, report
   );
 
   // ── 2. Returns compounded into principal ──
-  heading(`2. Returns compounded into principal (${comp.length} portfolios)`);
+  heading(`2. Rent profit share compounded into principal (${comp.length} portfolios)`);
   table(
-    ['#', 'Portfolio phone', 'Partner', 'New principal', 'Returns compounded', 'Executed by', 'Time (EAT)'],
+    ['#', 'Portfolio phone', 'Partner', 'New principal', 'Rent profit share compounded', 'Executed by', 'Time (EAT)'],
     comp.map((r) => [r.n, r.portfolio_phone, r.partner, ugx(r.new_principal), ugx(r.returns_compounded), r.executed_by, r.time_eat]),
     {
       align: { 0: 'left', 3: 'right', 4: 'right', 6: 'right' },
@@ -233,7 +233,7 @@ export async function downloadRoiDisbursementPdf({ filename, periodLabel, report
     },
   );
   paragraph(
-    `Wallet credits + reinvestments = ${ugx(Number(rec?.wallet_credits?.amount ?? 0) + Number(rec?.reinvestments?.amount ?? 0))} against platform Returns expense ${ugx(rec?.platform_expense?.amount)}.` +
+    `Wallet credits + reinvestments = ${ugx(Number(rec?.wallet_credits?.amount ?? 0) + Number(rec?.reinvestments?.amount ?? 0))} against platform Rent profit share expense ${ugx(rec?.platform_expense?.amount)}.` +
       (rec?.balanced ? ' Balanced.' : ' Variance present — review the ledger for this window.'),
   );
 
@@ -248,7 +248,7 @@ export async function downloadRoiDisbursementPdf({ filename, periodLabel, report
       { align: { 2: 'right', 3: 'right' }, widths: { 1: 100, 2: 66, 3: 130 } },
     );
     paragraph(
-      `${Number(report?.proxy_credits ?? 0)} of the cash Returns credits in this window settled into managed-proxy wallets. The 'Partner' column names the portfolio owner entitled to the Returns; 'Paid to' names the wallet actually credited.`,
+      `${Number(report?.proxy_credits ?? 0)} of the cash Rent profit share credits in this window settled into managed-proxy wallets. The 'Partner' column names the portfolio owner entitled to the Rent profit share; 'Paid to' names the wallet actually credited.`,
     );
   }
 
@@ -270,7 +270,7 @@ export async function downloadRoiDisbursementPdf({ filename, periodLabel, report
   // ── Scope ──
   heading('7. Scope');
   paragraph(
-    `general_ledger entries created between ${startEat} and ${endEat} (EAT) with categories roi_wallet_credit and roi_reinvestment, i.e. Returns approvals executed within the selected ${periodLabel.toLowerCase()} window. Amounts in UGX. 'Paid to' reflects managed-proxy routing where applicable; 'Partner' is the portfolio owner.`,
+    `general_ledger entries created between ${startEat} and ${endEat} (EAT) with categories roi_wallet_credit and roi_reinvestment, i.e. Rent profit share approvals executed within the selected ${periodLabel.toLowerCase()} window. Amounts in UGX. 'Paid to' reflects managed-proxy routing where applicable; 'Partner' is the portfolio owner.`,
   );
 
   // ── Footers ──
@@ -283,12 +283,12 @@ export async function downloadRoiDisbursementPdf({ filename, periodLabel, report
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.6);
     doc.setTextColor(...MUTED);
-    doc.text('Welile Technologies Ltd · Returns (ROI) Disbursement Report · confidential', M, pageH - 18);
+    doc.text('Welile Technologies Ltd · Rent profit share (Rent profit share) Disbursement Report · confidential', M, pageH - 18);
     doc.text(`Page ${p} of ${pages}`, pageW - M, pageH - 18, { align: 'right' });
   }
 
   savePdfWithVault(doc as any, filename, {
-    label: `${periodLabel} Returns Disbursement Report`,
+    label: `${periodLabel} Rent profit share Disbursement Report`,
     category: 'audit',
   });
 }

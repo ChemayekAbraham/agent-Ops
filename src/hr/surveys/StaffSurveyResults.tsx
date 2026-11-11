@@ -38,7 +38,7 @@ function answerLabel(r: ResultRow): string {
     const mode = r.payout_mode === 'monthly_compounding'
       ? ' · compounding'
       : r.payout_mode === 'monthly_payout'
-        ? ' · monthly returns'
+        ? ' · monthly Rent profit share'
         : '';
     return `${r.percentage ?? 0}%${mode}`;
   }

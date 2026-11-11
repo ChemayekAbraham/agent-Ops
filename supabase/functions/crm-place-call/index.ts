@@ -7,6 +7,7 @@
  * answers AT with <Dial phoneNumbers="…"/> once the staff leg picks up.
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 // Manual CORS headers (project standard — do not import corsHeaders).
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +42,7 @@ Deno.serve(async (req) => {
   // ---- auth ----
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
   if (!token) return json({ error: 'unauthenticated' }, 401);
-  const { data: userData, error: userErr } = await admin.auth.getUser(token);
+  const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
   const staff = userData?.user;
   if (userErr || !staff) return json({ error: 'unauthenticated' }, 401);
 

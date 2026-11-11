@@ -38,7 +38,7 @@ const text = (value: unknown, fallback = '—') => value == null || value === ''
 const number = (value: unknown) => Number(value ?? 0);
 const rows = (value: unknown): DossierRecord[] => Array.isArray(value) ? value as DossierRecord[] : [];
 const date = (value: unknown) => value ? new Date(String(value)).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-const label = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).replace(/Roi/gi, 'Returns');
+const label = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).replace(/Roi/gi, 'Rent profit share');
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || 'WU';
 
 function Amount({ value, revealed }: { value: unknown; revealed: boolean }) {
@@ -209,7 +209,7 @@ export function ShoppingAdvanceUserDossier({ userId, fallbackName, onBack }: Pro
 
       <TabsContent value="partnerships" className="space-y-6">
         <section><h3 className="mb-3 flex items-center gap-2 font-semibold"><Landmark className="h-4 w-4 text-primary" />Supporter portfolios</h3><RecordList items={portfolios} empty="No Supporter portfolios recorded." revealed={revealed} render={(r, show) => <>
-          <div className="flex justify-between gap-3"><span className="font-semibold">{text(r.portfolio_code, 'Supporter portfolio')}</span><Badge variant="outline">{label(text(r.status))}</Badge></div><p className="mt-3 text-2xl font-bold"><Amount value={r.investment_amount} revealed={show} /></p><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"><span>{text(r.returns_percentage, '0')}% Returns</span><span>{text(r.duration_months, '0')} months</span><span>Matures {date(r.maturity_date)}</span><span>Earned <Amount value={r.total_returns_earned} revealed={show} /></span></div>
+          <div className="flex justify-between gap-3"><span className="font-semibold">{text(r.portfolio_code, 'Supporter portfolio')}</span><Badge variant="outline">{label(text(r.status))}</Badge></div><p className="mt-3 text-2xl font-bold"><Amount value={r.investment_amount} revealed={show} /></p><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"><span>{text(r.returns_percentage, '0')}% Rent profit share</span><span>{text(r.duration_months, '0')} months</span><span>Matures {date(r.maturity_date)}</span><span>Earned <Amount value={r.total_returns_earned} revealed={show} /></span></div>
         </>} /></section>
         <section><h3 className="mb-3 flex items-center gap-2 font-semibold"><Building2 className="h-4 w-4 text-primary" />Angel Pool shares</h3><RecordList items={shares} empty="No Angel Pool shares recorded." revealed={revealed} render={(r, show) => <>
           <div className="flex justify-between gap-3"><span className="font-semibold">{text(r.shares, '0')} shares</span><Badge variant="outline">{label(text(r.status))}</Badge></div><p className="mt-3 text-2xl font-bold"><Amount value={r.amount} revealed={show} /></p><p className="text-xs text-muted-foreground">Pool ownership {text(r.pool_ownership_percent, '0')}% · recorded {date(r.created_at)}</p>

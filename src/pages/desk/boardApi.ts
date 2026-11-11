@@ -1,9 +1,10 @@
 import { keepPreviousData, useQuery, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { rpc } from './reviewApi';
-import { runMove, type MoveResult } from './deskActions';
+import { asIs, recordTransferPass, runMove, transferThenPass, type MoveResult } from './deskActions';
 import { SEND_BACK_STAGES, SUGGESTED_OFFICE, sendBackTo } from './sendBackApi';
 import type { CheckEntry, Decision, Stage } from './reviewTypes';
+import type { RequestKind } from './KindChip';
 
 /**
  * `pipeline_desk_board(p_stage, p_limit)` — the "Ready for your push" board.
@@ -27,7 +28,9 @@ export type BoardDecision =
   | 'call'
   | 'call_again'
   /** Agent Ops: the house photos need a reviewer before the request can move. */
-  | 'review_photos';
+  | 'review_photos'
+  /** Agent Ops (E73): the tenant applied without a real agent; assign one before anything else. */
+  | 'assign_agent';
 
 /** Agent Ops: whether the agent may collect on a new plan (collected 50%+ of what was due, or a new agent under the limit). */
 export type Eligibility = {
@@ -90,7 +93,8 @@ export type BoardRow = {
   waiting: BoardWaiting | null;
   wait_suggest: WaitSuggest | null;
   push: BoardPush | null;
-  call: { answered_since_stage: string | null; attempts_24h: number | null } | null;
+  /** answered_since_stage: an answered call to this desk's subject is on file (pipeline_desk_board sends a boolean). */
+  call: { answered_since_stage: boolean | string | null; attempts_24h: number | null } | null;
   /** Service Centre: the request is from the August 2026 batch. */
   batch?: boolean;
   /** Agent Ops: the agent's collection eligibility. */
@@ -99,6 +103,8 @@ export type BoardRow = {
   items_missing?: string[] | null;
   /** Agent Ops: the house photos have been reviewed and pass. */
   photos_ok?: boolean | null;
+  /** E73: New, Renewal or Self-applied, with the server's colour and detail. */
+  kind?: RequestKind | null;
 };
 
 /** Service Centre only: which requests the board shows. Other stages ignore it. */
@@ -223,9 +229,28 @@ export function effectivePush(row: BoardRow, override?: PushOverride): BoardPush
   return { ...p, decision: 'transfer', target_agent_id: override.targetAgentId, note: override.note };
 }
 
-/** The move half of a push, with the push's own values — also the "retry the move only" path. */
+/** The receiving agent's name for a transfer push, when the board knows it. */
+function receiverName(row: BoardRow, p: BoardPush): string | null {
+  return row.receiver && row.receiver.agent_id === p.target_agent_id ? row.receiver.name : null;
+}
+
+/**
+ * The move half of a push, with the push's own values — also the "retry the
+ * move only" path. For a transfer the move left is the pass (the transfer call
+ * has already run), which the server makes.
+ */
 export function moveFor(row: BoardRow, stage: Stage, userId: string, override?: PushOverride): Promise<MoveResult> {
   const p = effectivePush(row, override) as BoardPush;
+  if (p.decision === 'transfer') {
+    return recordTransferPass({
+      requestId: row.id,
+      results: p.results,
+      targetAgentId: p.target_agent_id,
+      note: p.note ?? '',
+      reasonCode: p.reason_code,
+      targetName: receiverName(row, p),
+    });
+  }
   return runMove({
     requestId: row.id,
     stage,
@@ -261,6 +286,21 @@ export async function pushRow(row: BoardRow, stage: Stage, userId: string, overr
     const out = await sendBackTo({ requestId: row.id, stage, to: SUGGESTED_OFFICE, reasonCode: p.reason_code, note: p.note });
     return out.ok ? { kind: 'moved', message: out.message } : { kind: 'review_failed', message: out.message };
   }
+  // A transfer: the transfer call, then the pass that moves the request on (server).
+  if (p.decision === 'transfer') {
+    const out = await transferThenPass({
+      requestId: row.id,
+      results: p.results,
+      targetAgentId: p.target_agent_id,
+      note: p.note ?? '',
+      reasonCode: p.reason_code,
+      targetName: override ? null : receiverName(row, p),
+    });
+    if (out.kind === 'moved') return { kind: 'moved', message: out.message };
+    // Transferred, but the pass did not go through: retry the pass only.
+    if (out.kind === 'pass_failed') return { kind: 'move_failed', message: out.message };
+    return { kind: 'review_failed', message: out.message };
+  }
   const { error } = await rpc('pipeline_record_review', {
     p_request_id: row.id,
     p_stage: stage,
@@ -268,9 +308,9 @@ export async function pushRow(row: BoardRow, stage: Stage, userId: string, overr
     p_decision: p.decision,
     p_reason_code: p.reason_code,
     p_note: p.note,
-    p_target_agent_id: p.decision === 'transfer' ? p.target_agent_id : null,
+    p_target_agent_id: null, // a transfer went through transferThenPass above
   });
-  if (error) return { kind: 'review_failed', message: error.message };
+  if (error) return { kind: 'review_failed', message: asIs(error) };
   const moved = await moveFor(row, stage, userId, override);
   return moved.ok ? { kind: 'moved', message: moved.message } : { kind: 'move_failed', message: moved.message };
 }
@@ -304,7 +344,7 @@ export const PUSHABLE: BoardDecision[] = ['pass', 'transfer', 'send_back', 'reje
 /** The decision groups each board shows, in the order the desk works them. */
 export const STAGE_GROUPS: Partial<Record<Stage, BoardDecision[]>> = {
   service_centre: ['pass', 'send_back', 'complete', 'waiting'],
-  agent_ops: ['pass', 'transfer', 'complete', 'review_photos', 'send_back', 'reject', 'wait', 'waiting'],
+  agent_ops: ['assign_agent', 'pass', 'transfer', 'complete', 'review_photos', 'send_back', 'reject', 'wait', 'waiting'],
   tenant_ops: ['call', 'complete', 'pass', 'call_again', 'reject', 'waiting'],
   landlord_ops: ['call', 'complete', 'pass', 'call_again', 'reject', 'waiting'],
 };
@@ -361,6 +401,7 @@ export const GROUP_LABEL: Record<BoardDecision, string> = {
   review_photos: 'Review photos',
   call: 'Call',
   call_again: 'Call again',
+  assign_agent: 'Assign agent',
 };
 
 /** "5/5 ✓", or "4/5 — <first failing label>". */
@@ -449,6 +490,8 @@ export function primaryLabel(row: BoardRow, stage: Stage): string | null {
       return stage === 'service_centre' || stage === 'agent_ops' ? 'Call and fill' : 'Finish checks';
     case 'review_photos':
       return 'Review photos';
+    case 'assign_agent':
+      return 'Assign agent';
     case 'transfer': {
       const r = row.receiver;
       if (!r) return 'Transfer';

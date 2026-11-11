@@ -1,5 +1,6 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { memo } from 'react';
-import { Bookmark, Check, ChevronRight, Clock, Home, Navigation, Sprout } from 'lucide-react';
+import { Bookmark, Check, ChevronRight, Home, Navigation, Sprout } from 'lucide-react';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
 import type { FunderNewCategory, FunderNewDistance, FunderNewEmptyHouse, FunderNewReadyPlan } from '@/components/funder-new/types';
@@ -12,9 +13,11 @@ import {
   itemMonthlyReturn,
   readyPlanPlace,
   readyPlanTitle,
+  isUncheckedEmptyHouse,
 } from '@/components/funder-new/utils';
 import { STRAIGHT_LINE_EXPLANATION } from '@/components/funder-new/distance';
-import { FundersBoardTag, boardTagFor } from '@/components/funder-new/FundersBoardTag';
+import { FundersBoardTag, tagKindFor } from '@/components/funder-new/FundersBoardTag';
+import type { BoardTag } from '@/lib/fundersBoard';
 
 /** Rendered photo box is 16:10; these are the intrinsic hints for the browser. */
 const PHOTO_W = 640;
@@ -41,6 +44,8 @@ export interface FunderV3HouseCardProps {
   cardId: string;
   /** E59: show the funders board tag (Empty house / Verified). */
   boardTagsOn?: boolean;
+  /** E65: the server's tag (Verified, Booked, Funded, Pending verification, Empty house), when known. */
+  boardTag?: BoardTag | null;
   /** E59 select-to-demote mode (staff who may demote only). */
   demoteMode?: boolean;
   demoteChecked?: boolean;
@@ -66,6 +71,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   onHoverChange,
   cardId,
   boardTagsOn = false,
+  boardTag = null,
   demoteMode = false,
   demoteChecked = false,
   onDemoteToggle,
@@ -73,15 +79,19 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   const isEmpty = category === 'empty';
   const title = isEmpty ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan);
   const place = isEmpty ? emptyHousePlace(item as FunderNewEmptyHouse) : readyPlanPlace(item as FunderNewReadyPlan);
-  const amount = itemAmount(category, item);
-  const monthlyReturn = itemMonthlyReturn(category, item);
+  // Agent Care: the partner amount is pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
+  const amount = itemAmount(category, item, partnerPay);
+  const monthlyReturn = itemMonthlyReturn(category, item, partnerPay);
   const photo = firstPhoto(category, item);
   const coords = itemCoordinates(item, category);
+  const unchecked = isUncheckedEmptyHouse(category, item);
 
   return (
     <article
       data-card-id={cardId}
       data-testid="fv3-card"
+      data-unchecked={unchecked ? 'true' : undefined}
       data-highlighted={highlighted ? 'true' : undefined}
       data-demote-checked={demoteMode && demoteChecked ? 'true' : undefined}
       onPointerEnter={onHoverChange ? () => onHoverChange(true) : undefined}
@@ -120,22 +130,16 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
           )}
         </button>
 
+        {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
+        {boardTagsOn || unchecked ? null : (
         <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 fv3-t-2xs font-semibold text-foreground shadow-sm ring-1 ring-border">
-          {isEmpty ? (
-            <>
-              <Clock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-              Pending verification
-            </>
-          ) : (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#8024D1" stroke="#8024D1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden>
-                <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-                <path d="m9 12 2 2 4-4" stroke="white" />
-              </svg>
-              Verified tenant
-            </>
-          )}
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#8024D1" stroke="#8024D1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden>
+            <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
+            <path d="m9 12 2 2 4-4" stroke="white" />
+          </svg>
+          {isEmpty ? 'Verified House' : 'Verified tenant'}
         </span>
+        )}
 
         <button
           type="button"
@@ -176,7 +180,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
             {demoteChecked ? 'Selected to demote' : 'Select to demote'}
           </label>
         ) : null}
-        {boardTagsOn ? <FundersBoardTag kind={boardTagFor(category)} /> : null}
+        {boardTagsOn ? <FundersBoardTag kind={tagKindFor(boardTag, category)} /> : null}
         <button
           type="button"
           onClick={onDetail}
@@ -223,6 +227,8 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
               <span className="sr-only">Open in Google Maps</span>
             </a>
           ) : null}
+          {/* Not checked by Welile yet: no Fund button and no action line. */}
+          {unchecked ? null : (
           <button
             type="button"
             data-testid="fv3-fund-button"
@@ -236,8 +242,9 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
             )}
           >
             {selected ? <Check className="h-4 w-4 flex-none" aria-hidden /> : <Sprout className="h-4 w-4 flex-none" aria-hidden />}
-            <span className="truncate">{selected ? 'Selected' : isEmpty ? 'Pending verification' : 'Fund this House'}</span>
+            <span className="truncate">{selected ? 'Selected' : 'Fund this House'}</span>
           </button>
+          )}
         </div>
       </div>
     </article>

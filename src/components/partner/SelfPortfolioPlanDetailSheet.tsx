@@ -1,3 +1,6 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
+import { AgentCareNote } from './AgentCareNote';
+import { CoSupportStartButton } from '@/components/co-support/CoSupportStartButton';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CONTRACT_TERM_MONTHS } from '@/lib/contractTerm';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -10,6 +13,8 @@ import { cn } from '@/lib/utils';
 import { PlanShareButton } from './PlanShareButton';
 import { planShareFallbackDescription } from '@/lib/planShareLink';
 import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
+import { FunderVerifiedPlanPack, OffplatformCoverStatus } from '@/components/supporter/FunderVerifiedPlanPack';
+import { FunderFundChooser, type FundChoiceTarget } from '@/components/supporter/FunderFundChooser';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 
@@ -224,9 +229,9 @@ function PhotoSlider({
 
 /**
  * Read-only plan detail view for self-managed partners.
- * Privacy: tenant photo stays blurred and no phone number or contact detail is
- * ever rendered. Full tenant records unlock only after the partner supports the
- * tenant.
+ * Privacy: tenant photo stays blurred. Landlord phone, mobile money and the
+ * tenant agreement render only from funder_verified_rent_plan_dossier, and only
+ * when this partner funds a verified Rent Plan.
  */
 export function SelfPortfolioPlanDetailSheet({
   plan,
@@ -244,14 +249,18 @@ export function SelfPortfolioPlanDetailSheet({
 }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [fundChoiceOpen, setFundChoiceOpen] = useState(false);
   // "Your projected returns": this partner's own rate for a new portfolio (partner_quote_rate('me')).
   // null while it loads or on error: the projection is null (no figure).
   const { rate: ownRate } = useOwnNewPortfolioRate();
   const ownRatePct = rateOrNull(ownRate);
+  // Agent Care: the partner pays pay(rent) (= rent while the switch is off).
+  const { pay } = useSelfSupportFeePolicy();
   const planId = plan?.rent_request_id ?? null;
   useEffect(() => {
     setHeroIndex(0);
     setLightboxIndex(null);
+    setFundChoiceOpen(false);
   }, [planId, open]);
   if (!plan) return null;
   const photos = (plan.house_image_urls ?? []).filter(Boolean);
@@ -430,27 +439,16 @@ export function SelfPortfolioPlanDetailSheet({
               </span>
               <span className="min-w-0 flex-1 text-sm text-muted-foreground">Rent amount</span>
               <span className="text-base font-bold text-primary truncate">
-                {formatDynamic(plan.funding_amount)}
+                {formatDynamic(pay(Number(plan.funding_amount || 0)))}
               </span>
             </li>
+            <li className="py-3 empty:hidden"><AgentCareNote kind="tenant" rent={Number(plan.funding_amount || 0)} /></li>
             <li className="flex items-center gap-3 py-3">
               <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
                 <User className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1 text-sm text-muted-foreground">Landlord</span>
-              <div className="flex min-w-0 flex-col items-end gap-0.5 text-right">
-                <span className="text-sm font-semibold truncate">{plan.landlord_name ?? 'Landlord'}</span>
-                {plan.landlord_phone ? (
-                  <a
-                    href={`tel:${plan.landlord_phone}`}
-                    className="text-xs font-semibold text-primary truncate hover:underline"
-                  >
-                    {plan.landlord_phone}
-                  </a>
-                ) : (
-                  <span className="text-xs font-semibold text-muted-foreground">—</span>
-                )}
-              </div>
+              <span className="text-sm font-semibold truncate">{plan.landlord_name ?? 'Landlord'}</span>
             </li>
             <li className="flex items-center gap-3 py-3">
               <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
@@ -506,7 +504,7 @@ export function SelfPortfolioPlanDetailSheet({
 
           {/* Earnings projection */}
           {(() => {
-            const monthly = ownRatePct === null ? null : (plan.funding_amount * ownRatePct) / 100;
+            const monthly = ownRatePct === null ? null : (pay(Number(plan.funding_amount || 0)) * ownRatePct) / 100;
             const daily = monthly === null ? null : monthly / 30;
             // The partner earns across the whole contract, not for the plan's length.
             const months = CONTRACT_TERM_MONTHS;
@@ -514,7 +512,7 @@ export function SelfPortfolioPlanDetailSheet({
             return (
               <div className="mt-5 rounded-3xl bg-primary/10 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold">Your projected returns</p>
+                  <p className="text-sm font-semibold">Your projected Rent profit share</p>
                   {formatRatePct(ownRatePct) && (
                     <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-bold text-primary">
                       {formatRatePct(ownRatePct)} per month
@@ -522,7 +520,7 @@ export function SelfPortfolioPlanDetailSheet({
                   )}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Based on a rent amount of {formatDynamic(plan.funding_amount)}.
+                  Based on {formatDynamic(pay(Number(plan.funding_amount || 0)))}.
                 </p>
                 <ul className="mt-3 divide-y divide-primary/20">
                   {[
@@ -549,6 +547,11 @@ export function SelfPortfolioPlanDetailSheet({
             );
           })()}
 
+          {isFunded && (
+            <FunderVerifiedPlanPack rentRequestId={plan.rent_request_id} />
+          )}
+          {!isFunded && <div className="px-0"><OffplatformCoverStatus rentRequestId={plan.rent_request_id} /></div>}
+
           <div className="mt-4">
             <V360PlanCaptions rentRequestId={plan.rent_request_id} />
           </div>
@@ -568,12 +571,31 @@ export function SelfPortfolioPlanDetailSheet({
             <div className="sticky bottom-0 z-20 -mx-4 mt-4 border-t border-border/60 bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
               <Button
                 className="h-12 w-full gap-2 rounded-full bg-emerald-600 text-base font-semibold text-white shadow-md active:scale-[0.99] hover:bg-emerald-700"
-                onClick={() => onFund(plan)}
+                onClick={() => setFundChoiceOpen(true)}
               >
                 <Wallet className="h-5 w-5" />
-                Fund this tenant — {formatDynamic(plan.funding_amount)}
+                Fund this house, {formatDynamic(pay(Number(plan.funding_amount || 0)))}
               </Button>
+              <CoSupportStartButton
+                className="mt-2"
+                rentRequestId={plan.rent_request_id}
+                planAmount={pay(Number(plan.funding_amount || 0))}
+              />
             </div>
+          )}
+          {onFund && plan && (
+            <FunderFundChooser
+              open={fundChoiceOpen}
+              onOpenChange={setFundChoiceOpen}
+              target={{
+                rentRequestId: plan.rent_request_id,
+                title: plan.house_category ? plan.house_category.replace(/-/g, ' ') : 'Rent Plan',
+                place: plan.tenant_location || plan.request_city || '',
+                landlordName: plan.landlord_name,
+                rentAmount: Number(plan.funding_amount || 0),
+              } satisfies FundChoiceTarget}
+              onThroughWelile={() => onFund(plan)}
+            />
           )}
         </div>
       </SheetContent>

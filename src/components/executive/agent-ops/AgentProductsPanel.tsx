@@ -1525,7 +1525,7 @@ export function AgentProductsPanel({ category, mode = 'full', showReceivablesRec
                   <div className="flex items-center justify-between p-2.5 bg-emerald-500/10 border-t border-emerald-500/20">
                     <div className="flex items-center gap-1.5">
                       <TrendingUp className="h-4 w-4 text-emerald-600" />
-                      <span className="font-semibold text-emerald-950 dark:text-emerald-200">Expected Returns (Profit)</span>
+                      <span className="font-semibold text-emerald-950 dark:text-emerald-200">Expected Rent profit share (Profit)</span>
                     </div>
                     <div className="text-right">
                       <span className="font-bold text-sm text-emerald-600 tabular-nums">+{formatUGX(expectedProfit)}</span>

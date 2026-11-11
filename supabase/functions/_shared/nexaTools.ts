@@ -13,7 +13,7 @@ import { formatRatePct, monthlyReturnFor, rateOrNull } from './partnerReturnPoli
 export const MIN_AMOUNT = 20_000;
 export const MAX_AMOUNT = 500_000_000;
 export const MAX_MONTHS = 36;
-export const RETURNS_DISCLAIMER = 'Illustrative only, not guaranteed. Returns depend on approved plan terms and capital is at risk.';
+export const RETURNS_DISCLAIMER = 'New partners earn a 15% Rent profit share per month for 12 months. Your principal and Rent profit share are guaranteed as set out in your partnership agreement.';
 
 export type ReturnsMode = 'simple' | 'compound';
 export interface ReturnsEstimate {
@@ -66,7 +66,7 @@ export interface PortfolioSummary {
  * unknown); `ownRate` adds get_my_returns_rate, offered ONLY to a caller signed in with a user JWT
  * (a phone number or an OTP portfolio session is not an identity for this question).
  */
-export function buildNexaToolDefs({ publicRate, ownRate }: { publicRate: number | null; ownRate: boolean }) {
+export function buildNexaToolDefs({ publicRate, ownRate, ownProfile = false }: { publicRate: number | null; ownRate: boolean; ownProfile?: boolean }) {
   const pct = formatRatePct(rateOrNull(publicRate));
   const noRate = 'the tool returns an error when no rate is available; then give no figure';
   // Signed in, an omitted rate is the caller's OWN new-portfolio rate (runNexaTool reads it), so a
@@ -82,13 +82,25 @@ export function buildNexaToolDefs({ publicRate, ownRate }: { publicRate: number 
   if (ownRate) {
     defs.push({ type: 'function', function: { name: 'get_my_returns_rate', description: 'The signed-in caller\'s own monthly Returns rate for a NEW portfolio. Takes no arguments. Use it when they ask what a new portfolio would earn for them.', parameters: { type: 'object', properties: {} } } });
   }
+  if (ownProfile) {
+    defs.push({ type: 'function', function: { name: 'get_my_profile', description: "The signed-in caller's own profile: verified and phone_verified flags, identity_photos_submitted_at, and whether ID front, ID back and selfie photos exist (booleans only). Never returns image URLs or a National ID number. Takes no arguments. Call this before telling the caller to enter their National ID or NIN.", parameters: { type: 'object', properties: {} } } });
+  }
   return defs;
 }
 
 export type PortfolioReader = () => Promise<{ portfolios: PortfolioSummary[] } | { error: string }>;
 /** Reads the signed-in caller's own rate for a new portfolio (partner_quote_rate('me')). */
 export type MyRateReader = () => Promise<{ rate: number } | { error: string }>;
-export interface NexaToolContext { defaultRate: number | null; readMyRate?: MyRateReader }
+/** The signed-in caller's own verification and identity-photo flags. Paths and National ID numbers must never be returned. */
+export type ProfileReader = () => Promise<{
+  verified: boolean;
+  phone_verified: boolean;
+  identity_photos_submitted_at: string | null;
+  has_id_front: boolean;
+  has_id_back: boolean;
+  has_selfie: boolean;
+} | { error: string }>;
+export interface NexaToolContext { defaultRate: number | null; readMyRate?: MyRateReader; readMyProfile?: ProfileReader }
 
 export type DenialHook = (tool: string, reason: string) => Promise<void>;
 export async function runNexaTool(name: string, rawArgs: string, readPortfolios: PortfolioReader | null, onDenied?: DenialHook, ctx: NexaToolContext = { defaultRate: null }): Promise<unknown> {
@@ -111,6 +123,10 @@ export async function runNexaTool(name: string, rawArgs: string, readPortfolios:
   if (name === 'get_my_returns_rate') {
     if (!ctx.readMyRate) { await onDenied?.('get_my_returns_rate', 'Own-rate tool called without a signed-in caller'); return { error: 'Sign in at welileapp.com to see your own rate.' }; }
     return await ctx.readMyRate();
+  }
+  if (name === 'get_my_profile') {
+    if (!ctx.readMyProfile) { await onDenied?.('get_my_profile', 'Profile tool called without a signed-in caller'); return { error: 'Sign in at welileapp.com to see your own profile.' }; }
+    return await ctx.readMyProfile();
   }
   await onDenied?.(name.slice(0, 80), 'Model requested a tool that does not exist or is not allowed');
   return { error: 'Unknown tool.' };

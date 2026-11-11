@@ -5,10 +5,19 @@ import type { ReactNode } from 'react';
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn(), ranges: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from } }));
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: { id: 'cfo-1' },
+    session: { user: { id: 'cfo-1' }, access_token: 'token', expires_at: Math.floor(Date.now() / 1000) + 3600 },
+    loading: false,
+    roles: ['cfo'],
+  }),
+}));
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useReceivablesTotal } from '@/hooks/useReceivables';
 import { cfoReportRetry } from '@/hooks/cfoReportRetry';
+import { financeReportErrorMessage, HEAVY_REPORT_SLOW_MESSAGE } from '@/lib/heavyFinanceReportQueue';
 
 function deferred<T>() {
   let resolve: (value: T) => void = () => {};
@@ -152,5 +161,22 @@ describe('CFO independent loading and unchanged reconciliation', () => {
     expect(cfoReportRetry(0, { code: '42501' })).toBe(false);
     expect(cfoReportRetry(1, { message: 'gateway' })).toBe(true);
     expect(cfoReportRetry(2, { message: 'gateway' })).toBe(false);
+  });
+
+  it('does not retry the statement of financial position after a timeout or a 5xx', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: 3, retryDelay: 0, gcTime: 0 } } });
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    mocks.rpc.mockImplementation(async (name: string) => {
+      if (name === 'get_statement_of_financial_position') {
+        return { data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } };
+      }
+      return { data: null, error: null };
+    });
+    const { result, unmount } = renderHook(() => useCFOOverviewData({ cashVisible: true }), { wrapper });
+    await waitFor(() => expect(result.current.positionError).toBeTruthy());
+    expect(mocks.rpc.mock.calls.filter((call) => call[0] === 'get_statement_of_financial_position')).toHaveLength(1);
+    expect(financeReportErrorMessage(result.current.positionError)).toBe(HEAVY_REPORT_SLOW_MESSAGE);
+    unmount();
+    client.clear();
   });
 });

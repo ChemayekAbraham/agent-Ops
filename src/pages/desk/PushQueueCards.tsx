@@ -4,11 +4,14 @@ import { fmt } from './format';
 import { useMorningBrief } from './deskBriefApi';
 import { CALM, FIGURE, FOCUS, LABEL, PANEL } from './deskTheme';
 import { Skeleton } from './Skeleton';
+import { AwaitingReleaseCard } from './AwaitingRelease';
+import { SelfAppliedCard } from './SelfAppliedQueue';
 
 /**
  * What replaced the Budget room card when budgets were retired on 5 Nov:
- * the COO's push queue, the funders' board, and money funded but not yet paid
- * to the landlord. All three come from `desk_morning_brief`; its `budget_room`
+ * the COO's push queue, the funders' board, what funders selected that waits
+ * for release (E71, its own RPC), and money funded but not yet paid to the
+ * landlord. All three come from `desk_morning_brief`; its `budget_room`
  * key is left for old screens and is not read here.
  */
 
@@ -36,7 +39,7 @@ function Card({ id, title, board, children }: { id?: string; title: string; boar
 const LINK = `inline-block rounded text-xs font-medium text-[hsl(var(--desk-lavender))] underline underline-offset-4 ${CALM} ${FOCUS} hover:text-foreground`;
 
 /**
- * The three cards in one row. `onCooDesk` hides the "Open COO desk" button on
+ * The cards, two across on a tablet and three on wide screens. `onCooDesk` hides the "Open COO desk" button on
  * the COO desk itself, where it would only reload the page.
  */
 export function PushQueueCards({ board, enabled, onCooDesk }: { board: boolean; enabled: boolean; onCooDesk?: boolean }) {
@@ -47,7 +50,7 @@ export function PushQueueCards({ board, enabled, onCooDesk }: { board: boolean; 
   const b = q.data;
 
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
       <Card id="coo-push-queue" title="COO push queue" board={board}>
         {q.isLoading ? (
           <Skeleton className="h-8 w-56" />
@@ -73,6 +76,12 @@ export function PushQueueCards({ board, enabled, onCooDesk }: { board: boolean; 
           Open the Funders Dashboard
         </Link>
       </Card>
+
+      {/* E71: selected by a funder, money not yet released. Beside the funders board. */}
+      <AwaitingReleaseCard board={board} />
+
+      {/* E73: tenants who applied without an agent, waiting for Agent Ops to assign one. */}
+      <SelfAppliedCard board={board} />
 
       <Card id="funded-not-paid" title="Funded, not yet paid" board={board}>
         {q.isLoading ? (

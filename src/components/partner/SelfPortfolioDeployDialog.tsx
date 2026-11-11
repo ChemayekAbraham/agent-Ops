@@ -437,7 +437,7 @@ export function SelfPortfolioDeployDialog({
             <div className="flex items-start gap-2 rounded-xl bg-muted/30 px-2.5 py-2">
               <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
               <p className="text-[10px] text-muted-foreground">
-                Returns pay monthly into your withdrawable balance and are never compounded
+                Rent profit share pay monthly into your withdrawable balance and are never compounded
                 automatically. At the end of the 12-month term, principal is returned over the
                 standard settlement window.
               </p>

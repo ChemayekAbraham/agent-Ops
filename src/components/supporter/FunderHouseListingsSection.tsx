@@ -1,3 +1,4 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { createPortal } from 'react-dom';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, Clock, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
@@ -10,6 +11,7 @@ import { formatDynamic } from '@/lib/currencyFormat';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useMountedOnce } from '@/hooks/useMountedOnce';
 import { useAuth } from '@/hooks/useAuth';
+import { useFundersBoardCanDemote } from '@/hooks/useFundersBoardCanDemote';
 import { FEATURE_FUNDERS_BOARD_TAGS, useFeaturePreview } from '@/hooks/useFeaturePreview';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,9 +40,15 @@ import type {
   FunderNewSort,
   FunderNewDistance,
 } from '@/components/funder-new/types';
-import { countActiveFunderFilters, itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { countActiveFunderFilters, itemAmount, itemCoordinates, itemId, placeCase, readyPlanPlace, readyPlanTitle, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { useRentPlanFundChoice } from '@/components/supporter/FunderFundChooser';
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
+import { useQuery } from '@tanstack/react-query';
+import { fetchBoardItems, type BoardItem, type BoardItemsCounts, type BoardTag } from '@/lib/fundersBoard';
+import { withinRadius } from '@/components/funder-new/feedOrder';
+import { buildBoardGroups, boardHeadline, boardSubline, type BoardGroup } from '@/components/funder-new/boardGroups';
+import { FunderBoardItemCard } from '@/components/funder-new/FunderBoardItemCard';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 
 export interface FeedEntry {
@@ -56,6 +64,21 @@ export interface FeedEntry {
 export interface FunderListingsViewApi {
   /** E59: funders board tags are on for this viewer (switch or preview row). */
   boardTagsOn: boolean;
+  /** E65: the card's tag (Verified, Booked, Funded, Pending verification, Empty house); null while tags are off. */
+  boardTagOf: (entry: FeedEntry) => BoardTag | null;
+  /** Totals for the header ("16 ready to fund · 783 houses"): Rent Plans ready to fund, and empty houses. */
+  readyTotal: number;
+  emptyTotal: number;
+  /** Drop a chosen distance limit (back to every house in Uganda). */
+  clearRadius: () => void;
+  /** E72b grouped list (tags on): Verified, Booked, Funded, Pending verification, Empty houses. Null while tags are off. */
+  boardGroups: BoardGroup<FeedEntry>[] | null;
+  /** E72b header numbers (tags on, COO/CEO only via funders_board_can_demote; null for funders). */
+  boardCounts: BoardItemsCounts | null;
+  /** Map pins for the board's rent requests, coloured by tag (tags on). */
+  boardPins: BoardPin[];
+  boardLoading: boolean;
+  boardError: boolean;
   searchInput: string;
   setSearchInput: (value: string) => void;
   filters: FunderNewFilters;
@@ -94,6 +117,9 @@ const DepositFlow = lazyWithRetry(() => import('@/components/payments/DepositFlo
 
 export type FunderListMapFilters = Pick<FunderNewFilters, 'search' | 'location' | 'amount'>;
 
+/** A rent request pin on the map, coloured by its funders board tag. */
+export type BoardPin = { id: string; cardId: string; lat: number; lng: number; amount: number; tag: BoardTag };
+
 export function FunderHouseListingsSection({
   searchOnMap = false,
   onFiltersChange,
@@ -110,6 +136,8 @@ export function FunderHouseListingsSection({
   onResultsFocus?: (points: { lat: number; lng: number }[]) => void;
   onResultCountChange?: (count: number) => void;
 } = {}) {
+  // Agent Care: partner amounts use pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
   const { user } = useAuth();
   const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
   const { profile } = useProfile();
@@ -189,26 +217,30 @@ export function FunderHouseListingsSection({
     setFilters((current) => ({ ...current, sort: 'nearest' }));
   }, [origin, sortTouched]);
 
-  // By default the list shows only Rent Plans with a verified tenant. Houses
-  // still pending verification are opt-in from the Filters drawer.
+  // By default the list shows only Rent Plans with a verified tenant. Empty
+  // houses (also verified: the feed asks for p_verified_only) are opt-in from
+  // the Filters drawer.
   const [includePending, setIncludePending] = useState(false);
-  const emptyQuery = useFunderNewEmptyHouses(filters, origin, includePending);
+  // E72b: with the funders board tags on, the grouped list always ends with
+  // the Empty house cards; the switch is for the plain list only.
+  const showEmpty = includePending || boardTagsOn;
+  const emptyQuery = useFunderNewEmptyHouses(filters, origin, showEmpty);
   const readyQuery = useFunderNewReadyPlans(filters, true);
 
   // Verified Rent Plans are a short list (tens, not thousands), so load all of
   // them up front instead of making the funder scroll for the next page.
   useEffect(() => {
-    if (includePending) return;
+    if (includePending && !boardTagsOn) return;
     if (readyQuery.hasNextPage && !readyQuery.isFetchingNextPage && !readyQuery.isError) {
       void readyQuery.fetchNextPage();
     }
-  }, [includePending, readyQuery.hasNextPage, readyQuery.isFetchingNextPage, readyQuery.isError, readyQuery.fetchNextPage]);
+  }, [includePending, boardTagsOn, readyQuery.hasNextPage, readyQuery.isFetchingNextPage, readyQuery.isError, readyQuery.fetchNextPage]);
 
   // A switched-off query keeps its last results cached, so ignore them unless
   // pending houses are switched on.
   const emptyItems = useMemo(
-    () => (includePending ? (emptyQuery.data?.pages ?? []).flatMap((page) => page.items) : []),
-    [emptyQuery.data, includePending],
+    () => (showEmpty ? (emptyQuery.data?.pages ?? []).flatMap((page) => page.items) : []),
+    [emptyQuery.data, showEmpty],
   );
   const readyItems = useMemo(
     () => (readyQuery.data?.pages ?? []).flatMap((page) => page.items),
@@ -238,6 +270,32 @@ export function FunderHouseListingsSection({
     onResultsFocus(points);
   }, [emptyItems, emptyQuery.isFetching, filters.search, onResultsFocus]);
 
+  // E72b: every rent request on the funders board, all four tags, sorted by
+  // group. Under 'funder-new' so a demote refreshes it too.
+  const boardQuery = useQuery({
+    queryKey: ['funder-new', 'board-items'],
+    queryFn: fetchBoardItems,
+    enabled: boardTagsOn,
+    staleTime: 60_000,
+  });
+  const boardTagOf = useCallback(
+    (entry: FeedEntry): BoardTag | null => {
+      if (!boardTagsOn) return null;
+      return entry.category === 'empty' ? 'empty_house' : 'verified';
+    },
+    [boardTagsOn],
+  );
+  const kmOf = useCallback(
+    (entry: FeedEntry): number | null => {
+      const coords = itemCoordinates(entry.item, entry.category);
+      return coords ? straightLineDistance(deviceOrigin, coords)?.km ?? null : null;
+    },
+    // deviceOrigin is rebuilt each render; its numbers are what matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deviceOrigin?.lat, deviceOrigin?.lng],
+  );
+  const orderSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
+
   /** Rent Plans first, empty houses below — one list, no tabs. */
   const loadedItems = useMemo<FeedEntry[]>(
     () => sortFunderFeedEntries([
@@ -247,22 +305,24 @@ export function FunderHouseListingsSection({
     [readyItems, emptyItems],
   );
 
-  const feedLoading = (includePending && emptyQuery.isLoading) || readyQuery.isLoading;
-  const feedError = (includePending && emptyQuery.error) || readyQuery.error;
-  const feedFetching = (includePending && emptyQuery.isFetching) || readyQuery.isFetching;
-  const feedFetchingNext = (includePending && emptyQuery.isFetchingNextPage) || readyQuery.isFetchingNextPage;
-  const feedHasNext = (includePending && !!emptyQuery.hasNextPage) || !!readyQuery.hasNextPage;
+  const feedLoading = (showEmpty && emptyQuery.isLoading) || readyQuery.isLoading || (boardTagsOn && boardQuery.isLoading);
+  const feedError = (showEmpty && emptyQuery.error) || readyQuery.error;
+  const feedFetching = (showEmpty && emptyQuery.isFetching) || readyQuery.isFetching;
+  const feedFetchingNext = (showEmpty && emptyQuery.isFetchingNextPage) || readyQuery.isFetchingNextPage;
+  const feedHasNext = (showEmpty && !!emptyQuery.hasNextPage) || !!readyQuery.hasNextPage;
   const refetchFeed = () => {
-    if (includePending) emptyQuery.refetch();
+    if (showEmpty) emptyQuery.refetch();
+    if (boardTagsOn) void boardQuery.refetch();
     readyQuery.refetch();
   };
   const fetchNextFeed = () => {
-    if (includePending && emptyQuery.hasNextPage && !emptyQuery.isFetchingNextPage) emptyQuery.fetchNextPage();
+    if (showEmpty && emptyQuery.hasNextPage && !emptyQuery.isFetchingNextPage) emptyQuery.fetchNextPage();
     if (readyQuery.hasNextPage && !readyQuery.isFetchingNextPage) readyQuery.fetchNextPage();
   };
 
-  const filteredTotal = (readyQuery.data?.pages?.[0]?.total ?? 0)
-    + (includePending ? (emptyQuery.data?.pages?.[0]?.total ?? 0) : 0);
+  const readyTotal = readyQuery.data?.pages?.[0]?.total ?? 0;
+  const emptyTotal = showEmpty ? (emptyQuery.data?.pages?.[0]?.total ?? 0) : 0;
+  const filteredTotal = readyTotal + emptyTotal;
 
   // Support is funded from operational float only, never from withdrawable money.
   const availableBalance = wallet.isLoading || wallet.error ? null : wallet.floatBalance;
@@ -293,19 +353,70 @@ export function FunderHouseListingsSection({
    * The within-balance chip is applied to the homes already loaded, because the
    * read service has no balance parameter. The chip row says so.
    */
+  const radiusKm = origin?.radiusKm ?? null;
   const items = useMemo(() => {
-    if (!filters.withinFloat || availableBalance === null) return loadedItems;
-    return loadedItems.filter((entry) => {
-      const amount = itemAmount(entry.category, entry.item);
+    let list = loadedItems;
+    // A chosen distance limit: the empty-house read applies it on the server;
+    // the Rent Plan read has no radius, so loaded plans are measured here.
+    if (radiusKm !== null) list = list.filter((entry) => entry.category === 'empty' || withinRadius(kmOf(entry), radiusKm));
+    if (!filters.withinFloat || availableBalance === null) return list;
+    return list.filter((entry) => {
+      const amount = itemAmount(entry.category, entry.item, partnerPay);
       return amount > 0 && amount <= availableBalance;
     });
-  }, [loadedItems, filters.withinFloat, availableBalance]);
+  }, [loadedItems, filters.withinFloat, availableBalance, radiusKm, kmOf, partnerPay]);
 
   // Report every house that matches, not just the page loaded so far. The
   // within-balance filter only runs on loaded homes, so it reports those.
   const matchingCount = filters.withinFloat && availableBalance !== null
     ? items.length
     : Math.max(filteredTotal, items.length);
+  const kmOfItem = useCallback(
+    (item: BoardItem): number | null =>
+      item.lat === null || item.lng === null ? null : straightLineDistance(deviceOrigin, { lat: item.lat, lng: item.lng })?.km ?? null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deviceOrigin?.lat, deviceOrigin?.lng],
+  );
+  /** E72b: the grouped list while the funders board tags are on; null otherwise (the plain list is unchanged). */
+  const boardGroups = useMemo<BoardGroup<FeedEntry>[] | null>(() => {
+    if (!boardTagsOn || !boardQuery.data) return null;
+    return buildBoardGroups<FeedEntry>({
+      board: boardQuery.data.items,
+      ready: readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
+      empty: emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
+      sort: orderSort,
+      radiusKm,
+      kmOfEntry: kmOf,
+      kmOfItem,
+      filters,
+      emptyTotal,
+    });
+  }, [boardTagsOn, boardQuery.data, readyItems, emptyItems, orderSort, radiusKm, kmOf, kmOfItem, filters, emptyTotal]);
+  const boardPins = useMemo<BoardPin[]>(() => {
+    const out: BoardPin[] = [];
+    for (const group of boardGroups ?? []) {
+      if (group.tag === 'empty_house') continue;
+      for (const row of group.rows) {
+        if (row.kind === 'board') {
+          if (row.item.lat !== null && row.item.lng !== null) out.push({ id: row.item.id, cardId: row.cardId, lat: row.item.lat, lng: row.item.lng, amount: row.item.rentAmount, tag: row.tag });
+        } else {
+          const coords = itemCoordinates(row.entry.item, row.entry.category);
+          const lat = Number(coords?.lat);
+          const lng = Number(coords?.lng);
+          if (coords && Number.isFinite(lat) && Number.isFinite(lng)) {
+            out.push({ id: itemId(row.entry.category, row.entry.item), cardId: row.cardId, lat, lng, amount: itemAmount(row.entry.category, row.entry.item), tag: row.tag });
+          }
+        }
+      }
+    }
+    return out;
+  }, [boardGroups]);
+  // The header totals ("16 ready to fund · UGX …", "12 verified · 4 pending
+  // verification") are for COO/CEO only (funders_board_can_demote); funders see
+  // the grouped list and its group headers without them.
+  const canSeeBoardTotals = useFundersBoardCanDemote(user?.id);
+  const boardCounts = boardTagsOn && canSeeBoardTotals ? boardQuery.data?.counts ?? null : null;
+
   useEffect(() => {
     onResultCountChange?.(matchingCount);
   }, [matchingCount, onResultCountChange]);
@@ -332,7 +443,7 @@ export function FunderHouseListingsSection({
 
   // How many filters the funder has actually switched on. The Filters button
   // badges this number and turns purple while it is above zero.
-  const activeFilterCount = countActiveFunderFilters(filters) + (includePending ? 1 : 0);
+  const activeFilterCount = countActiveFunderFilters(filters) + (includePending && !boardTagsOn ? 1 : 0);
   const filtersActive = activeFilterCount > 0;
 
   const resetFilters = () => {
@@ -354,8 +465,10 @@ export function FunderHouseListingsSection({
     setFilters((current) => ({ ...current, sort: value }));
   };
 
+  const fundChoice = useRentPlanFundChoice();
+
   const toggleSelect = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
-    const next = toSelectionItem(category, item);
+    const next = toSelectionItem(category, item, partnerPay);
     setSelectedCategory((current) => (current && current !== category ? category : current ?? category));
     setSelectedItems((current) => {
       const sameCategory = current.filter((entry) => entry.category === category);
@@ -364,7 +477,27 @@ export function FunderHouseListingsSection({
       if (nextList.length === 0) setSelectedCategory(null);
       return nextList;
     });
-  }, []);
+  }, [partnerPay]);
+
+  const requestFund = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
+    if (category !== 'ready') {
+      toggleSelect(category, item);
+      return;
+    }
+    const plan = item as FunderNewReadyPlan;
+    const already = selectedItems.some((entry) => entry.category === 'ready' && entry.id === plan.rent_request_id);
+    if (already) {
+      toggleSelect(category, item);
+      return;
+    }
+    fundChoice.ask({
+      rentRequestId: plan.rent_request_id,
+      title: readyPlanTitle(plan),
+      place: readyPlanPlace(plan),
+      landlordName: plan.landlord_name,
+      rentAmount: Number(plan.funding_amount || 0),
+    }, () => toggleSelect('ready', plan));
+  }, [fundChoice, selectedItems, toggleSelect]);
 
   const removeSelected = (item: FunderNewSelectionItem) => {
     setSelectedItems((current) => {
@@ -387,6 +520,15 @@ export function FunderHouseListingsSection({
   const viewApi: FunderListingsViewApi | null = view
     ? {
         boardTagsOn,
+        boardTagOf,
+        readyTotal,
+        emptyTotal,
+        clearRadius: () => setFilters((current) => ({ ...current, radiusKm: 'all' })),
+        boardGroups,
+        boardCounts,
+        boardPins,
+        boardLoading: boardTagsOn && boardQuery.isLoading,
+        boardError: boardTagsOn && !!boardQuery.error,
         searchInput,
         setSearchInput,
         filters,
@@ -544,10 +686,10 @@ export function FunderHouseListingsSection({
       {/* Applied context: what is loaded, and by which order */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{sortLabel(effectiveSort)}</span>
-        {effectiveSort === 'nearest' && origin ? (
-          <span>
-            {origin.radiusKm ? `Within ${origin.radiusKm} km of ${origin.label}` : `Closest to ${origin.label} first`}
-          </span>
+        {origin && origin.radiusKm !== null ? (
+          <span>Within {origin.radiusKm} km of {origin.label}</span>
+        ) : effectiveSort === 'nearest' && origin ? (
+          <span>Closest to {origin.label} first</span>
         ) : null}
         {filters.sort === 'nearest' && !origin ? <span>Nearest needs your location</span> : null}
       </div>
@@ -570,23 +712,75 @@ export function FunderHouseListingsSection({
             </Button>
           </AlertDescription>
         </Alert>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && !(boardGroups && boardGroups.length > 0) ? (
         <div className="rounded-2xl border bg-primary/5 p-8 text-center">
           <ListFilter className="mx-auto h-8 w-8 text-primary/60" aria-hidden />
           <p className="mt-3 text-sm font-semibold">
-            {effectiveSort === 'nearest' && origin && origin.radiusKm
+            {origin && origin.radiusKm !== null
               ? `No homes within ${origin.radiusKm} km of ${origin.label}`
               : 'No homes match yet'}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {effectiveSort === 'nearest' && origin
+            {origin && origin.radiusKm !== null
               ? 'Widen the search to look further out.'
               : 'Try a different district, amount, or clear your filters.'}
           </p>
-          {effectiveSort === 'nearest' && origin ? (
-            <Button variant="soft" className="mt-4 h-11 rounded-xl" onClick={() => changeSort('recommended')}>
+          {origin && origin.radiusKm !== null ? (
+            <Button variant="soft" className="mt-4 h-11 rounded-xl" onClick={() => setFilters((current) => ({ ...current, radiusKm: 'all' }))}>
               Search the whole market
             </Button>
+          ) : null}
+        </div>
+      ) : boardGroups ? (
+        <div className="space-y-5" data-testid="board-groups">
+          {boardCounts ? (
+            <div className="px-1">
+              <p className="text-sm font-semibold text-foreground" data-testid="board-headline">{boardHeadline(boardCounts)}</p>
+              <p className="text-xs text-muted-foreground" data-testid="board-subline">{boardSubline(boardCounts)}</p>
+            </div>
+          ) : null}
+          {boardGroups.map((group) => (
+            <section key={group.tag} aria-label={`${group.label}, ${group.count}`} data-board-group={group.tag} className="space-y-2">
+              <h3 className="flex items-center gap-2 px-1 text-sm font-semibold text-foreground">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: group.color }} aria-hidden />
+                {group.label}
+                <span className="tabular-nums text-muted-foreground">{group.count.toLocaleString('en')}</span>
+              </h3>
+              <div className="grid gap-0 sm:grid-cols-2 sm:gap-3">
+                {group.rows.map((row) => {
+                  if (row.kind === 'board') {
+                    const d = row.item.lat !== null && row.item.lng !== null ? straightLineDistance(deviceOrigin, { lat: row.item.lat, lng: row.item.lng }) : null;
+                    return <FunderBoardItemCard key={row.cardId} item={row.item} cardId={row.cardId} distance={d} />;
+                  }
+                  const entry = row.entry;
+                  const id = itemId(entry.category, entry.item);
+                  const coords = itemCoordinates(entry.item, entry.category);
+                  return (
+                    <FunderNewHouseCard
+                      key={row.cardId}
+                      category={entry.category}
+                      item={entry.item}
+                      saved={saved[entry.category].includes(id)}
+                      selected={selectedItems.some((selected) => selected.category === entry.category && selected.id === id)}
+                      distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
+                      onSave={() => toggleSave(entry.category, id)}
+                      onSelect={() => requestFund(entry.category, entry.item)}
+                      onDetail={() => openDetail(entry.category, entry.item)}
+                      boardTagsOn
+                      boardTag={row.tag}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+          {feedHasNext ? (
+            <div ref={loadMoreRef} className="flex justify-center">
+              <Button variant="default" className="h-11 rounded-md px-6" onClick={fetchNextFeed} disabled={feedFetchingNext}>
+                {feedFetchingNext ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Home className="h-4 w-4" aria-hidden />}
+                {feedFetchingNext ? 'Loading' : `Show more homes${remaining > 0 ? ` (${remaining.toLocaleString()} left)` : ''}`}
+              </Button>
+            </div>
           ) : null}
         </div>
       ) : (
@@ -612,9 +806,10 @@ export function FunderHouseListingsSection({
                   )}
                   distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
                   onSave={() => toggleSave(entry.category, id)}
-                  onSelect={() => toggleSelect(entry.category, entry.item)}
+                  onSelect={() => requestFund(entry.category, entry.item)}
                   onDetail={() => openDetail(entry.category, entry.item)}
                   boardTagsOn={boardTagsOn}
+                  boardTag={boardTagOf(entry)}
                 />
               );
             })}
@@ -660,7 +855,7 @@ export function FunderHouseListingsSection({
         onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
         onSortChange={changeSort}
         onReset={resetFilters}
-        extraFilters={
+        extraFilters={boardTagsOn ? undefined : (
           <label
             className={cn(
               'flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors',
@@ -671,14 +866,14 @@ export function FunderHouseListingsSection({
               <Clock className="h-5 w-5" aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold">Include houses pending verification</span>
+              <span className="block text-sm font-semibold">Include empty houses</span>
               <span className="block text-xs text-muted-foreground">
-                By default only Rent Plans with a verified tenant are shown.
+                Verified houses waiting for a tenant. By default only Rent Plans with a verified tenant are shown.
               </span>
             </span>
             <Switch checked={includePending} onCheckedChange={setIncludePending} />
           </label>
-        }
+        )}
       />
 
       <EmptyHouseDetailSheet
@@ -693,7 +888,7 @@ export function FunderHouseListingsSection({
         onRelatedHouseClick={(h) => setDetailHouse(h as any)}
         remaining={availableBalance ?? undefined}
         onFund={(house) => {
-          const cost = Number(house.monthly_rent || 0);
+          const cost = partnerPay(Number(house.monthly_rent || 0));
           const avail = availableBalance ?? 0;
           if (avail >= cost) {
             // Enough balance: select the house and open the funding review.
@@ -718,7 +913,7 @@ export function FunderHouseListingsSection({
         }}
         isFunded={false}
         onFund={(plan) => {
-          const cost = Number(plan.funding_amount || 0);
+          const cost = partnerPay(Number(plan.funding_amount || 0));
           const avail = availableBalance ?? 0;
           if (avail >= cost) {
             // Enough balance: select the plan and open the funding review.
@@ -735,6 +930,7 @@ export function FunderHouseListingsSection({
           }
         }}
       />
+      {fundChoice.chooser}
       <FunderNewReviewDialog
         open={reviewOpen}
         onOpenChange={setReviewOpen}

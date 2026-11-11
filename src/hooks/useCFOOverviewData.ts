@@ -4,6 +4,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useReceivablesTotal } from '@/hooks/useReceivables';
 import { cfoWalletTotalsOptions } from './cfoWalletTotals';
 import { cfoReportRetry } from './cfoReportRetry';
+import {
+  heavyFinanceReportQueryOptions,
+  rememberHeavyReportResult,
+  runHeavyFinanceReport,
+} from '@/lib/heavyFinanceReportQueue';
 import { supabase } from '@/integrations/supabase/client';
 import { accountCodeOf, type PositionLine } from '@/components/cfo/balanceSheetClassification';
 
@@ -71,7 +76,7 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
         },
         {
           key: 'partner_returns',
-          label: '📈 Partner Returns Paid',
+          label: '📈 Partner Rent profit share Paid',
           categories: ['roi_expense', 'roi_wallet_credit', 'supporter_platform_rewards'],
         },
         {
@@ -145,8 +150,8 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
         registration_fee_collected: '📋 Registration Fees',
         system_balance_correction: '🔧 Corrections',
         agent_commission_earned: '👤 Agent Commissions (Expense)',
-        roi_expense: '📈 ROI Payouts (Expense)',
-        roi_wallet_credit: '📈 ROI Wallet Credits (Expense)',
+        roi_expense: '📈 Rent profit share payouts (Expense)',
+        roi_wallet_credit: '📈 Rent profit share Wallet Credits (Expense)',
         rent_disbursement: '🏠 Rent Disbursements (Expense)',
         wallet_withdrawal: '💸 Wallet Withdrawals (Expense)',
         wallet_transfer: '🔀 Wallet Transfers',
@@ -156,7 +161,7 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
         agent_commission_withdrawal: '💸 Commission Withdrawals',
         agent_commission_used_for_rent: '🏠 Commission Used for Rent',
         agent_float_used_for_rent: '🏠 Float Used for Rent',
-        roi_reinvestment: '📈 ROI Reinvestments',
+        roi_reinvestment: '📈 Rent profit share Reinvestments',
         pending_portfolio_topup: '📊 Portfolio Top-ups',
         rent_receivable_created: '📋 Rent Receivables Created',
       };
@@ -384,12 +389,13 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
   const position = useQuery({
     queryKey: ['cfo-overview-position'],
     enabled: cashVisible || cashDetails,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc(
-        'get_statement_of_financial_position' as any,
-        {} as any,
+    ...heavyFinanceReportQueryOptions,
+    queryFn: async ({ signal, client, queryKey }) => {
+      const data = await runHeavyFinanceReport(
+        'get_statement_of_financial_position',
+        {},
+        { active: true, signal },
       );
-      if (error) throw error;
       const d = data as any;
 
       const lines = [
@@ -407,7 +413,7 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
       const float = valueOf('A2');
       const inTransit = valueOf('A5');
 
-      return {
+      const result = {
         asAt: d?.as_at ?? null,
         totalCash: bank + float + inTransit,
         // Money in Bank is the bank account itself. Everything else the
@@ -421,12 +427,8 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
         totalLiabilities: Number(d?.liabilities?.total ?? 0),
         balanceCheck: d?.balance_check ?? null,
       };
+      return rememberHeavyReportResult(client, queryKey, signal, result);
     },
-    // The statement rebuilds the balance sheet from the whole ledger and currently runs longer than the 8 s limit
-    // for signed-in users. A timeout (57014) will time out again, so do not retry it: retries only held a
-    // database connection for another 16 s per visit. Other errors keep the app's usual two retries.
-    retry: (failureCount, error) => (error as { code?: string } | null)?.code !== '57014' && failureCount < 2,
-    staleTime: STALE_TIME,
   });
 
   // "Money We Owe" = actual wallet balances (same as Financial Ops)
@@ -502,6 +504,7 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
     position: position.data,
     positionError: position.error,
     positionLoading: position.isLoading,
+    refetchPosition: position.refetch,
     liabilities: liabilities.data,
     receivables: receivables.data ? {
       totalReceivables: Number(receivables.data.total ?? 0),

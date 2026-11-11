@@ -20,6 +20,7 @@
  * RPC in layer 1 is the ownership check.
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 // Manual CORS headers (project standard — do not import corsHeaders).
 const corsHeaders = {
@@ -59,7 +60,7 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  const { data: userData, error: userErr } = await admin.auth.getUser(token);
+  const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
   if (userErr || !userData?.user) return json({ error: 'unauthorized' }, 401);
 
   // ---- layer 1: authoritative cancel (also the ownership check) ----

@@ -204,7 +204,7 @@ export function ReferralLeaderboard({ limit = 10 }: ReferralLeaderboardProps) {
         <div className="p-3 rounded-xl bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20">
           <div className="flex items-center gap-2 mb-2">
             <Gift className="h-4 w-4 text-yellow-500" />
-            <span className="font-semibold text-sm">Monthly Rewards</span>
+            <span className="font-semibold text-sm">Monthly Rent profit share</span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="p-2 rounded-lg bg-yellow-500/10">

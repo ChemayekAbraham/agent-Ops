@@ -76,11 +76,11 @@ function TenantPreview({ amount, formatAmountCompact }: { amount: number; format
           <span className="font-black text-foreground">{formatAmountCompact(amount)}</span>
         </div>
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3 w-3" /> {newRatePct ? `Monthly Returns (${newRatePct})` : 'Monthly Returns'}</span>
+          <span className="text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3 w-3" /> {newRatePct ? `Monthly Rent profit share (${newRatePct})` : 'Monthly Rent profit share'}</span>
           <span className="font-black text-success">{monthlyReturn === null ? '—' : `+${formatAmountCompact(monthlyReturn)}`}</span>
         </div>
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground flex items-center gap-1.5"><ArrowUpRight className="h-3 w-3" /> Daily Returns</span>
+          <span className="text-muted-foreground flex items-center gap-1.5"><ArrowUpRight className="h-3 w-3" /> Daily Rent profit share</span>
           <span className="font-bold text-foreground">{dailyReturn === null ? '—' : `+${formatAmountCompact(dailyReturn)}/day`}</span>
         </div>
         <div className="h-px bg-border/60" />
@@ -201,7 +201,7 @@ function TenantCommittedSummary({
         {/* Key metrics */}
         <div className="space-y-2">
           {[
-            { icon: TrendingUp, label: 'Monthly Returns', value: newRatePct ? `${newRatePct} for new partners` : '—', valueClass: 'text-success font-black' },
+            { icon: TrendingUp, label: 'Monthly Rent profit share', value: newRatePct ? `${newRatePct} for new partners` : '—', valueClass: 'text-success font-black' },
             { icon: Rocket, label: 'Deployment Speed', value: '24–72 hours', valueClass: 'font-bold' },
             { icon: CircleDollarSign, label: 'Payouts', value: 'Monthly to wallet', valueClass: 'font-bold' },
             { icon: Shield, label: 'Risk Control', value: 'Verified & insured', valueClass: 'font-bold' },
@@ -236,7 +236,7 @@ function TenantCommittedSummary({
             <Clock className="h-3 w-3 inline mr-1" />Avg. cycle: 30 days · Min: UGX {PRICE_PER_SHARE.toLocaleString()}
           </p>
           <p className="text-[9px] text-muted-foreground/70 leading-relaxed">
-            Returns are projected based on historical performance. Capital is deployed into verified rent facilitation agreements managed by Welile with reserve protection.
+            Rent profit share is projected based on historical performance. Capital is deployed into verified rent facilitation agreements managed by Welile with reserve protection.
           </p>
         </div>
       </div>
@@ -387,7 +387,7 @@ function DefaultEntryCard({
               Put Your Capital to Work
             </h3>
             <p className="text-xs text-muted-foreground font-medium mt-0.5">
-              Verified opportunities. Structured Returns. Choose your path.
+              Verified opportunities. Structured Rent profit share. Choose your path.
             </p>
           </div>
         </div>
@@ -594,9 +594,9 @@ export function CapitalOpportunityEntry() {
           <TabsContent value="tenant" className="mt-3 space-y-3">
             <div className="rounded-xl bg-success/5 border border-success/20 p-3">
               <p className="text-xs font-bold text-foreground">Fund verified rent requests</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Earn monthly Returns from tenant repayments</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Earn monthly Rent profit share from tenant repayments</p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[10px] text-muted-foreground font-medium">
-                <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-success" /> {newRatePct ? `${newRatePct}/mo for new partners` : 'Monthly Returns'}</span>
+                <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-success" /> {newRatePct ? `${newRatePct}/mo for new partners` : 'Monthly Rent profit share'}</span>
                 <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> 24–72hr deploy</span>
                 <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> Verified & insured</span>
               </div>

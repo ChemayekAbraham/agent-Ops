@@ -13,6 +13,27 @@ import { PushQueueCards } from './PushQueueCards';
 import { CommandAdditionCards, MoneyLine } from './CommandAdditions';
 import { FlowPanel } from './flow/FlowPanel';
 import { AccountabilityTile } from './accountability/AccountabilityTile';
+import { AT_COO, DeskSearchBox, SearchResults } from './deskSearch';
+import { ReviewDrawer } from './ReviewDrawer';
+
+/**
+ * Search every desk from the Command Centre (E72, p_desk 'command'). A request
+ * at the COO opens the COO's review drawer; any other is shown read-only with
+ * the desk it is at.
+ */
+export function CommandSearch() {
+  const [query, setQuery] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
+  return (
+    <section aria-label="Search the pipeline" className="space-y-3">
+      <DeskSearchBox desk="command" value={query} onChange={setQuery} />
+      {query.trim().length > 0 && (
+        <SearchResults desk="command" query={query} showDesk onOpen={setOpenId} openWhen={(r) => r.status === AT_COO} />
+      )}
+      {openId && <ReviewDrawer key={openId} stage="coo" requestId={openId} onClose={() => setOpenId(null)} />}
+    </section>
+  );
+}
 
 const num = (v: unknown): number | null =>
   v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v);
@@ -277,6 +298,8 @@ export function CommandCentre({
 
   return (
     <div className="space-y-6">
+      {/* Any name, phone or request id across the pipeline. Not on the wall display, which nobody types into. */}
+      {pipelineCards && <CommandSearch />}
       {pipelineCards && (
         <>
           <MorningBrief board={false} enabled />

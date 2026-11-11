@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 const LABEL = 'House verified by Welile';
 const EXPLANATION =
-  'A Welile agent has checked this house on site. It is not a guarantee of Returns, insurance, or anyone\u2019s identity.';
+  'A Welile agent has checked this house on site. It is not a guarantee of Rent profit share, insurance, or anyone\u2019s identity.';
 
 /**
  * One small check badge, shown only when the HOUSE itself is verified.

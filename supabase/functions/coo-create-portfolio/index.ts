@@ -16,6 +16,7 @@ import {
   typedRate,
   typedRateNeedsReload,
 } from "../_shared/partnerReturnPolicy.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,7 +41,7 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user: caller }, error: callerError } = await userClient.auth.getUser();
+    const { data: { user: caller }, error: callerError } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (callerError || !caller) return json({ error: "Unauthorized" }, 401);
 
     // Built per request with the caller as x-welile-actor, so a typed rate the gate queues for the

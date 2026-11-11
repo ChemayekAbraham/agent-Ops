@@ -206,7 +206,7 @@ export default function InvestmentPortfolio() {
               <p className="text-lg font-black text-success leading-tight truncate">
                 {formatAmount(expectedMonthlyRoi)}
               </p>
-              <p className="text-[11px] text-muted-foreground font-medium mt-1">Monthly Returns</p>
+              <p className="text-[11px] text-muted-foreground font-medium mt-1">Monthly Rent profit share</p>
             </CardContent>
           </Card>
           <Card className="border border-border/40 shadow-none">

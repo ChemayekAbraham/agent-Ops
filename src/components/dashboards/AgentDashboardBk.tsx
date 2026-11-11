@@ -12,26 +12,25 @@ import AgentVettingBanner from '@/components/agent-vetting/AgentVettingBanner';
 // Delete src/components/agent-bk/, AgentDashboardBk.tsx and the /dashboard/agent-bk
 // route together when the old layout is no longer needed.
 //
-import { useState, useEffect, useRef, useMemo, Suspense } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { lazyWithRetry as lazy, lazyNamed } from '@/lib/lazyWithRetry';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeCashoutAgentConfig, buildQueueCategoryOrClause } from '@/lib/cashoutAgentConfig';
+import { closeT4RentRequest, openT4RentRequest, useT4Request } from '@/lib/t4RentRequest';
 
 // The legacy "Post a rent request here" card and its "earn UGX 5000" line are
 // hidden for now (2026-10-16): the signature rent-request card is the single
 // entry point on this dashboard. Flip to true to bring them back.
 const SHOW_LEGACY_RENT_REQUEST_CARD = false;
 /**
- * The dashboard's "Post rent request" flow. 'assistant' is the guided chat
- * (RentRequestAssistant), the flow for all agents since 2026-11-03. 'classic' is
- * the old AgentRentRequestDialog chat, parked here until Pius says to delete it;
- * switch back by setting this to 'classic'. (Renew, the tenant intake queue and
- * the listing "swap tenant" flow still use AgentRentRequestDialog directly.)
+ * "Post rent request" opens the T4 form (RentRequestAssistant) through
+ * openT4RentRequest; T4RentRequestHost in App shows it. Since 2026-11-09 it is
+ * the only way to post, resubmit or renew a rent request. The old
+ * AgentRentRequestDialog stays on disk but nothing opens it.
  */
-const DASHBOARD_RENT_REQUEST_FLOW = 'assistant' as 'assistant' | 'classic';
 
 
 import AiIdButton from '@/components/ai-id/AiIdButton';
@@ -215,16 +214,9 @@ const AgentMenuDrawer = lazyNamed(() => import('@/components/agent-bk/AgentMenuD
 const RentPosterDialog = lazy(() => import('@/components/agent/RentPosterDialog'));
 const RegFormActionDialog = lazy(() => import('@/components/agent/RegFormActionDialog'));
 const AgentDepositDialog = lazyNamed(() => import('@/components/agent/AgentDepositDialog'), 'AgentDepositDialog');
-// One shared loader so the chunk can be fetched ahead of the first tap
-// (idle time, or the moment a finger lands on the card) and React.lazy reuses it.
-const loadAgentRentRequestDialog = () => import('@/components/agent/AgentRentRequestDialog');
-const AgentRentRequestDialog = lazy(loadAgentRentRequestDialog);
-const loadRentRequestAssistant = () => import('@/components/agent/rentRequestAssistant/RentRequestAssistant');
-const RentRequestAssistant = lazy(loadRentRequestAssistant);
-
-/** Fetch the active rent-request flow ahead of time; safe to call repeatedly. */
+/** Fetch the T4 form ahead of the first tap (idle time, or a finger on the card); safe to call repeatedly. */
 function preloadAgentRentRequestDialog() {
-  void (DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? loadRentRequestAssistant() : loadAgentRentRequestDialog()).catch(() => {});
+  void import('@/components/agent/rentRequestAssistant/RentRequestAssistant').catch(() => {});
 }
 
 /** Skip speculative downloads on Data Saver or very slow connections. */
@@ -285,26 +277,6 @@ const FieldCollectDailyTotals = lazyNamed(() => import('@/components/agent/Field
 function LazyModal({ when, children, fallback = null }: { when: unknown; children: ReactNode; fallback?: ReactNode }) {
   if (!when) return null;
   return <Suspense fallback={fallback}>{children}</Suspense>;
-}
-
-// Shown for the instant between the tap and the dialog's first paint when its
-// chunk is still downloading, so the tap never looks ignored.
-function RentRequestLoadingShell() {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed inset-0 z-[150] flex flex-col bg-background"
-    >
-      <div className="shrink-0 bg-primary px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-primary-foreground">
-        <p className="text-[15px] font-semibold leading-tight">Rent request</p>
-        <p className="text-[11px] text-primary-foreground/80">Getting your form ready…</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
-      </div>
-    </div>
-  );
 }
 
 interface AgentDashboardProps {
@@ -438,14 +410,15 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   const [tenantInviteOpen, setTenantInviteOpen] = useState(false);
   const { isMerchantAgent: isMerchantAgentEarly } = useIsMerchantAgent();
   // Weekly Listing Mission promo dialog removed — campaign expired.
-  const [rentRequestOpen, setRentRequestOpen] = useState(false);
-
-  // Deep link & event support for opening the Post Rent Request modal
-  useEffect(() => {
-    const handler = () => setRentRequestOpen(true);
-    window.addEventListener('open-rent-request', handler);
-    return () => window.removeEventListener('open-rent-request', handler);
+  // The T4 form is app-wide (T4RentRequestHost); this dashboard opens it and reads whether it is up.
+  // The `open-rent-request` event is handled by the host.
+  const rentRequestOpen = useT4Request() !== null;
+  const setRentRequestOpen = useCallback((next: boolean) => {
+    if (next) openT4RentRequest({ mode: 'new', entry: 'agent-dashboard' });
+    else closeT4RentRequest();
   }, []);
+
+  // Deep link support for opening the T4 form
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -2070,8 +2043,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             const { formatRatePct } = await import('@/lib/partnerReturnPolicy');
             const newRatePct = formatRatePct(await getPublicPartnerRate());
             const shareText = newRatePct
-              ? `🤝 Partner with Welile and earn ${newRatePct} monthly Returns! Register here: ${partnerFormLink}`
-              : `🤝 Partner with Welile and earn monthly Returns! Register here: ${partnerFormLink}`;
+              ? `🤝 Partner with Welile and earn ${newRatePct} monthly Rent profit share! Register here: ${partnerFormLink}`
+              : `🤝 Partner with Welile and earn monthly Rent profit share! Register here: ${partnerFormLink}`;
             if (navigator.share) {
               navigator.share({ title: 'Partner Registration', text: shareText, url: partnerFormLink }).catch(() => {});
             } else {
@@ -2125,19 +2098,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         open={tenantInviteOpen}
         onOpenChange={setTenantInviteOpen}
       />
-      </LazyModal>
-      <LazyModal when={rentRequestOpen} fallback={<RentRequestLoadingShell />}>
-      {DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? (
-        // Stays open on success: it shows "Posted" with "Post another" / "Back to dashboard".
-        <RentRequestAssistant open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
-      ) : (
-        <AgentRentRequestDialog
-          presentation="chat"
-          open={rentRequestOpen}
-          onOpenChange={setRentRequestOpen}
-          onSuccess={() => setRentRequestOpen(false)}
-        />
-      )}
       </LazyModal>
       <LazyModal when={businessAdvanceOpen}>
       <BusinessAdvanceRequestDialog

@@ -54,7 +54,7 @@ describe('FunderNewReviewDialog', () => {
     expect(screen.getByText(/Total Support/i)).toBeInTheDocument();
     expect(screen.getAllByText('UGX 450,000')).toHaveLength(2); // once in total card, once in item row
 
-    expect(screen.getByText(/Monthly Returns \(15%\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Monthly Rent profit share \(15%\)/i)).toBeInTheDocument();
     expect(screen.getByText('UGX 67,500')).toBeInTheDocument();
 
     expect(screen.getByText(/Available Balance/i)).toBeInTheDocument();
@@ -91,6 +91,45 @@ describe('FunderNewReviewDialog', () => {
 
     expect(screen.getByText('Fully covered')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Fund this plan/i })).toBeInTheDocument();
+  });
+
+  it('shows the agent release receipt without tenant or agent phone numbers', async () => {
+    const onFund = vi.fn().mockResolvedValue({
+      submitted: true,
+      reference: 'ref-1',
+      releasedToAgent: true,
+      landlordNames: ['Lou'],
+      rentRequestIds: ['h1'],
+    });
+    render(
+      <FunderNewReviewDialog
+        open
+        onOpenChange={vi.fn()}
+        items={[{
+          ...sampleItems[0],
+          landlordName: 'Lou',
+          tenantPhone: '0759 229 748',
+          agentPhone: '+256772123456',
+        }]}
+        available={500000}
+        walletLoading={false}
+        walletError={null}
+        onRemove={vi.fn()}
+        onFund={onFund}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Fund this plan/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirm and support/i }));
+    const sentences = await screen.findAllByText('Your rent has gone to the agent, who will pay the landlord within 24 hours.');
+    expect(sentences.length).toBeGreaterThan(0);
+    const receipt = sentences[0].closest('[role="dialog"]');
+    expect(receipt).not.toBeNull();
+    expect(receipt?.textContent).toContain('Lou');
+    expect(receipt?.textContent).toContain('ref-1');
+    expect(screen.getByRole('button', { name: /Download receipt/i })).toBeInTheDocument();
+    expect(receipt?.textContent || '').not.toContain('0759 229 748');
+    expect(receipt?.textContent || '').not.toContain('+256772123456');
+    expect(receipt?.textContent || '').not.toMatch(/\u2014/);
   });
 });
 

@@ -5,6 +5,7 @@ import { runShadowAudit } from "../_shared/shadowLogger.ts";
 import { shadowValidateWalletTransfer } from "../_shared/shadowValidation.ts";
 import { fetchShadowConfig, shouldSample } from "../_shared/shadowConfig.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -162,7 +163,7 @@ Deno.serve(async (req) => {
         global: { headers: { Authorization: authHeader } }
       });
 
-      const { data: { user }, error: userError } = await userClient.auth.getUser();
+      const { data: { user }, error: userError } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
       if (userError || !user) {
         console.error('Auth error:', userError);
         return new Response(

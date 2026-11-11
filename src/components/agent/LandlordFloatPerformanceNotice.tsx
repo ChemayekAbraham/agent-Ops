@@ -9,7 +9,7 @@ const fmtDay = (iso: string | null) => {
 };
 
 /**
- * Tells the agent where they stand before they try to withdraw landlord float: the rate against the 50% minimum, how much more to
+ * Tells the agent where they stand before they try to withdraw landlord float: the server's own message with the rate and how much more to
  * collect, and whether management has made an exception this week. The withdrawal dialogs still open for everyone; this is what they
  * see at the top.
  */
@@ -29,15 +29,9 @@ export function LandlordFloatPerformanceNotice({ className = '' }: { className?:
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
           <div className="min-w-0">
             <p className="font-bold text-destructive">You can&apos;t withdraw landlord float yet</p>
-            <p className="mt-1 text-foreground">
-              Your collection rate {period} is <strong>{p.ratePct}%</strong> ({formatUGX(p.collected)} collected of {formatUGX(p.expected)} due). The minimum is 50%.
+            <p className="mt-1 whitespace-pre-line break-words leading-relaxed text-foreground">
+              {p.message ?? `Your collection rate ${period} is ${p.ratePct ?? 0}% (${formatUGX(p.collected)} collected of ${formatUGX(p.expected)} billed). Landlord float is locked until you reach the minimum.`}
             </p>
-            {p.shortfallTo50 > 0 && (
-              <p className="mt-1 text-foreground">
-                Collect <strong>{formatUGX(p.shortfallTo50)}</strong> more to reach 50% and you can withdraw.
-                {p.basis !== 'rolling_7d' ? ' The week resets every Thursday.' : ''}
-              </p>
-            )}
           </div>
         </div>
       </div>
@@ -60,7 +54,7 @@ export function LandlordFloatPerformanceNotice({ className = '' }: { className?:
       <div className={`flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs ${className}`}>
         <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
         <p className="text-foreground">
-          Collection rate {period}: <strong>{p.ratePct}%</strong>. You meet the 50% minimum.
+          Collection rate {period}: <strong>{p.ratePct}%</strong>. {p.requiredPct != null ? `You meet the ${Math.round(p.requiredPct)}% minimum.` : 'You meet the minimum.'}
         </p>
       </div>
     );

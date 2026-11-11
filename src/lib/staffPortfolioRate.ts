@@ -31,12 +31,12 @@ export function staffRateRequestFields(input: StaffRateRequestInput): { fields: 
   const sends = switchOffSeen || input.edited;
   if (!sends) return { fields: { policy_enabled_seen } };
   const t = typedRate(typeof input.value === 'string' ? input.value.trim() : input.value);
-  if (t === 'invalid') return { error: 'Monthly Returns rate must be above 0% and at most 100%' };
+  if (t === 'invalid') return { error: 'Monthly Rent profit share rate must be above 0% and at most 100%' };
   return { fields: t === null ? { policy_enabled_seen } : { roi_percentage: t, policy_enabled_seen } };
 }
 
-export const POLICY_LOADING_MESSAGE = 'The Returns rate is still loading. Try again in a moment.';
-export const POLICY_UNKNOWN_MESSAGE = 'The Returns rate could not be checked. Reload the page.';
+export const POLICY_LOADING_MESSAGE = 'The Rent profit share rate is still loading. Try again in a moment.';
+export const POLICY_UNKNOWN_MESSAGE = 'The Rent profit share rate could not be checked. Reload the page.';
 
 /** The parts of useStaffPortfolioRate() that decide whether a create form may submit. */
 export interface StaffRateSubmitState {
@@ -60,7 +60,7 @@ export function staffRateSubmitBlock(rate: StaffRateSubmitState): string | null 
   return null;
 }
 
-export const POLICY_CHANGED_MESSAGE ='The Returns policy changed. Reload the page and check the rate.';
+export const POLICY_CHANGED_MESSAGE ='The Rent profit share policy changed. Reload the page and check the rate.';
 
 /**
  * True when a supabase.functions.invoke error is the server's 409 POLICY_CHANGED answer. Reads the

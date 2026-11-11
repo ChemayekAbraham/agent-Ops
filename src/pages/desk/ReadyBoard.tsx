@@ -25,9 +25,13 @@ import {
 import { PHONE_PAGE, groupHeading, groupRows, rowChips, rowMeta, rowReason, shortPrimary, type ChipModel } from './boardRowModel';
 import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
-import { readableError } from './reviewApi';
+import { readableError, rpc } from './reviewApi';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
-import { passMovesOnServer } from './deskActions';
+import { SENT_BACK_TO_AGENT, passMovesOnServer, passSentTo, rejectMovesOnServer } from './deskActions';
+import { toast } from 'sonner';
+import { KindChip } from './KindChip';
+import { DeskSearchBox, SearchResults, searchReady, type SearchDesk } from './deskSearch';
+import { asIs } from './deskActions';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
 import { TransferPicker } from './TransferPicker';
@@ -82,11 +86,18 @@ import {
 export type DrawerStart = Decision | 'wait' | 'call' | 'complete' | 'photos' | 'concern';
 
 /** What the board already knows about the row, so the drawer need not ask again. */
-export type DrawerContext = { itemsMissing?: string[] | null; waitSuggest?: WaitSuggest | null };
+export type DrawerContext = {
+  itemsMissing?: string[] | null;
+  waitSuggest?: WaitSuggest | null;
+  /** The board's word: an answered call to this desk's subject is already on file. */
+  callAnswered?: boolean;
+};
 
 export type OpenDrawer = (requestId: string, initial?: DrawerStart, ctx?: DrawerContext) => void;
 
 const NEEDS_ROLE = 'Needs the employee role and a staff ID';
+/** E73: the picker's note for assigning an agent (the server wants 10+ characters); the reviewer can change it. */
+export const ASSIGN_NOTE = 'Applied without an agent: assigned the nearest eligible agent';
 
 /** Chip colour per decision group. */
 function rowTone(d: BoardDecision): 'ok' | 'warn' | 'bad' | 'idle' {
@@ -208,12 +219,14 @@ function BoardRowLine({
       {note.kind === 'retry' ? `${RETRY_LABEL}. ${note.text}` : note.text}
     </p>
   );
-  const chipEls = (list: ChipModel[]) =>
-    list.map((c) => (
+  const chipEls = (list: ChipModel[]) => [
+    ...(row.kind ? [<KindChip key="kind" kind={row.kind} />] : []),
+    ...list.map((c) => (
       <Chip key={c.key} tone={c.tone} title={c.title} strong={c.strong}>
         {c.text}
       </Chip>
-    ));
+    )),
+  ];
 
   const tenant = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -392,6 +405,10 @@ function PushAllSheet({
       setProgress({ ...p, failed: [...p.failed] });
     }
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
+    if (p.done > 0) {
+      const where = group === 'pass' ? passSentTo(stage) : group === 'transfer' ? `Transferred. ${passSentTo('agent_ops')}` : SENT_BACK_TO_AGENT;
+      toast.success(`${where}: ${p.done}`);
+    }
     setRunning(false);
     setFinished(true);
   };
@@ -519,7 +536,36 @@ function ScopeSwitch({
   );
 }
 
+/** Each stage board's own slug for desk_search: it searches only the requests at this desk. */
+const STAGE_SEARCH: Partial<Record<Stage, SearchDesk>> = {
+  service_centre: 'service-centre',
+  agent_ops: 'agent-ops',
+  tenant_ops: 'tenant-ops',
+  landlord_ops: 'landlord-ops',
+};
+
+/**
+ * The board, with its search box on top (E72). While a search is on, its
+ * results replace the list (the list stays mounted, hidden, so its filters
+ * and notes survive); a result opens the review drawer.
+ */
 export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: boolean; onOpen: OpenDrawer }) {
+  const slug = STAGE_SEARCH[stage];
+  const [query, setQuery] = useState('');
+  const searching = !!slug && query.trim().length > 0;
+  if (!slug) return <BoardList stage={stage} board={board} onOpen={onOpen} />;
+  return (
+    <div style={stackLayout(12)}>
+      <DeskSearchBox desk={slug} value={query} onChange={setQuery} />
+      {searching && <SearchResults desk={slug} query={query} onOpen={(id) => onOpen(id)} />}
+      <div hidden={searching}>
+        <BoardList stage={stage} board={board} onOpen={onOpen} />
+      </div>
+    </div>
+  );
+}
+
+function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onOpen: OpenDrawer }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { mark, clear } = useReviewStatus();
@@ -530,12 +576,18 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, RowNote>>({});
   const [pushAll, setPushAll] = useState<BoardDecision | null>(null);
-  const [picker, setPicker] = useState<BoardRow | null>(null);
+  // The transfer picker: a suggested transfer's "Pick another agent…", or E73's "Assign agent".
+  const [picker, setPicker] = useState<{ row: BoardRow; mode: 'transfer' | 'assign' } | null>(null);
   // E63: a suggested send-back opens the send-back sheet, prefilled with the server's suggestion.
   const [sendBack, setSendBack] = useState<BoardRow | null>(null);
   const closeSendBack = useCallback(() => setSendBack(null), []);
 
   const data = q.data;
+  // Every drawer opened from this board knows whether the row already has an answered call on file.
+  const open: OpenDrawer = (id, start, ctx) => {
+    const r = data?.rows.find((x) => x.id === id);
+    onOpen(id, start, { ...(r?.call?.answered_since_stage ? { callAnswered: true } : {}), ...ctx });
+  };
   const rows = useMemo(() => (data?.rows ?? []).filter((r) => !only || r.decision === only), [data, only]);
   const canAct = data?.can_act === true;
   // Below md each row is a card and the list pages 20 at a time.
@@ -562,7 +614,8 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
       mark(row.id, { kind: 'move_failed', message, decision: row.push?.decision ?? row.decision });
       setNote(row.id, { kind: 'retry', text: message, snapshot: row });
     } else {
-      setNote(row.id, { kind: 'bad', text: readableError({ message }) });
+      // The server's own words, as-is.
+      setNote(row.id, { kind: 'bad', text: message });
     }
   };
 
@@ -570,7 +623,12 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     if (!user) return;
     // Call first / finish the checks: the reviewer works in the drawer.
     if (opensDrawer(row.decision)) {
-      onOpen(row.id, drawerStartFor(row.decision), { itemsMissing: row.items_missing ?? null, waitSuggest: row.wait_suggest });
+      open(row.id, drawerStartFor(row.decision), { itemsMissing: row.items_missing ?? null, waitSuggest: row.wait_suggest });
+      return;
+    }
+    // E73: a tenant who applied alone: pick the agent from the nearby list, one transfer call.
+    if (row.decision === 'assign_agent') {
+      setPicker({ row, mode: 'assign' });
       return;
     }
     // Send back (E63), and the system's reject (E64): choose or confirm the office, reason and note, then one server call.
@@ -580,17 +638,20 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     }
     // No push values: the drawer asks for what is missing.
     if (row.decision !== 'wait' && !row.push) {
-      onOpen(row.id, row.decision === 'waiting' ? undefined : (row.decision as Decision));
+      open(row.id, row.decision === 'waiting' ? undefined : (row.decision as Decision));
       return;
     }
     setBusy(row.id);
     setNote(row.id, null);
     if (row.decision === 'wait') {
       const r = await setSuggestedWait(row, stage);
-      setNote(row.id, { kind: r.ok ? 'ok' : 'bad', text: r.ok ? r.message : readableError({ message: r.message }) });
+      setNote(row.id, { kind: r.ok ? 'ok' : 'bad', text: r.message });
+      if (r.ok) toast.success(r.message);
     } else {
       const out = await pushRow(row, stage, user.id);
-      const serverPass = !!row.push && passMovesOnServer(stage, row.push.decision);
+      // Moved by the server itself: a pass or reject at the middle desks, and a transfer (then pass).
+      const d = row.push?.decision;
+      const serverPass = !!d && (passMovesOnServer(stage, d) || rejectMovesOnServer(stage, d) || d === 'transfer');
       if (out.kind === 'moved' && serverPass) {
         // E64: the review moved it. The card goes; the toast says where.
         clear(row.id);
@@ -603,9 +664,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
         clear(row.id);
         mark(row.id, { kind: 'moved', message: out.message });
         setNote(row.id, { kind: 'ok', text: out.message });
-      } else if (serverPass && out.kind === 'review_failed') {
-        // The server's own words, as-is.
-        setNote(row.id, { kind: 'bad', text: out.message });
+        toast.success(out.message);
       } else failed(row, out.kind, out.message);
     }
     setBusy(null);
@@ -617,19 +676,33 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     if (!user) return 'Sign in again.';
     setNote(row.id, null);
     const out = await pushRow(row, stage, user.id, { targetAgentId: agentId, note });
-    queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
     if (out.kind === 'moved') {
       clear(row.id);
       mark(row.id, { kind: 'moved', message: out.message });
-      setNote(row.id, { kind: 'ok', text: out.message });
+      afterServerPass(queryClient, stage, row.id, out.message);
       return null;
     }
+    queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
     if (out.kind === 'move_failed') {
       // The review is in; retry only the move, to the agent that was picked.
       failed({ ...row, push: row.push ? { ...row.push, decision: 'transfer', target_agent_id: agentId, note } : row.push }, 'move_failed', out.message);
       return null;
     }
     return out.message;
+  };
+
+  /**
+   * E73: give a self-applied tenant an agent. One call, ops_transfer_pipeline_request_agent;
+   * the row then comes back as an ordinary Agent Ops row. The server's refusal is shown as-is.
+   */
+  const assignAgent = async (row: BoardRow, agentId: string, note: string, name: string | null): Promise<string | null> => {
+    const { error } = await rpc('ops_transfer_pipeline_request_agent', { p_request_id: row.id, p_to_agent_id: agentId, p_reason: note });
+    if (error) return asIs(error);
+    const message = `Agent assigned${name ? `: ${name}` : ''}`;
+    setNote(row.id, { kind: 'ok', text: message });
+    toast.success(message);
+    void queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
+    return null;
   };
 
   const retry = async (row: BoardRow) => {
@@ -645,6 +718,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     clear(row.id);
     mark(row.id, { kind: 'moved', message: moved.message });
     setNote(row.id, { kind: 'ok', text: moved.message });
+    toast.success(moved.message);
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
   };
 
@@ -704,7 +778,9 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
                 className="desk-sticky-head text-sm font-semibold text-foreground"
                 style={{ position: 'sticky', top: card ? 56 : 0, zIndex: 5, margin: card ? '0 -6px 8px' : '0 0 4px', padding: card ? '8px 6px' : '6px 0' }}
               >
-                {groupHeading(g.decision, stage)} · {fmt('int', rows.filter((r) => r.decision === g.decision).length)}
+                {g.decision === 'assign_agent'
+                  ? `${groupHeading(g.decision, stage)} (${fmt('int', rows.filter((r) => r.decision === g.decision).length)})`
+                  : `${groupHeading(g.decision, stage)} · ${fmt('int', rows.filter((r) => r.decision === g.decision).length)}`}
               </h3>
               <ul style={{ ...stackLayout(card ? 12 : 0), margin: 0, padding: 0 }}>
                 {g.rows.map((r) => (
@@ -719,8 +795,8 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
                     busy={busy === r.id}
                     onPrimary={() => void primary(r)}
                     onRetry={() => void retry(r)}
-                    onOpen={onOpen}
-                    onPick={stage === 'agent_ops' ? () => setPicker(r) : undefined}
+                    onOpen={open}
+                    onPick={stage === 'agent_ops' ? () => setPicker({ row: r, mode: 'transfer' }) : undefined}
                     health={r.tenant_id ? health.data?.[r.tenant_id] : undefined}
                     concerns={concerns.data?.[r.id]}
                   />
@@ -743,11 +819,14 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
 
       {picker && (
         <TransferPicker
-          requestId={picker.id}
-          tenant={picker.tenant}
-          defaultNote={picker.push?.note ?? picker.why ?? ''}
+          requestId={picker.row.id}
+          tenant={picker.row.tenant}
+          mode={picker.mode}
+          defaultNote={picker.mode === 'assign' ? ASSIGN_NOTE : picker.row.push?.note ?? picker.row.why ?? ''}
           onClose={() => setPicker(null)}
-          onConfirm={(agentId, note) => pickTransfer(picker, agentId, note)}
+          onConfirm={(agentId, note, name) =>
+            picker.mode === 'assign' ? assignAgent(picker.row, agentId, note, name) : pickTransfer(picker.row, agentId, note)
+          }
         />
       )}
 

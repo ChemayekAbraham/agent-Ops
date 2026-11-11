@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
-import { monthlyPlansKey, readMonthlyPlans, saveMonthlyPlan, type MonthlyProjectPlan } from './monthlyProjectPlans';
+import { monthlyPlansKey, readMonthlyPlans, saveMonthlyPlan, type MonthlyProjectPlan } from './monthlyProjectPlans.data';
 
 type Project = { id: string; name: string };
 

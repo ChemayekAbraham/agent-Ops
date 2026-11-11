@@ -1,6 +1,7 @@
 import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -169,7 +170,7 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "").trim();
     if (!token) return json({ error: "Unauthorized" }, 401);
 
-    const { data: authData, error: authError } = await admin.auth.getUser(token);
+    const { data: authData, error: authError } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     const caller = authData?.user;
     if (authError || !caller) return json({ error: "Unauthorized" }, 401);
 

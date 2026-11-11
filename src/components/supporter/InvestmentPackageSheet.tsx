@@ -283,7 +283,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
   /** The PDF and the share text state the rate and the rewards: refuse while the rate is unknown. */
   const rateUnavailable = () => {
     if (ratePctLabel !== null) return false;
-    toast.error('Your Returns rate has not loaded yet. Try again in a moment.');
+    toast.error('Your Rent profit share rate has not loaded yet. Try again in a moment.');
     return true;
   };
 
@@ -319,7 +319,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
       } else {
         // Fallback: download the PDF and open WhatsApp with a message
         doc.save(fileName);
-        const text = `📊 Welile Supporter Package — ${category.category}\n\nPlease see the attached PDF for full details.\n\n✅ ${ratePctLabel} Monthly Reward | 90-day lock-in\n\nJoin Welile Supporters today!`;
+        const text = `📊 Welile Supporter Package — ${category.category}\n\nPlease see the attached PDF for full details.\n\n✅ ${ratePctLabel} Monthly Rent profit share | 90-day lock-in\n\nJoin Welile Supporters today!`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         toast.success('PDF downloaded — attach it in WhatsApp');
       }
@@ -431,7 +431,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                   </div>
                   {ratePctLabel && (
                     <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs">
-                      {ratePctLabel} Monthly Reward
+                      {ratePctLabel} Monthly Rent profit share
                     </Badge>
                   )}
                 </div>
@@ -457,7 +457,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                   <div className="p-3 rounded-xl bg-success/5 border border-success/20">
                     <div className="flex items-center gap-1.5 mb-1">
                       <TrendingUp className="h-3.5 w-3.5 text-success" />
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Monthly Reward</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Monthly Rent profit share</span>
                     </div>
                     <p className="text-lg font-bold text-success">{monthlyReward === null ? '—' : formatAmount(monthlyReward)}</p>
                   </div>
@@ -481,7 +481,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                     <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Welile pays rent <strong className="text-foreground">upfront</strong> for tenants — never in arrears. Your funds are deployed immediately.</span></li>
                     <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Welile Agents hold <strong className="text-foreground">tenant placement rights</strong> — if a tenant defaults, the agent replaces them with a paying tenant.</span></li>
                     <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Defaults <strong className="text-foreground">do not affect supporters</strong>. Welile's operational model absorbs and mitigates all default risk.</span></li>
-                    <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Your <strong className="text-foreground">{ratePctLabel ? `${ratePctLabel} monthly reward` : 'monthly reward'}</strong> is a platform service reward — not an investment return.</span></li>
+                    <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Your <strong className="text-foreground">{ratePctLabel ? `${ratePctLabel} monthly Rent profit share` : 'monthly Rent profit share'}</strong> is a platform service reward — not an investment return.</span></li>
                   </ul>
                 </div>
 

@@ -52,7 +52,7 @@ export async function sendBackTo(input: {
   });
   if (error) return { ok: false, message: serverMessage(error) };
   const r = (data ?? {}) as SendBackResult;
-  if (input.to === SUGGESTED_OFFICE) return { ok: true, message: 'Sent back to the agent in the field: rejected.' };
+  if (input.to === SUGGESTED_OFFICE) return { ok: true, message: 'Sent back to the agent' };
   return { ok: true, message: `Sent back to ${r.to_label ?? input.to}.` };
 }
 

@@ -4,9 +4,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 const STEPS = [
   { icon: Home, title: 'Choose a house', text: 'Browse empty houses or houses that already have a ready tenant.' },
   { icon: ClipboardCheck, title: 'Review your support amount', text: 'Check the amount for each home and your total before anything is submitted.' },
-  { icon: Send, title: 'Submit for approval', text: 'Your support plan goes to the team for the normal review step.' },
-  { icon: CheckCircle2, title: 'Support becomes active', text: 'Once approved, support becomes active through the existing process.' },
-  { icon: LineChart, title: 'Track it in your portfolio', text: 'Follow your supported homes and returns from your portfolio.' },
+  { icon: Send, title: 'Confirm your support', text: 'When your float covers the rent, it goes straight to the agent.' },
+  { icon: CheckCircle2, title: 'The agent pays the landlord', text: 'Your rent has gone to the agent, who will pay the landlord within 24 hours.' },
+  { icon: LineChart, title: 'Track Rent profit share', text: 'Follow your supported homes and Rent profit share from your portfolio.' },
 ];
 
 export function FunderNewHowItWorksDialog({
@@ -41,8 +41,8 @@ export function FunderNewHowItWorksDialog({
         </ol>
 
         <p className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-          Selecting and reviewing homes here is just planning. Nothing is funded until you confirm and the existing
-          approval step is completed. Returns shown are estimates based on the current 15% rate.
+          Selecting and reviewing homes here is just planning. Nothing is funded until you confirm. When your
+          float covers the rent, it goes to the agent, who pays the landlord within 24 hours. Rent profit share shown are estimates based on the current 15% rate.
         </p>
       </DialogContent>
     </Dialog>

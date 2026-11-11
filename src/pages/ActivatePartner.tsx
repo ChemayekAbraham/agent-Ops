@@ -237,7 +237,7 @@ export default function ActivatePartner() {
               {noteRatePct ? (
                 <>
                   <p className="text-xs font-medium text-emerald-700">
-                    Earn <span className="text-base font-bold">{noteRatePct}</span> monthly Returns on your support
+                    Earn <span className="text-base font-bold">{noteRatePct}</span> monthly Rent profit share on your support
                   </p>
                   {noteMonthlyReturn != null && (
                     <p className="text-xs text-emerald-600 mt-1">
@@ -246,7 +246,7 @@ export default function ActivatePartner() {
                   )}
                 </>
               ) : (
-                <p className="text-xs font-medium text-emerald-700">Sign in to see your Returns rate</p>
+                <p className="text-xs font-medium text-emerald-700">Sign in to see your Rent profit share rate</p>
               )}
             </div>
           </CardContent>
@@ -259,10 +259,10 @@ export default function ActivatePartner() {
               <CheckCircle className="h-12 w-12 text-emerald-600 mx-auto" />
               <h2 className="text-lg font-bold text-emerald-700">Account Activated!</h2>
               <p className="text-sm text-emerald-600">
-                Deposit {formatUGX(Number(note.amount))} into your wallet to start earning monthly Returns.
+                Deposit {formatUGX(Number(note.amount))} into your wallet to start earning monthly Rent profit share.
               </p>
               {yourRatePct && (
-                <p className="text-xs text-emerald-600">A deposit opens at {yourRatePct} monthly Returns for you.</p>
+                <p className="text-xs text-emerald-600">A deposit opens at {yourRatePct} monthly Rent profit share for you.</p>
               )}
               <Button onClick={() => navigate('/dashboard/funder')} className="w-full gap-2">
                 Go to Dashboard <ArrowRight className="h-4 w-4" />

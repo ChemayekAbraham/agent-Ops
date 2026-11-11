@@ -88,8 +88,8 @@ export function ROIPaymentHistory() {
             <TrendingUp className="h-5 w-5 text-emerald-600" />
           </div>
           <div>
-            <h3 className="font-bold text-base">ROI Auto-Payouts</h3>
-            <p className="text-xs text-muted-foreground">Automatic 15% monthly rewards paid to supporter wallets</p>
+            <h3 className="font-bold text-base">Rent profit share Auto-Payouts</h3>
+            <p className="text-xs text-muted-foreground">Automatic 15% monthly Rent profit share paid to supporter wallets</p>
           </div>
         </div>
         <Badge variant="secondary" className="gap-1 text-xs">
@@ -161,9 +161,9 @@ export function ROIPaymentHistory() {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">Loading ROI payment history...</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">Loading Rent profit share payment history...</div>
           ) : filtered.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">No ROI payments found</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">No Rent profit share payments found</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -171,7 +171,7 @@ export function ROIPaymentHistory() {
                   <tr className="border-b bg-muted/30">
                     <th className="text-left px-4 py-3 font-semibold text-xs text-muted-foreground">Supporter</th>
                     <th className="text-left px-4 py-3 font-semibold text-xs text-muted-foreground">Rent Amount</th>
-                    <th className="text-left px-4 py-3 font-semibold text-xs text-muted-foreground">ROI Paid</th>
+                    <th className="text-left px-4 py-3 font-semibold text-xs text-muted-foreground">Rent profit share Paid</th>
                     <th className="text-left px-4 py-3 font-semibold text-xs text-muted-foreground">Payment #</th>
                     <th className="text-left px-4 py-3 font-semibold text-xs text-muted-foreground">Status</th>
                     <th className="text-left px-4 py-3 font-semibold text-xs text-muted-foreground">Paid At</th>

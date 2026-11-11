@@ -292,7 +292,7 @@ export function AgentLandlordFloatFunded({
                           <td style={{ padding: '18px 22px' }}>
                             <Text style={bonusText}>
                               You also earned a <strong>{formattedBonus}</strong> rent-funded bonus, already
-                              credited to your withdrawable wallet. You'll keep earning <strong>10% commission</strong>
+                              credited to your withdrawable wallet. You'll keep earning <strong>8% commission</strong>
                               on every repayment this tenant makes.
                             </Text>
                           </td>

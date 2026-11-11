@@ -9,6 +9,9 @@ import type { FunderNewEmptyHouse } from '@/components/funder-new/types';
 import { locationNoticeState } from '@/components/funder-new/FunderNewLocationNotice';
 import { FunderV3HousesList, type FunderV3HousesListHandle } from './FunderV3HousesList';
 import { FunderV3MapControls } from './FunderV3MapControls';
+import { boardHeadline, boardSubline } from '@/components/funder-new/boardGroups';
+import type { BoardPin } from '@/components/supporter/FunderHouseListingsSection';
+import type { BoardItem } from '@/lib/fundersBoard';
 import { FunderV3DemoteSheet } from './FunderV3DemoteSheet';
 import { cardIdOf } from './FunderV3HousesList';
 import type { FunderV3MapInsets } from './FunderV3Map';
@@ -49,6 +52,11 @@ export interface FunderV3MapRenderProps {
   centreOffsetY?: number;
   /** E59: colour pins by funders board tag. */
   boardTagsOn: boolean;
+  /** Bumped by "my location": the map recentres on the device. */
+  locateToken?: number;
+  /** E72b: rent request pins coloured by tag (tags on); tapping one scrolls to its card. */
+  boardPins?: BoardPin[];
+  onPinCard?: (cardId: string) => void;
 }
 
 /** E59 demote, given only to viewers for whom funders_board_can_demote() is true. */
@@ -140,6 +148,8 @@ export function FunderV3HousesScreen({
   const backRef = useRef<HTMLButtonElement | null>(null);
   const [topReserve, setTopReserve] = useState(76);
   const [centreOffset, setCentreOffset] = useState(0);
+  const [locateToken, setLocateToken] = useState(0);
+  const bumpLocate = useCallback(() => setLocateToken((n) => n + 1), []);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
@@ -164,6 +174,15 @@ export function FunderV3HousesScreen({
       const next = new Map(prev);
       if (next.has(cardId)) next.delete(cardId);
       else next.set(cardId, boardItemFor(entry.category, entry.item));
+      return next;
+    });
+  }, []);
+  const toggleDemoteBoard = useCallback((item: BoardItem) => {
+    const cardId = `board:${item.id}`;
+    setDemoteChecked((prev) => {
+      const next = new Map(prev);
+      if (next.has(cardId)) next.delete(cardId);
+      else next.set(cardId, { kind: 'rent_request', id: item.id });
       return next;
     });
   }, []);
@@ -332,20 +351,49 @@ export function FunderV3HousesScreen({
     [api],
   );
 
+  // E72b: a rent request pin scrolls to its card (fundable or view only) and lights it.
+  const onPinCard = useCallback((cardId: string) => {
+    const reveal = () => {
+      if (listHandle.current?.scrollToCard(cardId)) setHighlightedId(cardId);
+    };
+    if (mapFullRef.current) {
+      setMapFull(false);
+      window.requestAnimationFrame(() => window.requestAnimationFrame(reveal));
+    } else reveal();
+  }, []);
+
   const openMapFull = useCallback(() => setMapFull(true), []);
   const toggleMapFull = useCallback(() => setMapFull((on) => !on), []);
 
   const activeCard = hoveredId ?? highlightedId;
   const activeHouseId = activeCard?.startsWith('empty:') ? activeCard.slice('empty:'.length) : null;
 
-  const shown = api.items.length;
   const counting = api.feedLoading || listLoadingOverride;
 
-  const titleRow = (
+  const counts = api.boardCounts;
+  const titleRow = api.boardTagsOn && !counts ? (
+    // E72b (tags on), funders: the grouped list without header totals (those are COO/CEO only).
+    <div className="flex min-w-0 items-center gap-2">
+      <h2 className="fv3-t-base font-bold text-foreground">Houses to fund</h2>
+    </div>
+  ) : counts ? (
+    // E72b (tags on), COO/CEO: "{ready_total} ready to fund · UGX {ready_total_ugx}", then "{verified} verified · {pending} pending verification".
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <h2 className="fv3-t-base font-bold text-foreground">Houses to fund</h2>
+        <span data-testid="fv3-count" className="rounded-full bg-primary/10 px-2 py-0.5 fv3-t-2xs font-semibold tabular-nums text-primary">
+          {boardHeadline(counts)}
+        </span>
+      </div>
+      <p className="fv3-t-2xs tabular-nums text-muted-foreground" style={{ margin: 0 }} data-testid="fv3-count-sub">
+        {boardSubline(counts)}
+      </p>
+    </div>
+  ) : (
     <div className="flex min-w-0 items-center gap-2">
       <h2 className="fv3-t-base font-bold text-foreground">Houses to fund</h2>
       <span data-testid="fv3-count" className="rounded-full bg-primary/10 px-2 py-0.5 fv3-t-2xs font-semibold tabular-nums text-primary">
-        {counting ? '…' : countLabel(shown, api.filteredTotal)}
+        {counting ? '…' : countLabel(api.items.length, api.filteredTotal)}
       </span>
     </div>
   );
@@ -500,6 +548,7 @@ export function FunderV3HousesScreen({
           demoteMode={demoteMode}
           demoteChecked={demoteIds}
           onDemoteToggle={demote ? toggleDemoteCard : undefined}
+          onDemoteToggleBoard={demote ? toggleDemoteBoard : undefined}
         />
       )}
     </div>
@@ -538,9 +587,9 @@ export function FunderV3HousesScreen({
           {demoteBar ? <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20">{demoteBar}</div> : null}
         </aside>
         <div className="relative min-h-0 min-w-0">
-          {renderMap({ activeHouseId, onPinHouse, insets: { top: 0, right: 0, bottom: 0, left: 0 }, showLoadedNote: true, interactive: true, boardTagsOn: api.boardTagsOn })}
+          {renderMap({ activeHouseId, onPinHouse, insets: { top: 0, right: 0, bottom: 0, left: 0 }, showLoadedNote: true, interactive: true, boardTagsOn: api.boardTagsOn, locateToken, boardPins: api.boardPins, onPinCard })}
           <div className="absolute bottom-4 right-4 z-20">
-            <FunderV3MapControls location={api.location} />
+            <FunderV3MapControls location={api.location} onLocate={bumpLocate} />
           </div>
         </div>
         {demoteSheet}
@@ -584,10 +633,13 @@ export function FunderV3HousesScreen({
               onMapTap: openMapFull,
               centreOffsetY: mapFull ? 0 : centreOffset,
               boardTagsOn: api.boardTagsOn,
+              boardPins: api.boardPins,
+              onPinCard,
+              locateToken,
             })}
           </div>
           <div className="pointer-events-none absolute bottom-3 right-3 z-10 pb-[env(safe-area-inset-bottom,0px)]">
-            <FunderV3MapControls location={api.location} fullscreen={mapFull} onToggleFullscreen={toggleMapFull} />
+            <FunderV3MapControls location={api.location} fullscreen={mapFull} onToggleFullscreen={toggleMapFull} onLocate={bumpLocate} />
           </div>
         </div>
 

@@ -13,7 +13,7 @@ import { useDossierSearch, useDossierProfile, useDossierMoney, useDossierPartner
 
 const ugx = (n: any) => (n == null ? '—' : `UGX ${Math.round(Number(n)).toLocaleString('en-US')}`);
 const dt = (d: any) => (d ? format(new Date(d), 'dd MMM yyyy, HH:mm') : '—');
-const label = (s: string) => (s || '').replace(/_/g, ' ').replace(/\broi\b/gi, 'Returns').replace(/\bloan\b/gi, 'Rent Plan');
+const label = (s: string) => (s || '').replace(/_/g, ' ').replace(/\broi\b/gi, 'Rent profit share').replace(/\bloan\b/gi, 'Rent Plan');
 
 function Loading() { return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>; }
 function Err({ e }: { e: any }) { return <p className="text-sm text-destructive py-4">{String(e?.message ?? e)}</p>; }
@@ -187,7 +187,7 @@ function PartnerSection({ id, active }: { id: string; active: boolean }) {
             <button className="flex w-full items-center gap-3 p-4 text-left" onClick={() => setOpen(open === pf.id ? undefined : pf.id)}>
               {open === pf.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               <div className="flex-1"><p className="font-semibold">{pf.code} <Badge variant="outline">{pf.status}</Badge></p>
-                <p className="text-xs text-muted-foreground">Created {dt(pf.created_at)} · {ugx(pf.amount)} · {pf.rate}% Returns · {pf.duration} months · Returns earned {ugx(pf.returns_earned)}</p></div>
+                <p className="text-xs text-muted-foreground">Created {dt(pf.created_at)} · {ugx(pf.amount)} · {pf.rate}% Rent profit share · {pf.duration} months · Rent profit share earned {ugx(pf.returns_earned)}</p></div>
               <p className="text-xs text-muted-foreground">Top-ups {n('topped_up')} · Compounds {n('compounded')} · Edits {h.length - n('topped_up') - n('compounded') - n('created')}</p>
             </button>
             {open === pf.id && <CardContent>{h.length === 0 ? <p className="text-sm text-muted-foreground">No recorded changes</p> : (

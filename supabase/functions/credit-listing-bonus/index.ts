@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { notifyAgentBonus } from "../_shared/notifyAgentBonus.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
     const anonClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user: caller }, error: userErr } = await anonClient.auth.getUser();
+    const { data: { user: caller }, error: userErr } = await (bearerHasSub(authHeader) ? anonClient.auth.getUser() : noUserResult());
     if (userErr || !caller) {
       console.error("[credit-listing-bonus] Auth failed:", userErr?.message);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {

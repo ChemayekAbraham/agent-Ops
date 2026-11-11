@@ -1,6 +1,7 @@
 // TEMPORARY one-off: 6 hard-coded requisition SMS. Delete after single use.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +28,7 @@ Deno.serve(async (req) => {
   const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
   if (!token) return json({ error: "Unauthorized" }, 401);
   if (token !== serviceKey) {
-    const { data: { user } } = await admin.auth.getUser(token);
+    const { data: { user } } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     if (!user) return json({ error: "Unauthorized" }, 401);
     const { data: roles } = await admin.from("user_roles").select("role")
       .eq("user_id", user.id).eq("role", "super_admin").eq("enabled", true);

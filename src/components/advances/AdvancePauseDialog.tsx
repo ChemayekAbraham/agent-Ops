@@ -83,7 +83,7 @@ export default function AdvancePauseDialog({
             {agentName ? <span className="font-medium text-foreground">{agentName}</span> : 'This advance'}
             {isPaused
               ? ' — deductions are currently on hold. Resuming restarts the daily schedule from today; nothing is back-charged for the paused days.'
-              : ' — while paused, no automatic deduction runs: not the daily wallet sweep, not Returns-based recovery, and not the missed-repayment clawback from new earnings.'}
+              : ' — while paused, no automatic deduction runs: not the daily wallet sweep, not Rent profit share-based recovery, and not the missed-repayment clawback from new earnings.'}
           </DialogDescription>
         </DialogHeader>
 

@@ -139,9 +139,9 @@ export function buildProjectionHtml(data: ProjectionInput, now: Date = new Date(
     summary: [
       { label: 'Contribution:', valueHtml: esc(ugx(data.investmentAmount)) },
       { label: `Monthly Return (${n(data.roiPercentage)}%):`, valueHtml: esc(ugx(monthlyReturn)) },
-      { label: `Projected Returns (${termText}):`, valueHtml: esc(ugx(totalProjected)) },
+      { label: `Projected Rent profit share (${termText}):`, valueHtml: esc(ugx(totalProjected)) },
       { label: 'Projected Value at Maturity:', valueHtml: esc(ugx(valueAtMaturity)), closing: true },
-      { label: 'Returns Earned to Date:', valueHtml: esc(ugx(data.totalRoiEarned)) },
+      { label: 'Rent profit share Earned to Date:', valueHtml: esc(ugx(data.totalRoiEarned)) },
     ],
   });
 
@@ -172,11 +172,11 @@ export function buildProjectionHtml(data: ProjectionInput, now: Date = new Date(
       <th class="text-right">Opening Balance</th>
       <th class="text-right">Monthly Return</th>
       <th style="width:16%;">How It Is Treated</th>
-      <th class="text-right">Returns to Date</th>
+      <th class="text-right">Rent profit share to Date</th>
       <th class="text-right">Closing Balance</th>
     </tr></thead>`;
   const scheduleFoot = `<tfoot><tr>
-      <td colspan="3" class="text-right font-bold" style="text-transform: uppercase;">Total Projected Returns (${esc(termText)}):</td>
+      <td colspan="3" class="text-right font-bold" style="text-transform: uppercase;">Total Projected Rent profit share (${esc(termText)}):</td>
       <td class="text-right num font-bold text-primary">${esc(ugx(totalProjected))}</td>
       <td></td>
       <td class="text-right num font-bold">${esc(ugx(totalProjected))}</td>

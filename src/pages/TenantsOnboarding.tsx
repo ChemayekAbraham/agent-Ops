@@ -11,11 +11,18 @@
  *    database recomputes them again on insert
  *
  * Submission goes through the `tenant-self-onboarding` edge function, which
- * posts ONE `rent_requests` row at `pending` into the normal pipeline.
+ * posts ONE `rent_requests` row at `pending` (tenant_self_applied = true) into
+ * the normal pipeline, where it routes to Agent Ops. The form then saves the
+ * intake with `tenant_save_intake_details`.
+ *
+ * Submit stays locked until tenantRequestMissing() (src/lib/tenantSelfRequest.ts)
+ * is empty: full name, NIN or ID photo, 3+ house photos, GPS at the house,
+ * landlord name + phone (not the tenant's), rent + period, family size,
+ * work/business, and the LC1 letter or the LC1 chairperson's name + phone.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Camera, Check, CircleDollarSign, Home, Loader2, MapPin,
   ShieldCheck, User, Wallet, CalendarDays, Info, Building2, CheckCircle2, AlertTriangle,
@@ -31,12 +38,24 @@ import { optimizeImage } from '@/lib/imageOptimizer';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { validateUgandaPhone } from '@/lib/ugandaPhone';
 import { cn } from '@/lib/utils';
+import {
+  MAX_HOUSE_PHOTOS,
+  MIN_HOUSE_PHOTOS,
+  parseFamilySize,
+  saveTenantIntake,
+  samePhone,
+  tenantRequestMissing,
+  type TenantItemKey,
+} from '@/lib/tenantSelfRequest';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { NationalIdConsentDialog } from '@/components/shared/NationalIdConsentDialog';
+import { useOtpVerification } from '@/hooks/useOtpVerification';
+import { getSignupDeviceFp } from '@/lib/signupGuard';
 
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
@@ -86,8 +105,8 @@ const SUBMIT_PHASES = ['Submitting…', 'Sending your request…', 'Uploading yo
 
 /** Welile support, shown behind the header Help button. */
 const SUPPORT_EMAIL = 'info@welile.com';
-const SUPPORT_PHONE_DISPLAY = '+256 777 607640';
-const SUPPORT_PHONE_DIAL = '+256777607640';
+const SUPPORT_PHONE_DISPLAY = '+256 748 747134';
+const SUPPORT_PHONE_DIAL = '+256748747134';
 
 const HOUSE_TYPES = [
   { value: 'single-room', label: 'Single room' },
@@ -107,6 +126,12 @@ const MIN_RENT = 50000;
 const MAX_RENT = 10000000;
 
 const cleanNin = (v: string) => v.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+/** Draft storage for a visitor who has not created their account yet. */
+const ANON_DRAFT_KEY = 'welile_tenant_onboarding_draft_visitor';
+/** Same rule as phone-signup and the /auth form. */
+const MIN_PASSWORD = 6;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Photos: JPG/JPEG/PNG only, 5 MB max. Mirrored server-side in tenant-self-onboarding.
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
@@ -135,7 +160,7 @@ async function toDataUrl(file: File): Promise<string> {
 }
 
 export default function TenantsOnboarding() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   const navigate = useNavigate();
   const routeLocation = useLocation();
   // Where the visitor should land again once they have an account. Keeps any
@@ -153,7 +178,7 @@ export default function TenantsOnboarding() {
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState<{ id: string } | null>(null);
+  const [submitted, setSubmitted] = useState<{ id: string; intakeError: string | null } | null>(null);
 
   /* Existing-application gate. A tenant who already has a request in progress
      (or a live plan) must not fill this form again — it would put them through
@@ -190,6 +215,9 @@ export default function TenantsOnboarding() {
   const [consentOwnerPhone, setConsentOwnerPhone] = useState('');
   const [consentSubmitting, setConsentSubmitting] = useState(false);
   const [occupation, setOccupation] = useState('');
+  /* Intake that Agent Ops checks, saved with tenant_save_intake_details after the request is created. */
+  const [familySize, setFamilySize] = useState('');
+  const [workLocation, setWorkLocation] = useState('');
   const [language, setLanguage] = useState('English');
   const [noSmartphone, setNoSmartphone] = useState(false);
   const [tenantPhoto, setTenantPhoto] = useState<PhotoSlot | null>(null);
@@ -197,8 +225,13 @@ export default function TenantsOnboarding() {
      Advisory only: a "review" verdict still lets the tenant continue, a human
      looks at it later. Nothing here writes to the database. */
   const [photoCheck, setPhotoCheck] = useState<PassportCheck | null>(null);
+  /* The latest photo fingerprint, readable by a submit that runs in the same
+     tick as the check (account creation does both back to back). */
+  const photoShaRef = useRef<string | null>(null);
 
   const [idPhoto, setIdPhoto] = useState<PhotoSlot | null>(null);
+  /* DOCS-1: the back of the National ID is required too. */
+  const [idPhotoBack, setIdPhotoBack] = useState<PhotoSlot | null>(null);
   const [lcLetter, setLcLetter] = useState<PhotoSlot | null>(null);
   const [idCheck, setIdCheck] = useState<{
     checking: boolean;
@@ -270,12 +303,17 @@ export default function TenantsOnboarding() {
      tenant everything. Photos and GPS are not persisted — they are re-captured.
      The header pill reports this honestly: it only says "Saved" once a write
      has actually succeeded. */
-  const draftKey = user ? `welile_tenant_onboarding_draft_${user.id}` : null;
+  /* Visitors fill the form before they have an account (it is created on the
+     last step), so their answers are kept under a device-local key. Once they
+     are signed in the per-account key takes over, falling back to the visitor
+     copy the first time. */
+  const draftKey = user ? `welile_tenant_onboarding_draft_${user.id}` : ANON_DRAFT_KEY;
 
   useEffect(() => {
     if (!draftKey) return;
     try {
-      const raw = localStorage.getItem(draftKey);
+      const raw = localStorage.getItem(draftKey)
+        ?? (draftKey !== ANON_DRAFT_KEY ? localStorage.getItem(ANON_DRAFT_KEY) : null);
       if (!raw) return;
       const d = JSON.parse(raw) as Record<string, unknown>;
       if (typeof d.earner === 'string') setEarner(d.earner as EarnerType);
@@ -287,6 +325,8 @@ export default function TenantsOnboarding() {
       if (typeof d.nin === 'string') setNin(d.nin);
       if (typeof d.nationalIdName === 'string') setNationalIdName(d.nationalIdName);
       if (typeof d.occupation === 'string') setOccupation(d.occupation);
+      if (typeof d.familySize === 'string') setFamilySize(d.familySize);
+      if (typeof d.workLocation === 'string') setWorkLocation(d.workLocation);
       if (typeof d.language === 'string') setLanguage(d.language);
       if (typeof d.noSmartphone === 'boolean') setNoSmartphone(d.noSmartphone);
       if (typeof d.houseType === 'string') setHouseType(d.houseType);
@@ -306,7 +346,7 @@ export default function TenantsOnboarding() {
       try {
         localStorage.setItem(draftKey, JSON.stringify({
           earner, rentInput, durationDays, firstName, lastName, phone, nin, nationalIdName,
-          occupation, language, noSmartphone, houseType, address,
+          occupation, familySize, workLocation, language, noSmartphone, houseType, address,
           newLandlordName, newLandlordPhone, note,
         }));
         setSaveState('saved');
@@ -317,7 +357,7 @@ export default function TenantsOnboarding() {
     }, 600);
     return () => clearTimeout(t);
   }, [draftKey, submitted, earner, rentInput, durationDays, firstName, lastName,
-      phone, nin, nationalIdName, occupation, language, noSmartphone, houseType, address,
+      phone, nin, nationalIdName, occupation, familySize, workLocation, language, noSmartphone, houseType, address,
       newLandlordName, newLandlordPhone, note]);
 
   const rentAmount = Number(rentInput.replace(/\D/g, '')) || 0;
@@ -399,9 +439,25 @@ export default function TenantsOnboarding() {
   /* Real identity check — existence only, never whose. */
   const checkTimer = useRef<number | null>(null);
   useEffect(() => {
-    if (!user) return;
     const digits = phone.replace(/\D/g, '');
     const ninClean = cleanNin(nin);
+    if (!user) {
+      /* A visitor has no account yet, so only the phone can be checked here
+         (whether it already has an account; the same public check the sign-up
+         form uses). The National ID is checked once they have proved the phone
+         with an SMS code, just before the account is created. */
+      if (digits.length < 9) { setIdCheck({ checking: false }); return; }
+      if (checkTimer.current) window.clearTimeout(checkTimer.current);
+      checkTimer.current = window.setTimeout(async () => {
+        setIdCheck({ checking: true });
+        try {
+          const { data, error } = await supabase.rpc('check_phone_exists', { phone_suffix: digits.slice(-9) });
+          if (error) { setIdCheck({ checking: false }); return; }
+          setIdCheck({ checking: false, phone_known: Array.isArray(data) && data.length > 0, phone_is_you: false });
+        } catch { setIdCheck({ checking: false }); }
+      }, 600);
+      return () => { if (checkTimer.current) window.clearTimeout(checkTimer.current); };
+    }
     if (digits.length < 9 && ninClean.length < 10) { setIdCheck({ checking: false }); return; }
     if (checkTimer.current) window.clearTimeout(checkTimer.current);
     checkTimer.current = window.setTimeout(async () => {
@@ -418,7 +474,7 @@ export default function TenantsOnboarding() {
   const ninTakenByOther = idCheck.nin_known === true && idCheck.nin_is_you === false;
   const phoneTakenByOther = idCheck.phone_known === true && idCheck.phone_is_you === false;
 
-  const addPhoto = async (file: File, target: 'tenant' | 'id' | 'house' | 'lc_letter') => {
+  const addPhoto = async (file: File, target: 'tenant' | 'id' | 'id_back' | 'house' | 'lc_letter') => {
     const type = (file.type || '').toLowerCase();
     const name = file.name.toLowerCase();
     const typeOk = ALLOWED_PHOTO_TYPES.includes(type) || (!type && /\.(jpe?g|png)$/.test(name));
@@ -437,8 +493,9 @@ export default function TenantsOnboarding() {
         format: type === 'image/png' ? 'image/png' : 'image/jpeg',
       });
       const slot: PhotoSlot = { file: opt.file, preview: opt.previewUrl };
-      if (target === 'tenant') { setTenantPhoto(slot); void runPassportCheck(slot.file); }
+      if (target === 'tenant') { setTenantPhoto(slot); photoShaRef.current = null; void runPassportCheck(slot.file); }
       else if (target === 'id') setIdPhoto(slot);
+      else if (target === 'id_back') setIdPhotoBack(slot);
       else if (target === 'lc_letter') setLcLetter(slot);
       else setHousePhotos((p) => [...p, slot].slice(0, 4));
     } catch {
@@ -448,7 +505,10 @@ export default function TenantsOnboarding() {
 
   /* Grade the passport photo. Read-only: the checker keeps nothing, and a poor
      verdict never blocks the tenant — it only tells them what to fix. */
-  const runPassportCheck = async (file: File) => {
+  const runPassportCheck = async (file: File, signedIn = !!user): Promise<PassportCheck | null> => {
+    /* The checker needs a signed-in caller. A visitor's photo is checked right
+       after their account is created, before the request is sent. */
+    if (!signedIn) { setPhotoCheck(null); return null; }
     setPhotoCheck({ checking: true });
     try {
       const image_base64 = await toDataUrl(file);
@@ -460,58 +520,63 @@ export default function TenantsOnboarding() {
         failures?: { id: string; label: string; severity: string; advice: string }[];
       }>('verify-passport-photo', { body: { image_base64 }, silent: true });
 
-      if (error || !data) { setPhotoCheck({ checking: false, error: 'not_checked' }); return; }
-      setPhotoCheck({
+      if (error || !data) {
+        const failed: PassportCheck = { checking: false, error: 'not_checked' };
+        setPhotoCheck(failed);
+        return failed;
+      }
+      const result: PassportCheck = {
         checking: false,
         verdict: data.verdict,
         is_face: data.is_face,
         score: data.score ?? null,
         sha256: data.sha256 ?? null,
         failures: data.failures ?? [],
-      });
+      };
+      photoShaRef.current = result.sha256 ?? null;
+      setPhotoCheck(result);
+      return result;
     } catch {
-      setPhotoCheck({ checking: false, error: 'not_checked' });
+      const failed: PassportCheck = { checking: false, error: 'not_checked' };
+      setPhotoCheck(failed);
+      return failed;
     }
   };
 
 
   /* ------------------------------------------------------- validation ---- */
+  // Everything the request still needs. Submit stays locked until this is empty.
+  const durationOk = DAILY_PERIODS.includes(durationDays) || (durationDays >= 7 && durationDays <= 364 && durationDays % 7 === 0);
+  const missing = tenantRequestMissing({
+    rentAmount, minRent: MIN_RENT, maxRent: MAX_RENT, durationOk,
+    firstName, lastName, phone, nin,
+    hasIdFront: !!idPhoto, hasIdBack: !!idPhotoBack, hasPassportPhoto: !!tenantPhoto,
+    familySize, work: occupation,
+    address, hasVillage: !!location, hasGps: !!gps, housePhotoCount: housePhotos.length,
+    landlordName: chosenLandlord?.name ?? '', landlordPhone: chosenLandlord?.phone ?? '',
+    hasLcLetter: !!lcLetter,
+    declared,
+  });
+  const missingOn = (step: number) => missing.filter((m) => m.step === step);
+
   const stepError = (s: number): string | null => {
-    if (s === 2) {
-      if (rentAmount < MIN_RENT || rentAmount > MAX_RENT) return `Enter a rent between ${formatUGX(MIN_RENT)} and ${formatUGX(MAX_RENT)}`;
-      return null;
+    if (s === 2 && rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT)) {
+      return `Enter a rent between ${formatUGX(MIN_RENT)} and ${formatUGX(MAX_RENT)}`;
     }
     if (s === 3) {
-      if (firstName.trim().length < 2 || lastName.trim().length < 2) return 'Enter your first and last name';
-      if (!validateUgandaPhone(phone).valid) return 'Enter a valid Uganda phone number';
-      if (phoneTakenByOther) return 'This phone number is already registered to another account';
-      const c = cleanNin(nin);
-      if (c.length < 10 || c.length > 14) return 'National ID must be 10 to 14 characters';
-      if (ninTakenByOther) return 'This National ID is already registered to another account';
-      if (!tenantPhoto) return 'Take your passport photo';
+      if (phoneTakenByOther) {
+        return user
+          ? 'This phone number is already registered to another account'
+          : 'This phone number already has a Welile account. Sign in with it to continue.';
+      }
+      if (cleanNin(nin) && ninTakenByOther) return 'This National ID is already registered to another account';
       // Only a definite "no face found" blocks; a `review` verdict is advisory.
       if (photoCheck && !photoCheck.checking && !photoCheck.error && photoCheck.is_face === false) {
         return 'No face was found in your passport photo. Please retake it.';
       }
-
-      if (!idPhoto) return 'Take a photo of your National ID';
-      return null;
     }
-    if (s === 4) {
-      if (!address.trim()) return 'Describe your house address';
-      if (!location) return 'Pick your official village';
-      if (!gps) return 'Capture your GPS location at the house';
-      if (housePhotos.length < 2) return 'Add at least 2 photos of the house';
-      return null;
-    }
-    if (s === 5) {
-      if (!landlord && (!newLandlordName.trim() || !validateUgandaPhone(newLandlordPhone).valid)) {
-        return 'Pick your landlord, or enter their name and phone';
-      }
-      if (!lc1 || !lc1.name.trim() || !validateUgandaPhone(lc1.phone).valid) return 'Add your LC1 chairperson';
-      return null;
-    }
-    return null;
+    if (s === 6) return null;
+    return missingOn(s)[0]?.label ?? null;
   };
 
   const goNext = () => {
@@ -537,6 +602,7 @@ export default function TenantsOnboarding() {
         const e = stepError(s);
         if (e) { setStep(s); toast.error(e); return; }
       }
+      if (missing.length) { toast.error(missing[0].label); return; }
       setSubmitError(null);
       setSubmitting(true);
     } else {
@@ -549,6 +615,7 @@ export default function TenantsOnboarding() {
         Promise.all(housePhotos.map((p) => toDataUrl(p.file))),
       ]);
       const idB64 = idPhoto ? await toDataUrl(idPhoto.file) : null;
+      const idBackB64 = idPhotoBack ? await toDataUrl(idPhotoBack.file) : null;
       const lcLetterB64 = lcLetter ? await toDataUrl(lcLetter.file) : null;
 
       const { data, error } = await supabase.functions.invoke('tenant-self-onboarding', {
@@ -556,6 +623,7 @@ export default function TenantsOnboarding() {
           action: 'submit',
           full_name: `${firstName.trim()} ${lastName.trim()}`,
           phone,
+          // Empty when the tenant gave a photo of their ID instead of the number.
           national_id: cleanNin(nin),
           national_id_name: nationalIdName.trim() || undefined,
           occupation,
@@ -581,9 +649,10 @@ export default function TenantsOnboarding() {
           tenant_note: note.trim() || null,
           tenant_photo: tenantB64,
           // Links the stored photo to its recorded fingerprint + verdict.
-          tenant_photo_sha256: photoCheck?.sha256 ?? null,
+          tenant_photo_sha256: photoShaRef.current ?? photoCheck?.sha256 ?? null,
 
           id_photo: idB64,
+          id_photo_back: idBackB64,
           lc_letter: lcLetterB64,
           house_photos: housesB64,
           ...(consentParams?.id_owner_phone ? { id_owner_phone: consentParams.id_owner_phone } : {}),
@@ -643,20 +712,197 @@ export default function TenantsOnboarding() {
       }
 
       setConsentModalOpen(false);
-      setSubmitted({ id: String(dataObj?.rent_request_id || '') });
+      const requestId = String(dataObj?.rent_request_id || '');
+      // The intake Agent Ops checks. The request is kept even if this fails; its message is shown as-is.
+      const intake = requestId
+        ? await saveTenantIntake(requestId, {
+            familySize: parseFamilySize(familySize),
+            workBusiness: occupation,
+            workLocation,
+            lc1Contact: lc1?.name?.trim() && lc1?.phone ? `${lc1.name.trim()}, ${lc1.phone}` : null,
+            lcLetterBucket: typeof dataObj?.lc_letter_bucket === 'string' ? dataObj.lc_letter_bucket : null,
+            lcLetterPath: typeof dataObj?.lc_letter_path === 'string' ? dataObj.lc_letter_path : null,
+          })
+        : { ok: false, message: 'The request was created but no reference came back. Contact Welile support.' };
+      setSubmitted({ id: requestId, intakeError: intake.ok ? null : intake.message });
       /* The draft has served its purpose — drop it so a returning tenant does
          not reopen a stale copy of a request they already sent. */
-      if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
-      toast.success('Your rent request has been submitted for verification');
+      try {
+        if (draftKey) localStorage.removeItem(draftKey);
+        localStorage.removeItem(ANON_DRAFT_KEY);
+      } catch { /* ignore */ }
+      toast.success('Sent to Welile');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: unknown) {
       const errMsg = e instanceof Error ? e.message : 'An unexpected error occurred';
-      const msg = humaniseSubmitError(errMsg);
+      // The server's message is shown as it came; only a lost connection gets plain words.
+      const msg = /failed to fetch|networkerror/i.test(errMsg) ? humaniseSubmitError(errMsg) : errMsg;
       toast.error('Could not submit your request', { description: msg, duration: 8000 });
       setSubmitError(msg);
     } finally {
       setSubmitting(false);
       setConsentSubmitting(false);
+    }
+  };
+
+  /* ------------------------------------------- account on the last step ---
+     The form is open to visitors. Someone without an account fills every step,
+     then creates it on the review step: they choose a password, confirm their
+     phone with an SMS code, and the account is created, signed in and the
+     request sent in one go. It is the same phone account the /auth form makes
+     (phone-signup, `256…@welile.user`), so afterwards they sign in with their
+     phone number and this password like anyone else.
+
+     Order matters, so nobody is left with an account that cannot send:
+       1. the form is valid, the passwords match
+       2. the phone has no account yet (else: sign in instead)
+       3. SMS code sent, then verified
+       4. the National ID is not on another account (signup_precheck, which
+          only answers for a phone just verified by code)
+       5. account created with the tenant role and the referring agent (?ref),
+          under the per-device sign-up limits
+       6. signed in, passport photo checked, request submitted. */
+  const otp = useOtpVerification();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [accountStage, setAccountStage] = useState<'details' | 'code'>('details');
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  /* The phone already has an account: offer sign-in instead of sign-up. */
+  const [phoneHasAccount, setPhoneHasAccount] = useState(false);
+
+  const phoneLast9 = phone.replace(/\D/g, '').slice(-9);
+  const signupPhone = `256${phoneLast9}`;
+
+  /* A different phone needs a new code. */
+  useEffect(() => {
+    setAccountStage('details');
+    setOtpCode('');
+    setPhoneHasAccount(false);
+  }, [phoneLast9]);
+
+  const accountDetailsError = (): string | null => {
+    if (password.length < MIN_PASSWORD) return `Choose a password of at least ${MIN_PASSWORD} characters`;
+    if (password !== confirmPassword) return 'The two passwords do not match';
+    return null;
+  };
+
+  /** Server error text from a functions.invoke result, whatever its shape. */
+  const invokeErrorText = async (data: unknown, error: unknown): Promise<string | null> => {
+    const fromData = (data as { error?: unknown } | null)?.error;
+    if (typeof fromData === 'string' && fromData) return fromData;
+    if (!error) return null;
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === 'function') {
+      try {
+        const parsed = await ctx.clone().json();
+        if (typeof parsed?.error === 'string' && parsed.error) return parsed.error;
+      } catch { /* not JSON */ }
+    }
+    return (error as Error)?.message || 'Something went wrong. Please try again.';
+  };
+
+  const sendAccountCode = async () => {
+    setAccountError(null);
+    for (let s = 2; s <= 5; s++) {
+      const e = stepError(s);
+      if (e) { setStep(s); toast.error(e); return; }
+    }
+    const detailsErr = accountDetailsError();
+    if (detailsErr) { setAccountError(detailsErr); return; }
+    if (phoneLast9.length !== 9) { setStep(3); toast.error('Enter a valid Uganda phone number'); return; }
+
+    setCreatingAccount(true);
+    try {
+      const { data: existing } = await supabase.rpc('check_phone_exists', { phone_suffix: phoneLast9 });
+      if (Array.isArray(existing) && existing.length > 0) {
+        setPhoneHasAccount(true);
+        setAccountError('This phone number already has a Welile account. Sign in with it to send your request — your answers are kept on this device.');
+        return;
+      }
+      const sent = await otp.sendOtp(signupPhone, { category: 'signup' });
+      if (sent) { setOtpCode(''); setAccountStage('code'); }
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
+
+  const createAccountAndSubmit = async () => {
+    setAccountError(null);
+    const detailsErr = accountDetailsError();
+    if (detailsErr) { setAccountError(detailsErr); setAccountStage('details'); return; }
+    if (otpCode.length !== 6) { setAccountError('Enter the 6-digit code we sent to your phone'); return; }
+
+    setCreatingAccount(true);
+    try {
+      const verified = await otp.verifyOtp(signupPhone, otpCode, { category: 'signup' });
+      if (!verified) { setAccountError('That code is wrong or has expired. Check it, or send a new one.'); return; }
+
+      // The National ID must be free before the account exists. A failed
+      // check does not stop sign-up: the submit refuses a taken ID anyway.
+      try {
+        const { data: pre } = await supabase.functions.invoke('tenant-self-onboarding', {
+          body: { action: 'signup_precheck', phone: signupPhone, national_id: cleanNin(nin) },
+        });
+        const p = (pre ?? {}) as { phone_known?: boolean; nin_known?: boolean };
+        if (p.phone_known) {
+          setPhoneHasAccount(true);
+          setAccountError('This phone number already has a Welile account. Sign in with it to send your request.');
+          return;
+        }
+        if (p.nin_known) {
+          setAccountStage('details');
+          setStep(3);
+          toast.error('This National ID is already registered to another account. Please check the number.');
+          return;
+        }
+      } catch { /* fall through */ }
+
+      const ref = new URLSearchParams(routeLocation.search).get('ref')?.trim() || '';
+      const authEmail = `${signupPhone}@welile.user`;
+      const { data: created, error: createErr } = await supabase.functions.invoke('phone-signup', {
+        body: {
+          email: authEmail,
+          password,
+          full_name: `${firstName.trim()} ${lastName.trim()}`,
+          phone: signupPhone,
+          // handle_new_user keeps it only if it is a live, unfrozen agent.
+          referrer_id: UUID_RE.test(ref) ? ref : null,
+          intended_role: 'tenant',
+          signup_source: 'tenants-onboarding',
+          device_fp: await getSignupDeviceFp(),
+        },
+      });
+      const createMsg = await invokeErrorText(created, createErr);
+      if (createMsg) {
+        if (/already registered|sign in/i.test(createMsg)) setPhoneHasAccount(true);
+        setAccountError(createMsg);
+        return;
+      }
+
+      const { error: signInErr } = await signIn(authEmail, password);
+      if (signInErr) {
+        setPhoneHasAccount(true);
+        setAccountError('Your account was created, but signing in failed. Sign in with your phone number and password to send your request.');
+        return;
+      }
+      try { sessionStorage.removeItem('welile_post_auth_redirect'); } catch { /* ignore */ }
+      toast.success('Your Welile account is ready');
+
+      // The passport photo could not be checked before there was an account.
+      if (tenantPhoto && (!photoCheck || photoCheck.error)) {
+        const check = await runPassportCheck(tenantPhoto.file, true);
+        if (check && !check.error && check.is_face === false) {
+          setStep(3);
+          toast.error('No face was found in your passport photo. Please retake it, then send your request.');
+          return;
+        }
+      }
+
+      await submit();
+    } finally {
+      setCreatingAccount(false);
     }
   };
 
@@ -704,9 +950,8 @@ export default function TenantsOnboarding() {
     );
   }
 
-  if (!user) {
-    return <Navigate to={authHref(true)} replace />;
-  }
+  // No sign-in wall: visitors fill the form and create their account on the
+  // last step (see "account on the last step" above).
 
   // The existing-application check runs in the background: the form shows straight away and only gives way to
   // the "already under review" screen below if the answer is blocked. The server also refuses a duplicate on
@@ -777,12 +1022,21 @@ export default function TenantsOnboarding() {
                 <span className="mb-2 inline-block rounded-full border bg-muted px-3 py-1 text-xs font-bold tabular-nums text-muted-foreground">
                   Reference {ref}
                 </span>
-                <h1 className="text-2xl font-extrabold tracking-tight">Request sent</h1>
+                <h1 className="text-2xl font-extrabold tracking-tight">Sent to Welile</h1>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  We have everything we need from you for now, {firstName || 'there'}. Nothing is paid out yet —
-                  Welile will check your details and come back to you on {phone || 'your phone'}.
+                  Sent to Welile. An agent near you will be assigned to visit and confirm your house.
                 </p>
               </div>
+
+              {submitted.intakeError && (
+                <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-destructive/40 bg-destructive/5 p-3.5">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-bold text-destructive">Your household and LC1 details were not saved</p>
+                    <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">{submitted.intakeError}</p>
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-xl border bg-background p-4">
                 <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -1079,14 +1333,19 @@ export default function TenantsOnboarding() {
                 {/* Rent and period sit side by side on desktop, stacked on mobile. */}
                 <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
                   <div className="space-y-2">
-                    <Label className="text-[13.5px] font-semibold">
-                      Monthly rent <span className="text-destructive">*</span>
+                    <Label htmlFor="tenant-monthly-rent" className="text-[13.5px] font-semibold">
+                      Monthly rent (one month only) <span className="text-destructive">*</span>
                     </Label>
+                    <p id="tenant-monthly-rent-help" className="text-xs text-muted-foreground">
+                      If the landlord wants several months together, enter ONE month. Landlord Ops will confirm the monthly rent with the landlord.
+                    </p>
                     <div className="relative">
                       <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-muted-foreground">
                         UGX
                       </span>
                       <Input
+                        id="tenant-monthly-rent"
+                        aria-describedby="tenant-monthly-rent-help"
                         inputMode="numeric"
                         aria-invalid={rentInvalid}
                         className={cn(
@@ -1226,10 +1485,16 @@ export default function TenantsOnboarding() {
                   {idCheck.checking && <Hint icon={Loader2} spin>Checking…</Hint>}
                   {!idCheck.checking && idCheck.phone_is_you && <Hint icon={CheckCircle2} tone="ok">This is the number on your account.</Hint>}
                   {!idCheck.checking && phoneTakenByOther && <Hint icon={AlertTriangle} tone="bad">This number is already registered on Welile. Sign in with it instead.</Hint>}
+                  {!idCheck.checking && phoneTakenByOther && !user && (
+                    <Button type="button" variant="link" className="h-auto min-h-9 max-w-full justify-start gap-2 whitespace-normal px-0 py-1 text-left text-xs font-semibold leading-relaxed" onClick={() => navigate(authHref(false))}>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span>Sign in - your answers are kept on this device</span>
+                    </Button>
+                  )}
                 </Field>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="National ID (NIN)" required hint="10 to 14 letters and numbers, exactly as on your card.">
+                  <Field label="National ID (NIN)" hint="Optional. 10 to 14 letters and numbers, exactly as on your card.">
                     <Input value={nin} onChange={(e) => setNin(e.target.value.toUpperCase())} placeholder="CM9001234567AB" className="font-mono" />
                     {!idCheck.checking && idCheck.nin_is_you && <Hint icon={CheckCircle2} tone="ok">This National ID matches your account.</Hint>}
                     {!idCheck.checking && ninTakenByOther && <Hint icon={AlertTriangle} tone="bad">This National ID is already registered to another account. Please check the number.</Hint>}
@@ -1245,8 +1510,15 @@ export default function TenantsOnboarding() {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="What work do you do?">
+                  <Field label="What work or business do you do?" required hint="At least 3 letters.">
                     <Input value={occupation} onChange={(e) => setOccupation(e.target.value)} placeholder="e.g. Boda rider" />
+                  </Field>
+                  <Field label="Where do you work?" hint="Optional — a market, town or area.">
+                    <Input value={workLocation} onChange={(e) => setWorkLocation(e.target.value)} placeholder="e.g. Owino market" />
+                  </Field>
+                  <Field label="How many people live in your household?" required hint="Count yourself too. 1 to 30.">
+                    <Input value={familySize} inputMode="numeric" placeholder="e.g. 4"
+                      onChange={(e) => setFamilySize(e.target.value.replace(/\D/g, '').slice(0, 2))} />
                   </Field>
                   <Field label="Preferred language">
                     <Select value={language} onValueChange={setLanguage}>
@@ -1266,7 +1538,7 @@ export default function TenantsOnboarding() {
                   <div className="space-y-2">
                     <PhotoBox label="Passport photo" required hint="Clear face photo, no hat"
                       slot={tenantPhoto} onPick={(f) => addPhoto(f, 'tenant')}
-                      onClear={() => { setTenantPhoto(null); setPhotoCheck(null); }} />
+                      onClear={() => { setTenantPhoto(null); setPhotoCheck(null); photoShaRef.current = null; }} />
                     {photoCheck?.checking && (
                       <Hint icon={Loader2} spin>Checking your photo…</Hint>
                     )}
@@ -1291,8 +1563,10 @@ export default function TenantsOnboarding() {
                       </>
                     )}
                   </div>
-                  <PhotoBox label="National ID photo" required hint="Front of the card, all text readable"
+                  <PhotoBox label="National ID — front" required hint="Front of the card, all text readable."
                     slot={idPhoto} onPick={(f) => addPhoto(f, 'id')} onClear={() => setIdPhoto(null)} />
+                  <PhotoBox label="National ID — back" required hint="Back of the card, all text readable."
+                    slot={idPhotoBack} onPick={(f) => addPhoto(f, 'id_back')} onClear={() => setIdPhotoBack(null)} />
                 </div>
 
               </div>
@@ -1342,7 +1616,7 @@ export default function TenantsOnboarding() {
                   </div>
                 </div>
 
-                <Field label="House photos" required hint="At least 2 photos — the outside, the door and the room.">
+                <Field label="House photos" required hint={`At least ${MIN_HOUSE_PHOTOS} photos — the outside, the door and the room.`}>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {housePhotos.map((p, i) => (
                       <div key={i} className="relative overflow-hidden rounded-lg border">
@@ -1351,7 +1625,7 @@ export default function TenantsOnboarding() {
                           className="absolute right-1 top-1 rounded bg-background/90 px-1.5 text-xs font-semibold">Remove</button>
                       </div>
                     ))}
-                    {housePhotos.length < 4 && (
+                    {housePhotos.length < MAX_HOUSE_PHOTOS && (
                       <PhotoPicker onPick={(f) => addPhoto(f, 'house')} />
                     )}
                   </div>
@@ -1368,7 +1642,7 @@ export default function TenantsOnboarding() {
                   </Label>
                   {/* The search steps aside once someone is chosen — the panel
                       below becomes the answer, and Change brings it back. */}
-                  {!chosenLandlord && (
+                  {!chosenLandlord && user && (
                     <LandlordSearchSelect
                       inline
                       value={landlord}
@@ -1444,6 +1718,13 @@ export default function TenantsOnboarding() {
                   )}
                 </div>
 
+                {chosenLandlord && samePhone(chosenLandlord.phone, phone) && (
+                  <Hint icon={AlertTriangle} tone="bad">Your landlord’s phone must be different from yours.</Hint>
+                )}
+
+                <p className="text-sm text-muted-foreground">
+                  Your LC1: a photo of the stamped LC1 letter is required. The chairperson’s name and phone are optional.
+                </p>
                 <Lc1ChairpersonPicker
                   value={lc1}
                   onChange={setLc1}
@@ -1457,7 +1738,8 @@ export default function TenantsOnboarding() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <PhotoBox
                     label="LC1 introduction letter"
-                    hint="Optional now — a photo of the letter stamped by your LC1 speeds up verification."
+                    required
+                    hint="A photo of the letter stamped by your LC1."
                     slot={lcLetter}
                     onPick={(f) => addPhoto(f, 'lc_letter')}
                     onClear={() => setLcLetter(null)}
@@ -1489,7 +1771,10 @@ export default function TenantsOnboarding() {
                   <ReviewItem label="National ID (NIN)" value={cleanNin(nin) || '—'} numeric />
                   <ReviewItem label="Language" value={language} />
                   <ReviewItem label="Passport photo" value={tenantPhoto ? 'Captured' : 'Missing'} ok={!!tenantPhoto} />
-                  <ReviewItem label="National ID photo" value={idPhoto ? 'Captured' : 'Missing'} ok={!!idPhoto} />
+                  <ReviewItem label="National ID — front" value={idPhoto ? 'Captured' : 'Missing'} ok={!!idPhoto} />
+                  <ReviewItem label="National ID — back" value={idPhotoBack ? 'Captured' : 'Missing'} ok={!!idPhotoBack} />
+                  <ReviewItem label="Work or business" value={occupation.trim() || '—'} />
+                  <ReviewItem label="Household" value={parseFamilySize(familySize) ? `${parseFamilySize(familySize)} people` : '—'} />
                 </ReviewCard>
 
                 <ReviewCard icon={Home} title="Your home" onEdit={() => goTo(4)}>
@@ -1517,7 +1802,7 @@ export default function TenantsOnboarding() {
                   />
                   <ReviewItem label="LC1 chairperson" value={lc1?.name || '—'} />
                   <ReviewItem label="LC1 phone" value={lc1?.phone || '—'} numeric />
-                  <ReviewItem label="LC1 letter" value={lcLetter ? 'Attached' : 'Not attached'} ok={!!lcLetter} />
+                  <ReviewItem label="LC1 letter" value={lcLetter ? 'Attached' : 'Missing'} ok={!!lcLetter} />
                 </ReviewCard>
 
                 <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/40 p-4">
@@ -1539,6 +1824,79 @@ export default function TenantsOnboarding() {
                   </p>
                 )}
 
+                <MissingChecklist items={missing} onFix={(step) => goTo(step)} />
+
+                {/* Visitor account presentation keeps the existing account actions. */}
+                {!user && (
+                  <section aria-labelledby="tenant-account-heading" className="space-y-4 rounded-xl border bg-card p-4 sm:p-5">
+                    <div className="flex items-center gap-2 border-b pb-2.5">
+                      <UserPlus className="h-[15px] w-[15px] shrink-0 text-primary" aria-hidden="true" />
+                      <h3 id="tenant-account-heading" className="text-[13.5px] font-bold text-foreground">Create your account</h3>
+                    </div>
+                    <div>
+                      <p className="text-[13px] leading-relaxed text-muted-foreground">
+                        Your account uses your phone number <span className="break-words font-semibold tabular-nums text-foreground">{phone || '-'}</span>.
+                        Choose a password to sign in with later. We will text a code to confirm the number, then send your request.
+                      </p>
+                    </div>
+
+                    {accountStage === 'details' ? (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Password">
+                          <Input type="password" autoComplete="new-password" value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder={`At least ${MIN_PASSWORD} characters`} aria-label="Password" className="h-11 bg-background" />
+                        </Field>
+                        <Field label="Confirm password">
+                          <Input type="password" autoComplete="new-password" value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)} aria-label="Confirm password" className="h-11 bg-background" />
+                        </Field>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <Field label={`Code sent to ${phone}`}>
+                          <InputOTP inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otpCode}
+                            onChange={(value) => setOtpCode(value.replace(/\D/g, '').slice(0, 6))}
+                            aria-label="6-digit code" pattern="[0-9]*" containerClassName="w-full">
+                            <InputOTPGroup className="w-full max-w-[288px]">
+                              {Array.from({ length: 6 }, (_, index) => (
+                                <InputOTPSlot key={index} index={index} className="h-12 min-w-0 flex-1 bg-background text-lg font-semibold tabular-nums" />
+                              ))}
+                            </InputOTPGroup>
+                          </InputOTP>
+                        </Field>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                          <Button type="button" variant="link" className="h-auto min-h-9 whitespace-normal px-0 py-1 text-left text-xs font-semibold"
+                            disabled={otp.cooldownSeconds > 0 || otp.otpLoading || creatingAccount}
+                            onClick={() => void sendAccountCode()}>
+                            {otp.cooldownSeconds > 0 ? `Send a new code in ${otp.cooldownSeconds}s` : 'Send a new code'}
+                          </Button>
+                          <Button type="button" variant="link" className="h-auto min-h-9 px-0 py-1 text-xs font-semibold text-muted-foreground"
+                            disabled={creatingAccount}
+                            onClick={() => { setAccountStage('details'); setOtpCode(''); }}>
+                            Change password
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {accountError && (
+                      <div className="flex items-start gap-2.5 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                        <div className="min-w-0 break-words text-[13px] leading-relaxed text-muted-foreground">
+                          {accountError}
+                          {phoneHasAccount && (
+                            <Button type="button" variant="link" className="h-auto p-0 pl-1 text-[13px]"
+                              onClick={() => navigate(authHref(false))}>
+                              Sign in
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </section>
+                )}
+
                 {/* A failure has to survive the toast — tenants miss those. */}
                 {submitError && (
                   <div className="flex items-start gap-2.5 rounded-xl border border-destructive/40 bg-destructive/5 p-3.5">
@@ -1554,7 +1912,7 @@ export default function TenantsOnboarding() {
 
             {/* Actions */}
             <div className="flex items-center justify-between gap-3 border-t pt-4">
-              <Button type="button" variant="secondary" disabled={step === 1 || submitting}
+              <Button type="button" variant="secondary" disabled={step === 1 || submitting || creatingAccount}
                 onClick={() => goTo(step - 1)}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
@@ -1563,9 +1921,15 @@ export default function TenantsOnboarding() {
                   Continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
-                <Button type="button" onClick={() => submit()} disabled={submitting || !declared}
+                <Button type="button"
+                  onClick={() => {
+                    if (user) void submit();
+                    else if (accountStage === 'details') void sendAccountCode();
+                    else void createAccountAndSubmit();
+                  }}
+                  disabled={submitting || creatingAccount || missing.length > 0}
                   className="min-w-[215px]">
-                  {submitting
+                  {submitting || creatingAccount
                     ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
                     : <Check className="mr-2 h-4 w-4 shrink-0" />}
                   {/* Each stage rises into place, so a slow upload reads as
@@ -1574,7 +1938,15 @@ export default function TenantsOnboarding() {
                       it can never collapse the label to zero height. */}
                   <span className="inline-block overflow-hidden align-middle">
                     <span key={submitting ? submitPhase : -1} className="inline-block animate-submit-rise">
-                      {submitting ? SUBMIT_PHASES[submitPhase] : 'Submit rent request'}
+                      {submitting
+                        ? SUBMIT_PHASES[submitPhase]
+                        : user
+                          ? 'Submit rent request'
+                          : creatingAccount
+                            ? (accountStage === 'details' ? 'Sending code…' : 'Creating your account…')
+                            : accountStage === 'details'
+                              ? 'Continue: verify phone'
+                              : 'Create account & submit'}
                     </span>
                   </span>
                 </Button>
@@ -1719,6 +2091,32 @@ function humaniseSubmitError(raw?: string | null): string {
     return 'We could not reach Welile. Check your internet connection and try again — your answers are saved.';
   }
   return reason;
+}
+
+/** What the request still needs; Submit stays locked until it is empty. Each line opens its step. */
+function MissingChecklist({ items, onFix }: { items: { key: TenantItemKey; label: string; step: number }[]; onFix: (step: number) => void }) {
+  if (!items.length) {
+    return (
+      <p className="flex items-center gap-1.5 text-[13px] font-bold text-emerald-700 dark:text-emerald-400" data-testid="tenant-ready">
+        <CheckCircle2 className="h-4 w-4 shrink-0" /> Everything is in. You can submit.
+      </p>
+    );
+  }
+  return (
+    <div role="status" aria-label="Still missing" data-testid="tenant-missing"
+      className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-[13px] dark:border-amber-500/40 dark:bg-amber-950/30">
+      <p className="font-bold text-foreground">Still missing before you can submit ({items.length})</p>
+      <ul className="mt-1.5 space-y-1">
+        {items.map((i) => (
+          <li key={i.key}>
+            <button type="button" onClick={() => onFix(i.step)} className="text-left text-muted-foreground underline-offset-2 hover:underline">
+              • {i.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 /** One reviewable section: icon, title, an Edit link back to its step, and a

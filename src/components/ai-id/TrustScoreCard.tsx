@@ -120,7 +120,7 @@ export function TrustScoreCard({ trust, agentPerformance, primaryRole }: Props) 
           {trust.weights.supporter !== undefined && trust.breakdown.supporter != null && (
             <BreakdownBar
               icon={<Sparkles className="h-3 w-3 text-amber-500" />}
-              label="Supporter Portfolio & Returns"
+              label="Supporter Portfolio & Rent profit share"
               weight={trust.weights.supporter}
               score={trust.breakdown.supporter}
               highlight

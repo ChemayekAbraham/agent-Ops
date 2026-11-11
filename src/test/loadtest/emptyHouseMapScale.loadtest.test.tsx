@@ -30,10 +30,14 @@ import {
 
 const rpcCalls: Array<Record<string, unknown>> = [];
 
+// useAuthenticatedAudience and requireUserSession both refuse a session that
+// has a token but no user id. The load test is a signed-in reader, so both
+// the React session and getSession() carry the same user.
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     user: { id: 'loadtest-user' },
     session: {
+      user: { id: 'loadtest-user' },
       access_token: 'loadtest',
       expires_at: Math.floor(Date.now() / 1000) + 3600,
     },
@@ -48,6 +52,7 @@ vi.mock('@/integrations/supabase/client', () => ({
       getSession: async () => ({
         data: {
           session: {
+            user: { id: 'loadtest-user' },
             access_token: 'loadtest',
             expires_at: Math.floor(Date.now() / 1000) + 3600,
           },

@@ -138,7 +138,7 @@ export function PartnerCapitalFlow() {
             <p className="text-lg font-bold text-green-600">{fmt(data.totalDeployed)}</p>
           </div>
           <div className="rounded-lg bg-blue-500/10 p-2.5">
-            <p className="text-[10px] text-muted-foreground">Total ROI Paid</p>
+            <p className="text-[10px] text-muted-foreground">Total Rent profit share Paid</p>
             <p className="text-lg font-bold text-blue-600">{fmt(data.totalROIPaid)}</p>
           </div>
           <div className="rounded-lg bg-amber-500/10 p-2.5">

@@ -267,7 +267,7 @@ export function ShareBreadDialog({ open, onOpenChange, availableBalance, onTopUp
       agent_commission: 'Commission',
       agent_commission_payout: 'Commission',
       referral_bonus: 'Referral bonus',
-      roi_wallet_credit: 'Returns',
+      roi_wallet_credit: 'Rent profit share',
     };
     return map[c.category] || (c.description ? c.description : 'Wallet credit');
   };

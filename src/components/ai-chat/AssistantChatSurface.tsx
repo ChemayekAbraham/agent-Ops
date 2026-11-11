@@ -133,7 +133,7 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
             {messages.length === 0 && <div className="flex w-full flex-col items-center gap-6 px-1 text-center">
               <div className="flex flex-col items-center gap-2.5">
                 <p className="text-xl font-bold text-foreground">Hi {firstName} 👋</p>
-                <p className="max-w-[30ch] text-[17px] font-semibold leading-snug text-foreground">I'm Clara. {partner ? PARTNER_GREETING : DEFAULT_GREETING}</p>
+                <p className="max-w-[30ch] text-[17px] font-semibold leading-snug text-foreground">I'm Nexa. {partner ? PARTNER_GREETING : DEFAULT_GREETING}</p>
               </div>
               <div className="flex w-full flex-col gap-2" aria-label="Suggestion questions">
                 {suggestedChips.map(chip => <button key={chip} type="button" onClick={() => submit(chip)} className="w-full rounded-full border border-border bg-card px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted">{chip}</button>)}

@@ -24,7 +24,7 @@ interface ReinvestRow {
 const fmt = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
 const RETURN_LABEL: Record<string, string> = {
-  monthly_payout: 'Monthly returns',
+  monthly_payout: 'Monthly Rent profit share',
   monthly_compounding: 'Compounding',
 };
 

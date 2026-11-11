@@ -162,7 +162,7 @@ export function RewardHistoryBadges() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-success" />
-              <span className="text-sm font-medium">Total Monthly Rewards</span>
+              <span className="text-sm font-medium">Total Monthly Rent profit share</span>
             </div>
             <span className="font-bold text-success">
               {formatUGX(rewards.reduce((sum, r) => sum + Number(r.reward_amount), 0))}

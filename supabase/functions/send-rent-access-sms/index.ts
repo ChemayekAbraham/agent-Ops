@@ -12,6 +12,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isPhoneBlocked } from "../_shared/smsExceptions.ts";
 import { appendRentAccessCampaign } from '../_shared/tenantTemplates.ts';
 import { logSmsDelivery } from '../_shared/smsDeliveryLog.ts';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -165,7 +166,7 @@ Deno.serve(async (req) => {
     });
     const token = authHeader.replace(/^Bearer\s+/i, "");
     const { data: userResp, error: userErr } =
-      await adminClient.auth.getUser(token);
+      await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
     if (userErr || !userResp?.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,

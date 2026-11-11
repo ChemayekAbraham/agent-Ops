@@ -10,7 +10,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }, roles:
 
 import { supabase } from '@/integrations/supabase/client';
 import { FlowGrid, FlowPanel } from '../flow/FlowPanel';
-import { FLOW_PERIODS, countText, flowColumns, flowWords, outBreakdown, ugxShort, type DeskFlow } from '../flow/flowApi';
+import { FLOW_PERIODS, countText, flowColumns, flowWords, outBreakdown, outSplitLine, ugxShort, type DeskFlow } from '../flow/flowApi';
 
 const rpcMock = supabase.rpc as unknown as ReturnType<typeof vi.fn>;
 
@@ -57,7 +57,7 @@ describe('IN / OUT panel', () => {
     expect(today.querySelector('[data-cell="out-count"]')?.textContent).toBe('9');
     expect(today.querySelector('[data-cell="in-ugx"]')?.textContent).toBe('4.2M');
     expect(today.querySelector('[data-cell="in-ugx"]')?.getAttribute('title')).toBe('UGX 4,200,000');
-    expect(today.querySelector('[data-cell="out-count"]')?.getAttribute('title')).toBe('forwarded 7 · returned 1 · rejected 1');
+    expect(today.querySelector('[data-cell="out-count"]')?.getAttribute('title')).toBe('7 forwarded · 1 sent back · 1 rejected');
     expect(screen.getAllByText('In')).toHaveLength(4);
     expect(screen.getAllByText('Out')).toHaveLength(4);
   });
@@ -87,7 +87,7 @@ describe('IN / OUT panel', () => {
   it('says what OUT was made of, with funded where OUT means funded', () => {
     const p = period(1, 1, 9, 1, 7, 1, 1);
     for (const d of ['service-centre', 'agent-ops', 'tenant-ops', 'landlord-ops', 'coo']) {
-      expect(outBreakdown(p, d)).toBe('forwarded 7 · returned 1 · rejected 1');
+      expect(outBreakdown(p, d)).toBe('7 forwarded · 1 sent back · 1 rejected');
     }
     for (const d of ['cfo', 'funders', 'partner-ops', 'command']) expect(outBreakdown(p, d)).toBe('funded 9');
     expect(outBreakdown(null, 'coo')).toBeNull();
@@ -175,3 +175,24 @@ describe('IN / OUT placement', () => {
     expect(src('CommandAdditions.tsx')).not.toContain('FlowPanel');
   });
 });
+
+describe('Out, split under the figure', () => {
+  it('"Out 9 = 7 forwarded · 1 sent back · 1 rejected" under every stage desk period', () => {
+    const { container } = render(<FlowGrid flow={FLOW} deskId="tenant-ops" board={false} mdUp />);
+    const lines = [...container.querySelectorAll('[data-out-split]')].map((e) => e.textContent);
+    expect(lines).toEqual([
+      'Out 9 = 7 forwarded · 1 sent back · 1 rejected',
+      'Out 64 = 60 forwarded · 3 sent back · 1 rejected',
+      'Out 880 = 850 forwarded · 20 sent back · 10 rejected',
+      'Out 1,400 = 1,350 forwarded · 30 sent back · 20 rejected',
+    ]);
+  });
+
+  it('none where Out means funded, and none without data', () => {
+    for (const d of ['cfo', 'funders', 'partner-ops', 'command']) expect(outSplitLine(FLOW.periods.today, d)).toBeNull();
+    expect(outSplitLine(null, 'agent-ops')).toBeNull();
+    const { container } = render(<FlowGrid flow={FLOW} deskId="command" board={false} mdUp />);
+    expect(container.querySelector('[data-out-split]')).toBeNull();
+  });
+});
+

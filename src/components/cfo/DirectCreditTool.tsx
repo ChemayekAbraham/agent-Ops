@@ -32,6 +32,7 @@ import { UserSearchPicker } from './UserSearchPicker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { RentDisbursementQueue } from './RentDisbursementQueue';
+import { PartnerReleasedToday } from './PartnerReleasedToday';
 import { type LocationRecipient } from './PayByLocationRecipientPicker';
 import { BusinessAdvanceDisbursementQueue } from './BusinessAdvanceDisbursementQueue';
 import { CreditDrawApprovalQueue } from './CreditDrawApprovalQueue';
@@ -77,7 +78,7 @@ export const PAYOUT_CATEGORIES: PayoutCategory[] = [
   // ── CREDIT (Platform → Wallet) ──
   {
     id: 'roi_payout',
-    label: '📈 ROI Payout',
+    label: '📈 Rent profit share payout',
     description: 'Return on investment to a partner/supporter',
     impact: 'expense',
     walletCategory: 'roi_wallet_credit',
@@ -1110,6 +1111,7 @@ export function DirectCreditTool() {
                 </button>
               </div>
             )}
+            <PartnerReleasedToday />
             <RentDisbursementQueue
               restrictToIds={rentRequestIdsFromLocation}
               autoSelectIds={rentRequestIdsFromLocation}
@@ -1441,7 +1443,7 @@ export function DirectCreditTool() {
                   operation === 'withdraw'
                     ? 'e.g. April marketing campaign payout to vendor...'
                     : isCredit
-                      ? 'e.g. ROI payout for March cycle, salary advance for agent...'
+                      ? 'e.g. Rent profit share payout for March cycle, salary advance for agent...'
                       : 'e.g. Access fee collection, penalty for policy violation...'
                 }
                 value={reason}

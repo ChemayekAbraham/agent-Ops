@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
     })
   }
   if (token !== serviceKey) {
-    const { data: authData, error: authError } = await authClient.auth.getUser(token)
+    const { data: authData, error: authError } = await (bearerHasSub(token) ? authClient.auth.getUser(token) : noUserResult())
     if (authError || !authData?.user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,

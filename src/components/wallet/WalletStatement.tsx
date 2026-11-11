@@ -76,7 +76,7 @@ const ROLE_HIGHLIGHTS: Record<string, { title: string; subtitle: string; categor
   },
   supporter: {
     title: 'Your supporter activity',
-    subtitle: 'Returns, top-ups and payouts on your portfolio',
+    subtitle: 'Rent profit share, top-ups and payouts on your portfolio',
     categories: ['supporter_reward', 'pool_investment', 'deposit', 'wallet_withdrawal', 'transfer_in'],
   },
 };

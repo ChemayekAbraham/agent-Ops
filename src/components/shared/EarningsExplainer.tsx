@@ -47,9 +47,9 @@ const CATEGORY_META: Record<string, { label: string; bucket: string; note?: stri
   bank_deposit: { label: 'Bank Deposit', bucket: 'Money In (Deposits)' },
   auto_credit: { label: 'Auto-Credited Deposit', bucket: 'Money In (Deposits)' },
 
-  roi_wallet_credit: { label: 'Investor Returns (ROI)', bucket: 'Investment Returns' },
-  roi_payout: { label: 'ROI Payout', bucket: 'Investment Returns' },
-  roi_accrued: { label: 'ROI Accrued', bucket: 'Investment Returns' },
+  roi_wallet_credit: { label: 'Investor Rent profit share (Rent profit share)', bucket: 'Investment Rent profit share' },
+  roi_payout: { label: 'Rent profit share payout', bucket: 'Investment Rent profit share' },
+  roi_accrued: { label: 'Rent profit share Accrued', bucket: 'Investment Rent profit share' },
 
   payroll: { label: 'Payroll / Salary', bucket: 'Salary & Payroll' },
   payroll_growth: { label: 'Payroll Growth Interest', bucket: 'Salary & Payroll', note: '0.5% daily on un-withdrawn payroll.' },

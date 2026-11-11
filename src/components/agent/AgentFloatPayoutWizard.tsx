@@ -382,7 +382,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   const handleSendOtp = async (source: 'auto' | 'manual' = 'manual') => {
     setSendOtpError(null);
     if (performanceBlocked) {
-      const msg = floatPerformance?.message ?? 'Your collection rate is under the 50% minimum, so landlord float cannot be withdrawn yet.';
+      const msg = floatPerformance?.message ?? 'Your collection rate is under the landlord float minimum, so landlord float cannot be withdrawn yet.';
       toast.error(msg);
       setSendOtpError(msg);
       return;
@@ -485,7 +485,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   };
 
   const sendBlockedReason = performanceBlocked
-    ? (floatPerformance?.message ?? 'Your collection rate is under the 50% minimum, so landlord float cannot be withdrawn yet.')
+    ? (floatPerformance?.message ?? 'Your collection rate is under the landlord float minimum, so landlord float cannot be withdrawn yet.')
     : !payoutState.canSendOtp
     ? `${payoutState.title}. ${payoutState.detail}`
     : !phoneValid

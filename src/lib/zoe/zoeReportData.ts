@@ -124,9 +124,9 @@ const BANNED_TERM_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\bloan\b/gi, 'Rent Plan'],
   [/\blenders\b/gi, 'Supporters'],
   [/\blender\b/gi, 'Supporter'],
-  [/\bROI\b/gi, 'Returns'],
-  [/\binterests\b/gi, 'Returns'],
-  [/\binterest\b/gi, 'Returns'],
+  [/\bROI\b/gi, 'Rent profit share'],
+  [/\binterests\b/gi, 'Rent profit share'],
+  [/\binterest\b/gi, 'Rent profit share'],
 ];
 
 /**

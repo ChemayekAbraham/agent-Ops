@@ -101,7 +101,7 @@ export default function RoiDisbursementReportPanel() {
     staleTime: 60_000,
   });
 
-  const periodTitle = `${PERIOD_LABEL[period]} Returns Disbursement Report`;
+  const periodTitle = `${PERIOD_LABEL[period]} Rent profit share Disbursement Report`;
   const fileStem = `ROI_Disbursement_Report_${period}_${anchor}`;
 
   const nameQuery = nameSearch.trim().toLowerCase();
@@ -120,7 +120,7 @@ export default function RoiDisbursementReportPanel() {
     if (!data) return;
     downloadCsv(
       `${fileStem}_cash.csv`,
-      ['#', 'Portfolio phone', 'Partner', 'Paid to (wallet)', 'Principal (UGX)', 'Returns paid (UGX)', 'Date (EAT)', 'Time (EAT)', 'Portfolio'],
+      ['#', 'Portfolio phone', 'Partner', 'Paid to (wallet)', 'Principal (UGX)', 'Rent profit share paid (UGX)', 'Date (EAT)', 'Time (EAT)', 'Portfolio'],
       data.cash.map((r) => [r.n, r.portfolio_phone, r.partner, r.paid_to, r.principal, r.returns_paid, r.date_eat, r.time_eat, r.portfolio_code ?? '—']),
     );
   };
@@ -129,7 +129,7 @@ export default function RoiDisbursementReportPanel() {
     if (!data) return;
     downloadCsv(
       `${fileStem}_compounded.csv`,
-      ['#', 'Portfolio phone', 'Partner', 'New principal (UGX)', 'Returns compounded (UGX)', 'Executed by', 'Date (EAT)', 'Time (EAT)', 'Portfolio'],
+      ['#', 'Portfolio phone', 'Partner', 'New principal (UGX)', 'Rent profit share compounded (UGX)', 'Executed by', 'Date (EAT)', 'Time (EAT)', 'Portfolio'],
       data.compounded.map((r) => [r.n, r.portfolio_phone, r.partner, r.new_principal, r.returns_compounded, r.executed_by, r.date_eat, r.time_eat, r.portfolio_code ?? '—']),
     );
   };
@@ -159,7 +159,7 @@ export default function RoiDisbursementReportPanel() {
               </div>
               <div>
                 <CardTitle className="text-xl font-bold tracking-tight sm:text-2xl">
-                  Returns (ROI) Disbursement Report
+                  Rent profit share (Rent profit share) Disbursement Report
                 </CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Read-only report generated from the ledger and approval history.
@@ -258,7 +258,7 @@ export default function RoiDisbursementReportPanel() {
                   Window: {data.period.start_eat} to {data.period.end_eat} (EAT) · Generated {new Date(data.generated_at).toLocaleString()}
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mt-4">
-                  <Kpi label="Total Returns approved" value={fmtUGX(data.summary.total_approved)} hint={`${data.summary.portfolios_total} portfolio entries`} />
+                  <Kpi label="Total Rent profit share approved" value={fmtUGX(data.summary.total_approved)} hint={`${data.summary.portfolios_total} portfolio entries`} />
                   <Kpi label="Cash disbursed to wallets" value={fmtUGX(data.summary.cash_total)} hint={`${data.summary.payouts_count} payouts`} />
                   <Kpi label="Compounded to principal" value={fmtUGX(data.summary.compounded_total)} hint={`${data.summary.compounded_portfolios} portfolios`} />
                   <Kpi label="Partners affected" value={String(data.summary.partners_affected)} hint={`Principal base ${fmtUGX(data.summary.principal_total)}`} />
@@ -270,7 +270,7 @@ export default function RoiDisbursementReportPanel() {
               <section className="space-y-2">
                 <SectionTitle
                   index={1}
-                  title="Cash Returns disbursed to wallets"
+                  title="Cash Rent profit share disbursed to wallets"
                   right={
                     <div className="flex items-center gap-2">
                       <div className="relative w-full sm:w-64">
@@ -289,7 +289,7 @@ export default function RoiDisbursementReportPanel() {
                   }
                 />
                 {data.cash.length === 0 ? (
-                  <Empty text="No cash Returns were disbursed in this window." />
+                  <Empty text="No cash Rent profit share is disbursed in this window." />
                 ) : cashRows.length === 0 ? (
                   <Empty text="No records match this name." />
                 ) : (
@@ -298,7 +298,7 @@ export default function RoiDisbursementReportPanel() {
                       <thead className="bg-muted/60">
                         <tr>
                           <Th>#</Th><Th>Portfolio phone</Th><Th>Partner</Th><Th>Paid to (wallet)</Th>
-                          <Th align="right">Principal</Th><Th align="right">Returns paid</Th><Th>Time (EAT)</Th>
+                          <Th align="right">Principal</Th><Th align="right">Rent profit share paid</Th><Th>Time (EAT)</Th>
                         </tr>
                       </thead>
                       <tbody>
@@ -330,11 +330,11 @@ export default function RoiDisbursementReportPanel() {
               <section className="space-y-2">
                 <SectionTitle
                   index={2}
-                  title="Returns compounded into principal"
+                  title="Rent profit share compounded into principal"
                   right={<Button variant="ghost" size="sm" className="no-print" onClick={exportCompounded} disabled={!data.compounded.length}><FileDown className="h-4 w-4 mr-1" />CSV</Button>}
                 />
                 {data.compounded.length === 0 ? (
-                  <Empty text="No Returns were compounded in this window." />
+                  <Empty text="No Rent profit share is compounded in this window." />
                 ) : compoundedRows.length === 0 ? (
                   <Empty text="No records match this name." />
                 ) : (
@@ -343,7 +343,7 @@ export default function RoiDisbursementReportPanel() {
                       <thead className="bg-muted/60">
                         <tr>
                           <Th>#</Th><Th>Portfolio phone</Th><Th>Partner</Th>
-                          <Th align="right">New principal</Th><Th align="right">Returns compounded</Th><Th>Executed by</Th><Th>Time (EAT)</Th>
+                          <Th align="right">New principal</Th><Th align="right">Rent profit share compounded</Th><Th>Executed by</Th><Th>Time (EAT)</Th>
                         </tr>
                       </thead>
                       <tbody>
@@ -404,9 +404,9 @@ export default function RoiDisbursementReportPanel() {
                       <tr><Th>Ledger leg</Th><Th align="right">Entries</Th><Th align="right">Amount</Th></tr>
                     </thead>
                     <tbody>
-                      <tr className="border-t"><Td>Wallet credits (cash Returns)</Td><Td align="right">{data.reconciliation.wallet_credits.legs}</Td><Td align="right">{fmtUGX(data.reconciliation.wallet_credits.amount)}</Td></tr>
+                      <tr className="border-t"><Td>Wallet credits (cash Rent profit share)</Td><Td align="right">{data.reconciliation.wallet_credits.legs}</Td><Td align="right">{fmtUGX(data.reconciliation.wallet_credits.amount)}</Td></tr>
                       <tr className="border-t"><Td>Reinvestments (compounded)</Td><Td align="right">{data.reconciliation.reinvestments.legs}</Td><Td align="right">{fmtUGX(data.reconciliation.reinvestments.amount)}</Td></tr>
-                      <tr className="border-t bg-muted/40 font-semibold"><Td>Platform Returns expense</Td><Td align="right">{data.reconciliation.platform_expense.legs}</Td><Td align="right">{fmtUGX(data.reconciliation.platform_expense.amount)}</Td></tr>
+                      <tr className="border-t bg-muted/40 font-semibold"><Td>Platform Rent profit share expense</Td><Td align="right">{data.reconciliation.platform_expense.legs}</Td><Td align="right">{fmtUGX(data.reconciliation.platform_expense.amount)}</Td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -415,7 +415,7 @@ export default function RoiDisbursementReportPanel() {
                     ? <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-600" />
                     : <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600" />}
                   <span>
-                    Wallet credits + reinvestments = {fmtUGX(data.reconciliation.wallet_credits.amount + data.reconciliation.reinvestments.amount)} against platform Returns expense {fmtUGX(data.reconciliation.platform_expense.amount)}.
+                    Wallet credits + reinvestments = {fmtUGX(data.reconciliation.wallet_credits.amount + data.reconciliation.reinvestments.amount)} against platform Rent profit share expense {fmtUGX(data.reconciliation.platform_expense.amount)}.
                     {data.reconciliation.balanced ? ' Balanced.' : ' Variance present — review the ledger for this window.'}
                   </span>
                 </div>

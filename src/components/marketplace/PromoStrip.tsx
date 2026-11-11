@@ -5,7 +5,7 @@ const promoItems = [
   { icon: Truck, text: 'Fast Delivery', subtext: '2-3 days' },
   { icon: Shield, text: 'Secure Payment', subtext: '100% Safe' },
   { icon: Clock, text: '24/7 Support', subtext: 'Always here' },
-  { icon: CreditCard, text: 'Easy Returns', subtext: '7 days' },
+  { icon: CreditCard, text: 'Easy Rent profit share', subtext: '7 days' },
 ];
 
 export function PromoStrip() {

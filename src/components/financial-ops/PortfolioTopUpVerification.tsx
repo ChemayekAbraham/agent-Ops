@@ -127,7 +127,7 @@ export function PortfolioTopUpVerification() {
 
       if (action === 'approve') {
         toast.success(`Top-up approved — ${formatUGX(data.total_parked || data.total_applied || 0)} verified & parked`, {
-          description: `Current capital: ${formatUGX(data.current_capital || data.new_investment_total || 0)}. Funds will merge at next ROI cycle.`,
+          description: `Current capital: ${formatUGX(data.current_capital || data.new_investment_total || 0)}. Funds will merge at next Rent profit share cycle.`,
         });
       } else {
         toast.success('Top-up rejected', {

@@ -178,7 +178,8 @@ describe('Nexa public guidance and auth-gated actions', () => {
   });
   it('teaches approved merchant channels while retaining withdrawal and verification limits', () => {
     const guide = buildWelileWalletGuideReply();
-    for (const value of ['*165#','090777','*185#','4380664','UGX 10,000','UGX 30,000,000','UGX 7,000']) expect(guide).toContain(value);
+    for (const value of ['*165#','090777','*185#','4380664','UGX 10,000','UGX 30,000,000','Missed days reduce it']) expect(guide).toContain(value);
+    expect(guide).not.toContain('UGX 7,000');
     expect(guide).toContain('committed principal is not withdrawable anytime');
     expect(guide).toContain('verification is not guaranteed to be instant');
   });

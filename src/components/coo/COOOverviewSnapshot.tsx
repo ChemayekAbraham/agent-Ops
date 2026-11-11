@@ -337,11 +337,11 @@ export default function COOOverviewSnapshot() {
           />
           <MoneyTile
             label="Partner returns paid" value={money.partner_roi_paid} icon={TrendingUp}
-            hint="Returns credited to partners in range" tone="border-violet-500/30 bg-violet-500/8"
+            hint="Rent profit share credited to partners in range" tone="border-violet-500/30 bg-violet-500/8"
           />
           <MoneyTile
             label="Partner compounded" value={money.partner_compounded} icon={LineChart}
-            hint="Returns reinvested in range" tone="border-fuchsia-500/30 bg-fuchsia-500/8"
+            hint="Rent profit share reinvested in range" tone="border-fuchsia-500/30 bg-fuchsia-500/8"
           />
         </div>
       </section>

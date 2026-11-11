@@ -6,6 +6,7 @@
 // email alone. Every reset is written to audit_logs. After a reset the person re-enrols at next sign-in.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireStaffAal2 } from "../_shared/staffMfa.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,7 +25,7 @@ Deno.serve(async (req) => {
   try {
     const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
     if (!token) return json({ error: "unauthenticated" }, 401);
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     const caller = userData?.user;
     if (userErr || !caller) return json({ error: "unauthenticated" }, 401);
 

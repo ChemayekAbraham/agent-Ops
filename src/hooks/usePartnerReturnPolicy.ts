@@ -53,7 +53,7 @@ export async function fetchPartnerReturnPolicy(): Promise<PublicReturnPolicy> {
   );
   if (error) throw error;
   const policy = parsePublicPolicy(data);
-  if (!policy) throw new Error('The Partner Returns policy answer was malformed.');
+  if (!policy) throw new Error('The Partner Rent profit share policy answer was malformed.');
   writeCached(policy);
   return policy;
 }

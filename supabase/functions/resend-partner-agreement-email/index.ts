@@ -5,6 +5,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { template as tenantPartnershipAgreementTemplate } from '../_shared/transactional-email-templates/tenant-partnership-agreement.tsx'
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -130,7 +131,7 @@ Deno.serve(async (req) => {
     const token = authHeader.replace('Bearer ', '').trim()
     if (!token) return json({ error: 'Unauthorized' }, 401)
 
-    const { data: userData, error: userErr } = await admin.auth.getUser(token)
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult())
     if (userErr || !userData?.user) return json({ error: 'Unauthorized' }, 401)
     if (!(await isAuthorized(admin, userData.user.id))) return json({ error: 'Insufficient permissions' }, 403)
 

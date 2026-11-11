@@ -354,10 +354,10 @@ export function PartnerReturnsForecastPanel({
       <CardContent className="p-4 space-y-4">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="text-sm font-bold">Partner Ops Returns — forecast vs actually paid</h2>
+            <h2 className="text-sm font-bold">Partner Ops Rent profit share — forecast vs actually paid</h2>
             <p className="text-[11px] text-muted-foreground">
-              Forecast is every live portfolio&apos;s monthly Returns cycle from the Partner Ops
-              portfolios themselves. Actually paid reads posted Returns payments from the ledger.
+              Forecast is every live portfolio&apos;s monthly Rent profit share cycle from the Partner Ops
+              portfolios themselves. Actually paid reads posted Rent profit share payments from the ledger.
               Receivables, top-ups, promissory notes and compounding are shown against it so the net
               position is readable at a glance.
             </p>
@@ -374,14 +374,14 @@ export function PartnerReturnsForecastPanel({
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-          <Stat label="Returns payable forecast (past periods)" value={totals.forecastPast} />
+          <Stat label="Rent profit share payable forecast (past periods)" value={totals.forecastPast} />
           <Stat label="Actually paid (past)" value={totals.actualPast} tone="rose" />
           <Stat
             label="Delivered vs forecast"
             raw={`${Math.round(deliveryRate)}%`}
             sub={formatUGX(totals.actualPast - totals.forecastPast)}
           />
-          <Stat label="Returns payable forecast ahead" value={totals.forecastAhead} />
+          <Stat label="Rent profit share payable forecast ahead" value={totals.forecastAhead} />
           <Stat label="Receivable from partners" value={totals.receivable} tone="emerald" />
           <Stat label="Top-ups received" value={totals.topups} tone="emerald" />
           <Stat
@@ -472,8 +472,8 @@ export function PartnerReturnsForecastPanel({
             {formatUGX(totals.net)}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            Receivables + top-ups + promissory + compounding, less Returns actually paid in past
-            periods and the Returns payable forecast in future periods.
+            Receivables + top-ups + promissory + compounding, less Rent profit share actually paid in past
+            periods and the Rent profit share payable forecast in future periods.
           </p>
           <div className="mt-2 space-y-0.5 text-[11px] font-mono tabular-nums">
             <p className="text-muted-foreground">
@@ -491,10 +491,10 @@ export function PartnerReturnsForecastPanel({
               {formatUGX(totals.topupsPredictedAhead)} predicted
             </p>
             <p className="text-muted-foreground">
-              Less Returns paid (past): −{formatUGX(totals.actualPast)}
+              Less Rent profit share paid (past): −{formatUGX(totals.actualPast)}
             </p>
             <p className="text-muted-foreground">
-              Less Returns payable forecast (ahead): −{formatUGX(totals.forecastAhead)}
+              Less Rent profit share payable forecast (ahead): −{formatUGX(totals.forecastAhead)}
             </p>
           </div>
         </div>

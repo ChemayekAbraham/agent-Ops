@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fmt } from './format';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
-import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu, rowLayout, RowCard, atLeast, useBreakpoint, daysShort, moneyCard, moneyFull } from './ui';
+import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu, rowLayout, RowCard, atLeast, useBreakpoint, daysShort, moneyCard, moneyFull, stackLayout } from './ui';
 import { readableError, rpc } from './reviewApi';
 import { hoursUntil, ownerLabel, type BoardWaiting } from './boardApi';
 import { timeLeftText } from './waitOn';
@@ -13,6 +13,8 @@ import { concernsChip, useConcernsSummary, type ConcernSummary } from './concern
 import type { ChipModel } from './boardRowModel';
 import { AgentSheet } from './agents/AgentSheet';
 import { SendBackSheet } from './sendBack';
+import { KindChip, type RequestKind } from './KindChip';
+import { AT_COO, DeskSearchBox, SearchResults } from './deskSearch';
 import { awaitingRentRequestIds } from '@/lib/fundersBoard';
 import { useCooDemoted } from './fundersBoard/DemotedPanel';
 
@@ -37,6 +39,8 @@ export type CooRatings = {
 
 export type CooRow = {
   id: string;
+  /** E73: New, Renewal or Self-applied. */
+  kind?: RequestKind | null;
   req: string;
   tenant: string | null;
   agent: string | null;
@@ -220,9 +224,15 @@ export function cooChips(row: CooRow, concerns?: ConcernSummary): ChipModel[] {
 }
 
 /** The sentences under a row, most important first: serious concern, then frozen or held. */
-export function cooLines(row: CooRow): string[] {
+/** A concern the server raised itself ("System (E77): …"): shown under a blocked row word for word. */
+export const isSystemConcern = (note: string | null | undefined): note is string => /^System \(E\d+\)/.test(note ?? '');
+
+export function cooLines(row: CooRow, concerns?: ConcernSummary): string[] {
   const out: string[] = [];
-  if (row.concern_block === true) out.push(CONCERN_BLOCK_LINE);
+  if (row.concern_block === true) {
+    out.push(CONCERN_BLOCK_LINE);
+    if (isSystemConcern(concerns?.latest)) out.push(concerns!.latest as string);
+  }
   const l = cooLine(row);
   if (l) out.push(l);
   return out;
@@ -269,7 +279,8 @@ function CooRowLine({
   concerns?: ConcernSummary;
 }) {
   const frozen = row.frozen;
-  const chips = cooChips(row, concerns).map((c) =>
+  const kindChip = row.kind ? [<KindChip key="kind" kind={row.kind} />] : [];
+  const chips = [...kindChip, ...cooChips(row, concerns).map((c) =>
     c.key === 'frozen' ? (
       <button
         key={c.key}
@@ -289,7 +300,7 @@ function CooRowLine({
         {c.text}
       </Chip>
     ),
-  );
+  )];
   const menu = (close: () => void) => (
     <>
       <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
@@ -327,7 +338,7 @@ function CooRowLine({
     </span>
   );
 
-  const lines = cooLines(row);
+  const lines = cooLines(row, concerns);
 
   if (layout === 'card') {
     return (
@@ -564,7 +575,26 @@ function PushSheet({ plan, n, onClose }: { plan: { rows: CooRow[]; totalUgx: num
   );
 }
 
+/**
+ * The COO board with its search box on top (E72): any name, phone or request
+ * id across the pipeline. A result at the COO opens the drawer; any other
+ * shows read-only where it is. The results replace the list while searching.
+ */
 export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
+  const [query, setQuery] = useState('');
+  const searching = query.trim().length > 0;
+  return (
+    <div style={stackLayout(12)}>
+      <DeskSearchBox desk="coo" value={query} onChange={setQuery} />
+      {searching && <SearchResults desk="coo" query={query} showDesk onOpen={(id) => onOpen(id)} openWhen={(r) => r.status === AT_COO} />}
+      <div hidden={searching}>
+        <CooList board={board} onOpen={onOpen} />
+      </div>
+    </div>
+  );
+}
+
+function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
   const q = useCooBoard();
   const [n, setN] = useState(COO_PUSH_DEFAULT);
   const [confirm, setConfirm] = useState(false);
