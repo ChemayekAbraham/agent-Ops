@@ -1333,14 +1333,19 @@ export default function TenantsOnboarding() {
                 {/* Rent and period sit side by side on desktop, stacked on mobile. */}
                 <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
                   <div className="space-y-2">
-                    <Label className="text-[13.5px] font-semibold">
-                      Monthly rent <span className="text-destructive">*</span>
+                    <Label htmlFor="tenant-monthly-rent" className="text-[13.5px] font-semibold">
+                      Monthly rent (one month only) <span className="text-destructive">*</span>
                     </Label>
+                    <p id="tenant-monthly-rent-help" className="text-xs text-muted-foreground">
+                      If the landlord wants several months together, enter ONE month. Landlord Ops will confirm the monthly rent with the landlord.
+                    </p>
                     <div className="relative">
                       <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-muted-foreground">
                         UGX
                       </span>
                       <Input
+                        id="tenant-monthly-rent"
+                        aria-describedby="tenant-monthly-rent-help"
                         inputMode="numeric"
                         aria-invalid={rentInvalid}
                         className={cn(

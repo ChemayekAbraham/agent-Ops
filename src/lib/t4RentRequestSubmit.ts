@@ -448,3 +448,59 @@ export async function saveProfileIdBack(agentId: string, tenantId: string, file:
     return `${DOC_LABEL.id_back}: ${errorText(e)}`;
   }
 }
+
+/** Profile ID photos taken in the identity flow live in this bucket. */
+const IDENTITY_BUCKET = 'identity-verification';
+
+const asRows = (data: unknown): Record<string, unknown>[] =>
+  Array.isArray(data) ? (data as Record<string, unknown>[]) : data ? [data as Record<string, unknown>] : [];
+const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
+
+/**
+ * The tenant's DOCS-1 documents already on file, which the database carries over to a renewal or keeps
+ * on a resubmit: the newest of each from their earlier requests, then the profile's ID photos
+ * (national_id_photo_path / national_id_back_photo_path, and national_id_photo_back_path from E75b).
+ * Anything that cannot be read counts as not on file.
+ */
+export async function loadTenantDocsOnFile(tenantId: string): Promise<Partial<Record<DocKind, StoredDoc>>> {
+  const out: Partial<Record<DocKind, StoredDoc>> = {};
+  try {
+    const { data } = await untypedFrom('rent_requests')
+      .select('nin_photo_path, nin_photo_bucket, nin_photo_back_path, nin_photo_back_bucket, lc_letter_path, lc_letter_bucket, created_at')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    for (const r of asRows(data)) {
+      const front = str(r.nin_photo_path);
+      const back = str(r.nin_photo_back_path);
+      const letter = str(r.lc_letter_path);
+      if (!out.id_front && front) out.id_front = { bucket: str(r.nin_photo_bucket) ?? 'tenant-ids', path: front };
+      if (!out.id_back && back) out.id_back = { bucket: str(r.nin_photo_back_bucket) ?? 'tenant-ids', path: back };
+      if (!out.lc1_letter && letter) out.lc1_letter = { bucket: str(r.lc_letter_bucket) ?? 'lc-letters', path: letter };
+    }
+  } catch { /* not readable: not on file */ }
+  try {
+    const { data } = await untypedFrom('profiles')
+      .select('national_id_photo_path, national_id_back_photo_path').eq('id', tenantId).maybeSingle();
+    const p = (data ?? {}) as Record<string, unknown>;
+    const front = str(p.national_id_photo_path);
+    const back = str(p.national_id_back_photo_path);
+    if (!out.id_front && front) out.id_front = { bucket: IDENTITY_BUCKET, path: front };
+    if (!out.id_back && back) out.id_back = { bucket: IDENTITY_BUCKET, path: back };
+  } catch { /* not readable */ }
+  if (!out.id_back) {
+    const back = await loadProfileIdBack(tenantId);
+    if (back) out.id_back = { bucket: 'tenant-ids', path: back };
+  }
+  return out;
+}
+
+/** A short-lived link for a small preview of a stored document, or null when it cannot be shown. */
+export async function docPreviewUrl(doc: StoredDoc): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.storage.from(doc.bucket).createSignedUrl(doc.path, 600);
+    return error ? null : data?.signedUrl ?? null;
+  } catch {
+    return null;
+  }
+}

@@ -61,7 +61,8 @@ import {
 import {
   attachRenewalPhotos,
   attachT4Documents,
-  loadProfileIdBack,
+  docPreviewUrl,
+  loadTenantDocsOnFile,
   saveProfileIdBack,
   uploadNewRequestDocs,
   findOpenRequest,
@@ -314,6 +315,23 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [idBack, setIdBack] = useState<Photo | null>(null);
   /** Documents already stored on the request being resubmitted, or on the plan being renewed. */
   const [docsOnFile, setDocsOnFile] = useState<Partial<Record<DocKind, StoredDoc>>>({});
+  /** Short-lived preview links for the documents on file. */
+  const [docPreviews, setDocPreviews] = useState<Partial<Record<DocKind, string>>>({});
+
+  /**
+   * The tenant's ID front, ID back and LC1 letter already on file (their profile or an earlier request;
+   * a renewal reuses the last plan's letter). The database carries them over, so the form shows them
+   * as "On file ✓" and does not ask for them again.
+   */
+  function applyDocsOnFile(docs: Partial<Record<DocKind, StoredDoc>>) {
+    setDocsOnFile(docs);
+    if (docs.id_front) setIdFront((v) => v ?? { file: null, preview: '' });
+    if (docs.id_back) setIdBack((v) => v ?? { file: null, preview: '' });
+    if (docs.lc1_letter) setLcOnFile(true);
+    (Object.entries(docs) as [DocKind, StoredDoc][]).forEach(([kind, doc]) => {
+      void docPreviewUrl(doc).then((url) => { if (url) setDocPreviews((p) => ({ ...p, [kind]: url })); });
+    });
+  }
   /** The renewal choice and tenant code dialogs are up; the form steps aside. */
   const [renewing, setRenewing] = useState(false);
   const renewalFlow = useRenewalFlow();
@@ -363,11 +381,15 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   }, [open, user]);
 
   const steps: StepId[] = useMemo(() => {
-    if (mode === 'renewal') return RENEWAL_STEPS;
+    // DOCS-1: a document already on file is not asked for again.
+    const onFile = (s: StepId) => (s === 'idFront' && !!docsOnFile.id_front)
+      || (s === 'idBack' && !!docsOnFile.id_back)
+      || (s === 'lcLetter' && !!docsOnFile.lc1_letter);
+    if (mode === 'renewal') return RENEWAL_STEPS.filter((s) => !onFile(s));
     if (mode === 'resubmit') {
       // SC-2 does not ask a renewal for family size or work again.
       const skip = rejected?.registration_type === 'renewal' ? ['familySize', 'work', 'workLocation'] : [];
-      return RESUBMIT_STEPS.filter((s) => !skip.includes(s));
+      return RESUBMIT_STEPS.filter((s) => !skip.includes(s) && !onFile(s));
     }
     return ALL_STEPS.filter((s) => {
       // Picked from the search: phone and name are already known.
@@ -375,7 +397,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       // New LC1 whose phone turned out to be on file: the name is known.
       return !(s === 'lc1Name' && lc1Match);
     });
-  }, [lc1Match, lc1Mode, mode, rejected?.registration_type]);
+  }, [lc1Match, lc1Mode, mode, rejected?.registration_type, docsOnFile]);
   const idx = steps.indexOf(current);
   const furthestIdx = Math.max(steps.indexOf(furthest), idx);
 
@@ -444,19 +466,17 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
           if (plan.gps) { setGps({ ...plan.gps, accuracy: 0 }); setGpsOnFile(true); }
           setLcOnFile(plan.lcLetter);
           setLc1PhoneConfirmed(plan.lc1PhoneConfirmed);
-          setDocsOnFile(plan.docs);
-          if (plan.docs.id_front) setIdFront({ file: null, preview: '' });
-          if (plan.docs.id_back) setIdBack({ file: null, preview: '' });
         }
         if (tenant) {
           setTenantOnFile(tenant);
           if (tenant.full_name) setTenantNameParts(splitPersonName(tenant.full_name));
           if (tenant.national_id) setNationalId(tenant.national_id.toUpperCase());
         }
-        // DOCS-1: the ID back counts when it is on the previous plan OR on the tenant's profile.
-        if (!plan?.docs.id_back && r.tenantId && (await loadProfileIdBack(r.tenantId)) && !cancelled) {
-          setIdBack({ file: null, preview: '' });
-        }
+        // DOCS-1: what the tenant has on file (profile or earlier requests); the renewal reuses the
+        // last plan's letter, so the previous plan's documents come first.
+        const tenantDocs = r.tenantId ? await loadTenantDocsOnFile(r.tenantId) : {};
+        if (cancelled) return;
+        applyDocsOnFile({ ...tenantDocs, ...(plan?.docs ?? {}) });
       })();
       return () => { cancelled = true; };
     }
@@ -483,11 +503,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       if (cancelled) return;
       if (t) setTenantOnFile(t);
       if (onFile?.lc1PhoneConfirmed) setLc1PhoneConfirmed(true);
-      if (onFile) {
-        setDocsOnFile(onFile.docs);
-        if (onFile.docs.id_front) setIdFront({ file: null, preview: '' });
-        if (onFile.docs.id_back) setIdBack({ file: null, preview: '' });
-      }
+      // DOCS-1: this request's documents first, then what the tenant has on file elsewhere.
+      const tenantDocs = await loadTenantDocsOnFile(r.tenant_id);
+      if (cancelled) return;
+      applyDocsOnFile({ ...tenantDocs, ...(onFile?.docs ?? {}) });
       const d = onFile ? { family_size: onFile.familySize, work_business: onFile.workBusiness, work_location: onFile.workLocation } : null;
       const name = t?.full_name || r.tenant_name || '';
       const phone = t?.phone || r.tenant_phone || '';
@@ -1200,15 +1219,21 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       ? `${tenantNameParts.firstName || 'The tenant'}’s renewal for ${formatUGX(amount)} is with the Service Centre.`
       : `${tenantNameParts.firstName}’s request for ${formatUGX(amount)} is with the Service Centre.`;
 
+  /** A document's line on the review: a new photo, "On file ✓" with a small preview, or missing. */
+  const docRow = (kind: DocKind): { v: string; preview: string | null } => {
+    const slot = kind === 'id_front' ? idFront : kind === 'id_back' ? idBack : lcLetter;
+    if (slot?.file) return { v: 'Photo added', preview: slot.preview };
+    if (docsOnFile[kind] || (kind === 'lc1_letter' && lcOnFile)) return { v: 'On file ✓', preview: docPreviews[kind] ?? null };
+    return { v: 'Missing', preview: null };
+  };
+
   // ----- copy -----
   const questionOf = (s: StepId): string => {
     const first = tenantNameParts.firstName.trim() || 'the tenant';
     const landlordFirst = landlord?.name?.split(' ')[0] || 'the landlord';
     switch (s) {
       case 'type': return 'Let’s get started! 💼 How does the tenant earn their money? It decides how they’ll pay back.';
-      case 'rent': return planType === 'weekly'
-        ? 'Nice. How much is one month’s rent? 🏠 Welile pays the landlord this every month.'
-        : 'Great! How much is the rent each month? 🏠 It needs to be at least UGX 50,000.';
+      case 'rent': return 'Monthly rent (one month only) 🏠';
       case 'plan': return planType === 'daily'
         ? `For ${formatUGX(amount)} rent, how long does the tenant need to pay it back? ⏳`
         : planType === 'weekly' ? 'How many weeks should Welile cover? 📅' : 'When will the tenant pay it back? 📅';
@@ -1272,15 +1297,15 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         ? (housePhotos.some((p) => p?.file) ? '4 house photos taken' : 'House photos on file')
         : housePhotos.some(Boolean) ? `${housePhotos.filter(Boolean).length} of 4 house photos` : '';
       case 'tenantPhoto': return 'Passport photo taken';
-      case 'idFront': return idFront ? (idFront.file ? 'ID front photo taken' : 'ID front photo on file') : '';
-      case 'idBack': return idBack ? (idBack.file ? 'ID back photo taken' : 'ID back photo on file') : '';
+      case 'idFront': return idFront ? (idFront.file ? 'ID front photo taken' : 'On file ✓') : '';
+      case 'idBack': return idBack ? (idBack.file ? 'ID back photo taken' : 'On file ✓') : '';
       case 'gps': return gps ? (gps.accuracy ? `GPS captured, accurate to ${Math.round(gps.accuracy)} m` : gpsOnFile ? 'GPS on file' : 'GPS from the house listing') : '';
       case 'lc1': return lc1Mode === 'existing' ? lc1Name : lc1Mode === 'new' ? 'Register a new LC1' : '';
       case 'lc1Phone': return lc1Phone;
       case 'lc1Name': return lc1Name;
       case 'lc1Village': return lc1Village;
       case 'city': return city;
-      case 'lcLetter': return lcLetter ? 'LC letter added' : lcOnFile ? 'LC letter on file' : lc1PhoneConfirmed ? 'LC1 confirmed by phone' : noLc1Letter ? 'No LC1 letter yet' : '';
+      case 'lcLetter': return lcLetter ? 'LC letter added' : lcOnFile ? 'On file ✓' : lc1PhoneConfirmed ? 'LC1 confirmed by phone' : noLc1Letter ? 'No LC1 letter yet' : '';
       case 'payoutDay': return `The ${ordinal(payoutDay)}`;
       case 'days': return resubmitDays ? `${resubmitDays} days` : '';
       case 'note': return note;
@@ -1510,6 +1535,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
   function renderWidget(): ReactNode {
     switch (current) {
+      case 'rent':
+        return <p className="text-sm text-muted-foreground">{RENT_HELPER}</p>;
       case 'type':
         return (
           <div className="flex flex-col gap-2">
@@ -1780,9 +1807,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                   <Row k="House" v={answerOf('category')} />
                   <Row k="House photos" v={answerOf('photos') || 'Missing'} />
                   <Row k="House GPS" v={gps ? 'On file' : 'Missing'} />
-                  <Row k="ID front photo" v={answerOf('idFront') || 'Missing'} />
-                  <Row k="ID back photo" v={answerOf('idBack') || 'Missing'} />
-                  <Row k="LC1 letter" v={answerOf('lcLetter') || 'Missing'} />
+                  <DocRow k="ID front photo" {...docRow('id_front')} />
+                  <DocRow k="ID back photo" {...docRow('id_back')} />
+                  <DocRow k="LC1 letter" {...docRow('lc1_letter')} />
                   {rejected?.registration_type !== 'renewal' && <Row k="Household" v={answerOf('familySize') || 'Missing'} />}
                   {rejected?.registration_type !== 'renewal' && <Row k="Work" v={work ? `${work}${workLocation ? ` · ${workLocation}` : ''}` : 'Missing'} />}
                   <Row k="Note" v={note || 'Missing'} />
@@ -1795,9 +1822,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                   {renewal?.houseLabel && <Row k="House" v={renewal.houseLabel} />}
                   <Row k="House photos" v={answerOf('photos') || 'Missing'} />
                   <Row k="House GPS" v={gps ? 'On file' : 'Missing'} />
-                  <Row k="ID front photo" v={answerOf('idFront') || 'Missing'} />
-                  <Row k="ID back photo" v={answerOf('idBack') || 'Missing'} />
-                  <Row k="LC1 letter" v={answerOf('lcLetter') || 'Missing'} />
+                  <DocRow k="ID front photo" {...docRow('id_front')} />
+                  <DocRow k="ID back photo" {...docRow('id_back')} />
+                  <DocRow k="LC1 letter" {...docRow('lc1_letter')} />
                 </>
               ) : (
               <>
@@ -2005,6 +2032,22 @@ function MissingChecklist({ items, onFix }: { items: T4MissingItem[]; onFix: (k:
           </ul>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** The rent field's helper text, on every rent request form. */
+export const RENT_HELPER = 'If the landlord wants several months together, enter ONE month. Landlord Ops will confirm the monthly rent with the landlord.';
+
+/** A review line for a document: its state, with a small preview when there is one. */
+function DocRow({ k, v, preview }: { k: string; v: string; preview: string | null }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border py-1.5 last:border-0">
+      <span className="text-muted-foreground">{k}</span>
+      <span className={cn('flex items-center gap-2 text-right font-medium', v === 'Missing' && 'text-destructive')}>
+        {preview && <img src={preview} alt={`${k} on file`} className="h-8 w-8 rounded object-cover" />}
+        {v}
+      </span>
     </div>
   );
 }

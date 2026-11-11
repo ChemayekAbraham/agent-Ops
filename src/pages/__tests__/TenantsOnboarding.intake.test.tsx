@@ -175,6 +175,15 @@ describe('Tenant "Request rent here": Submit stays locked until everything is in
     });
   });
 
+  it('rent field: "Monthly rent (one month only)" with the Landlord Ops note', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /Daily income earner/ }));
+    await next();
+    const rent = screen.getByLabelText(/Monthly rent \(one month only\)/);
+    expect(rent).toHaveAttribute('placeholder', '500,000');
+    expect(rent).toHaveAccessibleDescription('If the landlord wants several months together, enter ONE month. Landlord Ops will confirm the monthly rent with the landlord.');
+  });
+
   it('fewer than 3 house photos: cannot move past the house step', async () => {
     await fillToVerification({ housePhotos: 2 });
     expect(continueBtn()).toBeDisabled();

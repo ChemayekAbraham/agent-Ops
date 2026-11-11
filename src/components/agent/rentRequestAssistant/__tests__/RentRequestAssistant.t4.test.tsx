@@ -39,7 +39,13 @@ vi.mock('@/integrations/supabase/client', () => {
     supabase: {
       rpc: mocks.rpc,
       from: builder,
-      storage: { from: () => ({ upload: vi.fn(async () => ({ error: null })), getPublicUrl: (p: string) => ({ data: { publicUrl: p } }) }) },
+      storage: {
+        from: () => ({
+          upload: vi.fn(async () => ({ error: null })),
+          getPublicUrl: (p: string) => ({ data: { publicUrl: p } }),
+          createSignedUrl: async (p: string) => ({ data: { signedUrl: `https://signed/${p}` }, error: null }),
+        }),
+      },
     },
   };
 });
@@ -261,6 +267,40 @@ describe('the three new gate items', () => {
   });
 });
 
+describe('DOCS-1: documents already on file are not asked for again', () => {
+  const ready = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+
+  it('resubmit: ID front, ID back and LC1 letter on file show "On file ✓" with a preview and are never asked', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
+    await waitFor(() => expect(group('gate')).toBeNull());
+    expect(screen.queryByText(/photo of the FRONT of/)).toBeNull();
+    expect(screen.queryByText(/And the BACK of/)).toBeNull();
+    expect(screen.queryByText(/photo of the stamped LC1 letter/)).toBeNull();
+    expect(screen.getAllByText('On file ✓')).toHaveLength(3);
+    await waitFor(() => expect(screen.getByRole('img', { name: 'ID front photo on file' })).toHaveAttribute('src', 'https://signed/tenant-1/old/national_id.jpg'));
+    expect(screen.getByRole('img', { name: 'ID back photo on file' })).toHaveAttribute('src', 'https://signed/tenant-1/old/national_id_back.jpg');
+    expect(screen.getByRole('img', { name: 'LC1 letter on file' })).toHaveAttribute('src', 'https://signed/agent-1/req-9/lc_letter.jpg');
+  });
+
+  it('renewal: the last plan’s letter and ID photos are on file; Renew is ready without uploads', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal: { prevId: 'prev-1', tenantId: 'tenant-1', tenantName: 'John Mukasa', currentRent: 300000, currentDays: 30 } }} />);
+    await screen.findByTestId('t4-ready');
+    expect(screen.getAllByText('On file ✓')).toHaveLength(3);
+    expect(screen.queryByLabelText('National ID front photo')).toBeNull();
+    expect(screen.queryByLabelText('LC1 letter photo')).toBeNull();
+  });
+});
+
+describe('rent field', () => {
+  it('asks for the monthly rent, one month only, with the Landlord Ops note', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
+    expect(await screen.findAllByText('Monthly rent (one month only) 🏠')).not.toHaveLength(0);
+    expect(screen.getByText('If the landlord wants several months together, enter ONE month. Landlord Ops will confirm the monthly rent with the landlord.')).toBeInTheDocument();
+  });
+});
+
 describe('T4 renewal', () => {
   const renewal = { prevId: 'prev-1', tenantId: 'tenant-1', tenantName: 'John Mukasa', tenantPhone: '0783123456', currentRent: 300000, currentDays: 30, landlordName: 'Peter Okello' };
 
@@ -331,11 +371,12 @@ describe('T4 renewal', () => {
     expect(mocks.update.mock.invocationCallOrder[profileUpdate]).toBeLessThan(renewOrder);
   });
 
-  it('DOCS-1: an ID back photo on the tenant’s profile counts for a renewal', async () => {
+  it('DOCS-1: an ID back photo on the tenant’s profile counts for a renewal and shows "On file ✓"', async () => {
     mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), nin_photo_back_path: null };
     mocks.tables.profiles = { ...TENANT, national_id_photo_back_path: 'tenant-1/profile/national_id_back.jpg' };
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
     await screen.findByTestId('t4-ready');
+    await waitFor(() => expect(screen.getByRole('img', { name: 'ID back photo on file' })).toHaveAttribute('src', 'https://signed/tenant-1/profile/national_id_back.jpg'));
   });
 
   it('does nothing when the agent or tenant backs out of the renewal', async () => {
