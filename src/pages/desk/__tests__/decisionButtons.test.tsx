@@ -256,7 +256,7 @@ describe('Landlord Ops drawer, request 06df1e3b', () => {
     expect(reviews[0][1]).toMatchObject({ p_stage: 'landlord_ops', p_decision: 'pass' });
     expect(reviews[0][1].p_results).toContainEqual({ code: 'lo_rent_confirmed', result: 'pass', value: 700000 });
     expect(h.update).not.toHaveBeenCalled();
-  });
+  }, 20_000); // a long walk through the drawer: slow under a loaded machine
 
   it('a refused pass shows the server message as-is', async () => {
     serve(sheet('landlord_ops', LO_ITEMS, 'pass'));

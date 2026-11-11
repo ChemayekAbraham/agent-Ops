@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fmt } from './format';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
-import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu, rowLayout, RowCard, atLeast, useBreakpoint, daysShort, moneyCard, moneyFull } from './ui';
+import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu, rowLayout, RowCard, atLeast, useBreakpoint, daysShort, moneyCard, moneyFull, stackLayout } from './ui';
 import { readableError, rpc } from './reviewApi';
 import { hoursUntil, ownerLabel, type BoardWaiting } from './boardApi';
 import { timeLeftText } from './waitOn';
@@ -14,6 +14,7 @@ import type { ChipModel } from './boardRowModel';
 import { AgentSheet } from './agents/AgentSheet';
 import { SendBackSheet } from './sendBack';
 import { KindChip, type RequestKind } from './KindChip';
+import { AT_COO, DeskSearchBox, SearchResults } from './deskSearch';
 import { awaitingRentRequestIds } from '@/lib/fundersBoard';
 import { useCooDemoted } from './fundersBoard/DemotedPanel';
 
@@ -568,7 +569,26 @@ function PushSheet({ plan, n, onClose }: { plan: { rows: CooRow[]; totalUgx: num
   );
 }
 
+/**
+ * The COO board with its search box on top (E72): any name, phone or request
+ * id across the pipeline. A result at the COO opens the drawer; any other
+ * shows read-only where it is. The results replace the list while searching.
+ */
 export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
+  const [query, setQuery] = useState('');
+  const searching = query.trim().length > 0;
+  return (
+    <div style={stackLayout(12)}>
+      <DeskSearchBox desk="coo" value={query} onChange={setQuery} />
+      {searching && <SearchResults desk="coo" query={query} showDesk onOpen={(id) => onOpen(id)} openWhen={(r) => r.status === AT_COO} />}
+      <div hidden={searching}>
+        <CooList board={board} onOpen={onOpen} />
+      </div>
+    </div>
+  );
+}
+
+function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
   const q = useCooBoard();
   const [n, setN] = useState(COO_PUSH_DEFAULT);
   const [confirm, setConfirm] = useState(false);
