@@ -13722,6 +13722,175 @@ export type Database = {
         }
         Relationships: []
       }
+      co_support_invites: {
+        Row: {
+          accepted_at: string | null
+          close_reason: string | null
+          closed_at: string | null
+          code: string
+          created_at: string
+          declined_at: string | null
+          declined_by: string | null
+          expires_at: string
+          gross_amount: number
+          id: string
+          invitee_commitment_id: string | null
+          invitee_id: string | null
+          invitee_portfolio_id: string | null
+          invitee_rent: number
+          invitee_share: number
+          lead_commitment_id: string | null
+          lead_partner_id: string
+          lead_portfolio_id: string | null
+          lead_rent: number
+          lead_share: number
+          rent_amount: number
+          rent_request_id: string
+          replaces_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          close_reason?: string | null
+          closed_at?: string | null
+          code: string
+          created_at?: string
+          declined_at?: string | null
+          declined_by?: string | null
+          expires_at: string
+          gross_amount: number
+          id?: string
+          invitee_commitment_id?: string | null
+          invitee_id?: string | null
+          invitee_portfolio_id?: string | null
+          invitee_rent: number
+          invitee_share: number
+          lead_commitment_id?: string | null
+          lead_partner_id: string
+          lead_portfolio_id?: string | null
+          lead_rent: number
+          lead_share: number
+          rent_amount: number
+          rent_request_id: string
+          replaces_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          close_reason?: string | null
+          closed_at?: string | null
+          code?: string
+          created_at?: string
+          declined_at?: string | null
+          declined_by?: string | null
+          expires_at?: string
+          gross_amount?: number
+          id?: string
+          invitee_commitment_id?: string | null
+          invitee_id?: string | null
+          invitee_portfolio_id?: string | null
+          invitee_rent?: number
+          invitee_share?: number
+          lead_commitment_id?: string | null
+          lead_partner_id?: string
+          lead_portfolio_id?: string | null
+          lead_rent?: number
+          lead_share?: number
+          rent_amount?: number
+          rent_request_id?: string
+          replaces_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "co_support_invites_replaces_id_fkey"
+            columns: ["replaces_id"]
+            isOneToOne: false
+            referencedRelation: "co_support_invites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commission_accrual_ledger: {
         Row: {
           agent_id: string | null
@@ -42256,6 +42425,7 @@ export type Database = {
       }
       partner_self_funding_lines: {
         Row: {
+          co_support_id: string | null
           commitment_id: string
           committed_at: string
           completed_at: string | null
@@ -42280,6 +42450,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          co_support_id?: string | null
           commitment_id: string
           committed_at?: string
           completed_at?: string | null
@@ -42304,6 +42475,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          co_support_id?: string | null
           commitment_id?: string
           committed_at?: string
           completed_at?: string | null
@@ -42328,6 +42500,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "partner_self_funding_lines_co_support_id_fkey"
+            columns: ["co_support_id"]
+            isOneToOne: false
+            referencedRelation: "co_support_invites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "partner_self_funding_lines_commitment_id_fkey"
             columns: ["commitment_id"]
@@ -78012,6 +78191,61 @@ export type Database = {
             }
             Returns: string
           }
+      _co_support_disburse_landlord_float: {
+        Args: { p_commitment_id: string }
+        Returns: Json
+      }
+      _co_support_expire_stale: {
+        Args: { p_rent_request_id?: string }
+        Returns: number
+      }
+      _co_support_first_name: { Args: { p_user: string }; Returns: string }
+      _co_support_fmt: { Args: { p_amount: number }; Returns: string }
+      _co_support_invite_json: {
+        Args: { p_invite_id: string; p_viewer: string }
+        Returns: Json
+      }
+      _co_support_lead_checks: {
+        Args: { p_lead: string; p_rent_request_id: string }
+        Returns: Json
+      }
+      _co_support_lock: {
+        Args: { p_a: string; p_b?: string; p_rent_request_id: string }
+        Returns: undefined
+      }
+      _co_support_new_code: { Args: never; Returns: string }
+      _co_support_open_half: {
+        Args: {
+          p_gross: number
+          p_invite_id: string
+          p_partner: string
+          p_rent: number
+          p_role: string
+        }
+        Returns: Json
+      }
+      _co_support_plan_problem: {
+        Args: { p_partner: string; p_rent_request_id: string }
+        Returns: string
+      }
+      _co_support_require_partner: {
+        Args: { p_uid: string }
+        Returns: undefined
+      }
+      _co_support_split: {
+        Args: { p_rent: number }
+        Returns: {
+          gross: number
+          invitee_rent: number
+          invitee_share: number
+          lead_rent: number
+          lead_share: number
+        }[]
+      }
+      _co_support_status: {
+        Args: { p_declined_at: string; p_expires_at: string; p_status: string }
+        Returns: string
+      }
       _complete_allocation_return: {
         Args: {
           p_auto?: boolean
@@ -83521,6 +83755,29 @@ export type Database = {
       cleanup_mcp_public_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_system_events: { Args: never; Returns: undefined }
       cmo_referral_access_ok: { Args: { _uid: string }; Returns: boolean }
+      co_support_accept: { Args: { p_code: string }; Returns: Json }
+      co_support_cancel: { Args: { p_invite_id: string }; Returns: Json }
+      co_support_create: { Args: { p_rent_request_id: string }; Returns: Json }
+      co_support_decline: { Args: { p_code: string }; Returns: Json }
+      co_support_fund_alone: { Args: { p_invite_id: string }; Returns: Json }
+      co_support_integrity_check: {
+        Args: never
+        Returns: {
+          invite_id: string
+          problem: string
+          rent_request_id: string
+        }[]
+      }
+      co_support_my_invites: { Args: never; Returns: Json }
+      co_support_preview: { Args: { p_code: string }; Returns: Json }
+      co_support_reinvite: {
+        Args: { p_invite_id: string; p_new_link?: boolean }
+        Returns: Json
+      }
+      co_support_staff_cancel: {
+        Args: { p_invite_id: string; p_reason: string }
+        Returns: Json
+      }
       collect_due_agent_advance_installment: {
         Args: { p_agent_id: string }
         Returns: number
