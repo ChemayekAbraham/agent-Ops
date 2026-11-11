@@ -86721,6 +86721,15 @@ export type Database = {
           outflow: number
         }[]
       }
+      get_cfo_daily_cash_movement: {
+        Args: { p_days?: number }
+        Returns: {
+          corrections: number
+          day: string
+          inflow: number
+          outflow: number
+        }[]
+      }
       get_cfo_ledger_trail: {
         Args: {
           p_categories?: string[]
