@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check, Loader2, MapPin, ShieldCheck, Camera, AlertTriangle, Clock3, LockKeyhole, Smartphone, Mail, Home, CreditCard, UserRound, Users, ScanFace, Fingerprint } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, MapPin, ShieldCheck, Camera, AlertTriangle, Clock3, LockKeyhole, Smartphone, Mail, Home, CreditCard, UserRound, Users, ScanFace, Fingerprint, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,8 @@ import { UgLocationPicker } from '@/components/location/UgLocationPicker';
 import { ugLocationLabel, type UgLocationSelection } from '@/hooks/useUgLocations';
 import VettingMap from '@/components/agent-vetting/VettingMap';
 import { agentVettingRedirect } from '@/hooks/agentVettingAccess';
+import { useAgentVettingV2 } from '@/hooks/useAgentVettingV2';
+import { stepForMissing, verifiedUntilLabel, type GateStatus, type MissingItem } from '@/lib/agentVettingV2';
 import {
   VETTING_STATUS_LABEL, canEditVetting, vettingChecklist, vettingProgress, nationalIdOnFile, isLocationFresh,
   type AgentVetting, type VettingStepKey,
@@ -33,39 +35,30 @@ const fmt = (s: string | null | undefined) =>
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e ?? 'That did not work. Please try again.'));
 
-/** Matches a server "missing" line to the step card it refers to. */
-function stepForMissing(text: string): VettingStepKey | null {
-  const t = text.toLowerCase();
-  if (t.includes('phone') && !t.includes('next of kin')) return 'phone';
-  if (t.includes('email')) return 'email';
-  if (t.includes('next of kin')) return 'next_of_kin';
-  if (t.includes('passport')) return 'passport_photo';
-  if (t.includes('national id') || t.includes(' id ') || t.includes('nin')) return 'national_id';
-  if (t.includes('location') || t.includes('gps')) return 'location';
-  if (t.includes('stay') || t.includes('district') || t.includes('village')) return 'residence';
-  return null;
-}
-
 const KYC_STEPS: { title: string; description: string; keys: VettingStepKey[]; icon: typeof Smartphone }[] = [
   { title: 'Contact', description: 'Confirm your phone and email with a code.', keys: ['phone', 'email'], icon: Smartphone },
   { title: 'Where you stay', description: 'Choose your district, parish and village.', keys: ['residence'], icon: Home },
   { title: 'Identity document', description: "Use your own National ID or your parent agent's ID.", keys: ['national_id'], icon: CreditCard },
   { title: 'Selfie / passport photo', description: 'Take a clear photo of your face.', keys: ['passport_photo'], icon: ScanFace },
   { title: 'Next of kin', description: 'Confirm who we can contact as your next of kin.', keys: ['next_of_kin'], icon: Users },
+  { title: 'LC1 letter for your home', description: 'Take a clear photo of the LC1 letter that confirms where you stay.', keys: ['home_lc1'], icon: FileText },
   // Last before Review: submit rejects a capture older than gps_rules.max_age_minutes (10), so
   // capturing it early sent agents back here after the ID and selfie steps.
   { title: 'Live location', description: 'Capture your location where you are staying, just before you submit.', keys: ['location'], icon: MapPin },
   { title: 'Review and submit', description: 'Check your details before sending them to Agent Ops.', keys: [], icon: ShieldCheck },
 ];
+/** Review is always the last step. */
+const REVIEW = KYC_STEPS.length - 1;
+const TOTAL = KYC_STEPS.length;
 
 // The progress fill travels primary -> orange -> green: the system purple holds
 // through the first steps, eases into orange by step 4, stays orange through the
 // later steps, and green is saved for the final step.
 type Hsl = [number, number, number];
 const ORANGE: Hsl = [28, 90, 55];
-const PRIMARY_HOLD = 2 / 7; // the true system purple holds through step 2
-const ORANGE_AT = 4 / 7; // orange is fully reached at step 4
-const GREEN_AT = 6 / 7; // green only begins after step 6
+const PRIMARY_HOLD = 2 / TOTAL; // the true system purple holds through step 2
+const ORANGE_AT = 4 / TOTAL; // orange is fully reached at step 4
+const GREEN_AT = (TOTAL - 1) / TOTAL; // green only begins on the review step
 const readHsl = (token: string): Hsl | null => {
   if (typeof window === 'undefined') return null;
   const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
@@ -97,6 +90,7 @@ const progressFill = (ratio: number): CSSProperties | undefined => {
 
 export default function AgentVerification() {
   const v = useAgentVetting();
+  const v2 = useAgentVettingV2(v.applicability === 'ready' && !!v.vetting);
   const navigate = useNavigate();
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; message?: string; missing?: string[] } | null>(null);
   const [confirmAction, setConfirmAction] = useState<null | (() => void)>(null);
@@ -107,15 +101,26 @@ export default function AgentVerification() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const vetting = v.vetting;
   // Completion remains defined by the existing checklist, not by wizard navigation.
-  const steps = useMemo(() => vetting ? vettingChecklist(vetting) : [], [vetting]);
-  const progress = vettingProgress(steps);
-  const done = (index: number) => index === 6 ? false : KYC_STEPS[index].keys.every(key => steps.some(s => s.key === key && s.done));
-  const unfinished = KYC_STEPS.findIndex((_, index) => index < 6 && !done(index));
+  const baseSteps = useMemo(() => vetting ? vettingChecklist(vetting) : [], [vetting]);
+  // v2: the home LC1 letter is done once saved here, or when the server no longer lists it.
+  // If the server list cannot be loaded, the wizard does not block; submit re-checks it.
+  const homeLc1Done = v2.homeLc1Saved || (v2.missing ? !v2.missing.some(m => m.kind === 'home_lc1') : v2.missingFailed);
+  const steps = useMemo(() => vetting ? [...baseSteps, {
+    key: 'home_lc1' as const, label: 'LC1 letter for your home', done: homeLc1Done,
+    hint: homeLc1Done ? null : 'Upload a photo of the LC1 letter for your home.',
+  }] : [], [vetting, baseSteps, homeLc1Done]);
+  const progress = vettingProgress(baseSteps);
+  const done = (index: number) => index === REVIEW ? false : KYC_STEPS[index].keys.every(key => steps.some(s => s.key === key && s.done));
+  const unfinished = KYC_STEPS.findIndex((_, index) => index < REVIEW && !done(index));
   const allComplete = unfinished < 0;
   const pending = steps.filter(s => !s.done);
+  // Server items no wizard step fixes (agreement, mobile money, anything else): listed on review.
+  const otherMissing = (v2.missing ?? []).filter(m => m.kind === 'agreement' || m.kind === 'mobile_money' || m.kind === 'other');
+  const expired = v2.gate?.status === 'expired';
+  const lc1 = { done: homeLc1Done, save: v2.saveHomeLc1, saving: v2.savingHomeLc1 };
   // No step is skipped: an agent starts at the first step and sees every one,
   // filled or not, then moves on with Continue. Read-only review opens at the summary.
-  const current = selectedStep ?? (viewOnly ? 6 : 0);
+  const current = selectedStep ?? (viewOnly ? REVIEW : 0);
   const editable = !!vetting && canEditVetting(vetting.status) && !viewOnly;
   const busy = !!v.busy || !!v.emailSending;
 
@@ -153,12 +158,21 @@ export default function AgentVerification() {
     setViewOnly(readOnly);
     setWizardOpen(true);
     setStarted(true);
-    goTo(readOnly ? 6 : 0);
+    goTo(readOnly ? REVIEW : 0);
+  };
+  /** Opens the wizard at the step that fixes a missing item. */
+  const openStep = (key: VettingStepKey) => {
+    const target = KYC_STEPS.findIndex(s => s.keys.includes(key));
+    if (target < 0) return;
+    setViewOnly(false);
+    setWizardOpen(true);
+    setStarted(true);
+    goTo(target);
   };
   const redirectTo = agentVettingRedirect(v.applicability);
   if (redirectTo) return <Navigate to={redirectTo} replace />;
 
-  const statusScreen = !!vetting && !wizardOpen && (vetting.status !== 'unverified' || submitResult?.ok);
+  const statusScreen = !!vetting && !wizardOpen && (vetting.status !== 'unverified' || submitResult?.ok || expired);
   const untouched = !!vetting && progress.done === 0 && !vetting.residence.district && !vetting.gps.captured_at && !vetting.national_id.source && !vetting.passport_photo.path && !vetting.next_of_kin.name;
   const intro = !!vetting && vetting.status === 'unverified' && untouched && !started;
   const showWizard = !!vetting && !v.isLoading && !v.error && !statusScreen && !intro;
@@ -175,35 +189,37 @@ export default function AgentVerification() {
       <main className="mx-auto max-w-2xl px-5 py-4 sm:py-7">
         {v.isLoading ? <div className="space-y-5" aria-label="Loading verification"><Skeleton className="h-8 w-2/3" /><Skeleton className="h-2 w-full" /><Skeleton className="h-64 w-full rounded-lg" /></div>
           : v.error || !vetting ? <div className="space-y-4"><p className="text-sm">{v.error?.message ?? 'Could not load your verification.'}</p><Button className="min-h-11" onClick={() => v.refresh()}>Retry</Button></div>
-          : statusScreen ? <VerificationStatus vetting={vetting} submitted={!!submitResult?.ok} onFix={() => openWizard()} onView={() => openWizard(true)} onEdit={() => guard(() => openWizard())} />
+          : statusScreen ? <VerificationStatus vetting={vetting} gate={v2.gate} missing={v2.missing ?? []} submitted={!!submitResult?.ok} onFix={() => openWizard()} onView={() => openWizard(true)} onEdit={() => guard(() => openWizard())} onStep={key => (vetting.status === 'verified' && !expired ? guard(() => openStep(key)) : openStep(key))} />
           : intro ? <div className="space-y-7">
             <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-primary/20 bg-primary/5"><ShieldCheck className="h-8 w-8 text-primary" /></div>
             <div className="space-y-3"><h1 className="text-3xl font-semibold">Verify your identity</h1><p className="text-sm leading-relaxed text-muted-foreground">Welile verifies every agent before they can add tenants or post Rent Plan requests.</p><p className="flex items-center gap-2 text-sm"><Clock3 className="h-4 w-4 text-primary" /> About 5 minutes</p></div>
             <div><h2 className="mb-4 text-sm font-semibold">What you'll need</h2><ul className="space-y-4">{[
-              [Smartphone, 'Your phone and email'], [Home, 'Where you stay and your live location'], [CreditCard, 'National ID front and back'], [Camera, 'A passport photo'], [Users, 'Your next of kin'],
+              [Smartphone, 'Your phone and email'], [Home, 'Where you stay and your live location'], [CreditCard, 'National ID front and back'], [Camera, 'A passport photo'], [Users, 'Your next of kin'], [FileText, 'An LC1 letter for your home'],
             ].map(([Icon, label]) => { const ItemIcon = Icon as typeof Smartphone; return <li key={String(label)} className="flex items-center gap-3 text-sm"><ItemIcon className="h-5 w-5 shrink-0 text-primary" />{String(label)}</li>; })}</ul></div>
             <p className="flex items-start gap-2 border-t border-border pt-5 text-sm text-muted-foreground"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Your details are only seen by Welile Agent Ops</p>
           </div> : showWizard ? <>
             <div className="mb-5 space-y-2">
-              <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">Step {current + 1} of 7</p><Badge variant={vetting.status === 'unverified' ? 'destructive' : vetting.status === 'rejected' ? 'soft' : 'secondary'}>{VETTING_STATUS_LABEL[vetting.status]}</Badge></div>
-              <Progress value={((current + 1) / 7) * 100} aria-label="Verification progress" indicatorStyle={progressFill((current + 1) / 7)} />
+              <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">Step {current + 1} of {TOTAL}</p><Badge variant={vetting.status === 'unverified' ? 'destructive' : vetting.status === 'rejected' ? 'soft' : 'secondary'}>{VETTING_STATUS_LABEL[vetting.status]}</Badge></div>
+              <Progress value={((current + 1) / TOTAL) * 100} aria-label="Verification progress" indicatorStyle={progressFill((current + 1) / TOTAL)} />
             </div>
             <div className="mb-4 space-y-1.5"><h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none">{KYC_STEPS[current].title}</h1><p className="text-sm leading-relaxed text-muted-foreground">{KYC_STEPS[current].description}</p></div>
+            {expired && v2.gate?.reason && <ExpiredNotice reason={v2.gate.reason} />}
             {vetting.status === 'rejected' && vetting.review_note && <div className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 p-3"><p className="text-sm font-semibold text-destructive">What to fix</p><p className="mt-1 whitespace-pre-wrap text-sm">{vetting.review_note}</p></div>}
             {/* Keep step bodies mounted so codes and unsaved inputs survive Back/Edit navigation. */}
-            {KYC_STEPS.slice(0, 6).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-4">{done(index) && editable && <p className="text-xs text-muted-foreground">Already saved — check it and press Continue.</p>}{s.keys.map(key => {
+            {KYC_STEPS.slice(0, REVIEW).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-4">{done(index) && editable && <p className="text-xs text-muted-foreground">Already saved — check it and press Continue.</p>}{s.keys.map(key => {
               const step = steps.find(item => item.key === key);
               const stepHint = step ? shortStepHint(key, step.hint, vetting) : '';
-              return <div key={key} className="space-y-2">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{stepHint && <p className="text-sm text-muted-foreground">{stepHint}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
+              return <div key={key} className="space-y-2">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{stepHint && <p className="text-sm text-muted-foreground">{stepHint}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} lc1={lc1} /></div>;
             })}</section>)}
-            {current === 6 && <ReviewDetails vetting={vetting} onEdit={index => { if (viewOnly) guard(() => { setViewOnly(false); goTo(index); }); else goTo(index); }} canEdit={canEditVetting(vetting.status)} />}
-            {current === 6 && !viewOnly && pending.length > 0 && <div className="mt-5 rounded-lg border border-warning/40 bg-warning/5 p-3"><p className="text-sm font-semibold">Still needed before you can submit</p><ul className="mt-2 space-y-2">{pending.map(s => <li key={s.key}><Button variant="outline" className="min-h-11 h-auto w-full justify-between gap-2 whitespace-normal py-3 text-left" onClick={() => { const target = KYC_STEPS.findIndex(k => k.keys.includes(s.key)); if (target >= 0) goTo(target); }}><span>{s.label}</span><ArrowRight className="h-4 w-4 shrink-0" /></Button></li>)}</ul></div>}
+            {current === REVIEW && <ReviewDetails vetting={vetting} homeLc1Done={homeLc1Done} onEdit={index => { if (viewOnly) guard(() => { setViewOnly(false); goTo(index); }); else goTo(index); }} canEdit={canEditVetting(vetting.status)} />}
+            {current === REVIEW && !viewOnly && pending.length > 0 && <div className="mt-5 rounded-lg border border-warning/40 bg-warning/5 p-3"><p className="text-sm font-semibold">Still needed before you can submit</p><ul className="mt-2 space-y-2">{pending.map(s => <li key={s.key}><Button variant="outline" className="min-h-11 h-auto w-full justify-between gap-2 whitespace-normal py-3 text-left" onClick={() => { const target = KYC_STEPS.findIndex(k => k.keys.includes(s.key)); if (target >= 0) goTo(target); }}><span>{s.label}</span><ArrowRight className="h-4 w-4 shrink-0" /></Button></li>)}</ul></div>}
+            {current === REVIEW && otherMissing.length > 0 && <MissingChecklist className="mt-5" title="Also needed for your verification" items={otherMissing} onStep={goToKey => { const target = KYC_STEPS.findIndex(k => k.keys.includes(goToKey)); if (target >= 0) goTo(target); }} />}
           </> : null}
       </main>
       {(intro || showWizard) && <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"><div className="mx-auto grid max-w-2xl grid-cols-[auto_1fr] gap-3 px-5 py-4">
         {intro ? <Button className="col-span-2 min-h-12" onClick={() => { setStarted(true); goTo(0); }}>Start verification<ArrowRight className="ml-2 h-4 w-4" /></Button> : <>
           {current === 0 ? <Button variant="outline" className="min-h-12 border-destructive text-destructive hover:bg-destructive/5 hover:text-destructive" disabled={busy} onClick={() => vetting?.status !== 'unverified' ? setWizardOpen(false) : navigate('/dashboard/agent')}><ArrowLeft className="mr-2 h-4 w-4" />Exit</Button> : <Button variant="outline" className="min-h-12 border-primary text-primary hover:bg-primary/5 hover:text-primary" disabled={busy} onClick={() => goTo(current - 1)}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>}
-          {current < 6 ? <Button className="min-h-12" disabled={busy} onClick={() => goTo(current + 1)}>Continue<ArrowRight className="ml-2 h-4 w-4" /></Button> : viewOnly ? <Button className="min-h-12" onClick={() => { setWizardOpen(false); setViewOnly(false); }}>Done</Button> : <Button className="min-h-12 whitespace-normal" disabled={busy || !allComplete} onClick={() => guard(onSubmit)}>{v.busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />Checking your location…</> : 'Submit for review'}</Button>}
+          {current < REVIEW ? <Button className="min-h-12" disabled={busy} onClick={() => goTo(current + 1)}>Continue<ArrowRight className="ml-2 h-4 w-4" /></Button> : viewOnly ? <Button className="min-h-12" onClick={() => { setWizardOpen(false); setViewOnly(false); }}>Done</Button> : <Button className="min-h-12 whitespace-normal" disabled={busy || !allComplete} onClick={() => guard(onSubmit)}>{v.busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />Checking your location…</> : 'Submit for review'}</Button>}
         </>}
       </div></footer>}
       <Dialog open={!!submitResult && !submitResult.ok} onOpenChange={open => { if (!open) setSubmitResult(null); }}>
@@ -223,17 +239,44 @@ function shortStepHint(key: VettingStepKey, hint: string, vetting: AgentVetting)
   return hint;
 }
 
-function VerificationStatus({ vetting, submitted, onFix, onView, onEdit }: { vetting: AgentVetting; submitted: boolean; onFix: () => void; onView: () => void; onEdit: () => void }) {
-  const reviewing = submitted || vetting.status === 'submitted';
-  const verified = !reviewing && vetting.status === 'verified';
+/** The server's re-verify message for an expired verification, shown as it is. */
+function ExpiredNotice({ reason }: { reason: string }) {
+  return <div className="mb-5 w-full rounded-lg border border-warning/40 bg-warning/5 p-3 text-left" role="status"><p className="text-sm font-semibold">Verification expired</p><p className="mt-1 whitespace-pre-wrap text-sm">{reason}</p></div>;
+}
+
+/**
+ * What the server (`_agent_vetting_v2_missing`) says is still missing. Each line is shown as
+ * it comes; the agreement and mobile money lines link to the screens that fix them, and lines
+ * a wizard step fixes open that step.
+ */
+function MissingChecklist({ title, items, onStep, className = '' }: { title: string; items: MissingItem[]; onStep: (key: VettingStepKey) => void; className?: string }) {
+  const row = 'min-h-11 h-auto w-full justify-between gap-2 whitespace-normal py-3 text-left';
+  return <div className={`w-full rounded-lg border border-warning/40 bg-warning/5 p-3 text-left ${className}`}>
+    <p className="text-sm font-semibold">{title}</p>
+    <ul className="mt-2 space-y-2">{items.map((m, index) => <li key={`${index}-${m.text}`}>
+      {m.href ? <Button variant="outline" className={row} asChild><Link to={m.href}><span>{m.text}</span><ArrowRight className="h-4 w-4 shrink-0" /></Link></Button>
+        : m.step ? <Button variant="outline" className={row} onClick={() => m.step && onStep(m.step)}><span>{m.text}</span><ArrowRight className="h-4 w-4 shrink-0" /></Button>
+        : <p className="flex items-start gap-2 py-1 text-sm"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />{m.text}</p>}
+    </li>)}</ul>
+  </div>;
+}
+
+function VerificationStatus({ vetting, gate, missing, submitted, onFix, onView, onEdit, onStep }: { vetting: AgentVetting; gate: GateStatus | null; missing: MissingItem[]; submitted: boolean; onFix: () => void; onView: () => void; onEdit: () => void; onStep: (key: VettingStepKey) => void }) {
+  const expired = gate?.status === 'expired';
+  const reviewing = !expired && (submitted || vetting.status === 'submitted');
+  const verified = !expired && !reviewing && vetting.status === 'verified';
+  const until = verified ? verifiedUntilLabel(gate?.expires_at) : null;
   const Icon = reviewing ? Clock3 : verified ? ShieldCheck : AlertTriangle;
   return <div className="mx-auto flex max-w-md flex-col items-center py-8 text-center">
     <div className="mb-7 flex h-28 w-28 items-center justify-center rounded-full border border-primary/20 bg-primary/5"><Icon className="h-12 w-12 text-primary" strokeWidth={1.5} /></div>
-    <Badge variant={reviewing ? 'secondary' : vetting.status === 'unverified' ? 'destructive' : 'secondary'} className="mb-4">{reviewing ? VETTING_STATUS_LABEL.submitted : VETTING_STATUS_LABEL[vetting.status]}</Badge>
-    <h1 className="text-3xl font-semibold">{reviewing ? 'Verification in review' : verified ? "You're verified" : 'Action needed'}</h1>
+    <Badge variant={expired || (!reviewing && vetting.status === 'unverified') ? 'destructive' : 'secondary'} className="mb-4">{expired ? 'Expired' : reviewing ? VETTING_STATUS_LABEL.submitted : VETTING_STATUS_LABEL[vetting.status]}</Badge>
+    <h1 className="text-3xl font-semibold">{expired ? 'Verify again' : reviewing ? 'Verification in review' : verified ? "You're verified" : 'Action needed'}</h1>
     <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{reviewing ? "Agent Ops is checking your details. We'll let you know." : verified ? 'Your identity has been verified by Welile Agent Ops.' : 'Check the note from Agent Ops and update your details.'}</p>
-    {!reviewing && !verified && vetting.review_note && <div className="mt-6 w-full rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-left"><p className="text-sm font-semibold text-destructive">Agent Ops review note</p><p className="mt-2 whitespace-pre-wrap text-sm">{vetting.review_note}</p></div>}
-    <div className="mt-7 flex w-full flex-col gap-2">{verified ? <><Button variant="outline" className="min-h-12" onClick={onView}>View details</Button><Button variant="link" className="min-h-11" onClick={onEdit}>Edit details</Button></> : !reviewing ? <Button className="min-h-12" onClick={onFix}>Fix and resubmit<ArrowRight className="ml-2 h-4 w-4" /></Button> : <Button variant="outline" className="min-h-12" asChild><Link to="/dashboard/agent">Back to dashboard</Link></Button>}</div>
+    {until && <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-primary"><ShieldCheck className="h-4 w-4" />{until}</p>}
+    {expired && gate?.reason && <div className="mt-6 w-full"><ExpiredNotice reason={gate.reason} /></div>}
+    {!expired && !reviewing && !verified && vetting.review_note && <div className="mt-6 w-full rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-left"><p className="text-sm font-semibold text-destructive">Agent Ops review note</p><p className="mt-2 whitespace-pre-wrap text-sm">{vetting.review_note}</p></div>}
+    {missing.length > 0 && <MissingChecklist className="mt-6" title="Still missing for your verification" items={missing} onStep={onStep} />}
+    <div className="mt-7 flex w-full flex-col gap-2">{expired ? <Button className="min-h-12" onClick={onFix}>Verify again<ArrowRight className="ml-2 h-4 w-4" /></Button> : verified ? <><Button variant="outline" className="min-h-12" onClick={onView}>View details</Button><Button variant="link" className="min-h-11" onClick={onEdit}>Edit details</Button></> : !reviewing ? <Button className="min-h-12" onClick={onFix}>Fix and resubmit<ArrowRight className="ml-2 h-4 w-4" /></Button> : <Button variant="outline" className="min-h-12" asChild><Link to="/dashboard/agent">Back to dashboard</Link></Button>}</div>
   </div>;
 }
 
@@ -271,7 +314,7 @@ function OwnIdSummary({ id, compact = false }: { id: AgentVetting['national_id']
   </div>;
 }
 
-function ReviewDetails({ vetting: v, onEdit, canEdit }: { vetting: AgentVetting; onEdit: (index: number) => void; canEdit: boolean }) {
+function ReviewDetails({ vetting: v, homeLc1Done, onEdit, canEdit }: { vetting: AgentVetting; homeLc1Done: boolean; onEdit: (index: number) => void; canEdit: boolean }) {
   const address = [v.residence.village, v.residence.parish, v.residence.sub_county, v.residence.district, v.residence.region, v.residence.town, v.residence.city].filter(Boolean).join(', ');
   const confirmed = (value: string | null, at: string | null, href?: string | null) => <div className="flex flex-wrap items-center gap-2">{value && href ? <a href={href} className="break-all text-primary underline underline-offset-4">{value}</a> : <span className="break-all">{value ?? 'Not added'}</span>}{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
   const values = [
@@ -280,6 +323,7 @@ function ReviewDetails({ vetting: v, onEdit, canEdit }: { vetting: AgentVetting;
     v.national_id.source === 'parent' ? <div className="space-y-1"><p>Parent agent's National ID</p><p className="font-mono">{v.national_id.nin_masked ?? 'Not added'}</p><p className="text-xs text-muted-foreground">Front {v.national_id.has_front ? 'saved' : 'missing'} · Back {v.national_id.has_back ? 'saved' : 'missing'}</p></div> : <OwnIdSummary id={v.national_id} compact />,
     <PassportThumbnail path={v.passport_photo.path} />,
     <div className="space-y-1"><p>{v.next_of_kin.name ?? 'Not added'}</p><p>{v.next_of_kin.phone}</p><p className="text-muted-foreground">{v.next_of_kin.source === 'parent_agent' ? 'Parent agent' : v.next_of_kin.relationship}</p></div>,
+    <p>{homeLc1Done ? 'On file ✓' : 'Not added'}</p>,
     <div className="space-y-1"><p className="font-mono">{v.gps.lat !== null && v.gps.lng !== null ? `${v.gps.lat.toFixed(5)}, ${v.gps.lng.toFixed(5)}` : 'Not captured'}</p>{v.gps.accuracy_m != null && <p>Accuracy: {Math.round(v.gps.accuracy_m)} m</p>}{v.gps.captured_at && <p className="text-xs text-muted-foreground">{fmt(v.gps.captured_at)}</p>}</div>,
   ];
   return <div className="space-y-3">{values.map((value, index) => <section key={KYC_STEPS[index].title} className="rounded-lg border border-primary/30 bg-card px-3 py-3"><div className="mb-2 flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">{KYC_STEPS[index].title}</h2>{canEdit && <Button variant="link" className="min-h-11 shrink-0 px-2" onClick={() => onEdit(index)} aria-label={`Edit ${KYC_STEPS[index].title}`}>Edit</Button>}</div><div className="break-words text-sm">{value}</div></section>)}<p className="flex items-start gap-2 py-3 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="h-4 w-4 shrink-0 text-primary" />Your details are only seen by Welile Agent Ops. Your location is checked again when you submit.</p></div>;
@@ -292,6 +336,7 @@ type BodyProps = {
   editable: boolean;
   guard: (fn: () => void) => void;
   act: (fn: () => Promise<unknown>, success?: string) => Promise<boolean>;
+  lc1: { done: boolean; save: (file: File) => Promise<unknown>; saving: boolean };
 };
 
 function StepBody(p: BodyProps) {
@@ -303,6 +348,7 @@ function StepBody(p: BodyProps) {
     case 'national_id': return <NationalIdStep {...p} />;
     case 'passport_photo': return <PassportStep {...p} />;
     case 'next_of_kin': return <NokStep {...p} />;
+    case 'home_lc1': return <HomeLc1Step {...p} />;
   }
 }
 
@@ -608,6 +654,74 @@ function PassportStep({ v, vetting, editable, guard }: BodyProps) {
           )}
         </>
       )}
+      {error && <p className="flex items-start gap-1 text-sm text-destructive"><AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * v2: the LC1 letter for the agent's home. The photo is staged for the agent to check, then
+ * uploaded to lc-letters and recorded with agent_vetting_save_home_lc1. Errors show as sent.
+ */
+function HomeLc1Step({ editable, lc1 }: BodyProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+
+  useEffect(() => () => { if (pendingUrl) URL.revokeObjectURL(pendingUrl); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  const stageFile = (f: File | undefined) => {
+    if (!f) return;
+    if (pendingUrl) URL.revokeObjectURL(pendingUrl);
+    setError(null);
+    setPendingFile(f);
+    setPendingUrl(URL.createObjectURL(f));
+  };
+  const clearPending = () => {
+    if (pendingUrl) URL.revokeObjectURL(pendingUrl);
+    setPendingFile(null);
+    setPendingUrl(null);
+  };
+  const usePending = async () => {
+    if (!pendingFile) return;
+    setError(null);
+    try {
+      await lc1.save(pendingFile);
+      toast.success('LC1 letter saved');
+      clearPending();
+    } catch (e) {
+      setError(errMsg(e));
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {lc1.done && !pendingUrl && <p className="flex items-center gap-2 text-sm font-medium text-primary"><Check className="h-4 w-4" />On file ✓</p>}
+      {pendingUrl && <>
+        <img src={pendingUrl} alt="New LC1 letter" className="max-h-72 w-full rounded-md border border-border object-contain" />
+        <p className="text-sm text-muted-foreground">This is what you took. It is not saved yet — use it if it is clear, or take it again.</p>
+      </>}
+      {editable && <>
+        <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" aria-label="LC1 letter photo"
+          onChange={(e) => { stageFile(e.target.files?.[0]); e.target.value = ''; }} />
+        {pendingUrl ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" className="min-h-12" disabled={lc1.saving} onClick={() => { clearPending(); fileRef.current?.click(); }}>
+              <Camera className="h-4 w-4 mr-2" />Retake
+            </Button>
+            <Button className="min-h-12" disabled={lc1.saving} onClick={() => void usePending()}>
+              {lc1.saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+              Use this photo
+            </Button>
+          </div>
+        ) : (
+          <Button variant="soft" className="min-h-12 w-full" disabled={lc1.saving} onClick={() => fileRef.current?.click()}>
+            <Camera className="h-4 w-4 mr-2" />{lc1.done ? 'Replace LC1 letter' : 'Take a photo of the LC1 letter'}
+          </Button>
+        )}
+      </>}
       {error && <p className="flex items-start gap-1 text-sm text-destructive"><AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />{error}</p>}
     </div>
   );

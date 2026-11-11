@@ -7,7 +7,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn(), fro
 
 import { FunderNewHouseCard } from '../FunderNewHouseCard';
 import { FunderV3HouseCard } from '@/components/funder-v3/FunderV3HouseCard';
-import { HOUSE_NOT_CHECKED_TEXT, isUncheckedEmptyHouse } from '../utils';
+import { isUncheckedEmptyHouse } from '../utils';
 import { makeEmptyHouse, makeReadyPlan } from '@/components/funder-v3/__fixtures__/funderV3Fixtures';
 
 afterEach(() => cleanup());
@@ -26,9 +26,10 @@ describe('empty houses Welile has not checked (house_listings.verified = false)'
   });
 
   for (const [name, Card] of [['legacy', FunderNewHouseCard], ['V3', FunderV3HouseCard]] as const) {
-    it(`${name} card: unchecked house shows the grey line, no Fund button, never "Pending verification"`, () => {
-      render(<Card {...common} cardId="empty:house-0" category="empty" item={{ ...makeEmptyHouse(0), verified: false }} />);
-      expect(screen.getByText(HOUSE_NOT_CHECKED_TEXT)).toBeTruthy();
+    it(`${name} card: unchecked house has no Fund button and no action line, never "Pending verification"`, () => {
+      const { container } = render(<Card {...common} cardId="empty:house-0" category="empty" item={{ ...makeEmptyHouse(0), verified: false }} />);
+      expect(container.querySelector('[data-unchecked="true"]')).not.toBeNull();
+      expect(screen.queryByText(/not yet checked/i)).toBeNull();
       expect(screen.queryByRole('button', { name: /Fund this House/i })).toBeNull();
       expect(screen.queryByText(/Pending verification/i)).toBeNull();
       expect(screen.queryByText('Verified House')).toBeNull();
@@ -40,7 +41,7 @@ describe('empty houses Welile has not checked (house_listings.verified = false)'
     it(`${name} card: a verified empty house keeps "Fund this House"`, () => {
       render(<Card {...common} cardId="empty:house-1" category="empty" item={{ ...makeEmptyHouse(1), verified: true }} />);
       expect(screen.getByRole('button', { name: /Fund this House/i })).toBeTruthy();
-      expect(screen.queryByText(HOUSE_NOT_CHECKED_TEXT)).toBeNull();
+      expect(screen.queryByText(/not yet checked/i)).toBeNull();
       expect(screen.queryByText(/Pending verification/i)).toBeNull();
     });
   }

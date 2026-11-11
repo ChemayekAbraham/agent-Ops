@@ -3,18 +3,31 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Landmark, Wallet, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
+import {
+  financeReportErrorMessage,
+  heavyFinanceReportQueryOptions,
+  rememberHeavyReportResult,
+  runHeavyFinanceReport,
+} from '@/lib/heavyFinanceReportQueue';
 
 export function PlatformVsWalletSummary() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['cfo-platform-vs-wallets'],
-    queryFn: async () => {
-      const [walletTotalsRes, cashSummaryRes] = await Promise.all([
+    ...heavyFinanceReportQueryOptions,
+    queryFn: async ({ signal, client, queryKey }) => {
+      const [walletTotalsRes, cashSummary] = await Promise.all([
         supabase.rpc('get_wallet_totals'),
-        supabase.rpc('get_platform_cash_summary'),
+        runHeavyFinanceReport<{
+          total_revenue?: number;
+          total_costs?: number;
+          platform_cash_in?: number;
+          platform_cash_out?: number;
+          wallet_cash_in?: number;
+          wallet_cash_out?: number;
+        } | null>('get_platform_cash_summary', {}, { active: true, signal }),
       ]);
 
       const totalWallets = Number((walletTotalsRes.data as any)?.total_balance ?? 0);
-      const cashSummary = cashSummaryRes.data as any;
       const rev = Number(cashSummary?.total_revenue ?? 0);
       const costs = Number(cashSummary?.total_costs ?? 0);
       const platformCashIn = Number(cashSummary?.platform_cash_in ?? rev);
@@ -26,10 +39,10 @@ export function PlatformVsWalletSummary() {
       const ledgerNetWallets = walletCashIn - walletCashOut;
       const variance = totalWallets - ledgerNetWallets;
 
-      return { totalWallets, platformNet, ledgerNetWallets, variance };
+      return rememberHeavyReportResult(client, queryKey, signal, {
+        totalWallets, platformNet, ledgerNetWallets, variance,
+      });
     },
-    staleTime: 300_000,
-    refetchOnWindowFocus: false,
   });
 
   if (isLoading) {
@@ -38,6 +51,10 @@ export function PlatformVsWalletSummary() {
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  if (error) {
+    return <p className="py-4 text-center text-sm text-muted-foreground">{financeReportErrorMessage(error)}</p>;
   }
 
   if (!data) return null;

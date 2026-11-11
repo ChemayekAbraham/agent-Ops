@@ -8,6 +8,7 @@ const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc } }));
 
 import {
+  HEAVY_FINANCE_REPORTS,
   HEAVY_REPORT_SLOW_MESSAGE,
   financeReportErrorMessage,
   heavyFinanceReportQueryOptions,
@@ -57,6 +58,21 @@ describe('heavy finance report queue', () => {
 
     gates.get('fin_income_statement')!.resolve({ data: { income: 3 }, error: null });
     await expect(background).resolves.toEqual({ income: 3 });
+  });
+
+  it('queues the cash summary and ledger sums and shares one zero-argument call', async () => {
+    expect(HEAVY_FINANCE_REPORTS).toEqual(expect.arrayContaining([
+      'get_platform_cash_summary',
+      'get_financial_statement_ledger_sums',
+    ]));
+    const gate = deferred<{ data: { total_revenue: 1 }; error: null }>();
+    rpc.mockReturnValue(gate.promise);
+    const first = runHeavyFinanceReport('get_platform_cash_summary', {});
+    const second = runHeavyFinanceReport('get_platform_cash_summary', {});
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls[0]).toEqual(['get_platform_cash_summary']);
+    gate.resolve({ data: { total_revenue: 1 }, error: null });
+    await expect(Promise.all([first, second])).resolves.toEqual([{ total_revenue: 1 }, { total_revenue: 1 }]);
   });
 
   it('shares one in-flight request for the same statement and arguments', async () => {
