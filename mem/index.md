@@ -128,3 +128,4 @@
 - [Promissory queue analytics](mem://features/partner/ops-queue-analytics) — read-only `promissory_ops_analytics` RPC + analytics panel: contact attempts (manual + automated SMS), conversion, overdue aging, fulfilment rates by partner and agent
 - [Conversion queue export](mem://features/partner/queue-export) — CSV/PDF buttons export the filtered on-screen queue rows with score, days late, tier and owner
 - [Rent Plan 4-part waterfall](mem://features/rent-plan-4-part-waterfall) — Principal / Partner Returns 15% of principal flat / Agent 10% of total / Platform Fee remainder; backend not yet built
+- [Funder V3 personal preview only](mem://constraints/funder-v3-personal-preview) — V3 dashboard shows only to viewers with their own `feature_previews` row; the global `pipeline_switches` entry `feature:funders_ui_v3` must stay ignored, default OFF, per-user cache key (product decision 12 Nov 2026)
