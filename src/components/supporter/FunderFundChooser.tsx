@@ -275,7 +275,7 @@ function MomoForm(props: {
       <p className="text-sm">Mobile money: {props.contact.payoutMomoNumber || 'Not recorded'}</p>
       <p className="text-xs text-muted-foreground">Name on the account: {props.contact.payoutMomoName || 'Not recorded'}</p>
       {props.contact.payoutMomoNumber && (
-        <Button type="button" variant="outline" className="h-11 w-full rounded-xl" onClick={props.onCopy}>
+        <Button type="button" variant="outline" className="h-11 w-full rounded-xl text-green-600 hover:text-green-700 dark:text-green-400" onClick={props.onCopy}>
           <Copy className="h-4 w-4" /> Copy number
         </Button>
       )}
