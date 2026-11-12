@@ -581,7 +581,7 @@ const MyRequisitions = () => {
                 </DialogHeader>
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="req-title">{isRefund ? 'What did you pay for' : 'What is it for'}</Label>
+                    <Label htmlFor="req-title">Title</Label>
                     <Input
                       id="req-title"
                       value={form.title}
