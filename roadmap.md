@@ -1,5 +1,5 @@
 # Already-issued Special Advances
-- [ ] Add CFO recording for advances paid outside Welile without sending another payment; blocked pending approval of a dedicated historical-recording server action, because live create/payout actions reject past dates and wallet borrowers receive a fresh wallet credit.
+- [x] Add separate CFO recording for outside-Welile advances with original date, proof, duplicate safeguards and platform-only accounting; never calls the fresh payout action.
 - [ ] Test the non-payout flow and existing Special Advances safeguards.
 
 # Agent Ops signage location filters

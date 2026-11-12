@@ -99893,6 +99893,10 @@ export type Database = {
         Args: { p_id: string; p_request: Json }
         Returns: Json
       }
+      special_advance_record_historical: {
+        Args: { p_request: Json }
+        Returns: Json
+      }
       special_advance_record_recovery: {
         Args: { p_id: string; p_recovery: Json }
         Returns: Json
