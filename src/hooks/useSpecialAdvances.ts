@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type {
   ProvisionPreview, ProvisionReview, SpecialAdvance,
   SpecialAdvanceCorrection, SpecialAdvanceList, SpecialAdvanceQuote, SpecialAdvanceReconciliation, SpecialAdvanceRecovery,
-  SpecialAdvanceStatement, SpecialAdvanceStatus, SpecialAdvanceWriteOff,
+  SpecialAdvanceStatement, SpecialAdvanceStatus, SpecialAdvanceTopup, SpecialAdvanceTopupQuote, SpecialAdvanceWriteOff,
 } from '@/lib/specialAdvances';
 import {
   SPECIAL_ADVANCE_PROOF_BUCKET, SPECIAL_ADVANCE_PROOF_LINK_SECONDS, SPECIAL_ADVANCE_PROOF_PATH_RE, specialAdvanceProofPath,
@@ -127,6 +127,30 @@ export function useRecordSpecialAdvanceRepayment() {
       // proof_path: required by the server for every repayment (CFO decision D2); see uploadSpecialAdvanceProof
       repayment: { amount: number; received_date: string; method: string; reference: string; note?: string | null; idempotency_key: string; proof_path?: string | null };
     }) => call<SpecialAdvanceStatement>('special_advance_record_repayment', { p_id: advanceId, p_repayment: repayment }),
+    onSuccess: invalidate,
+  });
+}
+
+/* ── Top-ups (migration 20261119120000) ─────────────────────────────────────────────────────────────── */
+
+/** What a top-up of `principal` would cost and how it would be repaid (read-only). `principal` null = nothing to quote. */
+export function useSpecialAdvanceTopupQuote(advanceId: string | null, principal: number | null) {
+  return useQuery({
+    queryKey: [KEY, 'topup-quote', advanceId, principal],
+    enabled: !!advanceId && !!principal,
+    queryFn: () => call<SpecialAdvanceTopupQuote>('special_advance_topup_quote', { p_id: advanceId, p_principal: principal }),
+    staleTime: 15 * 1000,
+    retry: noRetryOnRefusal,
+  });
+}
+
+/** Records a top-up AND pays it out in one server transaction. A retry with the same key replays; a stale version is refused. */
+export function useAddSpecialAdvanceTopup() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ advanceId, expectedUpdatedAt, request }: { advanceId: string; expectedUpdatedAt: string; request: Record<string, unknown> }) =>
+      call<SpecialAdvanceStatement & { topup: SpecialAdvanceTopup; replayed: boolean }>('special_advance_add_topup',
+        { p_id: advanceId, p_expected_updated_at: expectedUpdatedAt, p_request: request }),
     onSuccess: invalidate,
   });
 }
