@@ -24,6 +24,7 @@ import { IncompleteSection } from './incomplete';
 import { FundersDashboard } from './cfo/FundersDashboard';
 import { FundersHeadline } from './cfo/FundersHeadline';
 import { FundersBoardCounterCard } from './cfo/FundersBoardCounterCard';
+import { FundersMoneyLines } from './cfo/FundersMoneyLines';
 import { DemotedPanel } from './fundersBoard/DemotedPanel';
 import type { Period as FundersPeriod } from './cfo/cfoApi';
 import { useDeskLive } from './deskLive';
@@ -651,6 +652,8 @@ function DeskView({
       <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
         <PipelineStrip deskId={desk.id} board={board} />
         {desk.id === 'cfo' && <FundersHeadline board={board} period={fundersPeriod} onPeriodChange={setFundersPeriod} />}
+        {/* E85 on the Funders Dashboard: incomplete requests and the funders' money after release, under the top tiles. */}
+        {desk.id === 'cfo' && <FundersMoneyLines board={board} />}
         {desk.id === 'cfo' && <FundersBoardCounterCard board={board} />}
         {/* E58: everything taken off the funders board waits here for its level. */}
         {desk.id === 'coo' && <DemotedPanel board={board} />}
