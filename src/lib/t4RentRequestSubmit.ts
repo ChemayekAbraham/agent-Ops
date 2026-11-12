@@ -161,23 +161,50 @@ export async function fetchAgentSideMissing(requestId: string): Promise<string[]
   }
 }
 
+/**
+ * The exact lines _agent_side_missing returns, and the question each one opens. Matched
+ * first (ignoring case and surrounding spaces); keywords are only a fallback for a line
+ * the server adds later.
+ */
+export const SIDE_MISSING_LINES: Readonly<Record<string, SideMissingStep>> = {
+  'Photos of the house': 'photos',
+  'Landlord details': 'landlord',
+  'Rent amount needed': 'rent',
+  'GPS of the house': 'gps',
+  'family size': 'familySize',
+  'work / business': 'work',
+  'ID photo (front)': 'idFront',
+  'ID photo (back)': 'idBack',
+  'LC1 letter (photo)': 'lcLetter',
+};
+const EXACT_SIDE_MISSING = new Map(
+  Object.entries(SIDE_MISSING_LINES).map(([line, step]) => [line.trim().toLowerCase(), step] as const),
+);
+
 /** The questions one server line asks for (none for a line no question fixes). */
 export function sideMissingSteps(line: string): SideMissingStep[] {
-  const t = line.toLowerCase();
+  const t = line.trim().toLowerCase();
+  const exact = EXACT_SIDE_MISSING.get(t);
+  if (exact) return [exact];
+
+  // Fallback for a line not in the list. ID photos and the LC1 letter come before any
+  // generic "photo", so "LC1 letter (photo)"-style lines never open the house photos.
+  if (/\blc\s?1\b|\blc\b|letter/.test(t)) return ['lcLetter'];
+  if (/\bid\b|national id|\bnin\b/.test(t)) {
+    const front = t.includes('front');
+    const back = t.includes('back');
+    const out: SideMissingStep[] = [];
+    if (front || !back) out.push('idFront');
+    if (back || !front) out.push('idBack');
+    return out;
+  }
   const out: SideMissingStep[] = [];
-  if (t.includes('photo') && (t.includes('house') || !/\bid\b|national/.test(t))) out.push('photos');
+  if (t.includes('photo')) out.push('photos');
   if (t.includes('landlord')) out.push('landlord');
   if (/\brent\b/.test(t) && !t.includes('landlord')) out.push('rent');
   if (t.includes('gps') || t.includes('location')) out.push('gps');
   if (t.includes('family') || t.includes('household')) out.push('familySize');
   if (t.includes('work') || t.includes('business') || t.includes('occupation')) out.push('work');
-  if (/\blc\s?1\b|\blc\b|letter/.test(t)) out.push('lcLetter');
-  else if (/\bid\b|national id|\bnin\b/.test(t)) {
-    const front = t.includes('front');
-    const back = t.includes('back');
-    if (front || !back) out.push('idFront');
-    if (back || !front) out.push('idBack');
-  }
   return out;
 }
 
