@@ -56895,6 +56895,7 @@ export type Database = {
           number: number
           principal: number
           registration_fee: number
+          topup_id: string | null
         }
         Insert: {
           access_fee: number
@@ -56906,6 +56907,7 @@ export type Database = {
           number: number
           principal: number
           registration_fee: number
+          topup_id?: string | null
         }
         Update: {
           access_fee?: number
@@ -56917,6 +56919,7 @@ export type Database = {
           number?: number
           principal?: number
           registration_fee?: number
+          topup_id?: string | null
         }
         Relationships: [
           {
@@ -56924,6 +56927,13 @@ export type Database = {
             columns: ["advance_id"]
             isOneToOne: false
             referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_instalments_topup_id_fkey"
+            columns: ["topup_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_topups"
             referencedColumns: ["id"]
           },
         ]
@@ -57202,6 +57212,74 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      special_advance_topups: {
+        Row: {
+          access_fee: number
+          advance_id: string
+          calc_version: string
+          id: string
+          idempotency_key: string
+          ledger_group_id: string
+          payout_method: string
+          payout_proof_path: string | null
+          payout_reference: string | null
+          principal: number
+          reason: string
+          recorded_at: string
+          recorded_by: string
+          reference: string
+          term_days: number
+          topup_date: string
+          total_repayable: number
+        }
+        Insert: {
+          access_fee: number
+          advance_id: string
+          calc_version: string
+          id?: string
+          idempotency_key: string
+          ledger_group_id: string
+          payout_method: string
+          payout_proof_path?: string | null
+          payout_reference?: string | null
+          principal: number
+          reason: string
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+          term_days: number
+          topup_date: string
+          total_repayable: number
+        }
+        Update: {
+          access_fee?: number
+          advance_id?: string
+          calc_version?: string
+          id?: string
+          idempotency_key?: string
+          ledger_group_id?: string
+          payout_method?: string
+          payout_proof_path?: string | null
+          payout_reference?: string | null
+          principal?: number
+          reason?: string
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+          term_days?: number
+          topup_date?: string
+          total_repayable?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_topups_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       special_advance_write_offs: {
         Row: {
@@ -79341,6 +79419,14 @@ export type Database = {
         }
         Returns: string[]
       }
+      _special_advance_topup_schedule: {
+        Args: {
+          a: Database["public"]["Tables"]["special_advances"]["Row"]
+          p_principal: number
+          p_today: string
+        }
+        Returns: Json
+      }
       _special_advance_wallet_receipt: {
         Args: { p_repayment_id: string }
         Returns: Json
@@ -99877,6 +99963,10 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      special_advance_add_topup: {
+        Args: { p_expected_updated_at: string; p_id: string; p_request: Json }
+        Returns: Json
+      }
       special_advance_approve: {
         Args: { p_expected_updated_at: string; p_id: string; p_reason?: string }
         Returns: Json
@@ -99937,6 +100027,10 @@ export type Database = {
         Returns: Json
       }
       special_advance_statement: { Args: { p_id: string }; Returns: Json }
+      special_advance_topup_quote: {
+        Args: { p_id: string; p_principal: number }
+        Returns: Json
+      }
       special_advance_write_off: {
         Args: { p_id: string; p_request: Json }
         Returns: Json
