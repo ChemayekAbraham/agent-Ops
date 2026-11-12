@@ -13,6 +13,8 @@ import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import { LANDLORD_PAID_STEPS } from '@/lib/selfSupportDirect';
+import { useFunderFloatHolds } from '@/hooks/useFunderSavedTabs';
+import type { FunderSavedTab } from '@/lib/funderSavedTabs';
 
 /**
  * Monthly Returns on a selection at the signed-in partner's OWN rate for a new portfolio
@@ -159,6 +161,7 @@ export function FunderNewReviewDialog({
   onFund,
   onTopUp,
   onViewPortfolio,
+  onOpenSavedTab,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -173,7 +176,10 @@ export function FunderNewReviewDialog({
   onTopUp?: (shortfall: number) => void;
   /** Opens the supporter's own portfolio list from the success view. */
   onViewPortfolio?: () => void;
+  /** Opens Saved Items on a pill (the co-support float-hold line). */
+  onOpenSavedTab?: (tab: FunderSavedTab) => void;
 }) {
+  const holds = useFunderFloatHolds(open);
   const monthlyAt15 = useMonthlyAtOwnRate();
   const ownRatePct = formatRatePct(useOwnNewPortfolioRate().rate);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -249,6 +255,15 @@ export function FunderNewReviewDialog({
                     <span className="block whitespace-nowrap text-sm font-semibold">
                       {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
                     </span>
+                    {holds.line ? (
+                      holds.tab === 'co_support' && onOpenSavedTab ? (
+                        <button type="button" onClick={() => onOpenSavedTab('co_support')} className="mt-0.5 block text-left text-[11px] leading-snug text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground">
+                          {holds.line}
+                        </button>
+                      ) : (
+                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{holds.line}</span>
+                      )
+                    ) : null}
                   </span>
                 </span>
                 {shortfall !== null && (

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 // The sales sheet prices its worked example at the viewer's own rate (15 while the switch is off).
+vi.mock('@/hooks/useFunderSavedTabs', () => ({
+  useFunderFloatHolds: () => ({ line: null, tab: null, breakdown: null, isLoading: false, error: null }),
+}));
 vi.mock('@/hooks/usePartnerQuoteRate', () => ({
   useOwnNewPortfolioRate: () => ({ rate: 15, isLoading: false }),
 }));
