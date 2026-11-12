@@ -37,6 +37,20 @@ const dateLabel = (iso: string | null) => {
 
 const DASHBOARD_URL = "https://welileapp.com/dashboard/supporter";
 
+// Same window as retry_funder_house_progress_notices. The batch drain ignores
+// anything older, so correcting the email payload does not flush a stale backlog.
+const DRAIN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+// send-transactional-email answers 200 { success: false, reason } for a
+// suppressed or placeholder address. That notice is finished. A non-2xx reply
+// stays an error so the existing catch can retry it.
+function declinedEmail(mailData: unknown): { reason: string } | null {
+  if (!mailData || typeof mailData !== "object") return null;
+  if ((mailData as { success?: unknown }).success !== false) return null;
+  const reason = String((mailData as { reason?: unknown }).reason ?? "email_not_sent").slice(0, 160);
+  return { reason: reason || "email_not_sent" };
+}
+
 // Date the Supporter's first monthly Returns collection lands: one month after
 // the money starts working (promised funding date, funding date, or booking date),
 // with the day capped at 28 so every month has it.
@@ -146,10 +160,20 @@ Deno.serve(async (req) => {
   let q = admin
     .from("promissory_house_booking_notices")
     .select("*")
-    .or("sms_sent_at.is.null,email_sent_at.is.null")
     .order("created_at", { ascending: true })
     .limit(limit);
-  if (noteId) q = q.eq("note_id", noteId);
+  if (noteId) {
+    // A named notice is still sent whenever it is asked for, including one
+    // older than the drain window.
+    q = q.eq("note_id", noteId).or("sms_sent_at.is.null,email_sent_at.is.null");
+  } else {
+    const drainSince = new Date(Date.now() - DRAIN_WINDOW_MS).toISOString();
+    // Skip rows with nothing left to send. A notice with no email whose SMS
+    // has already gone would otherwise stay at the front of the queue.
+    q = q
+      .gte("created_at", drainSince)
+      .or("and(sms_sent_at.is.null,phone.not.is.null),and(email_sent_at.is.null,email.not.is.null)");
+  }
 
   const { data: rows, error } = await q;
   if (error) return json(500, { error: error.message });
@@ -208,11 +232,12 @@ Deno.serve(async (req) => {
         patch.email_error = "missing_partner_email";
       } else {
         try {
-          const { error: mailErr } = await admin.functions.invoke("send-transactional-email", {
+          const { data: mailData, error: mailErr } = await admin.functions.invoke("send-transactional-email", {
             body: {
-              template: "funder-house-booking",
-              to: row.email,
-              data: {
+              templateName: "funder-house-booking",
+              recipientEmail: row.email,
+              idempotencyKey: `funder-house-booking:${row.id}`,
+              templateData: {
                 kind: row.kind,
                 partner_name: row.partner_name,
                 house_count: houseCount,
@@ -231,9 +256,14 @@ Deno.serve(async (req) => {
             },
           });
           if (mailErr) throw mailErr;
-          emailsSent++;
+          const declined = declinedEmail(mailData);
           patch.email_sent_at = new Date().toISOString();
-          patch.email_error = null;
+          if (declined) {
+            patch.email_error = declined.reason;
+          } else {
+            emailsSent++;
+            patch.email_error = null;
+          }
         } catch (e) {
           patch.email_error = String((e as Error)?.message || "email_failed").slice(0, 160);
         }
