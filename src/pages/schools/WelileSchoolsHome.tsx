@@ -479,14 +479,6 @@ function ParentHome() {
 
       {/* Where the plan will live once the family has one; for now, what a plan would cost. */}
       <SchoolFeesPlanCard />
-
-      <StickyCta>
-        <Button asChild className="min-h-[52px] w-full gap-2 rounded-2xl text-base">
-          <a href={whatsapp('Hello Welile, I would like to know more about School Fees Plans for my child.')} target="_blank" rel="noopener noreferrer">
-            <MessageCircle className="h-5 w-5" aria-hidden />Ask Welile on WhatsApp
-          </a>
-        </Button>
-      </StickyCta>
     </div>
   );
 }
