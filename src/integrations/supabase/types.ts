@@ -57125,7 +57125,7 @@ export type Database = {
           ledger_group_id: string
           method: string
           note: string | null
-          proof_path: string
+          proof_path: string | null
           received_date: string
           recorded_at: string
           recorded_by: string
@@ -57140,7 +57140,7 @@ export type Database = {
           ledger_group_id: string
           method: string
           note?: string | null
-          proof_path: string
+          proof_path?: string | null
           received_date: string
           recorded_at?: string
           recorded_by: string
@@ -57155,7 +57155,7 @@ export type Database = {
           ledger_group_id?: string
           method?: string
           note?: string | null
-          proof_path?: string
+          proof_path?: string | null
           received_date?: string
           recorded_at?: string
           recorded_by?: string
@@ -79214,6 +79214,10 @@ export type Database = {
         Args: { p_id: string }
         Returns: number
       }
+      _special_advance_apply_repayment: {
+        Args: { p_advance_id: string; p_amount: number; p_repayment_id: string }
+        Returns: undefined
+      }
       _special_advance_check_proof: {
         Args: { p_advance: string; p_path: string }
         Returns: string
@@ -79337,6 +79341,10 @@ export type Database = {
         }
         Returns: string[]
       }
+      _special_advance_wallet_receipt: {
+        Args: { p_repayment_id: string }
+        Returns: Json
+      }
       _special_advance_write_off_json: { Args: { p_id: string }; Returns: Json }
       _spiro_lease_fee_total: {
         Args: { p_base: number; p_term: number }
@@ -79356,8 +79364,10 @@ export type Database = {
         Args: { p_month: number; p_start: string }
         Returns: number
       }
-      _ssd_activate: { Args: { p_payment_id: string }; Returns: undefined }
-      _ssd_day_start: { Args: { p_day: string }; Returns: string }
+      _ssd_activate: {
+        Args: { p_landlord_payout_id: string; p_payment_id: string }
+        Returns: undefined
+      }
       _ssd_debit_ref: {
         Args: {
           p_line_id: string
@@ -79368,15 +79378,15 @@ export type Database = {
       }
       _ssd_earning_date: { Args: never; Returns: string }
       _ssd_first: { Args: { p_name: string }; Returns: string }
+      _ssd_hold_until_landlord_paid: {
+        Args: { p_commitment_id: string; p_portfolio_id: string }
+        Returns: undefined
+      }
       _ssd_house_instant: {
         Args: { p_portfolio_id: string }
         Returns: undefined
       }
-      _ssd_inserting: { Args: never; Returns: boolean }
-      _ssd_momo_provider: {
-        Args: { p_phone: string; p_title?: boolean }
-        Returns: string
-      }
+      _ssd_is_finance_staff: { Args: never; Returns: boolean }
       _ssd_notice: {
         Args: {
           p_audience: string
@@ -79397,10 +79407,6 @@ export type Database = {
       }
       _ssd_on: { Args: never; Returns: boolean }
       _ssd_payment_json: { Args: { p_payment_id: string }; Returns: Json }
-      _ssd_payout_is_direct: {
-        Args: { p_landlord_payout_id: string }
-        Returns: boolean
-      }
       _ssd_plan_queued: {
         Args: { p_amount?: number; p_rent_request_id: string }
         Returns: boolean
@@ -79410,14 +79416,9 @@ export type Database = {
         Args: { p_portfolio_id: string }
         Returns: boolean
       }
-      _ssd_queue_commitment: {
-        Args: { p_actor: string; p_pending_id: string; p_portfolio_id: string }
-        Returns: undefined
-      }
-      _ssd_queue_plan: { Args: { p_rent_request_id: string }; Returns: string }
-      _ssd_refund: {
+      _ssd_recall: {
         Args: { p_payment_id: string; p_reason: string }
-        Returns: undefined
+        Returns: boolean
       }
       _ssd_settle_commitment: {
         Args: { p_commitment_id: string }
@@ -79427,10 +79428,7 @@ export type Database = {
         Args: { p_partner: string; p_portfolio_id: string }
         Returns: Json
       }
-      _ssd_wr_insert_is_direct: {
-        Args: { p_landlord_payout_id: string }
-        Returns: boolean
-      }
+      _ssd_track_plan: { Args: { p_rent_request_id: string }; Returns: string }
       _stage_rank: { Args: { p: string }; Returns: number }
       _status_desk: { Args: { p_status: string }; Returns: string }
       _tenant_ops_dormant_days_amclock: {
@@ -99407,6 +99405,10 @@ export type Database = {
         Returns: Json
       }
       self_support_proxy_fee: { Args: { p_rent: number }; Returns: number }
+      self_support_staff_landlord_payments: {
+        Args: { p_filter?: string; p_limit?: number }
+        Returns: Json
+      }
       self_support_staff_resolve: {
         Args: { p_outcome: string; p_payment_id: string; p_reason: string }
         Returns: Json
@@ -99892,6 +99894,16 @@ export type Database = {
       special_advance_get: { Args: { p_id: string }; Returns: Json }
       special_advance_list: {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: Json
+      }
+      special_advance_my_advances: { Args: never; Returns: Json }
+      special_advance_pay_from_wallet: {
+        Args: {
+          p_amount: number
+          p_expected_outstanding: number
+          p_id: string
+          p_idempotency_key: string
+        }
         Returns: Json
       }
       special_advance_post_provision_review: {
