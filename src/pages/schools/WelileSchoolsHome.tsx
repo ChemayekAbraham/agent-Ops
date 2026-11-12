@@ -158,7 +158,11 @@ function SchoolOwnerHome() {
         body="Partner with Welile and get paid upfront for students whose families pay daily."
       />
 
-      <BenefitTiles items={ROLE_INTRO.school.points.map((p, i) => ({ icon: [Banknote, Hourglass, Users][i] ?? Check, title: p.title, body: p.body }))} />
+      <BenefitTiles items={[
+        { icon: Banknote, title: 'Paid upfront', body: 'Full fees at the start of term.' },
+        { icon: Hourglass, title: 'No chasing', body: 'Parents repay Welile, not your bursar.' },
+        { icon: Users, title: 'More students', body: 'Families can afford to enrol.' },
+      ]} />
 
       <section aria-labelledby="ws-owner-steps">
         <h2 id="ws-owner-steps" className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">How the partnership works</h2>
@@ -182,7 +186,7 @@ function SchoolOwnerHome() {
 function HeroHeader({ icon: Icon, eyebrow, title, body }: { icon: typeof Users; eyebrow: string; title: string; body: string }) {
   return (
     <div>
-      <SchoolsPhotoCarousel />
+      <SchoolsPhotoCarousel dotsAtTop />
       <div className="relative z-10 -mt-6 mx-2 rounded-3xl border border-border/70 bg-card p-4 shadow-lg">
         <div className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="h-4 w-4" aria-hidden /></span>
