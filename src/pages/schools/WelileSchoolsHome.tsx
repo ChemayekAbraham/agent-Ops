@@ -75,18 +75,18 @@ export default function WelileSchoolsHome() {
   const restart = () => { clearStoredSchoolsRole(); setRole(null); window.scrollTo({ top: 0 }); };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-xl items-center gap-2 px-3 py-2">
-          <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Back" onClick={() => navigate(backTarget)}>
+          <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full" aria-label="Back" onClick={() => navigate(backTarget)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <WelileSchoolsBrand />
-          {role !== null && <RoleSwitcher role={role} onChange={choose} />}
+          {role !== null && <RoleSwitcher role={role} onChange={choose} onRestart={restart} />}
         </div>
       </header>
 
-      <main className="mx-auto max-w-xl space-y-4 p-3">
+      <main className="mx-auto max-w-xl px-3 pt-3">
         {role === null ? (
           <SchoolsOnboarding wordmarkClass={wordmarkClass} onDone={choose} />
         ) : (
@@ -98,9 +98,6 @@ export default function WelileSchoolsHome() {
                 : user && canWorkAsSchoolAgent(roles) ? <AgentHome userId={user.id} />
                   : <AgentExplore signedIn={!!user} />
             )}
-            <button type="button" onClick={restart} className="mx-auto flex min-h-[44px] items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <RotateCcw className="h-4 w-4" aria-hidden />See the introduction again
-            </button>
           </>
         )}
       </main>
@@ -109,7 +106,7 @@ export default function WelileSchoolsHome() {
 }
 
 /** Top-right role picker: the current role as one button, the others in a dropdown. */
-function RoleSwitcher({ role, onChange }: { role: SchoolsRole; onChange: (r: SchoolsRole) => void }) {
+function RoleSwitcher({ role, onChange, onRestart }: { role: SchoolsRole; onChange: (r: SchoolsRole) => void; onRestart: () => void }) {
   const Current = ROLE_ICON[role];
   return (
     <DropdownMenu>
@@ -132,6 +129,11 @@ function RoleSwitcher({ role, onChange }: { role: SchoolsRole; onChange: (r: Sch
             </DropdownMenuItem>
           );
         })}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onRestart} className="min-h-[44px] gap-3 text-muted-foreground">
+          <RotateCcw className="h-4 w-4" aria-hidden />
+          See the introduction again
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
