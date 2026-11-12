@@ -446,10 +446,9 @@ export function SelfPortfolioPlanDetailSheet({
           </div>
 
           <Tabs defaultValue="people" className="mt-5 w-full">
-            <TabsList className="grid h-11 w-full grid-cols-3 rounded-full bg-muted p-1">
+            <TabsList className="grid h-11 w-full grid-cols-2 rounded-full bg-muted p-1">
               <TabsTrigger value="people" className="rounded-full">People</TabsTrigger>
               <TabsTrigger value="earnings" className="rounded-full">Earnings</TabsTrigger>
-              <TabsTrigger value="checks" className="rounded-full">Checks</TabsTrigger>
             </TabsList>
 
             {/* forceMount keeps each tab's content loaded (hidden when inactive). */}
@@ -558,9 +557,7 @@ export function SelfPortfolioPlanDetailSheet({
                 {formatRatePct(ownRatePct) ? ` at ${formatRatePct(ownRatePct)} a month` : ''}.
               </p>
               <AgentCareNote kind="tenant" rent={Number(plan.funding_amount || 0)} />
-            </TabsContent>
-
-            <TabsContent value="checks" forceMount className="mt-3 space-y-3 data-[state=inactive]:hidden">
+              {/* Each of these renders only when it applies (funded plan, off-platform cover, 360-day plan); otherwise nothing. */}
               {isFunded && (
                 <FunderVerifiedPlanPack rentRequestId={plan.rent_request_id} />
               )}
