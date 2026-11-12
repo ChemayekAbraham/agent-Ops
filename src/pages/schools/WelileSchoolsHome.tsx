@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { WHATSAPP_URL } from '@/components/ai-chat/assistantConfig';
 import SchoolsOnboarding from '@/components/welile-schools/SchoolsOnboarding';
 import SchoolsPhotoCarousel from '@/components/welile-schools/SchoolsPhotoCarousel';
+import SchoolFeesPlanCard from '@/components/welile-schools/SchoolFeesPlanCard';
 import {
   computeGateMovementSummary, readLockedSchool, readPendingGateLogs, readPendingProfiles, writeLockedSchool,
   type SchoolGateLogRow, type SchoolRow,
@@ -476,17 +477,8 @@ function ParentHome() {
         { icon: Smartphone, title: 'Pay any day', body: 'MTN or Airtel, any amount.' },
       ]} />
 
-      {/* Where the plan will live once the family has one; for now, how to get one. */}
-      <section className="rounded-3xl border border-dashed border-primary/40 bg-primary/5 p-4">
-        <div className="flex items-center gap-2">
-          <Receipt className="h-5 w-5 text-primary" aria-hidden />
-          <h3 className="text-sm font-semibold">Your School Fees Plan</h3>
-          <span className="ml-auto rounded-full bg-background px-2 py-0.5 text-[11px] font-semibold text-primary">Opening soon</span>
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The Welile agent at your child's school will sign you up. Your plan, today's amount and your payments will then show here.
-        </p>
-      </section>
+      {/* Where the plan will live once the family has one; for now, what a plan would cost. */}
+      <SchoolFeesPlanCard />
 
       <StickyCta>
         <Button asChild className="min-h-[52px] w-full gap-2 rounded-2xl text-base">
