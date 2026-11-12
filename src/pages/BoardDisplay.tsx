@@ -1,19 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Maximize, Radio, X } from 'lucide-react';
 import logo from '@/assets/welile-logo.png';
 import { loadBoardDisplay, loadBoardList } from '@/lib/boardDisplayClient';
 import {
   BOARD_IDLE_MS,
+  BOARD_NOW_METRICS,
   BOARD_PANEL_IDLE_MS,
   BOARD_PERIODS,
   BOARD_PERIOD_LABELS,
   BOARD_POLL_MS,
   BOARD_PULSE_MS,
   BOARD_RETRY_MS,
+  BOARD_SORTS,
   type BoardFeed,
   type BoardList,
   type BoardMetric,
   type BoardPeriod,
+  type BoardSort,
   boardDays,
   boardDisplayToken,
   boardIsStale,
@@ -23,6 +26,7 @@ import {
   kampalaClock,
   kampalaDate,
   readBoardPeriod,
+  sortBoardRows,
   storeBoardPeriod,
 } from '@/lib/boardDisplay';
 
@@ -30,16 +34,21 @@ import {
  * The boardroom screen (/b/:code, /board/:code): a 16:9 TV display of the
  * funders' board totals, public behind a token. It boots on its own from
  * main.tsx — no sign-in, no app shell, no pop-ups. A light board: one period
- * toggle above three big tiles (posted, sold, waiting); a tap on a tile lists
- * the requests behind it. Never names, phones or request ids: readBoardFeed
- * and readBoardList whitelist their contracts.
+ * toggle above four big tiles (E94: posted, sold, selected and waiting); a tap
+ * on a tile lists the requests behind it, tenant name first, then the agent,
+ * landlord and funder. The server sends names only to a link locked to the
+ * office network; never phones or request ids (readBoardFeed and
+ * readBoardList whitelist their contracts).
  */
 
 const METRICS: { key: BoardMetric; title: string; caption: string }[] = [
   { key: 'posted', title: 'Rent requests posted', caption: "From the COO to the funders' board" },
-  { key: 'sold', title: 'Rent requests sold', caption: 'Partner took it and money released to the landlord' },
-  { key: 'waiting', title: 'Waiting for funder', caption: 'Posted and not yet sold' },
+  { key: 'sold', title: 'Rent requests sold', caption: 'Landlord paid — OTP confirmed' },
+  { key: 'selected', title: 'Selected, waiting', caption: 'Funder took it, landlord not yet paid' },
+  { key: 'waiting', title: 'Waiting for funder', caption: 'On the funders board now' },
 ];
+/** Posted and sold follow the period; selected and waiting are right now. */
+const whenLabel = (key: BoardMetric, period: BoardPeriod) => (BOARD_NOW_METRICS.includes(key) ? 'Now' : BOARD_PERIOD_LABELS[period]);
 const safeStorage = () => {
   try {
     return window.localStorage;
@@ -69,13 +78,17 @@ function ChangedNumber({ value, money = false }: { value: number | null; money?:
  * The requests behind one tile: a side panel on a wide screen, a bottom sheet
  * on a narrow one (CSS decides). Close button and Esc; closes itself after a
  * minute with no touch so the room is back on the tiles; refreshes every 30 s
- * while open. Only ref, area, rent, dates and status ever reach it.
+ * while open. Newest selected first, with oldest-first and amount toggles.
+ * Each row: the tenant's name, then small "Agent:", "Landlord:", "Funder:"
+ * lines, then ref, area, rent, status and dates.
  */
 function ListPanel({ token, period, kind, onClose }: { token: string; period: BoardPeriod; kind: BoardMetric; onClose: () => void }) {
   const [list, setList] = useState<BoardList | null>(null);
   const [error, setError] = useState('');
+  const [sort, setSort] = useState<BoardSort>('newest');
   const closeRef = useRef<HTMLButtonElement>(null);
   const title = METRICS.find((m) => m.key === kind)?.title ?? kind;
+  const rows = useMemo(() => (list ? sortBoardRows(list.rows, sort) : []), [list, sort]);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,7 +144,7 @@ function ListPanel({ token, period, kind, onClose }: { token: string; period: Bo
           <div>
             <h2>{title}</h2>
             <p data-board-list-summary>
-              {BOARD_PERIOD_LABELS[period]}
+              {whenLabel(kind, period)}
               {list && (
                 <>
                   {' · '}
@@ -150,23 +163,40 @@ function ListPanel({ token, period, kind, onClose }: { token: string; period: Bo
           </button>
         </header>
         {error && <p role="alert" className="board-panel-error">{error}</p>}
+        {list && list.rows.length > 1 && (
+          <div className="board-sort" role="group" aria-label="Order">
+            {BOARD_SORTS.map((o) => (
+              <button key={o.value} type="button" className="board-period" aria-pressed={sort === o.value} onClick={() => setSort(o.value)}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+        )}
         {!list ? (
           !error && <p className="board-panel-empty">Loading…</p>
         ) : list.rows.length === 0 ? (
-          <p className="board-panel-empty">Nothing in this period</p>
+          <p className="board-panel-empty">{BOARD_NOW_METRICS.includes(kind) ? 'Nothing right now' : 'Nothing in this period'}</p>
         ) : (
           <ul className="board-list" aria-label={title}>
-            {list.rows.map((r, i) => (
+            {rows.map((r, i) => (
               <li key={`${r.ref}-${i}`} className="board-list-row" data-board-row>
                 <div className="board-list-top">
-                  <span className="board-list-ref">{r.ref}</span>
-                  <span className="board-list-area">{r.area ?? '—'}</span>
+                  <span className="board-list-tenant" data-board-tenant>{r.tenant ?? '—'}</span>
                   <strong className="board-list-rent">{r.rent == null ? '—' : boardMoney(r.rent)}</strong>
                 </div>
+                <div className="board-list-people">
+                  <span>Agent: <b>{r.agent ?? '—'}</b></span>
+                  <span>Landlord: <b>{r.landlord ?? '—'}</b></span>
+                  <span>Funder: <b>{r.funder ?? '—'}</b></span>
+                </div>
                 <div className="board-list-meta">
-                  <span>Posted {kampalaDate(r.posted_at)}</span>
-                  <span>{boardDays(r.days_since_posted)} since posted</span>
+                  <span className="board-list-ref">{r.ref}</span>
+                  {r.area && <span>{r.area}</span>}
                   {r.status_label && <span className="board-list-status">{r.status_label}</span>}
+                  <span>Posted {kampalaDate(r.posted_at)}</span>
+                  {!r.selected_at && <span>{boardDays(r.days_since_posted)} since posted</span>}
+                  {r.selected_at && <span data-board-selected>Selected {kampalaDate(r.selected_at)}</span>}
+                  {r.otp_verified_at && <span data-board-otp>OTP {kampalaDate(r.otp_verified_at)}</span>}
                   {kind === 'sold' && <span data-board-released>Money released {kampalaDate(r.money_released_at)}</span>}
                 </div>
               </li>
@@ -349,7 +379,7 @@ export default function BoardDisplay() {
           <section className="board-hero" aria-label={`Rent requests · ${BOARD_PERIOD_LABELS[period]}`}>
             {METRICS.map(({ key, title, caption }) => (
               <button key={key} type="button" aria-haspopup="dialog" className={`board-tile board-${key}`} data-metric={key} onClick={() => setOpen(key)}>
-                <span className="board-tile-when">{BOARD_PERIOD_LABELS[period]}</span>
+                <span className="board-tile-when">{whenLabel(key, period)}</span>
                 <h2>{title}</h2>
                 <div className="board-hero-count"><ChangedNumber key={period} value={feed.headline[period][key].n} /></div>
                 <div className="board-hero-money"><ChangedNumber key={period} value={feed.headline[period][key].ugx} money /></div>

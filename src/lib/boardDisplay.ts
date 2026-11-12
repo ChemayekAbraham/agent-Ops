@@ -5,7 +5,11 @@ export const BOARD_IDLE_MS = 3_000;
 export const BOARD_PULSE_MS = 800;
 export const BOARD_PERIODS = ['today', '7d', '30d', '90d', 'all'] as const;
 export type BoardPeriod = typeof BOARD_PERIODS[number];
-export type BoardMetric = 'posted' | 'sold' | 'waiting';
+/** E94: posted and sold are for the period; selected and waiting are right now. */
+export const BOARD_METRICS = ['posted', 'sold', 'selected', 'waiting'] as const;
+export type BoardMetric = typeof BOARD_METRICS[number];
+/** The tiles whose figure is "right now", whatever the period. */
+export const BOARD_NOW_METRICS: readonly BoardMetric[] = ['selected', 'waiting'];
 export interface BoardTotal { n: number; ugx: number }
 export interface BoardFeed {
   generated_at: string; display: { label: string };
@@ -52,7 +56,7 @@ export function readBoardFeed(value: unknown): BoardFeed {
   const headline = {} as BoardFeed['headline'];
   for (const period of BOARD_PERIODS) {
     headline[period] = {} as Record<BoardMetric, BoardTotal>;
-    for (const metric of ['posted', 'sold', 'waiting'] as const) {
+    for (const metric of BOARD_METRICS) {
       const total = raw.headline?.[period]?.[metric];
       headline[period][metric] = { n: numeric(total?.n), ugx: numeric(total?.ugx) };
     }
@@ -80,19 +84,26 @@ export function boardUpdatedText(generatedAt: string): string {
 export interface BoardListRow {
   ref: string; area: string | null; rent: number | null; posted_at: string | null;
   days_since_posted: number | null; status_label: string | null; money_released_at: string | null;
+  /** E94: names the server sends to this office-network link; never phones or ids. */
+  tenant: string | null; agent: string | null; landlord: string | null; funder: string | null;
+  selected_at: string | null; otp_verified_at: string | null;
 }
 export interface BoardList { period: BoardPeriod; kind: BoardMetric; count: number; ugx: number; shown: number; rows: BoardListRow[] }
 const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null);
 const maybeNumber = (v: unknown) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 /**
- * Whitelist the list contract: ref, area, rent, dates and status only. A name,
- * phone or id the server might add never reaches the screen.
+ * Whitelist the list contract: ref, area, rent, status, dates and (E94) the
+ * tenant, agent, landlord and funder names, which the server gives only to a
+ * link locked to the office network. A phone number, id or anything else the
+ * server might add never reaches the screen.
  */
 export function readBoardList(value: unknown, period: BoardPeriod, kind: BoardMetric): BoardList {
   const raw = (value ?? {}) as Record<string, any>;
   const rows: BoardListRow[] = (Array.isArray(raw.rows) ? raw.rows : []).map((r: Record<string, unknown>) => ({
     ref: String(r?.ref ?? '').slice(0, 8), area: text(r?.area), rent: maybeNumber(r?.rent), posted_at: text(r?.posted_at),
     days_since_posted: maybeNumber(r?.days_since_posted), status_label: text(r?.status_label), money_released_at: text(r?.money_released_at),
+    tenant: text(r?.tenant), agent: text(r?.agent), landlord: text(r?.landlord), funder: text(r?.funder),
+    selected_at: text(r?.selected_at), otp_verified_at: text(r?.otp_verified_at),
   }));
   return { period, kind, count: maybeNumber(raw.count) ?? rows.length, ugx: maybeNumber(raw.ugx) ?? 0, shown: maybeNumber(raw.shown) ?? rows.length, rows };
 }
@@ -106,4 +117,32 @@ export function boardDays(value: number | null) {
   if (value == null) return '—';
   const n = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 1 }).format(value);
   return `${n} ${n === '1' ? 'day' : 'days'}`;
+}
+
+/* ───────────── list order ───────────── */
+export type BoardSort = 'newest' | 'oldest' | 'amount';
+export const BOARD_SORTS: { value: BoardSort; label: string }[] = [
+  { value: 'newest', label: 'Newest selected' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'amount', label: 'Amount' },
+];
+/** When a row was selected by a funder; a row nobody selected yet counts from when it was posted. */
+const rowTime = (r: Pick<BoardListRow, 'selected_at' | 'posted_at'>) => {
+  const t = Date.parse(r.selected_at ?? r.posted_at ?? '');
+  return Number.isFinite(t) ? t : null;
+};
+/** Newest selected first (the default), oldest first, or by rent, largest first. No date goes last. Stable. */
+export function sortBoardRows<T extends Pick<BoardListRow, 'selected_at' | 'posted_at' | 'rent'>>(rows: T[], sort: BoardSort): T[] {
+  return rows
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => {
+      if (sort === 'amount') return (b.r.rent ?? -1) - (a.r.rent ?? -1) || a.i - b.i;
+      const x = rowTime(a.r);
+      const y = rowTime(b.r);
+      if (x === null && y === null) return a.i - b.i;
+      if (x === null) return 1;
+      if (y === null) return -1;
+      return (sort === 'newest' ? y - x : x - y) || a.i - b.i;
+    })
+    .map(({ r }) => r);
 }

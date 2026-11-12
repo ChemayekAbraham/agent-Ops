@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle, ArrowLeft, Banknote, Building2, Check, ChevronDown, ChevronRight, ClipboardCheck, CloudOff, DoorOpen, FileSignature, GraduationCap,
-  Handshake, Hourglass, IdCard, Loader2, LogIn, MapPin, MessageCircle, MessageSquareText, Receipt, RotateCcw, School,
+  Handshake, Hourglass, IdCard, Loader2, LogIn, MapPin, MessageCircle, MessageSquareText, Plus, Receipt, RotateCcw, School,
   Smartphone, TrendingDown, UserPlus, Users,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,13 +11,15 @@ import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
 import { wordmarkClass } from '@/components/welile-schools/wordmark';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import StickyCta from '@/components/welile-schools/StickyCta';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { WHATSAPP_URL } from '@/components/ai-chat/assistantConfig';
 import SchoolsOnboarding from '@/components/welile-schools/SchoolsOnboarding';
 import SchoolsPhotoCarousel from '@/components/welile-schools/SchoolsPhotoCarousel';
+import SchoolFeesPlanCard from '@/components/welile-schools/SchoolFeesPlanCard';
 import {
   computeGateMovementSummary, readLockedSchool, readPendingGateLogs, readPendingProfiles, writeLockedSchool,
   type SchoolGateLogRow, type SchoolRow,
@@ -75,18 +77,18 @@ export default function WelileSchoolsHome() {
   const restart = () => { clearStoredSchoolsRole(); setRole(null); window.scrollTo({ top: 0 }); };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-xl items-center gap-2 px-3 py-2">
-          <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Back" onClick={() => navigate(backTarget)}>
+          <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full" aria-label="Back" onClick={() => navigate(backTarget)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <WelileSchoolsBrand />
-          {role !== null && <RoleSwitcher role={role} onChange={choose} />}
+          {role !== null && <RoleSwitcher role={role} onChange={choose} onRestart={restart} />}
         </div>
       </header>
 
-      <main className="mx-auto max-w-xl space-y-4 p-3">
+      <main className="mx-auto max-w-xl px-3 pt-3">
         {role === null ? (
           <SchoolsOnboarding wordmarkClass={wordmarkClass} onDone={choose} />
         ) : (
@@ -98,9 +100,6 @@ export default function WelileSchoolsHome() {
                 : user && canWorkAsSchoolAgent(roles) ? <AgentHome userId={user.id} />
                   : <AgentExplore signedIn={!!user} />
             )}
-            <button type="button" onClick={restart} className="mx-auto flex min-h-[44px] items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <RotateCcw className="h-4 w-4" aria-hidden />See the introduction again
-            </button>
           </>
         )}
       </main>
@@ -109,7 +108,7 @@ export default function WelileSchoolsHome() {
 }
 
 /** Top-right role picker: the current role as one button, the others in a dropdown. */
-function RoleSwitcher({ role, onChange }: { role: SchoolsRole; onChange: (r: SchoolsRole) => void }) {
+function RoleSwitcher({ role, onChange, onRestart }: { role: SchoolsRole; onChange: (r: SchoolsRole) => void; onRestart: () => void }) {
   const Current = ROLE_ICON[role];
   return (
     <DropdownMenu>
@@ -132,6 +131,11 @@ function RoleSwitcher({ role, onChange }: { role: SchoolsRole; onChange: (r: Sch
             </DropdownMenuItem>
           );
         })}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onRestart} className="min-h-[44px] gap-3 text-muted-foreground">
+          <RotateCcw className="h-4 w-4" aria-hidden />
+          See the introduction again
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -148,46 +152,84 @@ function SchoolOwnerHome() {
   ];
   return (
     <div className="space-y-4">
-      <Card className="space-y-4 p-5">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-          <Building2 className="h-6 w-6 text-primary" aria-hidden />
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-lg font-bold leading-tight">{ROLE_INTRO.school.title}</h2>
-          <p className="text-sm text-muted-foreground">Partner with Welile and get paid upfront for students whose families pay daily.</p>
-        </div>
-        <ul className="space-y-3">
-          {ROLE_INTRO.school.points.map((p) => (
-            <li key={p.title} className="flex gap-3">
-              <TrendingDown className="mt-0.5 h-5 w-5 shrink-0 rotate-180 text-primary" aria-hidden />
-              <span><span className="block text-sm font-semibold">{p.title}</span><span className="block text-sm text-muted-foreground">{p.body}</span></span>
-            </li>
-          ))}
-        </ul>
-      </Card>
+      <HeroHeader
+        icon={Building2}
+        eyebrow="For school owners"
+        title={ROLE_INTRO.school.title}
+        body="Partner with Welile and get paid upfront for students whose families pay daily."
+      />
+
+      <BenefitTiles items={[
+        { icon: Banknote, title: 'Paid upfront', body: 'Full fees at the start of term.' },
+        { icon: Hourglass, title: 'No chasing', body: 'Parents repay Welile, not your bursar.' },
+        { icon: Users, title: 'More students', body: 'Families can afford to enrol.' },
+      ]} />
 
       <section aria-labelledby="ws-owner-steps">
-        <h2 id="ws-owner-steps" className="mb-2 text-sm font-semibold">How the partnership works</h2>
-        <ol className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-          {steps.map(({ icon: Icon, title, body }, i) => (
-            <li key={title} className="flex gap-3 p-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">{i + 1}</span>
-              <span className="min-w-0">
-                <span className="flex items-center gap-1.5 text-sm font-semibold"><Icon className="h-4 w-4 text-primary" aria-hidden />{title}</span>
-                <span className="block text-sm text-muted-foreground">{body}</span>
-              </span>
-            </li>
-          ))}
-        </ol>
+        <h2 id="ws-owner-steps" className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">How the partnership works</h2>
+        <Timeline steps={steps} />
       </section>
 
-      <Button asChild className="min-h-[52px] w-full gap-2 text-base">
-        <a href={whatsapp('Hello Welile, I run a school and would like to become a Welile Schools partner.')} target="_blank" rel="noopener noreferrer">
-          <MessageCircle className="h-5 w-5" aria-hidden />Partner with Welile
-        </a>
-      </Button>
-      <p className="text-center text-xs text-muted-foreground">Opens WhatsApp. A Welile agent will arrange a visit.</p>
+      <StickyCta note="Opens WhatsApp. A Welile agent will arrange a visit.">
+        <Button asChild className="min-h-[52px] w-full gap-2 rounded-2xl text-base">
+          <a href={whatsapp('Hello Welile, I run a school and would like to become a Welile Schools partner.')} target="_blank" rel="noopener noreferrer">
+            <MessageCircle className="h-5 w-5" aria-hidden />Partner with Welile
+          </a>
+        </Button>
+      </StickyCta>
     </div>
+  );
+}
+
+// ─── Shared pieces for the role homes ─────────────────────────────────────────
+
+/** Photo carousel with the role's headline in a card that overlaps it, like an app's home header. */
+function HeroHeader({ icon: Icon, eyebrow, title, body }: { icon: typeof Users; eyebrow: string; title: string; body: string }) {
+  return (
+    <div>
+      <SchoolsPhotoCarousel dotsAtTop />
+      <div className="relative z-10 -mt-6 mx-2 rounded-3xl border border-border/70 bg-card p-4 shadow-lg">
+        <div className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="h-4 w-4" aria-hidden /></span>
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary">{eyebrow}</p>
+        </div>
+        <h2 className="mt-2 text-lg font-bold leading-snug">{title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Three benefits as compact tiles in a row (icon + short title), with the detail underneath. */
+function BenefitTiles({ items }: { items: { icon: typeof Users; title: string; body: string }[] }) {
+  return (
+    <ul className="grid grid-cols-3 gap-2">
+      {items.map(({ icon: Icon, title, body }) => (
+        <li key={title} className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-3">
+          <Icon className="h-5 w-5 text-primary" aria-hidden />
+          <span className="text-xs font-semibold leading-snug">{title}</span>
+          <span className="text-[11px] leading-snug text-muted-foreground">{body}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Numbered steps joined by a line, in one card. */
+function Timeline({ steps }: { steps: { icon: typeof Users; title: string; body: string }[] }) {
+  return (
+    <ol className="rounded-3xl border border-border/70 bg-card p-4">
+      {steps.map(({ icon: Icon, title, body }, i) => (
+        <li key={title} className="relative flex gap-3 pb-4 last:pb-0">
+          {i < steps.length - 1 ? <span className="absolute left-[15px] top-8 h-[calc(100%-2rem)] w-0.5 bg-primary/20" aria-hidden /> : null}
+          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Icon className="h-4 w-4" aria-hidden /></span>
+          <span className="min-w-0 pt-0.5">
+            <span className="block text-sm font-semibold">{title}</span>
+            <span className="block text-sm text-muted-foreground">{body}</span>
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -203,35 +245,35 @@ function AgentExplore({ signedIn }: { signedIn: boolean }) {
   ];
   return (
     <div className="space-y-4">
-      <Card className="space-y-2 p-5">
-        <h2 className="text-lg font-bold leading-tight">{ROLE_INTRO.agent.title}</h2>
-        <p className="text-sm text-muted-foreground">Welile agents run Welile Schools at each partner school. These are the tools you get.</p>
-      </Card>
+      <HeroHeader
+        icon={IdCard}
+        eyebrow="For Welile agents"
+        title={ROLE_INTRO.agent.title}
+        body="Welile agents run Welile Schools at each partner school. These are the tools you get."
+      />
       <div className="grid grid-cols-2 gap-2">
         {tools.map(({ icon: Icon, title, body }) => (
-          <div key={title} className="rounded-2xl border border-border bg-card p-3">
-            <Icon className="h-5 w-5 text-primary" aria-hidden />
+          <div key={title} className="rounded-2xl bg-muted/50 p-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="h-5 w-5" aria-hidden /></span>
             <p className="mt-2 text-sm font-semibold">{title}</p>
             <p className="text-xs text-muted-foreground">{body}</p>
           </div>
         ))}
       </div>
       {signedIn ? (
-        <>
-          <Button asChild className="min-h-[52px] w-full gap-2 text-base">
+        <StickyCta note="Your account is not a Welile agent account yet.">
+          <Button asChild className="min-h-[52px] w-full gap-2 rounded-2xl text-base">
             <a href={whatsapp('Hello Welile, I would like to become a Welile Schools agent.')} target="_blank" rel="noopener noreferrer">
               <MessageCircle className="h-5 w-5" aria-hidden />Become a Welile agent
             </a>
           </Button>
-          <p className="text-center text-xs text-muted-foreground">Your account is not a Welile agent account yet.</p>
-        </>
+        </StickyCta>
       ) : (
-        <>
-          <Button className="min-h-[52px] w-full gap-2 text-base" onClick={() => navigate('/auth')}>
+        <StickyCta note="Already a Welile agent? Sign in to open your schools.">
+          <Button className="min-h-[52px] w-full gap-2 rounded-2xl text-base" onClick={() => navigate('/auth')}>
             <LogIn className="h-5 w-5" aria-hidden />Sign in to start
           </Button>
-          <p className="text-center text-xs text-muted-foreground">Already a Welile agent? Sign in to open your schools.</p>
-        </>
+        </StickyCta>
       )}
     </div>
   );
@@ -272,20 +314,22 @@ function AgentHome({ userId }: { userId: string }) {
   const navigate = useNavigate();
   const [school, setSchool] = useState<SchoolRow | null>(() => readLockedSchool());
   const { data, isLoading } = useAgentHomeData(userId, school);
-  const listRef = useRef<HTMLDivElement>(null);
+  // Two tabs keep the home short: what to do today, and the list of schools.
+  const [tab, setTab] = useState<'today' | 'schools'>(() => (readLockedSchool() ? 'today' : 'schools'));
   const pendingUploads = readPendingProfiles().length + readPendingGateLogs().length;
 
   const status = school ? data?.setup?.partnership?.status ?? null : null;
   const missing = data?.setup ? missingForSubmit(data.setup.partnership, data.setup.terms, data.setup.fees, todayKampala()) : [];
   const attention = agentAttention({ hasCurrentSchool: !!school, partnershipStatus: status, missingForSubmit: missing, pendingUploads });
 
-  const pick = (s: SchoolRow) => { writeLockedSchool(s); setSchool(s); toast.success(`You're at ${s.name}`); };
-  const open = (mode: 'gate' | 'register' | 'partner') => {
-    if (!school) { toast.message('Choose the school you are at first'); listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  const showSchools = () => { setTab('schools'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const pick = (s: SchoolRow) => { writeLockedSchool(s); setSchool(s); setTab('today'); toast.success(`You're at ${s.name}`); };
+  const open = (mode: 'gate' | 'register' | 'fees' | 'partner') => {
+    if (!school) { toast.message('Choose the school you are at first'); showSchools(); return; }
     navigate(`${WORKSPACE}?mode=${mode}`);
   };
   const onAttention = (item: AttentionItem) => {
-    if (item.kind === 'pick_school') listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (item.kind === 'pick_school') showSchools();
     else if (item.kind === 'offline_queue') navigate(`${WORKSPACE}?mode=gate`);
     else navigate(`${WORKSPACE}?mode=partner`);
   };
@@ -294,109 +338,122 @@ function AgentHome({ userId }: { userId: string }) {
   const TONE = { danger: 'text-destructive', warning: 'text-amber-600 dark:text-amber-400', info: 'text-muted-foreground' } as const;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-6">
       <SchoolsPhotoCarousel />
-      {school ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-          <MapPin className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">You're at {school.name}</p>
-            <p className="truncate text-xs text-muted-foreground">{[school.district, school.gate_name].filter(Boolean).join(' · ')}</p>
-          </div>
-          <Button variant="ghost" size="sm" className="min-h-[40px] text-primary" onClick={() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Change</Button>
-        </div>
-      ) : null}
 
-      {school && (
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { label: 'In today', value: data?.enteredToday },
-            { label: 'Inside now', value: data?.insideNow },
-            { label: 'You registered', value: data?.registered },
-          ].map((s) => (
-            <div key={s.label} className="rounded-xl bg-muted/60 p-3">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className="mt-0.5 text-xl font-bold tabular-nums">{isLoading || s.value == null ? '…' : s.value.toLocaleString()}</p>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'today' | 'schools')} className="w-full">
+        <TabsList className="grid h-11 w-full grid-cols-2 rounded-full bg-muted p-1">
+          <TabsTrigger value="today" className="rounded-full">Today</TabsTrigger>
+          <TabsTrigger value="schools" className="rounded-full">Schools{data ? ` (${data.schools.length})` : ''}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="today" className="mt-3 space-y-4">
+          {/* Current school, with today's numbers inside the same card. */}
+          {school ? (
+            <section className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"><School className="h-5 w-5" aria-hidden /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground">You're at</p>
+                  <p className="truncate text-sm font-bold">{school.name}</p>
+                </div>
+                <Button variant="ghost" size="sm" className="min-h-[40px] rounded-full text-primary" onClick={showSchools}>Change</Button>
+              </div>
+              <div className="mt-3 grid grid-cols-3 divide-x divide-border/60 rounded-2xl bg-muted/50 py-2.5 text-center">
+                {[
+                  { label: 'In today', value: data?.enteredToday },
+                  { label: 'Inside now', value: data?.insideNow },
+                  { label: 'You registered', value: data?.registered },
+                ].map((s) => (
+                  <div key={s.label} className="px-1">
+                    <p className="text-lg font-bold tabular-nums">{isLoading || s.value == null ? '…' : s.value.toLocaleString()}</p>
+                    <p className="text-[11px] text-muted-foreground">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {/* Quick actions as a row of round icons, like an app's shortcut bar. */}
+          <section aria-label="Quick actions" className="grid grid-cols-4 gap-1">
+            <ActionTile icon={DoorOpen} label="Gate log" primary onClick={() => open('gate')} />
+            <ActionTile icon={UserPlus} label="Register" onClick={() => open('register')} />
+            <ActionTile icon={Building2} label="Set-up" onClick={() => open('partner')} />
+            <ActionTile icon={Receipt} label="School fees" onClick={() => open('fees')} />
+          </section>
+
+          <section aria-labelledby="ws-attention">
+            <h2 id="ws-attention" className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Needs your attention</h2>
+            {attention.length === 0 ? (
+              <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">
+                <Check className="h-4 w-4" aria-hidden />All caught up at this school.
+              </p>
+            ) : (
+              <div className="divide-y divide-border/60 overflow-hidden rounded-3xl border border-border/70 bg-card">
+                {attention.map((item) => {
+                  const Icon = ATTENTION_ICON[item.kind];
+                  return (
+                    <button key={item.kind} type="button" onClick={() => onAttention(item)} className="flex min-h-[60px] w-full items-center gap-3 p-3 text-left hover:bg-muted/50">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted"><Icon className={cn('h-4 w-4', TONE[item.tone])} aria-hidden /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium">{item.title}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{item.detail}</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </TabsContent>
+
+        <TabsContent value="schools" className="mt-3 space-y-3">
+          <Button variant="outline" className="min-h-[48px] w-full gap-2 rounded-2xl border-dashed border-primary/50 text-primary hover:bg-primary/5 hover:text-primary" onClick={() => navigate(`${WORKSPACE}?new=1`)}>
+            <Plus className="h-4 w-4" aria-hidden />Add a school
+          </Button>
+          {isLoading ? (
+            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+          ) : (data?.schools.length ?? 0) === 0 ? (
+            <p className="rounded-2xl bg-muted/50 p-3 text-sm text-muted-foreground">No schools registered yet. Add the first one.</p>
+          ) : (
+            <div className="divide-y divide-border/60 overflow-hidden rounded-3xl border border-border/70 bg-card">
+              {data!.schools.map((s) => {
+                const st = data!.statusBySchool[s.id];
+                const current = school?.id === s.id;
+                return (
+                  <button key={s.id} type="button" onClick={() => pick(s)} aria-current={current ? 'true' : undefined}
+                    className={cn('flex min-h-[60px] w-full items-center gap-3 p-3 text-left hover:bg-muted/50', current && 'bg-primary/5')}>
+                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full', current ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+                      <School className="h-4 w-4" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">{s.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{[s.school_level, s.district].filter(Boolean).join(' · ')}</span>
+                    </span>
+                    {st ? <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_TONE[st])}>{STATUS_LABEL[st]}</span>
+                      : current ? <span className="shrink-0 text-xs font-semibold text-primary">Current</span> : null}
+                  </button>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      )}
-
-      <section aria-labelledby="ws-attention">
-        <h2 id="ws-attention" className="mb-2 text-sm font-semibold">Needs your attention</h2>
-        {attention.length === 0 ? (
-          <p className="rounded-2xl border border-border bg-card p-3 text-sm text-muted-foreground">All caught up at this school.</p>
-        ) : (
-          <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-            {attention.map((item) => {
-              const Icon = ATTENTION_ICON[item.kind];
-              return (
-                <button key={item.kind} type="button" onClick={() => onAttention(item)} className="flex min-h-[56px] w-full items-center gap-3 p-3 text-left hover:bg-muted/50">
-                  <Icon className={cn('h-5 w-5 shrink-0', TONE[item.tone])} aria-hidden />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium">{item.title}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{item.detail}</span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <section aria-label="Quick actions" className="grid grid-cols-2 gap-2">
-        <ActionTile icon={DoorOpen} label="Gate log" hint="Record in and out" primary onClick={() => open('gate')} />
-        <ActionTile icon={UserPlus} label="Register a student" hint="With parent or guardian details" onClick={() => open('register')} />
-        <ActionTile icon={Building2} label="School set-up" hint={status ? STATUS_LABEL[status] : 'Partnership, terms, fees'} onClick={() => open('partner')} />
-        <ActionTile icon={Receipt} label="Sign up a family" hint="Coming soon"
-          onClick={() => toast.message('Family sign-up for School Fees Plans opens soon', { description: 'It starts once this school is an approved partner.' })} />
-      </section>
-
-      <section ref={listRef} aria-labelledby="ws-schools" className="scroll-mt-20">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 id="ws-schools" className="text-sm font-semibold">Schools</h2>
-          <Button variant="ghost" size="sm" className="min-h-[40px] text-primary" onClick={() => navigate(`${WORKSPACE}?new=1`)}>+ Add a school</Button>
-        </div>
-        {isLoading ? (
-          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-        ) : (data?.schools.length ?? 0) === 0 ? (
-          <p className="rounded-2xl border border-border bg-card p-3 text-sm text-muted-foreground">No schools registered yet. Add the first one.</p>
-        ) : (
-          <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-            {data!.schools.map((s) => {
-              const st = data!.statusBySchool[s.id];
-              const current = school?.id === s.id;
-              return (
-                <button key={s.id} type="button" onClick={() => pick(s)} aria-current={current ? 'true' : undefined}
-                  className={cn('flex min-h-[56px] w-full items-center gap-3 p-3 text-left hover:bg-muted/50', current && 'bg-primary/5')}>
-                  <School className={cn('h-5 w-5 shrink-0', current ? 'text-primary' : 'text-muted-foreground')} aria-hidden />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{s.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{[s.school_level, s.district].filter(Boolean).join(' · ')}</span>
-                  </span>
-                  {st ? <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_TONE[st])}>{STATUS_LABEL[st]}</span>
-                    : current ? <span className="shrink-0 text-xs font-semibold text-primary">Current</span> : null}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </section>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
-function ActionTile({ icon: Icon, label, hint, onClick, primary }: { icon: typeof DoorOpen; label: string; hint: string; onClick: () => void; primary?: boolean }) {
+/** One shortcut: a round icon with a short label underneath. */
+function ActionTile({ icon: Icon, label, onClick, primary, soon }: { icon: typeof DoorOpen; label: string; onClick: () => void; primary?: boolean; soon?: boolean }) {
   return (
-    <button type="button" onClick={onClick}
-      className={cn('flex min-h-[88px] flex-col items-start justify-between gap-2 rounded-2xl border p-3 text-left transition-colors',
-        primary ? 'border-primary/40 bg-primary/10 hover:bg-primary/15' : 'border-border bg-card hover:bg-muted/50')}>
-      <Icon className={cn('h-5 w-5', primary ? 'text-primary' : 'text-foreground')} aria-hidden />
-      <span>
-        <span className={cn('block text-sm font-semibold', primary && 'text-primary')}>{label}</span>
-        <span className="block text-xs text-muted-foreground">{hint}</span>
+    <button type="button" onClick={onClick} className="flex min-h-[84px] flex-col items-center gap-1.5 rounded-2xl p-1 text-center transition active:scale-[0.97]">
+      <span className={cn('relative flex h-14 w-14 items-center justify-center rounded-2xl',
+        primary ? 'bg-primary text-primary-foreground shadow-md' : 'bg-primary/10 text-primary')}>
+        <Icon className="h-6 w-6" aria-hidden />
+        {soon ? <span className="absolute -right-1 -top-1 rounded-full bg-muted px-1.5 text-[9px] font-bold text-muted-foreground ring-2 ring-background">Soon</span> : null}
       </span>
+      <span className="text-xs font-semibold leading-tight">{label}</span>
     </button>
   );
 }
@@ -405,52 +462,22 @@ function ActionTile({ icon: Icon, label, hint, onClick, primary }: { icon: typeo
 
 function ParentHome() {
   return (
-    <div className="space-y-4">
-      <SchoolsPhotoCarousel />
-      <Card className="space-y-4 p-5">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-          <GraduationCap className="h-6 w-6 text-primary" aria-hidden />
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-lg font-bold leading-tight">Spread school fees into small daily payments</h2>
-          <p className="text-sm text-muted-foreground">
-            With a School Fees Plan, Welile pays your child's term fees straight to the school. You clear them in small daily payments by mobile money.
-          </p>
-        </div>
-        <ul className="space-y-3">
-          {[
-            { icon: TrendingDown, title: 'Pay early, pay less', body: 'The facilitation fee is worked out daily on what you still owe.' },
-            { icon: MessageSquareText, title: 'A receipt after every payment', body: 'An SMS with your new balance each time you pay.' },
-            { icon: Smartphone, title: 'Pay any day from your phone', body: 'MTN or Airtel, any amount, any day.' },
-          ].map(({ icon: Icon, title, body }) => (
-            <li key={title} className="flex gap-3">
-              <Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
-              <span>
-                <span className="block text-sm font-semibold">{title}</span>
-                <span className="block text-sm text-muted-foreground">{body}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Card>
+    <div className="space-y-4 pb-8">
+      <HeroHeader
+        icon={GraduationCap}
+        eyebrow="For parents"
+        title="Spread school fees into small daily payments"
+        body="Welile pays your child's term fees straight to the school. You clear them in small daily payments by mobile money."
+      />
 
-      <Card className="space-y-2 p-4">
-        <h3 className="text-sm font-semibold">How to start</h3>
-        <p className="text-sm text-muted-foreground">
-          School Fees Plans open soon at Welile partner schools. The Welile agent at your child's school will sign you up and show your plan here.
-        </p>
-      </Card>
+      <BenefitTiles items={[
+        { icon: TrendingDown, title: 'Pay early, pay less', body: 'The fee is worked out daily on what you still owe.' },
+        { icon: MessageSquareText, title: 'SMS receipt', body: 'Your new balance after every payment.' },
+        { icon: Smartphone, title: 'Pay any day', body: 'MTN or Airtel, any amount.' },
+      ]} />
 
-      <div className="flex items-start gap-3 rounded-2xl bg-muted/60 p-3">
-        <Receipt className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
-        <p className="text-sm text-muted-foreground">Your plan, today's amount and your payments will appear here once you have a plan.</p>
-      </div>
-
-      <Button asChild variant="outline" className="min-h-[48px] w-full gap-2">
-        <a href={whatsapp('Hello Welile, I would like to know more about School Fees Plans for my child.')} target="_blank" rel="noopener noreferrer">
-          <MessageCircle className="h-5 w-5" aria-hidden />Ask Welile on WhatsApp
-        </a>
-      </Button>
+      {/* Where the plan will live once the family has one; for now, what a plan would cost. */}
+      <SchoolFeesPlanCard />
     </div>
   );
 }
