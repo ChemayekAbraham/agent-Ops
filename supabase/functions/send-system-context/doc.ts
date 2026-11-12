@@ -92,7 +92,7 @@ flowchart TD
 
 - **Frontend:** React 18, Vite 5, TypeScript 5, Tailwind v3, shadcn/ui, React Query, React Router, jsPDF; Vitest + Playwright for tests.
 - **Backend:** Supabase — Postgres 15, PostgREST Data API, GoTrue auth, Storage, Edge Functions (Deno), \`pg_cron\`, \`pg_net\`.
-- **Messaging:** Yoola SMS (primary), Africa's Talking, LANA (fallbacks); Mailgun US for email; Twilio WhatsApp; Web Push (VAPID).
+- **Messaging:** Yoola SMS (primary), Africa's Talking, LANA (fallbacks); Mailgun US for email; Meta WhatsApp Cloud API; Web Push (VAPID).
 - **AI:** Lovable AI Gateway (\`LOVABLE_API_KEY\`) — \`welile-ai-chat\`, analytics helpers.
 
 ## 1.6 Deployment
@@ -110,7 +110,6 @@ Static SPA served through the Lovable proxy (HTML \`no-cache\`). **No service wo
 | Gmail API | MoMo receipt polling | \`GOOGLE_MAIL_API_KEY\`, \`gmail-poll-transactions\` |
 | Google Drive | offsite document vault | \`GOOGLE_DRIVE_API_KEY\`, \`drive-archive\` |
 | Search Console / SEMrush | SEO monitoring | \`GOOGLE_SEARCH_CONSOLE_API_KEY\`, \`SEMRUSH_API_KEY\` |
-| Twilio | WhatsApp login links | \`TWILIO_*\` |
 | Web Push | in-app notifications | \`VAPID_PUBLIC_KEY\` / \`VAPID_PRIVATE_KEY\` |
 | Inngest | background SMS events | \`INNGEST_API_KEY\`, \`inngest\`, \`inngest-send-sms\` |
 | Google Maps JS | in-browser routing/geocoding only | \`get_maps_browser_key()\` RPC (referrer-restricted) |
