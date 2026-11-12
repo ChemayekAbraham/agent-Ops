@@ -30,7 +30,7 @@ import type { ReceiptFacts } from '../../../supabase/functions/_shared/requisiti
  * never writes the stage.
  */
 
-const POLL_MS = 5 * 60 * 1000;
+const POLL_MS = 4 * 60 * 60 * 1000;
 
 type Stage = 'coo' | 'ceo' | 'cfo';
 
@@ -156,7 +156,7 @@ export function StaffRequisitionApprovalGate(
     setWorking(false);
     if (error) { toast.error(error.message); return; }
     const until = new Date(String(data)).getTime();
-    const delay = Number.isFinite(until) ? Math.max(1000, until - Date.now() + 5000) : 60 * 60 * 1000;
+    const delay = Number.isFinite(until) ? Math.max(1000, until - Date.now() + 5000) : 4 * 60 * 60 * 1000;
     suppressedUntilRef.current = Date.now() + delay;
     if (laterTimerRef.current) window.clearTimeout(laterTimerRef.current);
     laterTimerRef.current = window.setTimeout(() => { void load(); }, delay + 500);
@@ -259,7 +259,7 @@ export function StaffRequisitionApprovalGate(
                 Later
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Open requisitions takes you to the review queue, where approval is done. Later tells the requester you have seen it, and hides this until you refresh or for 1 hour.</p>
+            <p className="text-xs text-muted-foreground">Open requisitions takes you to the review queue, where approval is done. Later tells the requester you have seen it, and hides this until you refresh or for 4 hours.</p>
           </div>
         </div>
       </DialogContent>
