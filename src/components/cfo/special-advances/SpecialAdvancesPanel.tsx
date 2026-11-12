@@ -108,7 +108,7 @@ export function SpecialAdvancesPanel() {
                     <th className="px-3 py-2 text-right font-medium">Principal</th>
                     <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Total repayable</th>
                     <th className="px-3 py-2 text-right font-medium">Outstanding</th>
-                    <th className="px-3 py-2 text-left font-medium">Repayment status</th>
+                    <th className="px-3 py-2 text-left font-medium">Status</th>
                     <th className="px-3 py-2 text-left font-medium">Date Issued</th>
                     <th className="px-3 py-2 text-left font-medium">Period</th>
                     <th className="px-3 py-2 text-left font-medium">Status</th>
