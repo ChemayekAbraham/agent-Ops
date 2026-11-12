@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Banknote, Building2, Check, Copy, Loader2, Phone, Smartphone, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
+import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -31,6 +33,15 @@ export interface FundChoiceTarget {
 type Step = 'choose' | 'momo' | 'cash' | 'saved';
 
 type Choice = 'welile' | 'momo' | 'cash' | 'support';
+
+/** Network logo tile, same style as the wallet hub's provider logos. */
+function ProviderLogo({ src }: { src: string }) {
+  return (
+    <span className="grid h-7 w-7 flex-none place-items-center overflow-hidden rounded-lg border border-border/60 bg-background">
+      <img src={src} alt="" aria-hidden className="h-full w-full object-contain p-0.5" loading="lazy" />
+    </span>
+  );
+}
 
 /** One option card with a checkbox; tapping ticks it, and Continue acts on the ticked one. */
 function ChoiceButton({ title, detail, checked, onClick, icon }: { title: string; detail: string; checked: boolean; onClick: () => void; icon: React.ReactNode }) {
@@ -283,8 +294,12 @@ function MomoForm(props: {
       <p className="text-xs text-muted-foreground">Recorded as pending until Welile confirms it. The rent is not taken from your balance.</p>
       <Input inputMode="decimal" placeholder="Amount in UGX" value={props.amount} onChange={(e) => props.onAmount(e.target.value)} className="h-11" />
       <div className="grid grid-cols-2 gap-2">
-        <Button type="button" variant={props.provider === 'mtn' ? 'default' : 'outline'} className="h-11" onClick={() => props.onProvider('mtn')}>MTN</Button>
-        <Button type="button" variant={props.provider === 'airtel' ? 'default' : 'outline'} className="h-11" onClick={() => props.onProvider('airtel')}>Airtel</Button>
+        <Button type="button" variant={props.provider === 'mtn' ? 'default' : 'outline'} className="h-11" onClick={() => props.onProvider('mtn')}>
+          <ProviderLogo src={mtnLogoAsset.url} /> MTN
+        </Button>
+        <Button type="button" variant={props.provider === 'airtel' ? 'default' : 'outline'} className="h-11" onClick={() => props.onProvider('airtel')}>
+          <ProviderLogo src={airtelLogoAsset.url} /> Airtel
+        </Button>
       </div>
       <Input placeholder="TID or reference" value={props.reference} onChange={(e) => props.onReference(e.target.value)} className="h-11" />
       <Input type="datetime-local" value={props.when} onChange={(e) => props.onWhen(e.target.value)} className="h-11" aria-label="Time you sent the money" />
