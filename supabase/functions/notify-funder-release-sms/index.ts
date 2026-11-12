@@ -101,13 +101,12 @@ Deno.serve(async (req) => {
     .order("created_at", { ascending: true })
     .limit(100);
   if (error) return json(500, { error: error.message });
-  if (!rows?.length) return json(200, { processed: 0, sent: 0, failed: 0 });
 
   let sent = 0;
   let failed = 0;
   const logRows: Record<string, unknown>[] = [];
 
-  for (const row of rows) {
+  for (const row of rows ?? []) {
     const phone = row.phone ? normalizePhone(row.phone) : "";
     const message = String(row.message || "");
     const channel = String(row.channel || "sms");
@@ -201,10 +200,65 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Merchant-direct self-support messages (queued / paid / refunded / house active) share this
+  // one batch call. They live in self_support_notices; email rows are already on the email queue.
+  const { data: ssRows, error: ssErr } = await admin
+    .from("self_support_notices")
+    .select("id, ref_id, audience, event, to_address, message, attempts")
+    .eq("status", "pending")
+    .eq("channel", "sms")
+    .lt("attempts", MAX_ATTEMPTS)
+    .order("created_at", { ascending: true })
+    .limit(100);
+  if (ssErr) console.warn("[funder-release-sms] self-support notices read failed:", ssErr.message);
+
+  for (const row of ssRows ?? []) {
+    const phone = row.to_address ? normalizePhone(row.to_address) : "";
+    const message = String(row.message || "");
+    if (!phone || phone.replace(/\D/g, "").length < 12 || !message) {
+      failed++;
+      await admin.from("self_support_notices")
+        .update({ status: "failed", attempts: (row.attempts || 0) + 1, last_error: "missing_phone" })
+        .eq("id", row.id);
+      continue;
+    }
+    let outcome: { ok: boolean; reason?: string; unconfirmed?: string } = await sendViaYoola(phone, message);
+    let provider = "yoola";
+    if (!outcome.ok) {
+      outcome = await sendViaAfricasTalking(phone, message);
+      provider = "africastalking";
+    }
+    logRows.push({
+      recipient_phone: maskPhone(phone) || "hidden",
+      message,
+      provider,
+      status: outcome.ok ? "accepted" : "failed",
+      error: outcome.ok ? (outcome.unconfirmed ?? null) : (outcome.reason ?? null),
+      reference_id: row.ref_id,
+      source: `self-support-${row.event}-${row.audience}`,
+    });
+    if (outcome.ok) {
+      sent++;
+      await admin.from("self_support_notices")
+        .update({ status: "sent", sent_at: new Date().toISOString(), last_error: outcome.unconfirmed ?? null })
+        .eq("id", row.id);
+    } else {
+      failed++;
+      const attempts = (row.attempts || 0) + 1;
+      await admin.from("self_support_notices")
+        .update({
+          status: attempts >= MAX_ATTEMPTS ? "failed" : "pending",
+          attempts,
+          last_error: outcome.reason ?? "send_failed",
+        })
+        .eq("id", row.id);
+    }
+  }
+
   if (logRows.length) {
     const { error: logErr } = await admin.from("sms_delivery_log").insert(logRows);
     if (logErr) console.warn("[funder-release-sms] delivery log insert failed:", logErr.message);
   }
 
-  return json(200, { processed: rows.length, sent, failed });
+  return json(200, { processed: (rows?.length ?? 0) + (ssRows?.length ?? 0), sent, failed });
 });
