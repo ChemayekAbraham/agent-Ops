@@ -175,7 +175,27 @@ export interface SpecialAdvanceStatement extends SpecialAdvance {
   provision_history?: Array<ProvisionLine & { review: string; recorded_at: string }>;
   write_offs?: SpecialAdvanceWriteOff[];
   recoveries?: SpecialAdvanceRecovery[];
+  /** Top-ups recorded and paid out against this advance, oldest first (migration 20261118100000). */
+  topups?: SpecialAdvanceTopup[];
 }
+
+/* ── Top-ups (CFO, 12 Nov 2026; migration 20261118100000) ──────────────────────────────────────────────
+ * Recorded AND paid out in one CFO action: a Welile-user borrower's wallet is credited at once; an external borrower is
+ * paid by mobile money / bank (reference + proof). Fee at the agreed rate over the top-up's term plus the fixed fee;
+ * own instalments at the agreed frequency, ending on the original final due date. The original agreement is untouched. */
+export interface SpecialAdvanceTopup {
+  id: string; reference: string; advance_id: string; topup_date: string; principal: number; access_fee: number;
+  total_repayable: number; term_days: number; reason: string; payout_method: 'wallet' | 'mobile_money' | 'bank_transfer';
+  payout_reference: string | null; payout_proof_path: string | null; ledger_group_id: string; recorded_by: string; recorded_at: string;
+}
+export interface SpecialAdvanceTopupQuote {
+  term_days: number; end_date: string; outstanding_now: number; outstanding_after: number; payout_method: 'wallet' | null;
+  schedule: { principal: number; access_fee: number; total_repayable: number; instalments: number;
+    schedule: Array<{ number: number; due_date: string; amount: number; access_fee: number; principal: number }> };
+}
+export const TOPUP_REASON_MIN = 15;
+export const TOPUP_REASON_MAX = 1000;
+export const TOPUP_MIN_PRINCIPAL = 10_000;
 
 /* ── Impairment, write-off and recovery (Phase C, CFO decisions D7-D10, 2026-11-02; migration 20261102220000) ──
  * One step (CFO decision 2026-11-03): Welile has one CFO, who posts a provision review or a write-off in a single
@@ -483,6 +503,14 @@ export function describeSpecialAdvanceError(err: unknown): string {
   if (msg.includes('SPECIAL_ADVANCE_NOT_APPROVED')) return 'Only an approved advance can be paid out.';
   if (msg.includes('SPECIAL_ADVANCE_ALREADY_PAID_OUT')) return 'This advance has already been paid out.';
   if (msg.includes('SPECIAL_ADVANCE_NOT_REPAYABLE')) return 'Repayments can only be recorded for an advance that is paid out and not settled.';
+  // Top-ups (migration 20261118100000)
+  if (msg.includes('TOPUP_AFTER_END')) {
+    const end = (detail as { end_date?: string } | null)?.end_date;
+    return `The original final due date${end ? ` (${end})` : ''} has passed; a top-up must be repaid by then.`;
+  }
+  if (msg.includes('SPECIAL_ADVANCE_NOT_TOPUPABLE')) return 'Only a paid-out advance with its schedule running can be topped up.';
+  if (msg.includes('TOPUP_REFERENCE_ALREADY_RECORDED')) return 'A payout with this transaction reference is already recorded.';
+  if (msg.includes('PAYOUT_REVERSAL_HAS_TOPUP')) return 'This advance has a top-up, so its payout cannot be reversed here.';
   if (msg.includes('SPECIAL_ADVANCE_NOT_FOUND')) return 'Special Advance not found.';
   return msg || 'The Special Advance request could not be completed.';
 }
