@@ -58,6 +58,8 @@ import { supportErrorMessage, supportOutcome, type SupportResultPayload } from '
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 import { LandlordPaymentStatusList } from '@/components/self-support/LandlordPaymentStatusList';
 import { FunderSavedItemsDialog } from '@/components/funder-new/FunderSavedItemsDialog';
+import { useFunderSavedTabs } from '@/hooks/useFunderSavedTabs';
+import type { FunderSavedTab } from '@/lib/funderSavedTabs';
 export { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 
 /** Default search radius applied when an origin exists. */
@@ -106,6 +108,8 @@ export default function FunderDashboardNew() {
   const [area, setArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
   const { saved, toggleSave, count: savedCount } = useFunderSavedItems();
   const [savedOpen, setSavedOpen] = useState(false);
+  const [savedTab, setSavedTab] = useState<FunderSavedTab | null>(null);
+  const savedTabs = useFunderSavedTabs(true);
   const [selectedCategory, setSelectedCategory] = useState<FunderNewCategory | null>(null);
   const [selectedItems, setSelectedItems] = useState<FunderNewSelectionItem[]>([]);
   const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
@@ -389,7 +393,7 @@ export default function FunderDashboardNew() {
         availableRoles={roles}
         onRoleChange={handleRoleSwitch}
         onSignOut={signOut}
-        menuItems={[{ icon: Bookmark, label: 'Saved Items', onClick: () => setSavedOpen(true), badge: savedCount || undefined }]}
+        menuItems={[{ icon: Bookmark, label: 'Saved Items', onClick: () => { setSavedTab(null); setSavedOpen(true); }, badge: savedTabs.total || undefined }]}
         headerActions={user ? <NotificationBell userId={user.id} /> : undefined}
         compactInstallPrompt
       />
@@ -626,7 +630,7 @@ export default function FunderDashboardNew() {
         </section>
       </main>
 
-      <FunderSavedItemsDialog open={savedOpen} onOpenChange={setSavedOpen} />
+      <FunderSavedItemsDialog open={savedOpen} onOpenChange={setSavedOpen} initialTab={savedTab} />
       <EmptyHouseDetailSheet
         house={detailHouse}
         open={!!detailHouse}
@@ -686,6 +690,7 @@ export default function FunderDashboardNew() {
       <FunderNewReviewDialog
         open={reviewOpen}
         onOpenChange={setReviewOpen}
+        onOpenSavedTab={(t) => { setReviewOpen(false); setSavedTab(t); setSavedOpen(true); }}
         items={selectedItems}
         available={availableBalance}
         walletLoading={floatAvail.isLoading}
