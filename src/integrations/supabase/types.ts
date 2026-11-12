@@ -100005,6 +100005,15 @@ export type Database = {
         Args: { p_expected_updated_at: string; p_id: string; p_payout: Json }
         Returns: Json
       }
+      special_advance_edit_principal: {
+        Args: {
+          p_expected_updated_at: string
+          p_id: string
+          p_principal: number
+          p_reason: string
+        }
+        Returns: Json
+      }
       special_advance_get: { Args: { p_id: string }; Returns: Json }
       special_advance_list: {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }

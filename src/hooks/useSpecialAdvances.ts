@@ -131,12 +131,14 @@ export function useRecordSpecialAdvanceRepayment() {
   });
 }
 
-/** CFO adds a dated note; the original purpose and reason stay locked (migration 20261112). */
-export function useAddSpecialAdvanceNote() {
+/** CFO edits the principal of a recorded already-issued advance; fee and instalments are recalculated server-side. */
+export function useEditSpecialAdvancePrincipal() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: ({ advanceId, note }: { advanceId: string; note: string }) =>
-      call<SpecialAdvanceStatement>('special_advance_add_note', { p_id: advanceId, p_note: note }),
+    mutationFn: ({ advanceId, expectedUpdatedAt, principal, reason }: { advanceId: string; expectedUpdatedAt: string; principal: number; reason: string }) =>
+      call<SpecialAdvanceStatement>('special_advance_edit_principal', {
+        p_id: advanceId, p_expected_updated_at: expectedUpdatedAt, p_principal: principal, p_reason: reason,
+      }),
     onSuccess: invalidate,
   });
 }

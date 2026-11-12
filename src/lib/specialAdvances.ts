@@ -82,7 +82,7 @@ export interface SpecialAdvanceQuote {
 
 export interface SpecialAdvanceEvent {
   event_type: 'created' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reopened' | 'reversed'
-    | 'correction_posted' | 'written_off' | 'write_off_posted' | 'provision_posted' | 'recovery_recorded' | 'topup_posted' | 'note_added';
+    | 'correction_posted' | 'written_off' | 'write_off_posted' | 'provision_posted' | 'recovery_recorded' | 'topup_posted' | 'note_added' | 'principal_edited';
   from_status: string | null;
   to_status: string;
   actor_id: string;
@@ -206,6 +206,16 @@ export interface SpecialAdvanceTopupQuote {
 export const TOPUP_REASON_MIN = 15;
 export const TOPUP_REASON_MAX = 1000;
 export const TOPUP_MIN_PRINCIPAL = 10_000;
+
+/** Marker the server stamps on an already-issued advance that was recorded (special_advance_record_historical). */
+export const RECORDED_ADVANCE_MARKER = 'Recorded already-issued outside-Welile advance; no new payment';
+
+/** Edit (principal only) is offered for a recorded, paid-out advance with no repayment or top-up yet.
+ *  The server (special_advance_edit_principal) re-checks all of this and recalculates fee and instalments. */
+export function canEditRecordedPrincipal(a: { decision_reason: string | null; status: string; repayments?: unknown[]; topups?: unknown[] }): boolean {
+  return a.decision_reason === RECORDED_ADVANCE_MARKER && a.status === 'disbursed'
+    && (a.repayments?.length ?? 0) === 0 && (a.topups?.length ?? 0) === 0;
+}
 
 /* ── Impairment, write-off and recovery (Phase C, CFO decisions D7-D10, 2026-11-02; migration 20261102220000) ──
  * One step (CFO decision 2026-11-03): Welile has one CFO, who posts a provision review or a write-off in a single
@@ -486,6 +496,11 @@ export function describeSpecialAdvanceError(err: unknown): string {
   if (msg.includes('PROOF_ALREADY_USED')) return 'This proof file is already attached to another payment.';
   if (msg.includes('PROOF_PATH_INVALID')) return 'The proof file does not belong to this advance. Upload it again.';
   if (msg.includes('IDEMPOTENCY_CONFLICT')) return 'This request was already submitted with different details. Start again.';
+  if (msg.includes('PRINCIPAL_EDIT_ONLY_RECORDED')) return 'Only an already-issued advance that was recorded can be edited.';
+  if (msg.includes('PRINCIPAL_EDIT_HAS_ACTIVITY')) return 'The principal can no longer be edited: a repayment or top-up has been recorded.';
+  if (msg.includes('PRINCIPAL_EDIT_NOT_ALLOWED')) return 'Only a paid-out advance can be edited.';
+  if (msg.includes('PRINCIPAL_UNCHANGED')) return 'Enter a principal different from the current one.';
+  if (msg.includes('PRINCIPAL_EDIT_SCHEDULE_CHANGED')) return 'This principal would change the number of instalments. Use a different amount.';
   if (msg.includes('STALE_VERSION')) return 'This advance was changed by someone else. Reload it and try again.';
   // Corrections (Phase B, D11)
   if (msg.includes('REPAYMENT_NOT_FOUND')) return 'That repayment is not on this advance.';

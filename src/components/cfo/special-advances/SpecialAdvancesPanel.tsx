@@ -17,6 +17,7 @@ import {
   STATUS_LABEL,
   describeSpecialAdvanceError,
   type SpecialAdvanceStatus,
+  RECORDED_ADVANCE_MARKER,
 } from '@/lib/specialAdvances';
 import { useSpecialAdvanceList } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceModal } from '@/components/cfo/SpecialAdvanceModal';
@@ -198,7 +199,7 @@ export function SpecialAdvancesPanel() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuItem onSelect={() => { setOpenAction('edit'); setOpenId(a.id); }}>
+                            <DropdownMenuItem disabled={a.status !== 'disbursed' || a.decision_reason !== RECORDED_ADVANCE_MARKER} onSelect={() => { setOpenAction('edit'); setOpenId(a.id); }}>
                               <Pencil className="mr-2 h-4 w-4" /> Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => { setOpenAction('repay'); setOpenId(a.id); }}>
