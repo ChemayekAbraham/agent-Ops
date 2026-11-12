@@ -56,6 +56,7 @@ import type { FunderFundResult } from '@/components/funder-new/FunderNewSelectio
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 import { supportErrorMessage, supportOutcome, type SupportResultPayload } from '@/lib/selfSupportDirect';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
+import { LandlordPaymentStatusList } from '@/components/self-support/LandlordPaymentStatusList';
 import { FunderSavedItemsDialog } from '@/components/funder-new/FunderSavedItemsDialog';
 export { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 
@@ -452,6 +453,8 @@ export default function FunderDashboardNew() {
           </Button>
         </div>
 
+
+        <LandlordPaymentStatusList role="partner" title="Your supported Rent Plans" />
 
         {/* Compact filters + calculator, directly under the map */}
         <section className="space-y-3">

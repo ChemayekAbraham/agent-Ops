@@ -12,6 +12,7 @@ import { categoryLabel } from './utils';
 import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
+import { LANDLORD_PAID_STEPS } from '@/lib/selfSupportDirect';
 
 /**
  * Monthly Returns on a selection at the signed-in partner's OWN rate for a new portfolio
@@ -69,6 +70,7 @@ type FunderReceipt = {
   balanceAfter: number;
   reference: string | null;
   releasedToAgent: boolean;
+  activatesOnLandlordPaid: boolean;
   supportKind: 'rent' | 'house';
   landlordNames: string[];
   rentRequestIds: string[];
@@ -364,7 +366,9 @@ export function FunderNewReviewDialog({
                   Support submitted
                 </DialogTitle>
                 <DialogDescription>
-                  {receipt.releasedToAgent
+                  {receipt.activatesOnLandlordPaid
+                    ? LANDLORD_PAID_STEPS[0].text
+                    : receipt.releasedToAgent
                     ? 'Your rent has gone to the agent, who will pay the landlord within 24 hours.'
                     : receipt.supportKind === 'house'
                       ? 'Your house support is recorded.'
@@ -391,7 +395,7 @@ export function FunderNewReviewDialog({
               <div>
                 <p className="text-sm font-semibold">What happens next</p>
                 <ol className="mt-2 space-y-2">
-                  {(receipt.releasedToAgent ? RELEASED_STEPS : receipt.supportKind === 'house' ? HOUSE_STEPS : RECORDED_STEPS).map((step, index) => (
+                  {(receipt.activatesOnLandlordPaid ? LANDLORD_PAID_STEPS : receipt.releasedToAgent ? RELEASED_STEPS : receipt.supportKind === 'house' ? HOUSE_STEPS : RECORDED_STEPS).map((step, index) => (
                     <li key={step.title} className="flex gap-3 rounded-2xl border bg-primary/5 p-3">
                       <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">{index + 1}</span>
                       <div className="min-w-0">
@@ -463,6 +467,7 @@ export function FunderNewReviewDialog({
                           balanceAfter: Math.max(0, (available ?? 0) - total),
                           reference: result.reference ?? null,
                           releasedToAgent: result.releasedToAgent === true,
+                          activatesOnLandlordPaid: result.activatesOnLandlordPaid === true,
                           supportKind: result.supportKind === 'house' ? 'house' : 'rent',
                           landlordNames,
                           rentRequestIds: result.rentRequestIds ?? items.filter((item) => item.category === 'ready').map((item) => item.id),
