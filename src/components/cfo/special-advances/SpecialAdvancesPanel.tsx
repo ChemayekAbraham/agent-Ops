@@ -51,7 +51,7 @@ export function SpecialAdvancesPanel() {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 text-xs">
 
         <Button variant="outline" size="sm" className="ml-auto text-primary" onClick={() => { setHistorical(true); setRecording(true); }}>
-          <Clock className="mr-1 h-4 w-4" /> Record already-issued advance
+          <Clock className="mr-1 h-4 w-4" /> Record Special Advance
         </Button>
         <Button id="special-advance-new" size="sm" onClick={() => { setHistorical(false); setRecording(true); }}>
           <Plus className="mr-1 h-4 w-4" /> New Special Advance
