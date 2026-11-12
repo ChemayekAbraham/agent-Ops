@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { formatDynamic } from '@/lib/currencyFormat';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight, Home, MapPin, Phone, ShieldCheck, User, UserCheck, Wallet, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Home, MapPin, Phone, Share2, ShieldCheck, User, UserCheck, Wallet, X } from 'lucide-react';
 import tenantPhotoPlaceholder from '@/assets/tenant-photo-placeholder.jpg';
 import { cn } from '@/lib/utils';
 import { PlanShareButton } from './PlanShareButton';
@@ -422,10 +422,12 @@ export function SelfPortfolioPlanDetailSheet({
             {/* Share: the description the database composed for this plan doubles as the tooltip. */}
             <div
               title={planShareFallbackDescription(plan)}
-              className="flex flex-col items-center gap-1 rounded-2xl bg-muted/50 py-2 text-xs font-semibold [&_button]:h-7 [&_button]:w-7 [&_button]:border-0 [&_button]:bg-transparent [&_button]:text-primary"
+              className="relative flex flex-col items-center gap-1 rounded-2xl bg-muted/50 py-3 text-xs font-semibold transition active:scale-[0.97] hover:bg-muted [&_button]:absolute [&_button]:inset-0 [&_button]:!h-full [&_button]:!w-full [&_button]:rounded-2xl [&_button]:opacity-0"
             >
-              <PlanShareButton plan={plan} />
+              {/* The real share button is an invisible layer over the whole tile, so the full tile is tappable. */}
+              <Share2 className="h-5 w-5 text-primary" aria-hidden />
               Share
+              <PlanShareButton plan={plan} />
             </div>
             {agentTel ? (
               <a
@@ -471,9 +473,7 @@ export function SelfPortfolioPlanDetailSheet({
             </div>
             <div className="min-w-0">
               <p className="font-bold text-sm truncate">Plan for {name}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                Landlord: {plan.landlord_name ?? 'Landlord'}
-              </p>
+              <p className="text-xs text-muted-foreground truncate">Tenant</p>
             </div>
           </div>
 
