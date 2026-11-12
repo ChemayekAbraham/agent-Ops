@@ -28,6 +28,8 @@
 - [ ] Verify real board totals with an enabled display link; no valid display token was supplied. Real invalid-link message verified.
 
 # Signages CFO disbursement
+- [ ] Capture registered owner phone; enforce no owner payout before submission + 30 days and separate CFO activation from payments.
+- [ ] Test owner payout timing, approval-only activation and unchanged agent rewards.
 - [ ] Change verified installations to Awaiting CFO, with activation only after CFO disbursement.
 - [ ] Connect Pay Agent, Pay Owner and Batch Pay Agents to authorized, duplicate-safe payments.
 - [ ] Test installation/payment rules and verify available preview signals.
