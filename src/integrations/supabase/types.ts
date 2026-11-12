@@ -70079,6 +70079,7 @@ export type Database = {
           term_end: string
           term_fee: number
           term_id: string | null
+          term_start: string | null
           total_on_schedule: number
           updated_at: string
         }
@@ -70105,6 +70106,7 @@ export type Database = {
           term_end: string
           term_fee: number
           term_id?: string | null
+          term_start?: string | null
           total_on_schedule: number
           updated_at?: string
         }
@@ -70131,6 +70133,7 @@ export type Database = {
           term_end?: string
           term_fee?: number
           term_id?: string | null
+          term_start?: string | null
           total_on_schedule?: number
           updated_at?: string
         }
@@ -104058,6 +104061,42 @@ export type Database = {
           unit_id: string
         }[]
       }
+      welile_school_fee_request_review: {
+        Args: { p_decision: string; p_note: string; p_request_id: string }
+        Returns: {
+          class_grade: string | null
+          created_at: string
+          daily_rate: number
+          guarantor_name: string | null
+          guarantor_phone: string | null
+          guardian_name: string
+          guardian_phone: string
+          id: string
+          note: string | null
+          plan_days: number
+          plan_due_date: string
+          profile_id: string
+          requested_by: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          student_name: string
+          term_end: string
+          term_fee: number
+          term_id: string | null
+          term_start: string | null
+          total_on_schedule: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_fee_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       welile_school_fee_request_submit: {
         Args: {
           p_guarantor_name: string
@@ -104069,6 +104108,7 @@ export type Database = {
           p_term_end: string
           p_term_fee: number
           p_term_id: string
+          p_term_start: string
         }
         Returns: {
           class_grade: string | null
@@ -104093,6 +104133,7 @@ export type Database = {
           term_end: string
           term_fee: number
           term_id: string | null
+          term_start: string | null
           total_on_schedule: number
           updated_at: string
         }
