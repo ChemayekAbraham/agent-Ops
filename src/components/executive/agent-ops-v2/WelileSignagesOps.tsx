@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { findUgDistrictByName, UG_REGIONS, useUgDistricts } from '@/hooks/useUgLocations';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -50,6 +52,8 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
   const reviewMutation = useReviewSignage(stage);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [regionFilter, setRegionFilter] = useState('all');
+  const { data: districts } = useUgDistricts();
   const [statusFilter, setStatusFilter] = useState<string>(stage === 'coo' ? 'awaiting_coo' : 'all');
 
   // Modal states
@@ -64,12 +68,15 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
 
   // Filtering
   const filtered = signages.filter((s) => {
+    const region = findUgDistrictByName(districts, s.district_name)?.region ?? '';
+    const query = searchQuery.trim().toLowerCase();
     const matchesSearch =
-      s.property_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.reference_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.owner_phone.includes(searchQuery) ||
-      s.district_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.village_name.toLowerCase().includes(searchQuery.toLowerCase());
+      [s.property_name, s.reference_no, s.owner_phone, region, s.district_name,
+        s.county_name, s.sub_county_name, s.parish_name, s.village_name,
+        s.plot_or_landmark, s.nearby_landmarks]
+        .some(value => (value ?? '').toLowerCase().includes(query));
+
+    if (regionFilter !== 'all' && region !== regionFilter) return false;
 
     if (statusFilter === 'all') return matchesSearch;
     if (statusFilter === 'pending_review') {
@@ -172,12 +179,16 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
         <div className="relative flex-1 w-full">
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by property, reference, owner phone, district..."
+            placeholder="Search property, reference, phone or any location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10 rounded-xl text-xs"
           />
         </div>
+        {stage === 'agent_ops' && <Select value={regionFilter} onValueChange={setRegionFilter}>
+          <SelectTrigger aria-label="Region" className="h-10 w-full rounded-xl text-xs sm:w-40"><SelectValue placeholder="All regions" /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All regions</SelectItem>{UG_REGIONS.map(region => <SelectItem key={region} value={region}>{region}</SelectItem>)}</SelectContent>
+        </Select>}
         <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
           {[
             { id: 'all', label: 'All' },

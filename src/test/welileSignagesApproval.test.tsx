@@ -10,6 +10,11 @@ vi.mock('@/hooks/useWelileSignages', () => ({
     gps_latitude: 0.3, gps_longitude: 32.5, gps_accuracy_meters: 10, owner_full_name: 'Owner', owner_payment_method: 'momo_mtn', photos: [] }], refetch: vi.fn() }),
   useReviewSignage: () => ({ mutateAsync: mocks.decide, isPending: false }),
 }));
+vi.mock('@/hooks/useUgLocations', () => ({
+  UG_REGIONS: ['Central', 'Eastern', 'Northern', 'Western'],
+  useUgDistricts: () => ({ data: [] }),
+  findUgDistrictByName: () => null,
+}));
 
 describe('COO Signages approval controls', () => {
   beforeEach(() => { cleanup(); mocks.status = 'awaiting_coo'; mocks.decide.mockReset().mockResolvedValue({}); });

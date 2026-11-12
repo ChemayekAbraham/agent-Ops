@@ -1,3 +1,11 @@
+# Already-issued Special Advances
+- [ ] Add CFO recording for advances paid outside Welile without sending another payment; blocked pending approval of a dedicated historical-recording server action, because live create/payout actions reject past dates and wallet borrowers receive a fresh wallet credit.
+- [ ] Test the non-payout flow and existing Special Advances safeguards.
+
+# Agent Ops signage location filters
+- [x] Add a region filter and search across region, district, county, sub-county, parish, village and landmarks using authorized loaded signage rows and the shared official district-region reference.
+- [x] Twelve filter/photo/approval checks pass; automatic build OK. Authorized live Agent Ops browser verification remains unavailable with external unmanaged authentication.
+
 # Invitation profile picture
 - [x] Diagnose signing-placeholder errors incorrectly poisoning the shared avatar failure cache; cache only failed image attempts, keeping real failure suppression unchanged.
 - [x] All 45 avatar/co-support checks pass and build OK; Benjamin's real invitation photo loads and remains visible after the one-minute refresh. Storage access unchanged.
