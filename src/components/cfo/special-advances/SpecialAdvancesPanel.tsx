@@ -161,7 +161,19 @@ export function SpecialAdvancesPanel() {
                       <td className="px-3 py-2 text-right tabular-nums">
                         {a.paid_out ? formatUGX(a.outstanding ?? 0) : '—'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">{repaymentStatusLabel(a)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <span className={
+                          repaymentStatusLabel(a) === 'Fully repaid'
+                            ? 'font-medium text-emerald-600'
+                            : repaymentStatusLabel(a) === 'Partly repaid'
+                            ? 'font-medium text-amber-700'
+                            : repaymentStatusLabel(a) === 'Not started'
+                            ? 'font-medium text-destructive'
+                            : 'text-muted-foreground'
+                        }>
+                          {repaymentStatusLabel(a)}
+                        </span>
+                      </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         {a.payout_date ? kampalaLabel(a.payout_date) : '—'}
                       </td>
