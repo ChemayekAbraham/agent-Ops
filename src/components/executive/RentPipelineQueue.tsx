@@ -27,6 +27,7 @@ import { getRentCycleLabel, RENT_CYCLE_BADGE_CLASSES } from '@/lib/rentCycleLabe
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -421,6 +422,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState('');
+  // Landlord Ops: the card's Reject asks for the reason straight away instead of opening the full review.
+  const [directReject, setDirectReject] = useState<{ id: string; name: string; reason: string } | null>(null);
   // Agent profile drilldown
   const [drilldownAgentId, setDrilldownAgentId] = useState<string | null>(null);
   // Landlord profile drilldown — full location, contacts, houses
@@ -1333,13 +1336,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         });
         if (error) throw error;
 
-        // Stamp reviewer + stage-specific comment column for audit trail
-        const reviewerPatch: any = {
-          [config.reviewerColumn]: user.id,
-          [config.reviewerAtColumn]: new Date().toISOString(),
-        };
-        if (config.commentColumn) reviewerPatch[config.commentColumn] = comment.trim();
-        await supabase.from('rent_requests').update(reviewerPatch).eq('id', selectedRequest.id);
+        // The server stamps this desk's reviewer, time and comment in the same step.
       }
 
       // ── Auto-WhatsApp the originating Agent with the rejection details ──
@@ -1502,9 +1499,10 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
    * pipeline state machine, agent notification and audit trail stay identical —
    * only the loop is new. One shared reason is stamped on every request.
    */
-  const handleBulkReject = async () => {
-    if (!user || selectedIds.size === 0) return;
-    const reason = bulkRejectReason.trim();
+  const handleBulkReject = async (direct?: { ids: string[]; reason: string }) => {
+    const ids = direct ? direct.ids : [...selectedIds];
+    if (!user || ids.length === 0) return;
+    const reason = (direct ? direct.reason : bulkRejectReason).trim();
     if (reason.length < 10) {
       toast({ title: 'Reason must be at least 10 characters', variant: 'destructive' });
       return;
@@ -1531,12 +1529,6 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
           failures.push(error.message);
           continue;
         }
-        const reviewerPatch: any = {
-          [config.reviewerColumn]: user.id,
-          [config.reviewerAtColumn]: new Date().toISOString(),
-        };
-        if (config.commentColumn) reviewerPatch[config.commentColumn] = reason;
-        await supabase.from('rent_requests').update(reviewerPatch).eq('id', id);
         rejected += 1;
       }
       if (rejected > 0) {
@@ -1555,6 +1547,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       setSelectedIds(new Set());
       setBulkRejectReason('');
       setBulkRejectOpen(false);
+      setDirectReject(null);
       invalidateAllPipelineQueries();
     } catch (err: any) {
       if (err instanceof CooDecisionCancelled) toast({ title: 'Not returned', description: err.message });
@@ -1590,7 +1583,8 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   // Agent Ops reviews the `pending` stage and clears the largest backlog, so it
   // gets the same bulk controls as the COO — plus bulk return-for-correction.
   const isAgentOpsStage = stage === 'pending';
-  const allowBulkActions = isCooStage || isAgentOpsStage;
+  const isLandlordOpsDesk = stage === 'tenant_ops_approved';
+  const allowBulkActions = isCooStage || isAgentOpsStage || isLandlordOpsDesk;
 
   const selectedAmount = useMemo(() => {
     if (selectedIds.size === 0) return 0;
@@ -1667,7 +1661,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   <XCircle className="h-3 w-3" />
                   Return selected ({selectedIds.size})
                 </Button>
-                {!isCfoStage && <Button
+                {!isCfoStage && !isLandlordOpsDesk && <Button
                   size="sm"
                   className="h-7 text-xs gap-1"
                   disabled={processing || (isCooStage && cooBulkSplit.fits.length === 0)}
@@ -1701,6 +1695,33 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
             </div>
           )
         )}
+        <Dialog open={!!directReject} onOpenChange={(o) => { if (!o && !processing) setDirectReject(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reject and return for correction</DialogTitle>
+              <DialogDescription>The Rent Plan for {directReject?.name} goes back to the agent with your reason.</DialogDescription>
+            </DialogHeader>
+            <Textarea
+              autoFocus
+              value={directReject?.reason ?? ''}
+              onChange={e => setDirectReject(d => (d ? { ...d, reason: e.target.value } : d))}
+              placeholder="Explain what the agent must correct (at least 10 characters)"
+              rows={4}
+              disabled={processing}
+            />
+            <DialogFooter>
+              <Button variant="ghost" disabled={processing} onClick={() => setDirectReject(null)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={processing || (directReject?.reason.trim().length ?? 0) < 10}
+                onClick={() => directReject && handleBulkReject({ ids: [directReject.id], reason: directReject.reason })}
+              >
+                {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                Reject
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         {bulkRejectOpen && (
           <div className="mt-2 space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
             <p className="text-sm font-semibold">Return {selectedIds.size} selected request{selectedIds.size === 1 ? '' : 's'} for correction</p>
@@ -1726,7 +1747,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                 size="sm"
                 variant="destructive"
                 disabled={processing || bulkRejectReason.trim().length < 10}
-                onClick={handleBulkReject}
+                onClick={() => handleBulkReject()}
               >
                 {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
                 Return selected
@@ -2376,7 +2397,11 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isLandlordOpsDesk) setDirectReject({ id: req.id, name: req.tenant_name || 'this tenant', reason: '' });
+                      else openRequestDetail(req);
+                    }}
                     disabled={quickProcessingId === req.id}
                     className="h-8 px-3 text-xs font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive active:scale-95 transition-all gap-1.5"
                     title={isCfoStage ? 'Return to COO' : 'Reject request'}

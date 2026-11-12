@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Share2, Link2, Send, HandCoins, TrendingUp, CalendarCheck, Sprout } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Send, HandCoins, TrendingUp, CalendarCheck, Sprout } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizeE164OrNull } from '@/lib/phoneUtils';
 import { Badge } from '@/components/ui/badge';
@@ -646,26 +646,6 @@ const HOW_STEPS = [
 function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
   // Signed-in partner screen: the worked example is priced at the viewer's own rate (null = no figure).
   const { rate: ownRate } = useOwnNewPortfolioRate();
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const link = buildPlanShareLink(item, origin);
-  const message = buildPlanShareMessage(item, link);
-  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
-
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(link);
-      toast.success('Link copied');
-    } catch {
-      toast.error('Could not copy the link');
-    }
-  };
-  const nativeShare = async () => {
-    try {
-      await navigator.share({ title: 'Turn rent into an asset', text: message, url: link });
-    } catch {
-      /* user cancelled */
-    }
-  };
 
   return (
     <section className="space-y-6">
@@ -710,26 +690,6 @@ function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
       </div>
 
       <SupportPlanExample fundingAmount={item.amount} rate={ownRate} />
-
-      <div className="space-y-2">
-        <a
-          href={buildWhatsAppShareUrl(message)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-success px-4 text-base font-semibold text-success-foreground shadow-sm hover:opacity-90"
-        >
-          <MessageCircle className="h-5 w-5" />
-          Share on WhatsApp
-        </a>
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" className="h-11 rounded-xl text-sm" onClick={copyLink}>
-            <Link2 className="h-4 w-4" />Copy link
-          </Button>
-          <Button variant="outline" className="h-11 rounded-xl text-sm" onClick={nativeShare} disabled={!canNativeShare}>
-            <Share2 className="h-4 w-4" />Share
-          </Button>
-        </div>
-      </div>
     </section>
   );
 }

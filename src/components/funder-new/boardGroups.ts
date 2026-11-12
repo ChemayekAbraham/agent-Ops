@@ -8,7 +8,7 @@ type FeedEntry = { category: FunderNewCategory; item: FunderNewEmptyHouse | Fund
 
 /** One card in a group: an existing (fundable) feed card, or a view-only board item. */
 export type BoardRow<E extends FeedEntry = FeedEntry> =
-  | { kind: 'feed'; cardId: string; tag: BoardTag; entry: E }
+  | { kind: 'feed'; cardId: string; tag: BoardTag; entry: E; /** COO/CEO only: what a Verified request still lacks. */ incomplete?: string[] | null }
   | { kind: 'board'; cardId: string; tag: BoardRequestTag; item: BoardItem };
 
 export type BoardGroup<E extends FeedEntry = FeedEntry> = {
@@ -104,9 +104,9 @@ export function buildBoardGroups<E extends FeedEntry>(args: {
     //  • not selectable (held by a funder) → view only, unless the plan the feed
     //    returned is held by this viewer (the feed only returns their own holds).
     if (item.tag === 'verified' && (item.selectable || (loaded && (loaded.item as FunderNewReadyPlan).held_by))) {
-      if (loaded) byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${item.id}`, tag: 'verified', entry: loaded });
+      if (loaded) byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${item.id}`, tag: 'verified', entry: loaded, incomplete: item.incomplete });
       else if (boardItemMatches(item, filters)) {
-        byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${item.id}`, tag: 'verified', entry: { category: 'ready', item: boardItemToReadyPlan(item) } as E });
+        byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${item.id}`, tag: 'verified', entry: { category: 'ready', item: boardItemToReadyPlan(item) } as E, incomplete: item.incomplete });
       }
     } else if (boardItemMatches(item, filters)) {
       byTag.get(item.tag)!.push({ kind: 'board', cardId: `board:${item.id}`, tag: item.tag, item });

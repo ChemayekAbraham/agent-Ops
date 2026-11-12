@@ -6,6 +6,8 @@ import type { BoardItem } from '@/lib/fundersBoard';
 import type { FunderNewDistance } from './types';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
 import { FundersBoardTag, tagKindFor } from './FundersBoardTag';
+import { FundersIncompleteChip } from './FundersIncompleteChip';
+import { requestRef } from './utils';
 
 /**
  * E72b view-only card for a rent request on the funders board that cannot be
@@ -61,6 +63,8 @@ export function FunderBoardItemCard({
         )}
       </div>
       <div className="flex flex-col gap-2 p-3.5">
+        {/* COO/CEO: what is still missing, above the demote control (Verified only). */}
+        {item.tag === 'verified' ? <FundersIncompleteChip items={item.incomplete} /> : null}
         {canDemote ? (
           <label
             data-testid="fv3-demote-check"
@@ -80,9 +84,15 @@ export function FunderBoardItemCard({
           </label>
         ) : null}
         <FundersBoardTag kind={tagKindFor(item.tag, 'ready')} />
-        <p className="min-w-0 break-words text-base font-bold leading-snug text-foreground" style={{ margin: 0 }}>
-          {title} <span className="font-medium text-muted-foreground">in</span> {place}
-        </p>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <p className="min-w-0 break-words text-base font-bold leading-snug text-foreground" style={{ margin: 0 }}>
+            {title} <span className="font-medium text-muted-foreground">in</span> {place}
+          </p>
+          {/* Lets staff match the card to its desk row. */}
+          <p data-testid="fv3-ref" className="text-[11px] font-medium tabular-nums tracking-wide text-muted-foreground" style={{ margin: 0 }}>
+            {requestRef(item.id)}
+          </p>
+        </div>
         {distance ? (
           <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground" title={STRAIGHT_LINE_EXPLANATION}>
             <Navigation className="h-3.5 w-3.5 flex-none text-primary" aria-hidden />

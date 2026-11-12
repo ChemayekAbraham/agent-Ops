@@ -77904,6 +77904,7 @@ export type Database = {
       _agent_red_flags: { Args: { p_agent: string }; Returns: Json }
       _agent_rule_judged_week_start: { Args: never; Returns: string }
       _agent_rule_week_start: { Args: { p_day: string }; Returns: string }
+      _agent_side_missing: { Args: { p_request_id: string }; Returns: string[] }
       _agent_vetting_ensure: {
         Args: { p_uid: string }
         Returns: {
@@ -78712,6 +78713,7 @@ export type Database = {
         Returns: boolean
       }
       _hr_pay_bonus_read_ok: { Args: never; Returns: boolean }
+      _incomplete_owner: { Args: { p_missing: string[] }; Returns: string }
       _is_active_employee: { Args: { p_uid: string }; Returns: boolean }
       _is_all_desk: { Args: { p_uid: string }; Returns: boolean }
       _is_bot_agent: { Args: { p_uid: string }; Returns: boolean }
@@ -96765,6 +96767,10 @@ export type Database = {
       pipeline_resolve_request: { Args: { p_short: string }; Returns: Json }
       pipeline_review_sheet: { Args: { p_request_id: string }; Returns: Json }
       pipeline_self_applied_queue: { Args: { p_limit?: number }; Returns: Json }
+      pipeline_send_back_incomplete: {
+        Args: { p_note?: string; p_request_id: string; p_to: string }
+        Returns: Json
+      }
       pipeline_send_back_options: {
         Args: { p_from_stage: string }
         Returns: Json
@@ -99725,6 +99731,15 @@ export type Database = {
           p_name: string
           p_signature: string
           p_token: string
+        }
+        Returns: Json
+      }
+      signage_owner_business_list: {
+        Args: {
+          p_limit?: number
+          p_matched_only?: boolean
+          p_offset?: number
+          p_search?: string
         }
         Returns: Json
       }

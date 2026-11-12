@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { CALM, FOCUS, LABEL } from '../deskTheme';
 import { DecisionButton } from './DecisionButton';
@@ -181,6 +181,7 @@ export function DataList<T>({
   forceLayout,
   card,
   rowAttrs,
+  onRowOpen,
 }: {
   columns: DataColumn<T>[];
   rows: T[];
@@ -199,6 +200,12 @@ export function DataList<T>({
   card?: (row: T) => ReactNode;
   /** Extra data-* attributes for a row's <tr> / <li> (tests and styling hooks). */
   rowAttrs?: (row: T) => Record<string, string | undefined>;
+  /**
+   * A tap anywhere on a row (or its card) opens it. Taps on a link, button or
+   * field inside the row keep their own meaning. Keyboard users need a button
+   * in the row that calls the same thing (the list does not add one).
+   */
+  onRowOpen?: (row: T) => void;
 }) {
   const { ref, width } = useOwnWidth();
   const measured = useMemo(() => planColumns(columns, width), [columns, width]);
@@ -212,6 +219,13 @@ export function DataList<T>({
   const [q, setQ] = useState('');
   const [all, setAll] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const openRow = (r: T) =>
+    onRowOpen
+      ? (e: MouseEvent) => {
+          if ((e.target as HTMLElement | null)?.closest?.('a, button, input, select, textarea, label')) return;
+          onRowOpen(r);
+        }
+      : undefined;
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -291,7 +305,7 @@ export function DataList<T>({
                 const name = titleCol ? textOf(titleCol, r) : k;
                 return (
                   <Fragment key={k}>
-                    <tr className="desk-row align-top" data-row={k} {...rowAttrs?.(r)}>
+                    <tr className={`desk-row align-top${onRowOpen ? ' cursor-pointer' : ''}`} data-row={k} {...rowAttrs?.(r)} onClick={openRow(r)}>
                       {details && (
                         <td className="border-b border-[var(--desk-line-soft)]" style={{ padding: 0, verticalAlign: 'top' }}>
                           <button
@@ -348,13 +362,13 @@ export function DataList<T>({
           const more = open[k];
           if (card) {
             return (
-              <li key={k} data-row={k} {...rowAttrs?.(r)} style={{ minWidth: 0 }}>
+              <li key={k} data-row={k} {...rowAttrs?.(r)} onClick={openRow(r)} className={onRowOpen ? 'cursor-pointer' : undefined} style={{ minWidth: 0 }}>
                 {card(r)}
               </li>
             );
           }
           return (
-            <li key={k} data-row={k} {...rowAttrs?.(r)} className="desk-tile" style={{ ...stackLayout(4), padding: 12 }}>
+            <li key={k} data-row={k} {...rowAttrs?.(r)} onClick={openRow(r)} className={`desk-tile${onRowOpen ? ' cursor-pointer' : ''}`} style={{ ...stackLayout(4), padding: 12 }}>
               {titleCol && <div className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`} style={{ overflowWrap: 'break-word' }}>{titleCol.render(r)}</div>}
               {p1Rest.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 12px' }} className="text-sm text-foreground">

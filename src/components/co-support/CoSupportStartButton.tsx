@@ -45,10 +45,13 @@ export function CoSupportStartButton({
     });
 
   return (
-    <div className={cn('space-y-1.5', className)}>
-      <Button variant="outline" className="h-11 w-full rounded-lg font-semibold" onClick={start} disabled={create.isPending}>
-        {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Users className="h-4 w-4" aria-hidden />}
-        Support with a partner
+    <div className={cn('space-y-1.5 [container-type:inline-size]', className)}>
+      {/* The label scales with the button's own width (narrow cards, phones) and wraps rather than crossing the border. */}
+      <Button variant="outline"
+        className="h-auto min-h-11 w-full gap-1.5 whitespace-normal rounded-lg px-3 py-2 text-center text-[length:clamp(11px,calc(8cqw_-_4px),15px)] font-semibold leading-tight"
+        onClick={start} disabled={create.isPending}>
+        {create.isPending ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden /> : <Users className="h-4 w-4 shrink-0" aria-hidden />}
+        <span className="min-w-0">Support with a partner</span>
       </Button>
       {showExplanation ? (
         <p className="text-xs text-muted-foreground">

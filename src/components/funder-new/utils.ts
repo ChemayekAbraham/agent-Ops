@@ -161,6 +161,16 @@ export function itemId(category: FunderNewCategory, item: FunderNewEmptyHouse | 
     : (item as FunderNewReadyPlan).rent_request_id;
 }
 
+/**
+ * "Ref 3F2A9C1B": the first 8 characters of a rent request id, upper case, so
+ * staff can match a funder card to its desk row (desk search matches the same
+ * 8 characters, case-insensitively). Null without an id. Rent requests only.
+ */
+export function requestRef(id: string | null | undefined): string | null {
+  const code = (id ?? '').replace(/-/g, '').slice(0, 8);
+  return code ? `Ref ${code.toUpperCase()}` : null;
+}
+
 /** Rent-to-partner-amount mapper: useSelfSupportFeePolicy().pay. Identity by default (sorting, filters, pins). */
 export type PartnerPay = (rent: number) => number;
 const IDENTITY_PAY: PartnerPay = (rent) => rent;

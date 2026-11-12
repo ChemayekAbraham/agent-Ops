@@ -14,9 +14,11 @@ import {
   readyPlanPlace,
   readyPlanTitle,
   isUncheckedEmptyHouse,
+  requestRef,
 } from './utils';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
 import { FundersBoardTag, tagKindFor } from './FundersBoardTag';
+import { FundersIncompleteChip } from './FundersIncompleteChip';
 import type { BoardTag } from '@/lib/fundersBoard';
 import { CoSupportStartButton } from '@/components/co-support/CoSupportStartButton';
 
@@ -30,6 +32,7 @@ export function FunderNewHouseCard({
   onDetail,
   boardTagsOn = false,
   boardTag = null,
+  incomplete = null,
 }: {
   category: FunderNewCategory;
   item: FunderNewEmptyHouse | FunderNewReadyPlan;
@@ -44,6 +47,8 @@ export function FunderNewHouseCard({
   boardTagsOn?: boolean;
   /** E65: the server's tag for this card, when known. */
   boardTag?: BoardTag | null;
+  /** COO/CEO only (null for funders): what this Verified request still lacks. */
+  incomplete?: string[] | null;
 }) {
   const isEmpty = category === 'empty';
   const title = isEmpty ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan);
@@ -55,6 +60,7 @@ export function FunderNewHouseCard({
   const photo = firstPhoto(category, item);
   const coords = itemCoordinates(item, category);
   const unchecked = isUncheckedEmptyHouse(category, item);
+  const ref = isEmpty ? null : requestRef((item as FunderNewReadyPlan).rent_request_id);
 
   return (
     <article
@@ -113,6 +119,7 @@ export function FunderNewHouseCard({
       </div>
 
         <div className="space-y-3 p-4">
+        {isEmpty ? null : <FundersIncompleteChip items={incomplete} />}
         {boardTagsOn ? <FundersBoardTag kind={tagKindFor(boardTag, category)} /> : null}
         {/* Tapping the text block opens the full house details, like the photo does. */}
         <div
@@ -132,6 +139,8 @@ export function FunderNewHouseCard({
           <p className="min-w-0 break-words text-base font-bold leading-snug text-foreground">
             {title} <span className="font-medium text-muted-foreground">in</span> {place}
           </p>
+          {/* Rent requests only: lets staff match the card to its desk row. */}
+          {ref ? <p data-testid="fv3-ref" className="mt-0.5 text-[11px] font-medium tabular-nums tracking-wide text-muted-foreground">{ref}</p> : null}
 
           {distance ? (
             <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground" title={STRAIGHT_LINE_EXPLANATION}>
