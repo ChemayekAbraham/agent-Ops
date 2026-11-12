@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Banknote, Building2, Copy, Loader2, Phone, Smartphone, Wallet } from 'lucide-react';
+import { Banknote, Building2, Check, Copy, Loader2, Phone, Smartphone, Wallet } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -29,17 +30,34 @@ export interface FundChoiceTarget {
 
 type Step = 'choose' | 'momo' | 'cash' | 'saved';
 
-function ChoiceButton({ title, detail, onClick, icon }: { title: string; detail: string; onClick: () => void; icon: React.ReactNode }) {
+type Choice = 'welile' | 'momo' | 'cash' | 'support';
+
+/** One option card with a checkbox; tapping ticks it, and Continue acts on the ticked one. */
+function ChoiceButton({ title, detail, checked, onClick, icon }: { title: string; detail: string; checked: boolean; onClick: () => void; icon: React.ReactNode }) {
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={checked}
       onClick={onClick}
-      className="flex w-full items-start gap-3 rounded-2xl border border-border/70 bg-card px-3 py-3 text-left active:scale-[0.99]"
+      className={cn(
+        'flex w-full items-start gap-3 rounded-2xl border bg-card px-3 py-3 text-left transition-colors active:scale-[0.99]',
+        checked ? 'border-primary ring-1 ring-primary' : 'border-border/70',
+      )}
     >
       <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">{icon}</span>
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">{title}</span>
         <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{detail}</span>
+      </span>
+      <span
+        aria-hidden
+        className={cn(
+          'mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-md border-2 transition-colors',
+          checked ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 bg-background',
+        )}
+      >
+        {checked ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}
       </span>
     </button>
   );
@@ -63,6 +81,7 @@ function ChooserBody({
   const contact = contactQuery.data?.state === 'ready' ? contactQuery.data.contact : null;
   const showDirect = Boolean(contact?.payoutMomoNumber || contact?.landlordPhone);
   const [step, setStep] = useState<Step>('choose');
+  const [choice, setChoice] = useState<Choice | null>(null);
   const [amount, setAmount] = useState('');
   const [provider, setProvider] = useState<'mtn' | 'airtel' | ''>('');
   const [reference, setReference] = useState('');
