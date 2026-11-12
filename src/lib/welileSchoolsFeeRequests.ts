@@ -88,3 +88,25 @@ export async function fetchFeeRequests(schoolId: string): Promise<FeeRequestRow[
   if (error) return [];
   return (data ?? []) as FeeRequestRow[];
 }
+
+export type FeeRequestDecision = 'approve' | 'reject';
+
+/** Ops: approve or reject a submitted request (welile_school_fee_request_review). */
+export async function reviewFeeRequest(requestId: string, decision: FeeRequestDecision, note: string): Promise<FeeRequestRow> {
+  const { data, error } = await db.rpc('welile_school_fee_request_review', {
+    p_request_id: requestId, p_decision: decision, p_note: note || null,
+  });
+  if (error) throw error;
+  return data as FeeRequestRow;
+}
+
+/** Plain-language message for a review error. */
+export function feeReviewErrorMessage(error: unknown): string {
+  const msg = String((error as { message?: string })?.message ?? error ?? '');
+  if (msg.includes('SCHOOL_NOT_APPROVED')) return "Approve the school's partnership (payout account, terms and fees) first.";
+  if (msg.includes('REASON_REQUIRED')) return 'Give the agent a reason (at least 5 characters).';
+  if (msg.includes('REQUEST_NOT_PENDING')) return 'This request has already been decided.';
+  if (msg.includes('NOT_AUTHORIZED')) return 'Only Welile Schools ops can decide fee requests.';
+  if (/function .* does not exist|PGRST202|schema cache/i.test(msg)) return 'Fee request review is not switched on yet. Nothing was saved.';
+  return msg || 'Could not save the decision.';
+}
