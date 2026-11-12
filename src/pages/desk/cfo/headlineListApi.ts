@@ -8,19 +8,20 @@ import { PERIODS, type Period } from './cfoApi';
  * types, so it goes through the `rpc` cast. Read-only.
  *
  *   posted  — the COO put it on the funders' board in the period
- *   sold    — the server's list means "money released to the landlord" (E53b);
- *             the tiles no longer use it: a sale is a funder selection RELEASED
- *             to an agent's landlord float (funded_money_flow, releasesApi.ts)
- *   waiting — the tile is posted minus released; its list is the posted list
- *             without the released requests
+ *   sold     — the tile is E93's: landlord PAID, OTP confirmed (funded_money_flow,
+ *              releasesApi.ts); the server's own "sold" list here is not used
+ *   selected — a funder selected it and the landlord is not yet paid (funded_money_flow)
+ *   waiting  — the tile is posted minus (sold + selected); its list is the posted list
+ *              without those requests
  */
 
-export type HeadlineKind = 'posted' | 'sold' | 'waiting';
+export type HeadlineKind = 'posted' | 'sold' | 'selected' | 'waiting';
 
 export const HEADLINE_KINDS: { kind: HeadlineKind; title: string; caption: string }[] = [
   { kind: 'posted', title: 'Rent requests posted', caption: "From the COO to the funders' board" },
-  { kind: 'sold', title: 'Rent requests sold', caption: "Released to an agent's landlord float" },
-  { kind: 'waiting', title: 'Waiting for funder', caption: 'Posted minus released' },
+  { kind: 'sold', title: 'Rent requests sold', caption: 'Landlord paid — OTP confirmed' },
+  { kind: 'selected', title: 'Selected, waiting', caption: 'Funder selected, landlord not yet paid' },
+  { kind: 'waiting', title: 'Waiting for funder', caption: 'Posted minus sold and selected' },
 ];
 
 export type HeadlineListRow = {

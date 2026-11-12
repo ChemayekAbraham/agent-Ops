@@ -62,7 +62,8 @@ export const LINE_LIST: Record<string, { title: string; stages: string[] | null 
   released: { title: 'Released to agents', stages: null },
   with_agent: { title: 'With agents, landlord not paid', stages: ['with_agent'] },
   part_paid: { title: 'Part paid to landlords', stages: ['part_paid'] },
-  live: { title: 'LIVE (landlord paid)', stages: ['live', 'paid_to_landlord', 'plan_live'] },
+  // E93: the server's LIVE count includes the sold ones (landlord paid, OTP confirmed).
+  live: { title: 'LIVE (landlord paid)', stages: ['live', 'sold', 'paid_to_landlord', 'plan_live'] },
 };
 
 function MoneyLines({ board }: { board: boolean }) {
