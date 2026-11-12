@@ -83149,6 +83149,7 @@ export type Database = {
         Args: { p_id: string; p_reason: string }
         Returns: Json
       }
+      cfo_approve_signage: { Args: { p_signage_id: string }; Returns: Json }
       cfo_approved_requisitions: {
         Args: { p_from: string; p_to: string }
         Returns: {
