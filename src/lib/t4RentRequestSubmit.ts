@@ -2,9 +2,11 @@
  * Resubmit and renewal for the T4 rent request form. A new request posts through
  * submitAssistantRentRequest (rentRequestAssistantSubmit.ts).
  *
- * - Resubmit: the same server call the old Edit/Resubmit dialog made
- *   (agent_resubmit_rent_request with a patch of what changed), then the T4
- *   intake (agent_save_intake_details, agent_note_lc1_missing).
+ * - Resubmit (E90): family size and work go in first (agent_save_intake_details,
+ *   allowed on a rejected request), then the same server call the old Edit/Resubmit
+ *   dialog made (agent_resubmit_rent_request with a patch of what changed). The
+ *   server refuses with RESUBMIT_INCOMPLETE until everything _agent_side_missing
+ *   lists is in.
  * - Renewal: the same audited renew_rent_request the tenant screens call (after
  *   the agent's rent/days choice and the tenant's code), then the LC1 letter or
  *   reason on the new request.
@@ -108,8 +110,15 @@ export interface ResubmitInput {
 
 export type ResubmitResult = ({ ok: true; requestId: string } & T4IntakeOutcome) | { ok: false; message: string };
 
-/** Resubmits a rejected request from the T4 form. Server errors are returned as-is. */
+/**
+ * Resubmits a rejected request from the T4 form. Family size and work are saved first, since
+ * the server refuses the resubmit without them (E90). Server errors are returned as-is.
+ */
 export async function resubmitT4Request(input: ResubmitInput): Promise<ResubmitResult> {
+  if (input.details) {
+    const saved = await saveIntakeDetails(input.requestId, input.details);
+    if (!saved.ok) return { ok: false, message: saved.message || 'The family size and work were not saved.' };
+  }
   let evidence: Record<string, unknown>;
   try {
     evidence = await uploadResubmitEvidence(input.agentId, input.requestId, input.photos, input.extraPhotoUrls, input.lcLetter);
@@ -131,11 +140,45 @@ export async function resubmitT4Request(input: ResubmitInput): Promise<ResubmitR
     const noted = await noteLc1Missing(input.requestId, input.noLc1Reason);
     if (!noted.ok) out.lc1NoteError = noted.message;
   }
-  if (input.details) {
-    const saved = await saveIntakeDetails(input.requestId, input.details);
-    if (!saved.ok) out.intakeError = saved.message;
-  }
   return { ok: true, requestId: input.requestId, ...out };
+}
+
+/** The resubmit questions that can fix an agent-side gap. */
+export type SideMissingStep = 'rent' | 'landlord' | 'photos' | 'gps' | 'familySize' | 'work' | 'idFront' | 'idBack' | 'lcLetter';
+
+/**
+ * What the agent still has to add before a rejected request can go back (E90), from
+ * _agent_side_missing(p_request_id). null when the list could not be read; the form then
+ * asks everything as before and the server's refusal is shown as it comes.
+ */
+export async function fetchAgentSideMissing(requestId: string): Promise<string[] | null> {
+  try {
+    const { data, error } = await rpc('_agent_side_missing', { p_request_id: requestId });
+    if (error || !Array.isArray(data)) return null;
+    return data.filter((x): x is string => typeof x === 'string' && x.trim() !== '').map((x) => x.trim());
+  } catch {
+    return null;
+  }
+}
+
+/** The questions one server line asks for (none for a line no question fixes). */
+export function sideMissingSteps(line: string): SideMissingStep[] {
+  const t = line.toLowerCase();
+  const out: SideMissingStep[] = [];
+  if (t.includes('photo') && (t.includes('house') || !/\bid\b|national/.test(t))) out.push('photos');
+  if (t.includes('landlord')) out.push('landlord');
+  if (/\brent\b/.test(t) && !t.includes('landlord')) out.push('rent');
+  if (t.includes('gps') || t.includes('location')) out.push('gps');
+  if (t.includes('family') || t.includes('household')) out.push('familySize');
+  if (t.includes('work') || t.includes('business') || t.includes('occupation')) out.push('work');
+  if (/\blc\s?1\b|\blc\b|letter/.test(t)) out.push('lcLetter');
+  else if (/\bid\b|national id|\bnin\b/.test(t)) {
+    const front = t.includes('front');
+    const back = t.includes('back');
+    if (front || !back) out.push('idFront');
+    if (back || !front) out.push('idBack');
+  }
+  return out;
 }
 
 const RENEWAL_TIMEOUT_MS = 25000;

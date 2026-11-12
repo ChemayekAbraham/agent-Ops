@@ -162,9 +162,10 @@ describe('T4 resubmit', () => {
 
     expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
     const calls = mocks.rpc.mock.calls.filter(([fn]) => String(fn).startsWith('agent_'));
+    // E90: family size and work go in before the resubmit.
     expect(calls).toEqual([
-      ['agent_resubmit_rent_request', { p_request_id: 'req-9', p_patch: {}, p_agent_note: 'Added family size and work' }],
       ['agent_save_intake_details', { p_request_id: 'req-9', p_family_size: 5, p_work_business: 'Tailor', p_work_location: null }],
+      ['agent_resubmit_rent_request', { p_request_id: 'req-9', p_patch: {}, p_agent_note: 'Added family size and work' }],
     ]);
     expect(onSuccess).toHaveBeenCalledWith('req-9');
     expect(onDone).toHaveBeenCalledWith('req-9');
@@ -189,6 +190,71 @@ describe('T4 resubmit', () => {
     fireEvent.click(sendButton());
     expect(await screen.findByText('RESUBMIT_CAP_REACHED: 5/5')).toBeInTheDocument();
     expect(screen.queryByText('Sent to the Service Centre')).toBeNull();
+  });
+});
+
+describe('E90: ask only for what _agent_side_missing lists', () => {
+  const ready = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+  const sideMissing = (...lists: string[][]) => {
+    let n = 0;
+    return (fn: string) => (fn === '_agent_side_missing' ? lists[Math.min(n++, lists.length - 1)] : undefined);
+  };
+
+  it('shows the reviewer’s reason and the server list at the top', async () => {
+    const side = sideMissing(['family size', 'work / business']);
+    mocks.rpc.mockImplementation(async (fn: string) => ({ data: side(fn) ?? { ok: true }, error: null }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ rejected_reason: 'Missing: family size, work / business' }) }} />);
+    const top = await screen.findByTestId('resubmit-reason');
+    expect(within(top).getByText('Missing: family size, work / business')).toBeInTheDocument();
+    const list = await within(top).findByTestId('resubmit-side-missing');
+    expect(within(list).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['family size', 'work / business']);
+    expect(mocks.rpc).toHaveBeenCalledWith('_agent_side_missing', { p_request_id: 'req-9' });
+    // A listed line opens its question.
+    fireEvent.click(within(list).getByRole('button', { name: 'family size' }));
+    answer('5');
+    // The next question is the other listed one; nothing that is not listed is asked in between.
+    expect(await screen.findByText(/What work or business does John do\?/)).toBeInTheDocument();
+    expect(screen.queryByText(/Monthly rent \(one month only\)/)).toBeNull();
+  });
+
+  it('a listed document is asked again even when one is on file, then attached before the resubmit', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    const side = sideMissing(['ID front']);
+    mocks.rpc.mockImplementation(async (fn: string) => ({ data: side(fn) ?? { ok: true }, error: null }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
+    await waitFor(() => expect(listed('gate')).toEqual(['National ID photo — front']));
+    fix(/National ID photo — front/);
+    fireEvent.change(await screen.findByLabelText('National ID front photo'), { target: { files: [new File(['f'], 'front.jpg', { type: 'image/jpeg' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(group('gate')).toBeNull());
+    fix(/What you changed/);
+    answer('Took the ID front again');
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    const order = mocks.rpc.mock.calls.map(([fn]) => fn).filter((fn) => fn !== '_agent_side_missing');
+    expect(order.indexOf('request_attach_document')).toBeLessThan(order.indexOf('agent_resubmit_rent_request'));
+    expect(mocks.rpc).toHaveBeenCalledWith('request_attach_document', expect.objectContaining({ p_request_id: 'req-9', p_kind: 'id_front' }));
+  });
+
+  it('shows RESUBMIT_INCOMPLETE word for word and reads the list again', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    const refusal = 'RESUBMIT_INCOMPLETE: add house photos before sending this request again';
+    const side = sideMissing([], ['house photos']);
+    mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'agent_resubmit_rent_request') return { data: null, error: { message: refusal } };
+      return { data: side(fn) ?? { ok: true }, error: null };
+    });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ rejected_reason: null }) }} />);
+    await waitFor(() => expect(group('gate')).toBeNull());
+    fix(/What you changed/);
+    answer('Fixed the landlord details');
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findByText(refusal)).toBeInTheDocument();
+    expect(screen.queryByText('Sent to the Service Centre')).toBeNull();
+    const list = await screen.findByTestId('resubmit-side-missing');
+    expect(within(list).getByRole('button', { name: 'house photos' })).toBeInTheDocument();
   });
 });
 

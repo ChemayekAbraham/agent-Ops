@@ -300,3 +300,7 @@ verify_jwt = false
 # Meta webhook requests authenticate through X-Hub-Signature-256, not app JWTs.
 [functions.whatsapp-webhook]
 verify_jwt = false
+
+# System-only (pg_net from the database): the function checks the service-role key itself, like notify-advance-deduction.
+[functions.notify-special-advance-payment]
+verify_jwt = false

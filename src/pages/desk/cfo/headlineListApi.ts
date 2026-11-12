@@ -8,16 +8,19 @@ import { PERIODS, type Period } from './cfoApi';
  * types, so it goes through the `rpc` cast. Read-only.
  *
  *   posted  — the COO put it on the funders' board in the period
- *   sold    — a partner took it and money was released to the landlord
- *   waiting — posted, not yet sold
+ *   sold    — the server's list means "money released to the landlord" (E53b);
+ *             the tiles no longer use it: a sale is a funder selection RELEASED
+ *             to an agent's landlord float (funded_money_flow, releasesApi.ts)
+ *   waiting — the tile is posted minus released; its list is the posted list
+ *             without the released requests
  */
 
 export type HeadlineKind = 'posted' | 'sold' | 'waiting';
 
 export const HEADLINE_KINDS: { kind: HeadlineKind; title: string; caption: string }[] = [
   { kind: 'posted', title: 'Rent requests posted', caption: "From the COO to the funders' board" },
-  { kind: 'sold', title: 'Rent requests sold', caption: 'Money released to the landlord' },
-  { kind: 'waiting', title: 'Waiting for funder', caption: 'Posted minus sold' },
+  { kind: 'sold', title: 'Rent requests sold', caption: "Released to an agent's landlord float" },
+  { kind: 'waiting', title: 'Waiting for funder', caption: 'Posted minus released' },
 ];
 
 export type HeadlineListRow = {

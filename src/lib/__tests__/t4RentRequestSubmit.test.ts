@@ -22,7 +22,7 @@ vi.mock('@/lib/captureGps', () => ({
   isGpsRequiredError: (m: unknown) => /gps/i.test(String(m ?? '')),
 }));
 
-import { attachT4Documents, finishRenewalIntake, postRenewal, resubmitT4Request, saveProfileIdBack, uploadNewRequestDocs } from '@/lib/t4RentRequestSubmit';
+import { attachT4Documents, fetchAgentSideMissing, finishRenewalIntake, postRenewal, resubmitT4Request, saveProfileIdBack, sideMissingSteps, uploadNewRequestDocs } from '@/lib/t4RentRequestSubmit';
 
 const calls = () => mocks.rpc.mock.calls.map(([fn, args]) => [fn, args]);
 
@@ -35,7 +35,7 @@ beforeEach(() => {
 });
 
 describe('resubmitT4Request: a resubmit goes back to the Service Centre', () => {
-  it('sends the changed fields and the note through agent_resubmit_rent_request, then the intake', async () => {
+  it('saves family size and work first (E90), then sends the changed fields and the note', async () => {
     const res = await resubmitT4Request({
       agentId: 'agent-1',
       requestId: 'req-9',
@@ -49,9 +49,9 @@ describe('resubmitT4Request: a resubmit goes back to the Service Centre', () => 
     });
     expect(res).toMatchObject({ ok: true, requestId: 'req-9', intakeError: null, lc1NoteError: null });
     expect(calls()).toEqual([
+      ['agent_save_intake_details', { p_request_id: 'req-9', p_family_size: 5, p_work_business: 'Tailor', p_work_location: 'Owino' }],
       ['agent_resubmit_rent_request', { p_request_id: 'req-9', p_patch: { rent_amount: 350000 }, p_agent_note: 'Fixed the rent with the landlord' }],
       ['agent_note_lc1_missing', { p_request_id: 'req-9', p_reason: 'LC1 is away until Friday' }],
-      ['agent_save_intake_details', { p_request_id: 'req-9', p_family_size: 5, p_work_business: 'Tailor', p_work_location: 'Owino' }],
     ]);
     expect(mocks.upload).not.toHaveBeenCalled();
   });
@@ -77,15 +77,58 @@ describe('resubmitT4Request: a resubmit goes back to the Service Centre', () => 
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
   });
 
-  it('returns the server error as-is and does not save the intake', async () => {
-    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'RESUBMIT_CAP_REACHED: 5/5' } });
+  it('returns the RESUBMIT_INCOMPLETE refusal word for word', async () => {
+    const refusal = 'RESUBMIT_INCOMPLETE: add house photos, GPS before sending this request again';
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'agent_resubmit_rent_request'
+      ? { data: null, error: { message: refusal } }
+      : { data: { ok: true }, error: null }));
     const res = await resubmitT4Request({
       agentId: 'agent-1', requestId: 'req-9', patch: {}, note: 'Fixed the LC1 details',
       photos: [], extraPhotoUrls: [], lcLetter: null, noLc1Reason: null,
       details: { familySize: 3, workBusiness: 'Boda rider', workLocation: '' },
     });
-    expect(res).toEqual({ ok: false, message: 'RESUBMIT_CAP_REACHED: 5/5' });
+    expect(res).toEqual({ ok: false, message: refusal });
+    expect(calls().map(([fn]) => fn)).toEqual(['agent_save_intake_details', 'agent_resubmit_rent_request']);
+  });
+
+  it('does not resubmit when family size and work are refused, and shows that error as-is', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'FAMILY_SIZE_RANGE: 1-30' } });
+    const res = await resubmitT4Request({
+      agentId: 'agent-1', requestId: 'req-9', patch: {}, note: 'Added family size',
+      photos: [], extraPhotoUrls: [], lcLetter: null, noLc1Reason: null,
+      details: { familySize: 99, workBusiness: 'Tailor', workLocation: null },
+    });
+    expect(res).toEqual({ ok: false, message: 'FAMILY_SIZE_RANGE: 1-30' });
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('E90: what the agent still has to add', () => {
+  it('reads _agent_side_missing for the request', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: ['house photos', ' GPS ', ''], error: null });
+    await expect(fetchAgentSideMissing('req-9')).resolves.toEqual(['house photos', 'GPS']);
+    expect(mocks.rpc).toHaveBeenCalledWith('_agent_side_missing', { p_request_id: 'req-9' });
+  });
+
+  it('gives null when the list cannot be read', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'permission denied' } });
+    await expect(fetchAgentSideMissing('req-9')).resolves.toBeNull();
+    mocks.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
+    await expect(fetchAgentSideMissing('req-9')).resolves.toBeNull();
+  });
+
+  it('maps each line to the question that fixes it', () => {
+    expect(sideMissingSteps('house photos')).toEqual(['photos']);
+    expect(sideMissingSteps('landlord')).toEqual(['landlord']);
+    expect(sideMissingSteps('rent')).toEqual(['rent']);
+    expect(sideMissingSteps('GPS')).toEqual(['gps']);
+    expect(sideMissingSteps('family size')).toEqual(['familySize']);
+    expect(sideMissingSteps('work / business')).toEqual(['work']);
+    expect(sideMissingSteps('ID front')).toEqual(['idFront']);
+    expect(sideMissingSteps('ID back')).toEqual(['idBack']);
+    expect(sideMissingSteps('ID front + back')).toEqual(['idFront', 'idBack']);
+    expect(sideMissingSteps('LC1 letter')).toEqual(['lcLetter']);
+    expect(sideMissingSteps('something else')).toEqual([]);
   });
 });
 

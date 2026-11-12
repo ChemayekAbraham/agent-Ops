@@ -71,6 +71,9 @@ import {
   loadTenantRecord,
   postRenewal,
   resubmitT4Request,
+  fetchAgentSideMissing,
+  sideMissingSteps,
+  type SideMissingStep,
   saveTenantProfile,
   type T4IntakeOutcome,
   type DocKind,
@@ -315,6 +318,17 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [idBack, setIdBack] = useState<Photo | null>(null);
   /** Documents already stored on the request being resubmitted, or on the plan being renewed. */
   const [docsOnFile, setDocsOnFile] = useState<Partial<Record<DocKind, StoredDoc>>>({});
+  /**
+   * E90: what the agent still has to add before this rejected request can go back
+   * (_agent_side_missing). null until read, or when it could not be read: then every
+   * resubmit question is asked as before.
+   */
+  const [sideMissing, setSideMissing] = useState<string[] | null>(null);
+  const sideSteps = useMemo(() => (sideMissing ? new Set<SideMissingStep>(sideMissing.flatMap(sideMissingSteps)) : null), [sideMissing]);
+  /** A question the agent opened from the checklist that the server list did not name. */
+  const [extraSteps, setExtraSteps] = useState<StepId[]>([]);
+  /** The server lists this document, so a photo on file elsewhere does not count. */
+  const listedDoc = (k: SideMissingStep) => mode === 'resubmit' && !!sideSteps?.has(k);
   /** Short-lived preview links for the documents on file. */
   const [docPreviews, setDocPreviews] = useState<Partial<Record<DocKind, string>>>({});
 
@@ -387,6 +401,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       || (s === 'lcLetter' && !!docsOnFile.lc1_letter);
     if (mode === 'renewal') return RENEWAL_STEPS.filter((s) => !onFile(s));
     if (mode === 'resubmit') {
+      if (sideSteps) {
+        // E90: ask only for what the server lists, plus the note for the reviewer.
+        const ask = new Set<StepId>([...sideSteps, ...extraSteps, 'note', 'review']);
+        if (sideSteps.has('work')) ask.add('workLocation');
+        return RESUBMIT_STEPS.filter((s) => ask.has(s));
+      }
       // SC-2 does not ask a renewal for family size or work again.
       const skip = rejected?.registration_type === 'renewal' ? ['familySize', 'work', 'workLocation'] : [];
       return RESUBMIT_STEPS.filter((s) => !skip.includes(s) && !onFile(s));
@@ -397,7 +417,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       // New LC1 whose phone turned out to be on file: the name is known.
       return !(s === 'lc1Name' && lc1Match);
     });
-  }, [lc1Match, lc1Mode, mode, rejected?.registration_type, docsOnFile]);
+  }, [lc1Match, lc1Mode, mode, rejected?.registration_type, docsOnFile, sideSteps, extraSteps]);
   const idx = steps.indexOf(current);
   const furthestIdx = Math.max(steps.indexOf(furthest), idx);
 
@@ -499,6 +519,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     checkOpen(r.tenant_id, r.id);
     (async () => {
       // The tenant's record (name, ID, occupation) and the intake already saved for this request.
+      // E90: what the server still needs from the agent, read first.
+      void fetchAgentSideMissing(r.id).then((lines) => { if (!cancelled) setSideMissing(lines); });
       const [t, onFile] = await Promise.all([loadTenantRecord(r.tenant_id), loadRequestOnFile(r.id)]);
       if (cancelled) return;
       if (t) setTenantOnFile(t);
@@ -1005,6 +1027,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     // The request had no GPS; send the one captured at the house now.
     if (!gpsOnFile && gps) { patch.request_latitude = gps.lat; patch.request_longitude = gps.lng; }
     // DOCS-1: new photos are attached to this existing request first (request_attach_document).
+    // E90: family size and work are saved before the resubmit (resubmitT4Request), and for a
+    // renewal-type request too when the server lists them.
+    const askDetails = rejected.registration_type !== 'renewal' || !!sideSteps?.has('familySize') || !!sideSteps?.has('work');
     const attachErrors = await attachT4Documents(user.id, rejected.id, {
       id_front: idFront?.file ?? null, id_back: idBack?.file ?? null, lc1_letter: lcLetter?.file ?? null,
     });
@@ -1019,12 +1044,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       // The LC1 letter was attached above with the ID photos.
       lcLetter: null,
       noLc1Reason: null,
-      details: rejected.registration_type === 'renewal'
-        ? null
-        : { familySize: parseFamilySize(familySize), workBusiness: work, workLocation },
+      details: askDetails
+        ? { familySize: parseFamilySize(familySize), workBusiness: work, workLocation }
+        : null,
     });
-    // Server errors are shown as they come.
-    if ('message' in res) { setPosting(false); setError(res.message); return; }
+    // Server errors are shown as they come. RESUBMIT_INCOMPLETE: read the list again so the
+    // questions match what the server still needs.
+    if ('message' in res) {
+      setPosting(false);
+      setError(res.message);
+      if (res.message.includes('RESUBMIT_INCOMPLETE')) {
+        void fetchAgentSideMissing(rejected.id).then((lines) => { if (lines) setSideMissing(lines); });
+      }
+      return;
+    }
     setPosting(false);
     showSent(res.requestId, res);
   };
@@ -1192,10 +1225,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     familySize: familySizeProblem(familySize) === null,
     work: workProblem(work) === null || !!tenantOnFile?.occupation?.trim(),
     // The letter, or the LC1 confirmed by phone. A "no letter yet" reason does not pass the gate.
-    lcLetter: !!lcLetter || lcOnFile,
+    lcLetter: listedDoc('lcLetter') ? !!lcLetter?.file : !!lcLetter || lcOnFile,
     tenantName: isFullName(tenantName),
-    idFront: !!idFront,
-    idBack: !!idBack,
+    idFront: listedDoc('idFront') ? !!idFront?.file : !!idFront,
+    idBack: listedDoc('idBack') ? !!idBack?.file : !!idBack,
     openRequest: openStatus === null,
     // What this form needs to send.
     plan: !!planType && !!fees,
@@ -1211,7 +1244,14 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const missing = t4Missing(mode, facts, rejected?.registration_type, openStatus);
   const fixItem = (k: T4ItemKey) => {
     const s = ITEM_STEP[k];
-    if (s && steps.includes(s)) { hapticTap(); setCurrent(s); }
+    if (!s) return;
+    if (steps.includes(s)) { hapticTap(); setCurrent(s); return; }
+    // A resubmit asks only what the server lists; an item the form still finds missing opens too.
+    if (mode === 'resubmit' && RESUBMIT_STEPS.includes(s)) {
+      hapticTap();
+      setExtraSteps((x) => (x.includes(s) ? x : [...x, s]));
+      setCurrent(s);
+    }
   };
   const sentLine = mode === 'resubmit'
     ? `${tenantNameParts.firstName || 'The tenant'}’s request is back with the Service Centre for a fresh review.`
@@ -1223,6 +1263,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const docRow = (kind: DocKind): { v: string; preview: string | null } => {
     const slot = kind === 'id_front' ? idFront : kind === 'id_back' ? idBack : lcLetter;
     if (slot?.file) return { v: 'Photo added', preview: slot.preview };
+    if (listedDoc(kind === 'id_front' ? 'idFront' : kind === 'id_back' ? 'idBack' : 'lcLetter')) return { v: 'Missing', preview: null };
     if (docsOnFile[kind] || (kind === 'lc1_letter' && lcOnFile)) return { v: 'On file ✓', preview: docPreviews[kind] ?? null };
     return { v: 'Missing', preview: null };
   };
@@ -1268,7 +1309,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'note': return 'Last thing: tell the reviewer what you changed ✍️ At least 10 characters.';
       case 'review':
         if (mode === 'resubmit') {
-          return `Here’s the request with your changes.${rejected?.rejected_reason ? ` The reviewer said: “${rejected.rejected_reason}”.` : ''} Tap any answer above to change it.`;
+          // The reviewer's reason is shown at the top of the form (E90).
+          return 'Here’s the request with your changes. Tap any answer above to change it.';
         }
         if (mode === 'renewal') return `Renewing ${first}’s Rent Plan: same house, same landlord. Tap any answer above to change it.`;
         return 'All done, well done! 🎉 Here’s the request. Tap any answer above if you want to change it.';
@@ -1380,6 +1422,34 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
               {mode === 'resubmit' ? 'Let’s fix this request and send it back.' : mode === 'renewal' ? 'Let’s renew this Rent Plan.' : 'I’ll help you add a new tenant whenever you’re ready!'}
             </p>
           </div>
+
+          {mode === 'resubmit' && !result && (!!rejected?.rejected_reason || (sideMissing?.length ?? 0) > 0) && (
+            <div className="rounded-2xl border border-warning/40 bg-warning/5 p-3 text-sm" data-testid="resubmit-reason">
+              {rejected?.rejected_reason && (
+                <>
+                  <p className="font-semibold">Why it came back</p>
+                  <p className="mt-1 whitespace-pre-wrap">{rejected.rejected_reason}</p>
+                </>
+              )}
+              {sideMissing && sideMissing.length > 0 && (
+                <div className={rejected?.rejected_reason ? 'mt-3' : ''} data-testid="resubmit-side-missing">
+                  <p className="font-semibold">Add before sending it again</p>
+                  <ul className="mt-1 flex flex-col gap-1">
+                    {sideMissing.map((line) => {
+                      const target = sideMissingSteps(line).find((x) => steps.includes(x));
+                      return (
+                        <li key={line}>
+                          {target ? (
+                            <button type="button" className="min-h-11 text-left text-primary underline underline-offset-4" onClick={() => { hapticTap(); setCurrent(target); }}>{line}</button>
+                          ) : line}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           {capLoading ? (
             <Bot><Bubble><Loader2 className="inline h-4 w-4 animate-spin" /> Checking whether you can post today…</Bubble></Bot>

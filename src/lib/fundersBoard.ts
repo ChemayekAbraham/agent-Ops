@@ -527,6 +527,8 @@ export interface BoardItem {
    * server sends it only when funders_board_can_demote() is true, else null.
    */
   incomplete: string[] | null;
+  /** The server's request kind code (new / renewal / self_applied), when sent. */
+  requestKind?: string | null;
 }
 
 export interface BoardItemsCounts {
@@ -572,6 +574,7 @@ export function parseBoardItems(data: unknown): BoardItems {
       lng: optNum(x.lng),
       sortAt: optStr(x.sort_at),
       incomplete: Array.isArray(x.incomplete) ? x.incomplete.filter((v): v is string => typeof v === 'string' && !!v.trim()) : null,
+      requestKind: optStr(x.request_kind),
     });
   }
   const counts: BoardItemsCounts = {

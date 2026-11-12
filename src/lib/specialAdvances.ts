@@ -111,6 +111,14 @@ export interface SpecialAdvance {
   registration_fee?: number;
   total_repayable: number;
   instalments: number;
+  /** Server-owned position figures attached to every row by special_advance_list (migration 20261118110000) —
+   *  the same definitions the detail sheet's statement reads, never recomputed here. Absent from a server
+   *  before that migration, so the register shows '—' rather than guessing. */
+  paid_out?: boolean;
+  outstanding?: number;
+  outstanding_principal?: number;
+  outstanding_access_fee?: number;
+  scheduled_outstanding?: number;
   purpose: string;
   planned_payout_date: string | null;
   payout_date: string | null;
