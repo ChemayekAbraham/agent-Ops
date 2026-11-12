@@ -20,6 +20,7 @@ import { ReviewDrawer } from './ReviewDrawer';
 import { FunderBoard } from './FunderBoard';
 import { PushQueueCards } from './PushQueueCards';
 import { SelfAppliedCard } from './SelfAppliedQueue';
+import { IncompleteSection } from './incomplete';
 import { FundersDashboard } from './cfo/FundersDashboard';
 import { FundersHeadline } from './cfo/FundersHeadline';
 import { FundersBoardCounterCard } from './cfo/FundersBoardCounterCard';
@@ -559,6 +560,8 @@ function DeskView({
       {checklistOn && desk.id === 'coo' && <PushQueueCards board={board} enabled onCooDesk />}
       {/* E73: tenants who applied alone and still need an agent — Agent Ops assigns them from the board. */}
       {checklistOn && desk.id === 'agent-ops' && <SelfAppliedCard board={board} />}
+      {/* E82: requests past Agent Ops that still miss something; completed here, in place. */}
+      {checklistOn && desk.id === 'agent-ops' && <IncompleteSection board={board} />}
     </>
   );
 

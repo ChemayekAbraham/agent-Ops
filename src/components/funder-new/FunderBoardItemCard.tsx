@@ -6,6 +6,7 @@ import type { BoardItem } from '@/lib/fundersBoard';
 import type { FunderNewDistance } from './types';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
 import { FundersBoardTag, tagKindFor } from './FundersBoardTag';
+import { FundersIncompleteChip } from './FundersIncompleteChip';
 
 /**
  * E72b view-only card for a rent request on the funders board that cannot be
@@ -61,6 +62,8 @@ export function FunderBoardItemCard({
         )}
       </div>
       <div className="flex flex-col gap-2 p-3.5">
+        {/* COO/CEO: what is still missing, above the demote control (Verified only). */}
+        {item.tag === 'verified' ? <FundersIncompleteChip items={item.incomplete} /> : null}
         {canDemote ? (
           <label
             data-testid="fv3-demote-check"

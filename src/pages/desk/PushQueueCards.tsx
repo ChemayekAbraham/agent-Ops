@@ -6,6 +6,8 @@ import { CALM, FIGURE, FOCUS, LABEL, PANEL } from './deskTheme';
 import { Skeleton } from './Skeleton';
 import { AwaitingReleaseCard } from './AwaitingRelease';
 import { SelfAppliedCard } from './SelfAppliedQueue';
+import { IncompleteCard } from './incomplete';
+import { MoneyFlowLines } from './moneyFlow';
 
 /**
  * What replaced the Budget room card when budgets were retired on 5 Nov:
@@ -50,6 +52,7 @@ export function PushQueueCards({ board, enabled, onCooDesk }: { board: boolean; 
   const b = q.data;
 
   return (
+    <div className="space-y-3">
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
       <Card id="coo-push-queue" title="COO push queue" board={board}>
         {q.isLoading ? (
@@ -83,6 +86,9 @@ export function PushQueueCards({ board, enabled, onCooDesk }: { board: boolean; 
       {/* E73: tenants who applied without an agent, waiting for Agent Ops to assign one. */}
       <SelfAppliedCard board={board} />
 
+      {/* E82: requests past Agent Ops that still miss something; the COO push waits for them. */}
+      <IncompleteCard board={board} />
+
       <Card id="funded-not-paid" title="Funded, not yet paid" board={board}>
         {q.isLoading ? (
           <Skeleton className="h-8 w-56" />
@@ -94,6 +100,9 @@ export function PushQueueCards({ board, enabled, onCooDesk }: { board: boolean; 
         )}
         <p className={LABEL}>Funded money is finished only when the landlord is paid and the payment is evidenced.</p>
       </Card>
+    </div>
+    {/* E85: the funders' money after release, live, in small lines under the cards (Command Centre and its wall view). */}
+    {!onCooDesk && <MoneyFlowLines board={board} />}
     </div>
   );
 }

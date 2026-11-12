@@ -279,7 +279,7 @@ export function FunderNewReviewDialog({
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/70 bg-muted/30 px-3.5 py-3 shadow-2xs min-[380px]:col-span-2">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Available Balance</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Available operational float</p>
                   <p className="mt-0.5 break-words text-base font-bold tracking-tight text-foreground">
                     {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
                   </p>
@@ -376,7 +376,7 @@ export function FunderNewReviewDialog({
                   <div className="flex justify-between gap-3"><span className="text-muted-foreground">Landlord</span><span className="text-right font-semibold">{receipt.landlordNames.join(', ')}</span></div>
                 ) : null}
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Estimated monthly Rent profit share</span><span className="font-semibold text-success">{monthlyAt15(receipt.total) === null ? '—' : formatDynamic(monthlyAt15(receipt.total))}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance after</span><span className="font-semibold">{formatDynamic(receipt.balanceAfter)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Operational float after</span><span className="font-semibold">{formatDynamic(receipt.balanceAfter)}</span></div>
                 {receipt.reference ? (
                   <div className="flex justify-between gap-3"><span className="text-muted-foreground">Reference</span><span className="break-all text-right font-semibold">{receipt.reference}</span></div>
                 ) : null}
@@ -428,7 +428,7 @@ export function FunderNewReviewDialog({
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Homes</span><span className="font-semibold">{items.length}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Total support</span><span className="font-semibold">{formatDynamic(total)}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Monthly Rent profit share{ownRatePct ? ` (${ownRatePct})` : ''}</span><span className="font-semibold text-success">{monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance after</span><span className="font-semibold">{formatDynamic(Math.max(0, (available ?? 0) - total))}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Operational float after</span><span className="font-semibold">{formatDynamic(Math.max(0, (available ?? 0) - total))}</span></div>
               </div>
               <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
                 {items.map((item) => (
@@ -442,7 +442,7 @@ export function FunderNewReviewDialog({
                 <Button variant="outline" className="h-11 flex-1" disabled={submitting} onClick={() => setConfirmOpen(false)}>Cancel</Button>
                 <Button
                   className="h-11 flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
-                  disabled={submitting}
+                  disabled={submitting || walletLoading || !!walletError || available === null || (shortfall ?? 0) > 0}
                   onClick={async () => {
                     setSubmitting(true);
                     try {

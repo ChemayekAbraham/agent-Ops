@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Owner-designed co-support invitation: isolated palette and typography. */
+.co-support-page, .co-support-sheet {
+  --success: 142 72% 29%;
+  --co-support-gradient: linear-gradient(137deg, #9234ea 0%, #7616d0 54%, #4a1da5 100%);
+  --co-support-card-shadow: 0 1px 3px hsl(var(--foreground) / .04), 0 4px 12px -2px hsl(var(--foreground) / .06);
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0;
+}
+.co-support-page h1, .co-support-page h2, .co-support-sheet h2, .co-support-heading {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0;
+}
+.co-support-card { box-shadow: var(--co-support-card-shadow); }
+.co-support-success-card { background: var(--co-support-gradient); color: hsl(var(--primary-foreground)); }
+.co-support-sheet .text-success, .co-support-page .text-success { color: hsl(var(--success)); }
+.co-support-amount { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
 /* Sonner toaster — prevent phantom right gutter on mobile */
 /* Hide the sonner notifications section entirely when no toasts are active.
    It re-appears automatically when a toast is rendered inside it. */

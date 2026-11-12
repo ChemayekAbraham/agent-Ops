@@ -28,6 +28,7 @@ export function SpecialAdvancesPanel() {
   const [status, setStatus] = useState<SpecialAdvanceStatus | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
+  const [historical, setHistorical] = useState(false);
 
   const list = useSpecialAdvanceList(status);
 
@@ -39,7 +40,10 @@ export function SpecialAdvancesPanel() {
       {/* Top Banner: New Advance button */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 text-xs">
 
-        <Button id="special-advance-new" size="sm" className="ml-auto" onClick={() => setRecording(true)}>
+        <Button variant="outline" size="sm" className="ml-auto" onClick={() => { setHistorical(true); setRecording(true); }}>
+          <Clock className="mr-1 h-4 w-4" /> Record already-issued advance
+        </Button>
+        <Button id="special-advance-new" size="sm" onClick={() => { setHistorical(false); setRecording(true); }}>
           <Plus className="mr-1 h-4 w-4" /> New Special Advance
         </Button>
       </div>
@@ -200,7 +204,7 @@ export function SpecialAdvancesPanel() {
           if (!o) setOpenId(null);
         }}
       />
-      <SpecialAdvanceModal open={recording} onOpenChange={setRecording} />
+      <SpecialAdvanceModal key={historical ? 'historical' : 'new'} open={recording} onOpenChange={setRecording} historical={historical} />
     </div>
   );
 }

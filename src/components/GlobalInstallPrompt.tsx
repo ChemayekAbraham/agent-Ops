@@ -2,7 +2,7 @@ import { useLocation } from 'react-router-dom';
 import InstallNagOverlay from '@/components/InstallNagOverlay';
 
 /** Routes where no install offer should ever appear (signup funnels, etc.). */
-const INSTALL_PROMPT_EXCLUDED_PREFIXES = ['/funder-onboarding'];
+const INSTALL_PROMPT_EXCLUDED_PREFIXES = ['/funder-onboarding', '/co-support'];
 
 /** The single install prompt shown across the app. */
 export default function GlobalInstallPrompt() {
