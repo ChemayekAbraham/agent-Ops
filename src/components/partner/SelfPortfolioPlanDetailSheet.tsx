@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Home, MapPin, Phone, ShieldCheck, User, Wallet, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Home, MapPin, Phone, ShieldCheck, User, UserCheck, Wallet, X } from 'lucide-react';
 import tenantPhotoPlaceholder from '@/assets/tenant-photo-placeholder.jpg';
 import { cn } from '@/lib/utils';
 import { PlanShareButton } from './PlanShareButton';
@@ -38,6 +38,9 @@ export interface PlanDetail {
   request_latitude?: number | string | null;
   request_longitude?: number | string | null;
   proxy_agent_phone: string | null;
+  /** The agent managing the tenant (assigned agent, else the one who posted the request). */
+  agent_name?: string | null;
+  agent_phone?: string | null;
 }
 
 /** Lightweight controlled slider: always in sync with the real photo count. */
@@ -454,6 +457,22 @@ export function SelfPortfolioPlanDetailSheet({
               <span className="min-w-0 flex-1 text-sm text-muted-foreground">LC Name</span>
               <span className="text-sm font-semibold truncate">{plan.lc1_chairperson_name ?? '—'}</span>
             </li>
+            {(plan.agent_name || plan.agent_phone) && (
+              <li className="flex items-center gap-3 py-3">
+                <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
+                  <UserCheck className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1 text-sm text-muted-foreground">Agent</span>
+                <span className="min-w-0 text-right">
+                  {plan.agent_name && <span className="block truncate text-sm font-semibold">{plan.agent_name}</span>}
+                  {plan.agent_phone && (
+                    <a href={`tel:${plan.agent_phone.replace(/\s/g, '')}`} className="block truncate text-sm font-semibold text-primary hover:underline">
+                      {plan.agent_phone}
+                    </a>
+                  )}
+                </span>
+              </li>
+            )}
             <li className="flex items-center gap-3 py-3">
               <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
                 <Phone className="h-5 w-5" />
