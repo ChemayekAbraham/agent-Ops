@@ -1,7 +1,3 @@
-# Sync check: d1eda4947d
+# Sync confirmation
 
-No code changes.
-
-- Commit d1eda4947d is already in this workspace history.
-- src/test/specialAdvancePayFromWallet.test.ts is present.
-- Nothing to build, deploy, migrate or publish.
+Workspace is on 5ddd538a29; migration 20261120090000 is present. No code changes planned.
