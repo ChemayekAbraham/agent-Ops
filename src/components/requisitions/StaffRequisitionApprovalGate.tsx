@@ -5,18 +5,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Loader2, FileText, ClipboardCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { formatUGX } from '@/lib/creditFeeCalculations';
-import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
-import {
-  APPROVAL_TOAST_OPTIONS, REQUISITION_APPROVED_MESSAGE,
-} from './approvalToast';
 import { StaffRequisitionNoticeGate } from './StaffRequisitionNoticeGate';
-import { ReceiptMatchNotice, assessReceiptPayout } from './ReceiptMatchNotice';
+import { ReceiptMatchNotice } from './ReceiptMatchNotice';
 import type { ReceiptFacts } from '../../../supabase/functions/_shared/requisitionReceiptMatch';
 
 /**
@@ -29,9 +24,9 @@ import type { ReceiptFacts } from '../../../supabase/functions/_shared/requisiti
  * prompted. The poll waits for a signed-in session — a missing or expired
  * user JWT is not sent.
  *
- * Accept and Decline call the single existing decision path
- * (`staff-requisition-decide`) with the same arguments as the review queue.
- * There is no second decision path and the gate never writes the stage itself.
+ * The prompt is read-only: decisions happen in the requisitions review queue
+ * (`staff-requisition-decide`); this gate only snoozes itself ("Later") and
+ * never writes the stage.
  */
 
 const POLL_MS = 5 * 60 * 1000;
@@ -74,14 +69,9 @@ export function StaffRequisitionApprovalGate(
 ) {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   useEffect(() => { onOpenChange?.(prompt !== null); }, [prompt, onOpenChange]);
-  const [declining, setDeclining] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
   const [working, setWorking] = useState(false);
-  const [clearGap, setClearGap] = useState(false);
-  const [approveNote, setApproveNote] = useState('');
   const [receiptRow, setReceiptRow] = useState<ReceiptFacts | null>(null);
   const [viewingPath, setViewingPath] = useState<string | null>(null);
-  const [openedAttachment, setOpenedAttachment] = useState(false);
   const suppressedUntilRef = useRef(0);
   const laterTimerRef = useRef<number | null>(null);
   const ready = useAuthenticatedAudience();
@@ -107,13 +97,7 @@ export function StaffRequisitionApprovalGate(
     if (laterTimerRef.current) window.clearTimeout(laterTimerRef.current);
   }, []);
 
-  useEffect(() => {
-    setDeclining(false);
-    setRejectReason('');
-    setOpenedAttachment(false);
-    setClearGap(false);
-    setApproveNote('');
-  }, [prompt?.prompt_id]);
+
 
   const [budget, setBudget] = useState<{ department_name: string; approved_budget: number; committed_amount: number; remaining_budget: number } | null>(null);
   useEffect(() => {
@@ -158,47 +142,6 @@ export function StaffRequisitionApprovalGate(
       return;
     }
     w.location.href = data.url;
-    setOpenedAttachment(true);
-  };
-
-  const decide = async (action: 'approve' | 'reject', comment: string, clearGap = false) => {
-    if (!prompt) return;
-    setWorking(true);
-    const { error } = await invokeEdgeFunction('staff-requisition-decide', {
-      body: {
-        requisition_id: prompt.requisition_id,
-        action,
-        comment,
-        ...(action === 'approve' ? { amount } : {}),
-        ...(clearGap ? { clear_receipt_gap: true } : {}),
-      },
-      errorTitle: 'Decision failed',
-      silent: true,
-    });
-    setWorking(false);
-    if (error) {
-      toast.error(
-        action === 'approve'
-          ? requisitionApprovalError(error.message, prompt.stage.toUpperCase())
-          : error.message,
-      );
-      return;
-    }
-    if (action === 'approve') {
-      toast.success(REQUISITION_APPROVED_MESSAGE, APPROVAL_TOAST_OPTIONS);
-    } else {
-      toast.success('Requisition declined');
-    }
-    setPrompt(null);
-    void load();
-  };
-
-  const decline = async () => {
-    if (rejectReason.trim().length < 10) {
-      toast.error('Give the requester a reason (at least 10 characters)');
-      return;
-    }
-    await decide('reject', rejectReason.trim());
   };
 
   const later = async () => {
@@ -220,7 +163,6 @@ export function StaffRequisitionApprovalGate(
 
   if (!prompt) return null;
 
-  const needsReceipt = attachments.length > 0 && !openedAttachment;
   const earlier = [
     prompt.coo_approver_name ? `COO: ${prompt.coo_approver_name}` : null,
     prompt.ceo_approver_name ? `CEO: ${prompt.ceo_approver_name}` : null,
@@ -298,72 +240,14 @@ export function StaffRequisitionApprovalGate(
             </div>
           )}
 
-          {prompt.stage === 'cfo' && receiptRow && !assessReceiptPayout(receiptRow).allowed && !declining && (
-            <div className="space-y-2">
-              <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={clearGap}
-                  onChange={(e) => setClearGap(e.target.checked)}
-                />
-                <span>
-                  Clear this unaccounted gap and release payout. The wallet is credited only when you accept.
-                  Nothing is taken back.
-                </span>
-              </label>
-              <Textarea
-                rows={3}
-                value={approveNote}
-                onChange={(e) => setApproveNote(e.target.value)}
-                placeholder="Note for the receipt gap (at least 10 characters)"
-              />
-            </div>
-          )}
-
-          {declining && (
-            <Textarea
-              rows={3}
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Tell the requester why this is declined (at least 10 characters)"
-            />
-          )}
-
           <div className="space-y-1 pt-1">
             <div className="flex flex-wrap gap-2">
-              {declining ? (
-                <>
-                  <Button variant="outline" onClick={() => setDeclining(false)} disabled={working}>
-                    Cancel
-                  </Button>
-                  <Button variant="destructive" onClick={() => void decline()} disabled={working}>
-                    {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Confirm decline
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    onClick={() => void decide('approve', clearGap ? approveNote.trim() : '', clearGap)}
-                    disabled={working || needsReceipt || (prompt.stage === 'cfo' && !!receiptRow && !assessReceiptPayout(receiptRow).allowed && (!clearGap || approveNote.trim().length < 10))}
-                  >
-                    {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Accept
-                  </Button>
-                  <Button variant="destructive" onClick={() => setDeclining(true)} disabled={working}>
-                    Decline
-                  </Button>
-                  <Button variant="outline" onClick={() => void later()} disabled={working}>
-                    Later
-                  </Button>
-                </>
-              )}
+              <Button variant="outline" onClick={() => void later()} disabled={working}>
+                {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Later
+              </Button>
             </div>
-            {!declining && needsReceipt && (
-              <p className="text-xs text-muted-foreground">Open the receipt to enable Accept.</p>
-            )}
-            <p className="text-xs text-muted-foreground">Later tells the requester you have seen it, and hides this until you refresh or for 1 hour.</p>
+            <p className="text-xs text-muted-foreground">Later tells the requester you have seen it, and hides this until you refresh or for 1 hour. Approve or decline from the requisitions review queue.</p>
           </div>
         </div>
       </DialogContent>
