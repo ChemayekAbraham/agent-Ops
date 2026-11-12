@@ -1,3 +1,7 @@
+# Signage shop-owner cross-check
+- [ ] Add staff-only phone/account/Rent Plan matching and the Agent Ops Shop owners tab.
+- [ ] Test matching, paging, access and existing signage behavior.
+
 # Already-issued Special Advances
 - [x] Add separate CFO recording for outside-Welile advances with original date, proof, duplicate safeguards and platform-only accounting; never calls the fresh payout action.
 - [x] Eighty form/table/accounting tests pass, all guards pass and automatic build OK; embedded Postgres confirms original-date schedules, platform-only accounting and replay/payout refusal. Signed-in CFO end-to-end verification is unavailable with external unmanaged authentication.
