@@ -708,26 +708,6 @@ function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
       </div>
 
       <SupportPlanExample fundingAmount={item.amount} rate={ownRate} />
-
-      <div className="space-y-2">
-        <a
-          href={buildWhatsAppShareUrl(message)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-success px-4 text-base font-semibold text-success-foreground shadow-sm hover:opacity-90"
-        >
-          <MessageCircle className="h-5 w-5" />
-          Share on WhatsApp
-        </a>
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" className="h-11 rounded-xl text-sm" onClick={copyLink}>
-            <Link2 className="h-4 w-4" />Copy link
-          </Button>
-          <Button variant="outline" className="h-11 rounded-xl text-sm" onClick={nativeShare} disabled={!canNativeShare}>
-            <Share2 className="h-4 w-4" />Share
-          </Button>
-        </div>
-      </div>
     </section>
   );
 }
