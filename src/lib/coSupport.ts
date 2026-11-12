@@ -95,9 +95,16 @@ export interface CoSupportPreview extends Partial<CoSupportInvite> {
   agreement_signed?: boolean;
   float_available?: number;
   float_needed?: number;
+  /** Signed-in invitee only (never the other partner's figures): operational float in the wallet. */
+  float_balance?: number;
+  /** Part of float_balance set aside for Rent Plans / houses this person is sharing themselves. */
+  float_held_for_your_shares?: number;
+  /** Part of float_balance set aside for anything else waiting (pending portfolios). */
+  float_held_other?: number;
+  your_open_shares?: Array<{ id: string; kind: CoSupportKind; title: string; held: number; expires_at: string }>;
 }
 
-const ugx = (n: number | null | undefined) => `UGX ${Math.round(Number(n ?? 0)).toLocaleString('en-US')}`;
+const ugx =(n: number | null | undefined) => `UGX ${Math.round(Number(n ?? 0)).toLocaleString('en-US')}`;
 
 /** The message the sharer sends with the link (WhatsApp, SMS, copy). */
 export function coSupportShareText(input: {
@@ -234,8 +241,12 @@ export function coSupportErrorMessage(err: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
-/** Short reason text for a preview that cannot be accepted. */
-export function coSupportBlockMessage(p: Pick<CoSupportPreview, 'reason' | 'float_needed'>): string | null {
+/**
+ * Short reason text for a preview that cannot be accepted. For a shortfall it
+ * now explains the float (what you have, what is set aside, what is missing):
+ * pass the whole preview. Prefer coSupportInviteCopy for the full page.
+ */
+export function coSupportBlockMessage(p: Partial<CoSupportPreview>): string | null {
   switch (p.reason) {
     case null:
     case undefined:
@@ -249,7 +260,7 @@ export function coSupportBlockMessage(p: Pick<CoSupportPreview, 'reason' | 'floa
     case 'rate_unavailable':
       return MESSAGES.PARTNER_RATE_UNAVAILABLE;
     case 'funds_short':
-      return `Add ${ugx(p.float_needed)} of float to your wallet to take your half.`;
+      return coSupportInviteCopy(p).blockDetail;
     case 'invite_expired':
       return MESSAGES.INVITE_EXPIRED;
     case 'invite_declined':
@@ -259,6 +270,183 @@ export function coSupportBlockMessage(p: Pick<CoSupportPreview, 'reason' | 'floa
     default:
       return MESSAGES.INVITE_CLOSED;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Personal wording for the invitation page (/co-support/:code)
+// ---------------------------------------------------------------------------
+
+export interface CoSupportInviteCopy {
+  /** e.g. "Benjamin invited you to support Nakasagga's home together" */
+  headline: string;
+  /** one or two sentences under the photo */
+  intro: string;
+  /** "Your half: UGX 1,530,000" */
+  yourHalf: string;
+  /** "You'd earn UGX 229,500 a month in Rent Profit Share", or null when unknown */
+  yourEarning: string | null;
+  /** "Benjamin is holding this for you for 46h 34m", or null when closed */
+  holdLine: string | null;
+  acceptLabel: string;
+  declineLabel: string;
+  /** shown under the buttons when signed out */
+  signedOutHint: string;
+  signInLabel: string;
+  joinLabel: string;
+  /** after a successful accept */
+  successTitle: string;
+  successDetail: string;
+  /** why they cannot accept right now (null when they can) */
+  blockTitle: string | null;
+  blockDetail: string | null;
+  /** label for the button that fixes it (wallet, agreement, sign-up), or null */
+  blockAction: string | null;
+}
+
+const firstName = (s: string | null | undefined, fallback: string) => {
+  const v = String(s ?? '').trim().split(/\s+/)[0];
+  return v ? v.charAt(0).toUpperCase() + v.slice(1) : fallback;
+};
+
+/**
+ * Every sentence of the invitation page, written to the person who opened the
+ * link, by name, from the server's figures. The sharer is named, never
+ * "he"/"she". No rate, no other person's figures, approved words only
+ * ("Rent Plan", "partner", "Rent Profit Share").
+ */
+export function coSupportInviteCopy(p: Partial<CoSupportPreview>, now = Date.now()): CoSupportInviteCopy {
+  // "your partner" mid-sentence, "Your partner" at the start of one.
+  const lead = firstName(p.lead_first_name, 'your partner');
+  const Lead = lead.charAt(0).toUpperCase() + lead.slice(1);
+  const isHouse = p.kind === 'house';
+  const tenant = firstName(p.tenant_first_name, '');
+  const house = String(p.house_title ?? '').trim();
+  const what = isHouse ? (house ? `this house (${house})` : 'this empty house') : tenant ? `${tenant}'s home` : 'this home';
+  const half = ugx(p.your_share);
+
+  const headline = isHouse
+    ? `${Lead} invited you to support an empty house together`
+    : tenant
+      ? `${Lead} invited you to support ${tenant}'s home together`
+      : `${Lead} invited you to support a Rent Plan together`;
+
+  const intro = isHouse
+    ? `${Lead} has already set aside one half. Take the other half and you'll support ${what} together, ` +
+      `each earning Rent Profit Share every month. Partner Ops approve shared houses before any money moves.`
+    : `${Lead} has already set aside one half. Take the other half and you'll support ${what} together, ` +
+      `each earning Rent Profit Share every month.`;
+
+  const earning =
+    p.your_monthly_rent_profit_share != null && Number(p.your_monthly_rent_profit_share) > 0
+      ? `You'd earn ${ugx(p.your_monthly_rent_profit_share)} a month in Rent Profit Share`
+      : null;
+
+  const left = p.expires_at ? coSupportTimeLeft(p.expires_at, now) : null;
+  const holdLine =
+    p.status === 'open' && left && !left.expired
+      ? `${Lead} is holding this for you for ${left.hours}h ${String(left.minutes).padStart(2, '0')}m`
+      : null;
+
+  const successTitle = isHouse
+    ? `You and ${lead} have shared ${what}`
+    : `You and ${lead} now support ${what} together`;
+  const successDetail = isHouse
+    ? `Partner Ops will approve it soon. Your half (${half}) stays set aside for it until then.`
+    : `Your portfolio: ${half}.` + (earning ? ` ${earning.replace("You'd earn", 'You earn')}.` : '');
+
+  let blockTitle: string | null = null;
+  let blockDetail: string | null = null;
+  let blockAction: string | null = null;
+  switch (p.reason) {
+    case null:
+    case undefined:
+      break;
+    case 'funds_short': {
+      const needed = Number(p.float_needed ?? 0);
+      // float_balance comes from the server since 20261116120000; without it only the gap is known.
+      const known = p.float_balance != null;
+      const balance = Number(p.float_balance ?? 0);
+      const heldShares = Number(p.float_held_for_your_shares ?? 0);
+      const heldOther = Number(p.float_held_other ?? 0);
+      const free = Number(p.float_available ?? 0);
+      const shares = p.your_open_shares ?? [];
+      blockTitle = `You're ${ugx(needed)} short of your half`;
+      const parts: string[] = [];
+      if (!known) {
+        // nothing to explain beyond the gap
+      } else if (balance <= 0) {
+        parts.push("You don't have any float in your wallet yet.");
+      } else if (heldShares > 0 || heldOther > 0) {
+        const why: string[] = [];
+        if (heldShares > 0) {
+          const named = shares.length === 1 ? shares[0].title : `${shares.length} plans you're sharing`;
+          why.push(`${ugx(heldShares)} is set aside for ${named}${shares.length === 1 ? " that you're sharing" : ''}`);
+        }
+        if (heldOther > 0) why.push(`${ugx(heldOther)} is waiting on another support`);
+        parts.push(`You have ${ugx(balance)} of float. ${why.join(' and ')}, so ${ugx(free)} is free right now.`);
+      } else {
+        parts.push(`You have ${ugx(balance)} of float right now.`);
+      }
+      parts.push(`Add ${ugx(needed)} to your wallet, then open this link again to join ${lead}.`);
+      if (heldShares > 0 && free + heldShares >= Number(p.your_share ?? Infinity)) {
+        parts.push(`Or stop sharing your own plan to free ${ugx(heldShares)}.`);
+      }
+      blockDetail = parts.join(' ');
+      blockAction = 'Add float to your wallet';
+      break;
+    }
+    case 'agreement_required':
+      blockTitle = 'One step first: your partnership agreement';
+      blockDetail = `Sign your partnership agreement, then open this link again to join ${lead}.`;
+      blockAction = 'Sign my agreement';
+      break;
+    case 'not_a_partner':
+      blockTitle = 'Finish becoming a Welile partner';
+      blockDetail = `Complete your partner sign-up, then open this link again to join ${lead}.`;
+      blockAction = 'Finish partner sign-up';
+      break;
+    case 'paused':
+      blockTitle = 'Sharing is paused for a moment';
+      blockDetail = `Supporting together is paused right now. ${Lead}'s invitation is still here; please try again later.`;
+      break;
+    case 'rate_unavailable':
+      blockTitle = 'We need to check your account';
+      blockDetail = 'Your Rent Profit Share could not be confirmed. Please contact Welile and we will sort it out.';
+      break;
+    case 'invite_expired':
+      blockTitle = 'This invitation has ended';
+      blockDetail = `The 48 hours ran out. Ask ${lead} to send you a new link.`;
+      break;
+    case 'invite_declined':
+      blockTitle = 'You said no to this invitation';
+      blockDetail = `If you change your mind, ask ${lead} to send it again.`;
+      break;
+    case 'invite_completed':
+      blockTitle = `${Lead} found a partner for this one`;
+      blockDetail = 'It is fully supported. Open Welile to find another Rent Plan or house to support.';
+      break;
+    default:
+      blockTitle = 'This invitation is closed';
+      blockDetail = `Ask ${lead} to send you a new link.`;
+  }
+
+  return {
+    headline,
+    intro,
+    yourHalf: `Your half: ${half}`,
+    yourEarning: earning,
+    holdLine,
+    acceptLabel: `Join ${lead === 'your partner' ? 'your partner' : Lead}`,
+    declineLabel: 'Not this time',
+    signedOutHint: `Sign in to join ${lead}. New to Welile? Create your partner account first, it takes a few minutes, and this link will bring you back here.`,
+    signInLabel: 'I have a Welile account',
+    joinLabel: "I'm new to Welile",
+    successTitle,
+    successDetail,
+    blockTitle,
+    blockDetail,
+    blockAction,
+  };
 }
 
 /** One row of co_support_staff_list (Partner Ops). */
