@@ -511,6 +511,35 @@ for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
   });
 }
 
+for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
+  test(`${size.width}x${size.height}: rent-request cards show a grey "Ref" under the title; empty houses do not`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await open(page, 'view=houses&count=24&tags=board');
+    const plan = page.locator('article[data-card-id="ready:plan-0"]');
+    await expect(plan.getByTestId('fv3-ref')).toHaveText(/^Ref [0-9A-Z]{1,8}$/);
+    await expect(page.locator('article[data-card-id="board:rq-b1"]').getByTestId('fv3-ref')).toHaveText('Ref RQB1');
+    await expect(page.locator('[data-board-group="empty_house"] [data-testid="fv3-ref"]')).toHaveCount(0);
+    // Under the title, small and grey.
+    const ref = plan.getByTestId('fv3-ref');
+    const box = await ref.boundingBox();
+    const title = await plan.getByText(/ in /).first().boundingBox();
+    expect(box!.y).toBeGreaterThanOrEqual(title!.y + title!.height - 1);
+    const [colour, muted, fontPx] = await ref.evaluate((el) => {
+      const probe = document.createElement('span');
+      probe.className = 'text-muted-foreground';
+      document.body.appendChild(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return [getComputedStyle(el).color, c, parseFloat(getComputedStyle(el).fontSize)];
+    });
+    expect(colour).toBe(muted);
+    expect(Number(fontPx)).toBeLessThanOrEqual(12);
+    await noHorizontalScroll(page);
+    await plan.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, `houses-ref-${size.width}x${size.height}.png`) });
+  });
+}
+
 test('funders never see the Incomplete chip', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page, 'view=houses&count=24&tags=board');

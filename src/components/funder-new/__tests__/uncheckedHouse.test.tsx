@@ -7,7 +7,8 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn(), fro
 
 import { FunderNewHouseCard } from '../FunderNewHouseCard';
 import { FunderV3HouseCard } from '@/components/funder-v3/FunderV3HouseCard';
-import { isUncheckedEmptyHouse } from '../utils';
+import { isUncheckedEmptyHouse, requestRef } from '../utils';
+import { FunderBoardItemCard } from '../FunderBoardItemCard';
 import { makeEmptyHouse, makeReadyPlan } from '@/components/funder-v3/__fixtures__/funderV3Fixtures';
 
 afterEach(() => cleanup());
@@ -66,5 +67,36 @@ describe('COO/CEO Incomplete chip on Verified cards', () => {
     const chip = screen.getByTestId('fv3-incomplete-chip');
     const demote = screen.getByTestId('fv3-demote-check');
     expect(chip.compareDocumentPosition(demote) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe('Ref line on rent-request cards (match a card to its desk row)', () => {
+  it('requestRef: first 8 of the request id, upper case; null without an id', () => {
+    expect(requestRef('3f2a9c1b-77de-4a10-9b2c-0d1e2f3a4b5c')).toBe('Ref 3F2A9C1B');
+    expect(requestRef(null)).toBeNull();
+    expect(requestRef('')).toBeNull();
+  });
+
+  for (const [name, Card] of [['legacy', FunderNewHouseCard], ['V3', FunderV3HouseCard]] as const) {
+    it(`${name} card: a Rent Plan shows "Ref …" under the title; an empty house never does`, () => {
+      const plan = { ...makeReadyPlan(0), rent_request_id: '3f2a9c1b-77de-4a10-9b2c-0d1e2f3a4b5c' };
+      const r = render(<Card {...common} cardId="ready:x" category="ready" item={plan} />);
+      expect(screen.getByTestId('fv3-ref').textContent).toBe('Ref 3F2A9C1B');
+      r.unmount();
+      render(<Card {...common} cardId="empty:house-0" category="empty" item={{ ...makeEmptyHouse(0), verified: true }} />);
+      expect(screen.queryByTestId('fv3-ref')).toBeNull();
+      expect(screen.queryByText(/^Ref /)).toBeNull();
+    });
+  }
+
+  it('view-only board card: shows the Ref too', () => {
+    render(
+      <FunderBoardItemCard
+        cardId="board:x"
+        distance={null}
+        item={{ id: 'ab12cd34-0000-4000-8000-000000000000', tag: 'booked', selectable: false, held: false, tenantFirstName: null, houseCategory: 'Single Room', city: 'Kira', mainPhoto: null, photos: [], rentAmount: 300000, durationDays: 30, dailyRepayment: null, lat: null, lng: null, sortAt: null, incomplete: null }}
+      />,
+    );
+    expect(screen.getByTestId('fv3-ref').textContent).toBe('Ref AB12CD34');
   });
 });

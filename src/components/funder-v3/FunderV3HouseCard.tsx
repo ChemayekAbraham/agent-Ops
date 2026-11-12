@@ -14,6 +14,7 @@ import {
   readyPlanPlace,
   readyPlanTitle,
   isUncheckedEmptyHouse,
+  requestRef,
 } from '@/components/funder-new/utils';
 import { STRAIGHT_LINE_EXPLANATION } from '@/components/funder-new/distance';
 import { FundersBoardTag, tagKindFor } from '@/components/funder-new/FundersBoardTag';
@@ -90,6 +91,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   const photo = firstPhoto(category, item);
   const coords = itemCoordinates(item, category);
   const unchecked = isUncheckedEmptyHouse(category, item);
+  const ref = category === 'ready' ? requestRef((item as FunderNewReadyPlan).rent_request_id) : null;
 
   return (
     <article
@@ -193,8 +195,12 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
           aria-label={`Open full details for ${title} in ${place}`}
           className="-m-1.5 flex flex-col gap-2 rounded-xl p-1.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="min-w-0 break-words fv3-t-base font-bold leading-snug text-foreground">
-            {title} <span className="font-medium text-muted-foreground">in</span> {place}
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="min-w-0 break-words fv3-t-base font-bold leading-snug text-foreground">
+              {title} <span className="font-medium text-muted-foreground">in</span> {place}
+            </span>
+            {/* Rent requests only: lets staff match the card to its desk row. */}
+            {ref ? <span data-testid="fv3-ref" className="fv3-t-2xs font-medium tabular-nums tracking-wide text-muted-foreground">{ref}</span> : null}
           </span>
 
           {distance ? (
