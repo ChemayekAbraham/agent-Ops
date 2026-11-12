@@ -11,6 +11,21 @@ export const HOUSE_MIN_FUNDING = 50_000;
  * Both support RPCs check this figure, never the withdrawable balance, so the
  * pay step must show the same number the server will enforce.
  */
+/** Operational float the direct-release path spends (funder_float_available). */
+export function useFunderFloatAvailable(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['funder-float-available', userId],
+    enabled: !!userId,
+    staleTime: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('funder_float_available', { p_user_id: userId! });
+      if (error) throw error;
+      const amount = Number(data ?? 0);
+      return Number.isFinite(amount) ? amount : 0;
+    },
+  });
+}
+
 export function useSupportCapacity(userId: string | undefined, enabled: boolean) {
   return useQuery({
     queryKey: ['funder-preview-support-capacity', userId],

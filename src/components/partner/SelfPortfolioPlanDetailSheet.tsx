@@ -14,7 +14,6 @@ import { PlanShareButton } from './PlanShareButton';
 import { planShareFallbackDescription } from '@/lib/planShareLink';
 import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 import { FunderVerifiedPlanPack, OffplatformCoverStatus } from '@/components/supporter/FunderVerifiedPlanPack';
-import { FunderFundChooser, type FundChoiceTarget } from '@/components/supporter/FunderFundChooser';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 
@@ -249,7 +248,6 @@ export function SelfPortfolioPlanDetailSheet({
 }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [heroIndex, setHeroIndex] = useState(0);
-  const [fundChoiceOpen, setFundChoiceOpen] = useState(false);
   // "Your projected returns": this partner's own rate for a new portfolio (partner_quote_rate('me')).
   // null while it loads or on error: the projection is null (no figure).
   const { rate: ownRate } = useOwnNewPortfolioRate();
@@ -260,7 +258,6 @@ export function SelfPortfolioPlanDetailSheet({
   useEffect(() => {
     setHeroIndex(0);
     setLightboxIndex(null);
-    setFundChoiceOpen(false);
   }, [planId, open]);
   if (!plan) return null;
   const photos = (plan.house_image_urls ?? []).filter(Boolean);
@@ -571,7 +568,7 @@ export function SelfPortfolioPlanDetailSheet({
             <div className="sticky bottom-0 z-20 -mx-4 mt-4 border-t border-border/60 bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
               <Button
                 className="h-12 w-full gap-2 rounded-full bg-emerald-600 text-base font-semibold text-white shadow-md active:scale-[0.99] hover:bg-emerald-700"
-                onClick={() => setFundChoiceOpen(true)}
+                onClick={() => onFund(plan)}
               >
                 <Wallet className="h-5 w-5" />
                 Fund this house, {formatDynamic(pay(Number(plan.funding_amount || 0)))}
@@ -582,20 +579,6 @@ export function SelfPortfolioPlanDetailSheet({
                 planAmount={pay(Number(plan.funding_amount || 0))}
               />
             </div>
-          )}
-          {onFund && plan && (
-            <FunderFundChooser
-              open={fundChoiceOpen}
-              onOpenChange={setFundChoiceOpen}
-              target={{
-                rentRequestId: plan.rent_request_id,
-                title: plan.house_category ? plan.house_category.replace(/-/g, ' ') : 'Rent Plan',
-                place: plan.tenant_location || plan.request_city || '',
-                landlordName: plan.landlord_name,
-                rentAmount: Number(plan.funding_amount || 0),
-              } satisfies FundChoiceTarget}
-              onThroughWelile={() => onFund(plan)}
-            />
           )}
         </div>
       </SheetContent>

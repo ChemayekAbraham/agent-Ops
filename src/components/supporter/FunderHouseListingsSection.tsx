@@ -16,6 +16,7 @@ import { FEATURE_FUNDERS_BOARD_TAGS, useFeaturePreview } from '@/hooks/useFeatur
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
+import { useFunderFloatAvailable } from '@/components/funder-preview/useFunderPreviewSupport';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -142,6 +143,7 @@ export function FunderHouseListingsSection({
   const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
+  const floatAvail = useFunderFloatAvailable(user?.id);
   const location = useFunderNewLocation();
   const summary = useFunderNewMarketSummary();
 
@@ -324,8 +326,8 @@ export function FunderHouseListingsSection({
   const emptyTotal = showEmpty ? (emptyQuery.data?.pages?.[0]?.total ?? 0) : 0;
   const filteredTotal = readyTotal + emptyTotal;
 
-  // Support is funded from operational float only, never from withdrawable money.
-  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.floatBalance;
+  // The server spends funder_float_available (operational float after holds).
+  const availableBalance = floatAvail.isLoading || floatAvail.isError ? null : (floatAvail.data ?? null);
 
   /**
    * District chip lists every district in the whole market (from the summary
@@ -913,21 +915,22 @@ export function FunderHouseListingsSection({
         }}
         isFunded={false}
         onFund={(plan) => {
-          const cost = partnerPay(Number(plan.funding_amount || 0));
-          const avail = availableBalance ?? 0;
-          if (avail >= cost) {
-            // Enough balance: select the plan and open the funding review.
-            if (!selectedItems.some((i) => i.category === 'ready' && i.id === plan.rent_request_id)) {
-              toggleSelect('ready', plan as FunderNewReadyPlan);
-            }
-            setDetailPlan(null);
+          setDetailPlan(null);
+          fundChoice.ask({
+            rentRequestId: plan.rent_request_id,
+            title: plan.house_category ? plan.house_category.replace(/-/g, ' ') : 'Rent Plan',
+            place: plan.tenant_location || plan.request_city || '',
+            landlordName: plan.landlord_name,
+            rentAmount: Number(plan.funding_amount || 0),
+          }, () => {
+            setSelectedCategory('ready');
+            setSelectedItems((current) => {
+              const ready = current.filter((entry) => entry.category === 'ready');
+              if (ready.some((entry) => entry.id === plan.rent_request_id)) return ready;
+              return [...ready, toSelectionItem('ready', plan as FunderNewReadyPlan, partnerPay)];
+            });
             setReviewOpen(true);
-          } else {
-            // Not enough balance: open the deposit sheet with the exact shortfall.
-            toast.info(`Not enough balance. Deposit ${formatDynamic(cost - avail)} to fund this tenant.`);
-            setDetailPlan(null);
-            setTopUpAmount(Math.ceil(cost - avail));
-          }
+          });
         }}
       />
       {fundChoice.chooser}
@@ -936,8 +939,8 @@ export function FunderHouseListingsSection({
         onOpenChange={setReviewOpen}
         items={selectedItems}
         available={availableBalance}
-        walletLoading={wallet.isLoading}
-        walletError={wallet.error}
+        walletLoading={floatAvail.isLoading}
+        walletError={floatAvail.error}
         onRemove={removeSelected}
         onFund={async (total, shortfall) => {
           if (shortfall > 0) {

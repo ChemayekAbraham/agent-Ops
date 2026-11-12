@@ -1,11 +1,17 @@
 import "../_shared/smsFooterInterceptor.ts";
-// Drains funder_release_sms. Rows are written when a partner release has a
-// tenant phone and no tenant email. The message text is already stored.
+// Drains funder_release_sms: tenant SMS, landlord SMS, and Zoe's WhatsApp to
+// the agent. WhatsApp uses the approved template zoe_agent_landlord_float.
+// If that send fails, the same words go out as SMS. An uncertain WhatsApp
+// delivery is not followed by SMS.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { maskPhone } from "../_shared/landlordFloatSms.ts";
+import { sendWhatsApp } from "../_shared/whatsapp.ts";
 import {
   confirmYoolaDelivery,
   extractYoolaMessageId,
 } from "../_shared/yoolaDeliveryConfirm.ts";
+
+const ZOE_TEMPLATE = "zoe_agent_landlord_float";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,7 +95,7 @@ Deno.serve(async (req) => {
 
   const { data: rows, error } = await admin
     .from("funder_release_sms")
-    .select("id, rent_request_id, phone, message, attempts")
+    .select("id, rent_request_id, phone, message, attempts, audience, channel, fallback_message, template_params")
     .eq("status", "pending")
     .lt("attempts", MAX_ATTEMPTS)
     .order("created_at", { ascending: true })
@@ -104,6 +110,11 @@ Deno.serve(async (req) => {
   for (const row of rows) {
     const phone = row.phone ? normalizePhone(row.phone) : "";
     const message = String(row.message || "");
+    const channel = String(row.channel || "sms");
+    const audience = String(row.audience || "tenant");
+    const loggedPhone = audience === "tenant" && channel === "sms"
+      ? phone
+      : (maskPhone(phone) || "hidden");
     if (!phone || phone.replace(/\D/g, "").length < 12 || !message) {
       failed++;
       await admin.from("funder_release_sms")
@@ -112,16 +123,59 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    let outcome: { ok: boolean; reason?: string; unconfirmed?: string } = await sendViaYoola(phone, message);
+    let outcome: { ok: boolean; reason?: string; unconfirmed?: string } = { ok: false, reason: "not_sent" };
     let provider = "yoola";
-    if (!outcome.ok) {
-      outcome = await sendViaAfricasTalking(phone, message);
-      provider = "africastalking";
+    let sentMessage = message;
+
+    if (channel === "whatsapp") {
+      const params = Array.isArray(row.template_params)
+        ? row.template_params.map((part: unknown) => String(part ?? ""))
+        : [];
+      const wa = await sendWhatsApp(phone, message, {
+        templateName: ZOE_TEMPLATE,
+        templateLanguage: "en",
+        templateParameters: params,
+      });
+      if (wa.ok) {
+        outcome = { ok: true };
+        provider = wa.provider || "meta";
+      } else if (wa.error === "meta_delivery_unknown") {
+        failed++;
+        await admin.from("funder_release_sms")
+          .update({ status: "failed", attempts: MAX_ATTEMPTS, last_error: "meta_delivery_unknown" })
+          .eq("id", row.id);
+        logRows.push({
+          recipient_phone: loggedPhone,
+          message,
+          provider: "meta",
+          status: "failed",
+          error: "meta_delivery_unknown",
+          reference_id: row.rent_request_id,
+          source: "notify-funder-release-sms",
+        });
+        continue;
+      } else {
+        sentMessage = String(row.fallback_message || message);
+        outcome = await sendViaYoola(phone, sentMessage);
+        provider = "yoola";
+        if (!outcome.ok) {
+          outcome = await sendViaAfricasTalking(phone, sentMessage);
+          provider = "africastalking";
+        }
+        if (outcome.ok) outcome = { ...outcome, unconfirmed: outcome.unconfirmed ?? `whatsapp_${wa.error || "failed"}_sms_sent` };
+      }
+    } else {
+      outcome = await sendViaYoola(phone, message);
+      provider = "yoola";
+      if (!outcome.ok) {
+        outcome = await sendViaAfricasTalking(phone, message);
+        provider = "africastalking";
+      }
     }
 
     logRows.push({
-      recipient_phone: phone,
-      message,
+      recipient_phone: loggedPhone,
+      message: sentMessage,
       provider,
       status: outcome.ok ? "accepted" : "failed",
       error: outcome.ok ? (outcome.unconfirmed ?? null) : (outcome.reason ?? null),
