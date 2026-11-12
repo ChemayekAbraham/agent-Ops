@@ -812,7 +812,7 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
             </Field>
             <Field label="Full name"><Input aria-label="Gate person name" placeholder="Type full name" value={f.person_name} onChange={(e) => setF((d) => ({ ...d, person_name: e.target.value }))} /></Field>
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Class or department"><Input placeholder="e.g. P.5, S.2" value={f.class_or_department} onChange={(e) => setF((d) => ({ ...d, class_or_department: e.target.value }))} /></Field>
+              <Field label="Class / dept."><Input placeholder="e.g. P.5, S.2" value={f.class_or_department} onChange={(e) => setF((d) => ({ ...d, class_or_department: e.target.value }))} /></Field>
               <Field label="Phone"><Input inputMode="tel" value={f.phone} onChange={(e) => setF((d) => ({ ...d, phone: e.target.value }))} /></Field>
             </div>
             <Field label="Reason (optional)"><Chips options={direction === 'in' ? GATE_IN_NOTES : GATE_OUT_NOTES} value={f.purpose_or_note} onChange={(v) => setF((d) => ({ ...d, purpose_or_note: d.purpose_or_note === v ? '' : v }))} /></Field>
