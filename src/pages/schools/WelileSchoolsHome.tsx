@@ -463,7 +463,7 @@ function ActionTile({ icon: Icon, label, onClick, primary, soon }: { icon: typeo
 
 function ParentHome() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-8">
       <HeroHeader
         icon={GraduationCap}
         eyebrow="For parents"
