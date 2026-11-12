@@ -149,6 +149,7 @@ function RequestCard({ r, school, partnership, agent }: {
       <div className="space-y-1.5 rounded-xl bg-muted/50 p-3">
         <Row label="Parent / guardian" value={[r.guardian_name, r.guardian_phone].filter(Boolean).join(' · ')} />
         <Row label="Guarantor" value={[r.guarantor_name, r.guarantor_phone].filter(Boolean).join(' · ')} />
+        <Row label="Parent agreement" value={r.note?.includes('agreement signed') ? 'Signed (confirmed by the agent)' : 'Not confirmed'} />
         <Row label="Term" value={`${r.term_start ? `${r.term_start} to ` : 'ends '}${r.term_end} · plan due ${r.plan_due_date}`} />
         <Row label="Daily fee rate" value={`${(Number(r.daily_rate) * 100).toFixed(3)}% on the balance`} />
         <Row label="School agent" value={[agent?.full_name, agent?.phone].filter(Boolean).join(' · ')} />

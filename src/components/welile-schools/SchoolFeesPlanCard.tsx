@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, Receipt, Sparkles, TrendingDown } from 'lucide-react';
+import { CalendarDays, FileText, Receipt, Sparkles, TrendingDown } from 'lucide-react';
+import { PARENT_AGREEMENT_URL } from '@/lib/welileSchoolsAgreements';
 import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -102,6 +103,10 @@ export default function SchoolFeesPlanCard() {
               <Sparkles className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
               Estimate only. The fee is worked out daily on what you still owe, and your plan is cleared {PLAN_ENDS_DAYS_BEFORE_TERM_END} days before the end of term. Your agent confirms the exact figures.
             </p>
+            <a href={PARENT_AGREEMENT_URL} download="Welile_Schools_Parent_Agreement.docx"
+              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-primary/30 text-sm font-semibold text-primary hover:bg-primary/5">
+              <FileText className="h-4 w-4" aria-hidden />Read the parent agreement
+            </a>
           </>
         ) : (
           <p className="rounded-2xl bg-muted/50 p-3 text-sm text-muted-foreground">

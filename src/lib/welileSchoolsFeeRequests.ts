@@ -28,6 +28,8 @@ export interface FeeRequestRow {
   guardian_phone: string;
   guarantor_name: string | null;
   guarantor_phone: string | null;
+  /** Agent's note; records the signed parent agreement. */
+  note: string | null;
   status: FeeRequestStatus;
   review_note: string | null;
   created_at: string;

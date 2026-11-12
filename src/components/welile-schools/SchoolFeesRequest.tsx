@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Check, CheckCircle2, ChevronDown, Loader2, Search, UserRound } from 'lucide-react';
+import { CalendarDays, Check, CheckCircle2, ChevronDown, Download, Loader2, Search, UserRound } from 'lucide-react';
+import { PARENT_AGREEMENT_SIGNED_NOTE, PARENT_AGREEMENT_URL } from '@/lib/welileSchoolsAgreements';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -64,6 +65,7 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
   const [guardianPhone, setGuardianPhone] = useState('');
   const [guarantorName, setGuarantorName] = useState('');
   const [guarantorPhone, setGuarantorPhone] = useState('');
+  const [agreementSigned, setAgreementSigned] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sent, setSent] = useState<FeeRequestRow | null>(null);
 
@@ -112,7 +114,7 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
   };
 
   const reset = () => {
-    setSent(null); setStudent(null); setFee(0); setGuarantorName(''); setGuarantorPhone(''); setSearch('');
+    setSent(null); setStudent(null); setFee(0); setGuarantorName(''); setGuarantorPhone(''); setSearch(''); setAgreementSigned(false);
   };
 
   const submit = async () => {
@@ -121,11 +123,12 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
     if (!datesInOrder) { toast.error('The beginning of term must be before the end of term'); return; }
     if (days < 14) { toast.error('Too close to the end of term for a plan'); return; }
     if (!guardianName.trim() || guardianPhone.replace(/\D/g, '').length < 9) { toast.error("Enter the parent or guardian's name and phone"); return; }
+    if (!agreementSigned) { toast.error('The parent or guardian must sign the agreement first'); return; }
     setSaving(true);
     try {
       const row = await submitFeeRequest({
         profileId: student.id, termId: term?.id ?? null, termStart: term ? null : termStart, termEnd: term ? null : termEnd, termFee: fee,
-        guardianName, guardianPhone, guarantorName, guarantorPhone,
+        guardianName, guardianPhone, guarantorName, guarantorPhone, note: PARENT_AGREEMENT_SIGNED_NOTE,
       });
       setSent(row);
       qc.invalidateQueries({ queryKey: ['welile-school-fee-requests', school.id] });
@@ -264,6 +267,17 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
           <Field label="Guarantor (optional)"><Input value={guarantorName} onChange={(e) => setGuarantorName(e.target.value)} /></Field>
           <Field label="Guarantor phone"><Input inputMode="tel" value={guarantorPhone} onChange={(e) => setGuarantorPhone(e.target.value)} /></Field>
         </div>
+      </Section>
+
+      <Section title="Parent agreement">
+        <p className="text-sm text-muted-foreground">The parent or guardian signs the Welile Schools parent agreement before Welile pays the school.</p>
+        <Button asChild variant="outline" className="min-h-[44px] w-full gap-2 border-primary/40 text-primary hover:bg-primary/5 hover:text-primary">
+          <a href={PARENT_AGREEMENT_URL} download="Welile_Schools_Parent_Agreement.docx"><Download className="h-4 w-4" />Download the parent agreement</a>
+        </Button>
+        <label className="flex min-h-[48px] cursor-pointer items-start gap-3 rounded-2xl bg-muted/50 p-3 text-sm">
+          <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[hsl(var(--primary))]" checked={agreementSigned} onChange={(e) => setAgreementSigned(e.target.checked)} />
+          <span>The parent or guardian has read and signed the agreement.</span>
+        </label>
       </Section>
 
       {(requests.data?.length ?? 0) > 0 ? (
