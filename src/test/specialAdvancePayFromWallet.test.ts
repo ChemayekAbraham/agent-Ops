@@ -557,6 +557,72 @@ describe('corrections', () => {
   });
 });
 
+describe('20261117150000: SMS after a wallet repayment', () => {
+  const SMS = MIG('20261117150000_special_advance_wallet_payment_sms.sql');
+  const SMS_RB = read('supabase/rollbacks/20261117150000_special_advance_wallet_payment_sms.rollback.sql');
+  // stand-ins for pg_net (a queue table: a rolled-back insert leaves nothing queued, as with pg_net) and the vault
+  const STUBS = `
+    create schema net; create table net.queue (url text, headers jsonb, body jsonb);
+    create function net.http_post(url text, headers jsonb, body jsonb) returns bigint language plpgsql as
+      $$ begin insert into net.queue values (url, headers, body); return 1; end $$;
+    create schema vault;
+    create view vault.decrypted_secrets as select 'email_queue_service_role_key'::text name, 'svc-key'::text decrypted_secret;`;
+  const queued = () => db.q<{ url: string; auth: string; body: Record<string, string> }>(`select url, headers->>'Authorization' auth, body from net.queue`);
+
+  beforeAll(async () => {
+    await db.exec(STUBS);
+    expect(await run(db, SMS)).toBeUndefined();
+  });
+
+  it('a wallet payment queues exactly one text, naming only the repayment, with the service key', async () => {
+    await db.exec('delete from net.queue');
+    const { user, adv } = await h.paidOut();
+    const r = await h.pay(user, adv.id, 10_000, await h.outstanding(adv.id));
+    expect(await queued()).toEqual([{ url: 'https://byrzshwlentqvktcksem.supabase.co/functions/v1/notify-special-advance-payment',
+      auth: 'Bearer svc-key', body: { repayment_id: r.out!.repayment_id } }]);
+  });
+
+  it('no text for a Merchant Line repayment, a refused payment, or a payment that rolled back', async () => {
+    await db.exec('delete from net.queue');
+    const { user, adv } = await h.paidOut();
+    const due = await h.outstanding(adv.id);
+    await h.cfoRepay(adv.id, { amount: 1_000 });
+    expect((await h.pay(user, adv.id, 500_001, due - 1_000)).err?.message).toBe('INSUFFICIENT_WALLET_BALANCE'); // owed, but more than the wallet holds
+    await db.exec(`create function public.test_fail() returns trigger language plpgsql as $$ begin raise exception 'TEST_FAILURE'; end $$;
+      create trigger test_fail before insert on public.special_advance_repayment_allocations for each row execute function public.test_fail();`);
+    expect((await h.pay(user, adv.id, 1_000, due - 1_000)).err?.message).toBe('TEST_FAILURE');
+    await db.exec(`drop trigger test_fail on public.special_advance_repayment_allocations; drop function public.test_fail();`);
+    expect(await queued()).toEqual([]);
+  });
+
+  it('a retry with the same key does not text twice', async () => {
+    await db.exec('delete from net.queue');
+    const { user, adv } = await h.paidOut();
+    const due = await h.outstanding(adv.id);
+    const key = uuid();
+    await h.pay(user, adv.id, 5_000, due, key);
+    expect((await h.pay(user, adv.id, 5_000, due, key)).out!.replayed).toBe(true);
+    expect(await queued()).toHaveLength(1);
+  });
+
+  it('if the text cannot be queued, the payment still goes through', async () => {
+    await db.exec(`create or replace function net.http_post(url text, headers jsonb, body jsonb) returns bigint language plpgsql as
+      $$ begin raise exception 'pg_net down'; end $$;`);
+    const { user, adv } = await h.paidOut();
+    const r = await h.pay(user, adv.id, 7_000, await h.outstanding(adv.id));
+    expect(r.err).toBeUndefined();
+    expect(await h.wallet(user)).toBe(493_000);
+  });
+
+  it('rollback stops the texts and nothing else', async () => {
+    expect(await run(db, SMS_RB)).toBeUndefined();
+    expect(await db.q(`select count(*)::int n from pg_trigger where tgname = 'special_advance_repayments_sms_wallet'`)).toEqual([{ n: 0 }]);
+    const { user, adv } = await h.paidOut();
+    expect((await h.pay(user, adv.id, 1_000, await h.outstanding(adv.id))).err).toBeUndefined();
+    expect(await run(db, SMS)).toBeUndefined(); // and it can be applied again
+  });
+});
+
 describe('rollback', () => {
   it('is refused while wallet repayments exist (they are real money movements)', async () => {
     expect((await run(db, WALLET_PAY_RB))?.message).toMatch(/rollback refused/);
