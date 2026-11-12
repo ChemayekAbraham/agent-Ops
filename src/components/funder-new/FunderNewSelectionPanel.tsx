@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Send, HandCoins, TrendingUp, CalendarCheck, Sprout } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, ShieldCheck, Trash2, Wallet, X, Send, TrendingUp, Sprout } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizeE164OrNull } from '@/lib/phoneUtils';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderNewCategory, FunderNewSelectionItem } from './types';
@@ -629,63 +629,67 @@ export function buildWhatsAppShareUrl(message: string): string {
   return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
 
-const POINTS = [
-  { icon: HandCoins, text: 'You support a tenant — you earn monthly Rent profit share on their rent.' },
-  { icon: CalendarCheck, text: 'Support once, earn for 12 months.' },
-  { icon: ShieldCheck, text: 'Welile provides an operational guarantee for every tenant you support.' },
-];
-
 const HOW_STEPS = [
   { icon: Wallet, text: 'Deposit to your Welile wallet' },
   { icon: TrendingUp, text: 'Tap Fund' },
   { icon: Send, text: 'The rent goes to the agent, who pays the landlord within 24 hours.' },
 ];
 
-function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
+/** Full-bleed photo header with the home's name over a soft gradient, like an app detail screen. */
+function PlanHero({ item, more }: { item: FunderNewSelectionItem; more: number }) {
+  return (
+    <div className="relative aspect-[16/10] w-full overflow-hidden bg-primary/10 sm:aspect-video">
+      {item.imageUrl ? (
+        <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-primary">
+          <Home className="h-12 w-12" aria-hidden />
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" aria-hidden />
+      <span className="absolute left-4 top-4 rounded-full bg-background/90 px-2.5 py-1 text-xs font-semibold text-foreground shadow-sm backdrop-blur sm:left-6">
+        {categoryLabel(item.category)}
+      </span>
+      {more > 0 ? (
+        <span className="absolute right-4 top-4 rounded-full bg-background/90 px-2.5 py-1 text-xs font-semibold text-foreground shadow-sm backdrop-blur sm:right-6">
+          +{more} more
+        </span>
+      ) : null}
+      <div className="absolute inset-x-0 bottom-10 px-4 text-white sm:px-6">
+        <p className="text-xs font-medium uppercase tracking-wider text-white/80">Turn rent into an asset</p>
+        <p className="mt-0.5 line-clamp-2 text-lg font-bold leading-snug">{item.title}</p>
+        <p className="mt-0.5 flex items-center gap-1 truncate text-sm text-white/85">
+          <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          {item.place}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** The "How it works" tab: three short steps as a timeline, then the worked example for this plan. */
+function HowItWorks({ item }: { item: FunderNewSelectionItem }) {
   // Signed-in partner screen: the worked example is priced at the viewer's own rate (null = no figure).
   const { rate: ownRate } = useOwnNewPortfolioRate();
 
   return (
-    <section className="space-y-6">
-      <div className="aspect-video w-full overflow-hidden rounded-2xl bg-primary/10">
-        {item.imageUrl ? (
-          <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-primary">
-            <Home className="h-12 w-12" />
-            <span className="text-sm text-muted-foreground">Photo coming soon</span>
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold tracking-tight">Turn rent into an asset</h2>
-        <p className="text-base text-muted-foreground leading-relaxed">
-          Support this tenant's rent once. Earn {formatRatePct(ownRate) ? `${formatRatePct(ownRate)} of their rent` : 'Rent profit share on their rent'} every month for the next 12 months.
-        </p>
-      </div>
-
-      <ul className="space-y-3">
-        {POINTS.map((p) => (
-          <li key={p.text} className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"><p.icon className="h-5 w-5" /></span>
-            <span className="pt-1.5 text-base">{p.text}</span>
+    <section className="space-y-5">
+      <ol className="rounded-3xl border border-border/70 bg-card p-4">
+        {HOW_STEPS.map((step, i) => (
+          <li key={step.text} className="relative flex gap-3 pb-4 last:pb-0">
+            {i < HOW_STEPS.length - 1 ? (
+              <span className="absolute left-[15px] top-8 h-[calc(100%-2rem)] w-0.5 bg-primary/20" aria-hidden />
+            ) : null}
+            <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <step.icon className="h-4 w-4" aria-hidden />
+            </span>
+            <span className="min-w-0 pt-1 text-sm">
+              <span className="font-semibold text-muted-foreground">Step {i + 1}. </span>
+              {step.text}
+            </span>
           </li>
         ))}
-      </ul>
-
-      <div className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">How it works</h3>
-        <ol className="space-y-2">
-          {HOW_STEPS.map((step, i) => (
-            <li key={step.text} className="flex items-center gap-3 rounded-2xl bg-muted/40 p-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">{i + 1}</span>
-              <step.icon className="h-5 w-5 shrink-0 text-primary" />
-              <span className="text-sm sm:text-base">{step.text}</span>
-            </li>
-          ))}
-        </ol>
-      </div>
+      </ol>
 
       <SupportPlanExample fundingAmount={item.amount} rate={ownRate} />
     </section>
