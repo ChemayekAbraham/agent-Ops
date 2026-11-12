@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
+import { kampalaLabel } from '@/lib/kampalaDays';
 import {
   STATUS_LABEL,
   describeSpecialAdvanceError,
@@ -93,9 +94,12 @@ export function SpecialAdvancesPanel() {
                 <thead className="bg-muted/40 text-[11px] text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Reference</th>
-                    <th className="px-3 py-2 text-left font-medium">Borrower</th>
+                    <th className="px-3 py-2 text-left font-medium">Recipient</th>
                     <th className="px-3 py-2 text-right font-medium">Principal</th>
                     <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Total repayable</th>
+                    <th className="px-3 py-2 text-right font-medium">Outstanding</th>
+                    <th className="px-3 py-2 text-left font-medium">Date Issued</th>
+                    <th className="px-3 py-2 text-left font-medium">Period</th>
                     <th className="px-3 py-2 text-left font-medium">Status</th>
                     <th className="px-3 py-2 text-right font-medium">Actions</th>
                   </tr>
@@ -103,21 +107,21 @@ export function SpecialAdvancesPanel() {
                 <tbody className="divide-y divide-border/50">
                   {list.isLoading && (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={9} className="py-8 text-center text-muted-foreground">
                         Loading...
                       </td>
                     </tr>
                   )}
                   {list.isError && (
                     <tr>
-                      <td colSpan={6} role="alert" className="py-8 text-center text-destructive">
+                      <td colSpan={9} role="alert" className="py-8 text-center text-destructive">
                         {describeSpecialAdvanceError(list.error)}
                       </td>
                     </tr>
                   )}
                   {!list.isLoading && !list.isError && items.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={9} className="py-8 text-center text-muted-foreground">
                         No Special Advances recorded{status ? ' with this status' : ''}.
                       </td>
                     </tr>
@@ -142,6 +146,18 @@ export function SpecialAdvancesPanel() {
                       <td className="px-3 py-2 text-right tabular-nums">{formatUGX(a.principal)}</td>
                       <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">
                         {formatUGX(a.total_repayable)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {a.paid_out ? formatUGX(a.outstanding ?? 0) : '—'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {a.payout_date ? kampalaLabel(a.payout_date) : '—'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {a.term_days} days
+                        <span className="block text-[10px] text-muted-foreground">
+                          {a.instalments} {a.frequency} instalments
+                        </span>
                       </td>
                       <td className="px-3 py-2">
                         <Badge
