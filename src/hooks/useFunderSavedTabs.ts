@@ -31,6 +31,12 @@ export function useFunderSavedTabs(enabled = true, requestedTab?: FunderSavedTab
     counts,
     total: funderSavedTotal(counts),
     initialTab: defaultFunderSavedTab(counts, requestedTab),
+    /**
+     * True once the counts behind `initialTab` are loaded. Fix the pill once, when this turns
+     * true: initialTab follows the counts, so cancelling the last co-support would otherwise
+     * move the dialog to another pill.
+     */
+    ready: !!requestedTab || (!invites.isLoading && !booked.query.isLoading),
     coSupportRows: coSupportTabRows(invites.data, now),
     coSupportLoading: invites.isLoading,
     coSupportError: invites.error,

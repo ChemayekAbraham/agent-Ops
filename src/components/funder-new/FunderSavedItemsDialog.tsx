@@ -22,6 +22,11 @@ export function FunderSavedItemsDialog({ open, onOpenChange, initialTab: request
   // The last pill is remembered while the dialog stays open.
   const [picked, setPicked] = useState<FunderSavedTab | null>(null);
   useEffect(() => { if (!open) setPicked(null); }, [open]);
+  // Fix the opening pill once its counts are in, so it does not move when a count changes
+  // (e.g. cancelling the last co-support while looking at the Co-support pill).
+  useEffect(() => {
+    if (open && picked === null && tabs.ready) setPicked(tabs.initialTab);
+  }, [open, picked, tabs.ready, tabs.initialTab]);
   const tab: FunderSavedTab = picked ?? tabs.initialTab;
   // Agent Care: partner amounts use pay(rent) (= rent while the switch is off).
   const { pay: partnerPay } = useSelfSupportFeePolicy();
