@@ -215,7 +215,7 @@ export default function AgentWelileSchools() {
               <>
                 {/* The agent's two jobs for a student: put them on the system, or ask Welile to pay their fees. */}
                 <div className="grid grid-cols-2 gap-1 rounded-full bg-muted p-1" role="tablist" aria-label="What do you want to do?">
-                  {([['register', 'Register a student'], ['fees', 'Request school fees']] as const).map(([k, label]) => (
+                  {([['register', 'Register student'], ['fees', 'Request fees']] as const).map(([k, label]) => (
                     <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)}
                       className={cn('min-h-[44px] rounded-full px-2 text-sm font-semibold transition-colors', mode === k ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground')}>
                       {label}

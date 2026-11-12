@@ -324,7 +324,7 @@ function AgentHome({ userId }: { userId: string }) {
 
   const showSchools = () => { setTab('schools'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const pick = (s: SchoolRow) => { writeLockedSchool(s); setSchool(s); setTab('today'); toast.success(`You're at ${s.name}`); };
-  const open = (mode: 'gate' | 'register' | 'partner') => {
+  const open = (mode: 'gate' | 'register' | 'fees' | 'partner') => {
     if (!school) { toast.message('Choose the school you are at first'); showSchools(); return; }
     navigate(`${WORKSPACE}?mode=${mode}`);
   };
