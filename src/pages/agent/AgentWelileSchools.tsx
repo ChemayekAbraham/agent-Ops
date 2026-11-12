@@ -32,6 +32,16 @@ import {
 
 const db = supabase as any;
 
+/** One titled group of form fields, as a rounded card like a phone settings section. */
+function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-2">
+      <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+      <div className="space-y-3 rounded-3xl border border-border/70 bg-card p-4">{children}</div>
+    </section>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1"><Label className="text-sm">{label}</Label>{children}</div>;
 }
@@ -396,14 +406,15 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
         </>
       ) : (
       <>
-      <div className="flex gap-3 p-4 bg-primary/5 border-l-4 border-primary rounded-lg">
-        <Bot className="h-6 w-6 text-primary shrink-0" />
-        <div><p className="text-sm font-semibold">🎉 {school.name} is locked!</p><p className="text-sm text-muted-foreground">Register each student with their parent or guardian's details.</p></div>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold leading-tight">Register a student</h2>
+          <p className="text-xs text-muted-foreground">With their parent or guardian's details.</p>
+        </div>
+        <Badge variant="secondary" className="shrink-0 rounded-full">{count} this session</Badge>
       </div>
 
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center justify-between"><h2 className="font-semibold">Register a student</h2><Badge variant="secondary">{count} this session</Badge></div>
-
+      <FormSection title={group === 'asset' ? 'Facility' : 'Student'}>
         {group === 'asset' ? (
           <>
             <Field label="Facility type"><Chips options={FACILITY_TYPES} value={f.facility_type ?? ''} onChange={(v) => setF((d) => ({ ...d, facility_type: v }))} /></Field>
@@ -412,23 +423,21 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
           </>
         ) : (
           <>
-            <Field label="Full name"><Input value={f.full_name ?? ''} onChange={set('full_name')} /></Field>
             {group === 'pupil' && (
               <div className="space-y-2">
-                <Label className="text-sm">Student photo</Label>
                 {photo ? (
-                  <div className="flex items-center gap-3 rounded-xl border border-border p-3">
-                    <img src={photo.url} alt="Student photo" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                  <div className="flex items-center gap-3 rounded-2xl bg-muted/50 p-3">
+                    <img src={photo.url} alt="Student photo" className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-1.5 text-sm font-semibold"><CheckCircle2 className="h-4 w-4 text-emerald-600" />Photo taken</p>
-                      <p className="text-xs text-muted-foreground">Saved with this student when you save.</p>
+                      <p className="text-xs text-muted-foreground">Saved with this student.</p>
                     </div>
-                    <Button variant="outline" size="sm" className="min-h-[40px]" onClick={() => setCameraOpen(true)}>Retake</Button>
+                    <Button variant="outline" size="sm" className="min-h-[40px] rounded-full" onClick={() => setCameraOpen(true)}>Retake</Button>
                   </div>
                 ) : (
                   <button type="button" onClick={() => setCameraOpen(true)}
-                    className="flex min-h-[96px] w-full items-center gap-4 rounded-xl border-2 border-dashed border-primary/50 bg-primary/5 p-4 text-left hover:bg-primary/10">
-                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Camera className="h-6 w-6" /></span>
+                    className="flex min-h-[80px] w-full items-center gap-3 rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 p-3 text-left hover:bg-primary/10">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Camera className="h-5 w-5" /></span>
                     <span>
                       <span className="block font-semibold">Take the student's photo</span>
                       <span className="block text-sm text-muted-foreground">Fit their face inside the oval on screen.</span>
@@ -441,6 +450,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
                   onCapture={(blob) => setPhoto((old) => { if (old) URL.revokeObjectURL(old.url); return { blob, url: URL.createObjectURL(blob) }; })} />
               </div>
             )}
+            <Field label="Full name"><Input value={f.full_name ?? ''} onChange={set('full_name')} /></Field>
             <Field label="Gender"><Chips options={['Female', 'Male']} value={f.gender ?? ''} onChange={(v) => setF((d) => ({ ...d, gender: v }))} /></Field>
             {group === 'pupil' && (
               <div className="grid grid-cols-2 gap-2">
@@ -458,6 +468,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
                 )}
               </div>
             )}
+            {group === 'pupil' && !tertiary && <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>}
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date of birth"><Input type="date" value={f.date_of_birth ?? ''} onChange={set('date_of_birth')} /></Field>
               <Field label="Age"><Input inputMode="numeric" value={(f.age as any) ?? ''} onChange={set('age')} /></Field>
@@ -471,22 +482,6 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
             </div>
             {(group !== 'pupil' || tertiary) && <Field label="Email (optional)"><Input type="email" value={f.email ?? ''} onChange={set('email')} /></Field>}
             <Field label="National ID / School ID / Admission No."><Input value={f.id_number ?? ''} onChange={set('id_number')} /></Field>
-
-            {group === 'pupil' && (
-              <>
-                {!tertiary && <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>}
-                <Field label="Parent / guardian full name"><Input value={f.guardian_name ?? ''} onChange={set('guardian_name')} /></Field>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Guardian phone"><Input inputMode="tel" value={f.guardian_phone ?? ''} onChange={set('guardian_phone')} /></Field>
-                  <Field label="Guardian WhatsApp"><Input inputMode="tel" value={f.guardian_whatsapp ?? ''} onChange={set('guardian_whatsapp')} /></Field>
-                  <Field label="Parent occupation"><Input value={f.guardian_occupation ?? ''} onChange={set('guardian_occupation')} /></Field>
-                  <div className="col-span-2">
-                    <HomeVillagePicker onPick={(v) => setF((d) => ({ ...d, residence_village: v }))} />
-                  </div>
-                </div>
-                <Field label="Needs fee / rent support?"><Chips options={['Yes', 'No']} value={f.fee_support_need == null ? '' : f.fee_support_need ? 'Yes' : 'No'} onChange={(v) => setF((d) => ({ ...d, fee_support_need: v === 'Yes' }))} /></Field>
-              </>
-            )}
             {(group === 'teacher' || group === 'staff') && (
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Subject / department / role"><Input value={f.subject_department ?? ''} onChange={set('subject_department')} /></Field>
@@ -496,36 +491,63 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
               </div>
             )}
             {group === 'parent' && <Field label="Occupation"><Input value={f.guardian_occupation ?? ''} onChange={set('guardian_occupation')} /></Field>}
-
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Has a smartphone?</Label>
-              <div className="grid grid-cols-1 gap-2">
-                <button type="button" onClick={() => setHasPhone(true)} className={cn('min-h-[52px] rounded-xl border px-3 text-sm font-medium flex items-center gap-2', hasPhone === true ? 'bg-primary text-primary-foreground border-primary' : 'border-border')}>
-                  <Smartphone className="h-4 w-4" />Yes — has a smartphone
-                </button>
-                <button type="button" onClick={() => setHasPhone(false)} className={cn('min-h-[52px] rounded-xl border px-3 text-sm font-medium flex items-center gap-2', hasPhone === false ? 'bg-primary text-primary-foreground border-primary' : 'border-border')}>
-                  <Gift className="h-4 w-4" />No — needs a free Welile smartphone
-                </button>
-              </div>
-            </div>
-            {hasPhone === false && (
-              <Card className="p-3 bg-primary/5 border-primary/40 space-y-2">
-                <p className="text-sm font-semibold">Welile will provide a FREE Smartphone so they can access Welile App.</p>
-                <Field label="Basic phone or guardian / head teacher number"><Input inputMode="tel" value={f.smartphone_contact_phone ?? ''} onChange={set('smartphone_contact_phone')} /></Field>
-                <Field label="Preferred handover point"><Input placeholder={school.gate_name ?? 'Main Gate'} value={f.smartphone_handover_point ?? ''} onChange={set('smartphone_handover_point')} /></Field>
-                <Field label="ID / school verification"><Chips options={['Verified', 'Not verified']} value={f.smartphone_verification_status ?? ''} onChange={(v) => setF((d) => ({ ...d, smartphone_verification_status: v }))} /></Field>
-              </Card>
-            )}
           </>
         )}
-        {group !== 'asset' && (
-          <button type="button" aria-pressed={logEntry} onClick={() => setLogEntry((v) => !v)}
-            className={cn('w-full min-h-[52px] rounded-xl border px-3 text-sm font-medium flex items-center gap-2', logEntry ? 'bg-primary/10 border-primary text-primary' : 'border-border')}>
-            <LogIn className="h-4 w-4 shrink-0" />🟢 Also log as ENTERED (IN) at gate right now
+      </FormSection>
+
+      {group === 'pupil' && (
+        <FormSection title="Parent or guardian">
+          <Field label="Full name"><Input value={f.guardian_name ?? ''} onChange={set('guardian_name')} /></Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Phone"><Input inputMode="tel" value={f.guardian_phone ?? ''} onChange={set('guardian_phone')} /></Field>
+            <Field label="WhatsApp"><Input inputMode="tel" value={f.guardian_whatsapp ?? ''} onChange={set('guardian_whatsapp')} /></Field>
+          </div>
+          <Field label="Occupation"><Input value={f.guardian_occupation ?? ''} onChange={set('guardian_occupation')} /></Field>
+          <HomeVillagePicker onPick={(v) => setF((d) => ({ ...d, residence_village: v }))} />
+          <Field label="Needs fee / rent support?"><Chips options={['Yes', 'No']} value={f.fee_support_need == null ? '' : f.fee_support_need ? 'Yes' : 'No'} onChange={(v) => setF((d) => ({ ...d, fee_support_need: v === 'Yes' }))} /></Field>
+        </FormSection>
+      )}
+
+      {group !== 'asset' && (
+        <FormSection title="Phone and gate">
+          <div className="space-y-2">
+            <Label className="text-sm">Has a smartphone?</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setHasPhone(true)} className={cn('flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 text-center text-sm font-medium', hasPhone === true ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background')}>
+                <Smartphone className="h-5 w-5" />Yes, has one
+              </button>
+              <button type="button" onClick={() => setHasPhone(false)} className={cn('flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 text-center text-sm font-medium', hasPhone === false ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background')}>
+                <Gift className="h-5 w-5" />No, needs a free one
+              </button>
+            </div>
+          </div>
+          {hasPhone === false && (
+            <div className="space-y-2 rounded-2xl bg-primary/5 p-3">
+              <p className="text-sm font-semibold">Welile will provide a FREE Smartphone so they can access Welile App.</p>
+              <Field label="Basic phone or guardian / head teacher number"><Input inputMode="tel" value={f.smartphone_contact_phone ?? ''} onChange={set('smartphone_contact_phone')} /></Field>
+              <Field label="Preferred handover point"><Input placeholder={school.gate_name ?? 'Main Gate'} value={f.smartphone_handover_point ?? ''} onChange={set('smartphone_handover_point')} /></Field>
+              <Field label="ID / school verification"><Chips options={['Verified', 'Not verified']} value={f.smartphone_verification_status ?? ''} onChange={(v) => setF((d) => ({ ...d, smartphone_verification_status: v }))} /></Field>
+            </div>
+          )}
+          {/* A switch row, like a phone's settings list. */}
+          <button type="button" role="switch" aria-checked={logEntry} onClick={() => setLogEntry((v) => !v)}
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-2xl bg-muted/50 px-3 text-left text-sm">
+            <LogIn className="h-4 w-4 shrink-0 text-primary" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Log as entered at the gate now</span>
+              <span className="block text-xs text-muted-foreground">Records an IN at {school.gate_name || 'Main Gate'}</span>
+            </span>
+            <span className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors', logEntry ? 'bg-primary' : 'bg-muted-foreground/30')} aria-hidden>
+              <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-background shadow transition-all', logEntry ? 'left-[22px]' : 'left-0.5')} />
+            </span>
           </button>
-        )}
-        <Button className="w-full min-h-[52px] text-base" onClick={submit} disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save student</Button>
-      </Card>
+        </FormSection>
+      )}
+
+      {/* Save stays on screen while the agent scrolls the form. */}
+      <div className="sticky bottom-0 z-10 -mx-3 border-t border-border/60 bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <Button className="min-h-[52px] w-full rounded-2xl text-base" onClick={submit} disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save student</Button>
+      </div>
       </>
       )}
     </div>
