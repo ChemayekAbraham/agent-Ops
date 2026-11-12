@@ -56,8 +56,9 @@ export function FundersMoneyLines({ board }: { board: boolean }) {
     <section
       aria-label="Funder money and incomplete requests"
       data-funders-money-lines
-      // The wall view: every line (and its skeleton) at TV size, without touching Op 5's component.
-      className={board ? 'space-y-2 [&_[data-flow-line]]:text-xl [&_[data-flow-line]]:leading-snug' : 'space-y-1'}
+      // The wall view: every line at TV size, without touching Op 5's component. The desk kit pins
+      // `.desk-root .text-sm` with !important, so this is important too and one element more specific.
+      className={board ? 'space-y-2 [&_span[data-flow-line]]:!text-xl [&_span[data-flow-line]]:!leading-snug' : 'space-y-1'}
     >
       <IncompleteLine board={board} />
       <MoneyFlowLines board={board} />

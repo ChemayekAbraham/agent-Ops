@@ -89,7 +89,7 @@ describe('Funders Dashboard money lines', () => {
     answers(Promise.resolve({ data: FLOW, error: null }), Promise.resolve({ data: QUEUE, error: null }));
     const { container } = wrap(<FundersMoneyLines board />);
     await screen.findByText('Released to agents: 12 · UGX 8,400,000');
-    expect(container.querySelector('[data-funders-money-lines]')?.className).toContain('[&_[data-flow-line]]:text-xl');
+    expect(container.querySelector('[data-funders-money-lines]')?.className).toContain('[&_span[data-flow-line]]:!text-xl');
     expect(screen.getByText('Incomplete requests: 4').className).toContain('text-xl');
   });
 
