@@ -195,6 +195,8 @@ export interface SpecialAdvanceTopup {
   id: string; reference: string; advance_id: string; topup_date: string; principal: number; access_fee: number;
   total_repayable: number; term_days: number; reason: string; payout_method: 'wallet' | 'mobile_money' | 'bank_transfer';
   payout_reference: string | null; payout_proof_path: string | null; ledger_group_id: string; recorded_by: string; recorded_at: string;
+  /** Set when a posted correction reversed this top-up: it no longer counts (migration 20261119140000). */
+  reversed_by_correction?: string | null;
 }
 export interface SpecialAdvanceTopupQuote {
   term_days: number; end_date: string; outstanding_now: number; outstanding_after: number; payout_method: 'wallet' | null;
@@ -323,11 +325,12 @@ export function buildWriteOffRequest(input: {
 /* ── Corrections (Phase B, CFO decisions D11, 2026-11-02; migration 20261102210000) ──────────────────
  * One step (CFO decision 2026-11-03): the CFO records and posts a correction (reason + proof file) in a single
  * authorised action. It posts opposite legs on the original categories; nothing posted is ever edited. */
-export type CorrectionKind = 'repayment_reversal' | 'payout_reversal';
+export type CorrectionKind = 'repayment_reversal' | 'payout_reversal' | 'topup_reversal';
 
 export const CORRECTION_KIND_LABEL: Record<CorrectionKind, string> = {
   repayment_reversal: 'Reverse a repayment',
   payout_reversal: 'Reverse an external payout',
+  topup_reversal: 'Reverse a top-up',
 };
 export const CORRECTION_REASON_MIN = 20;
 export const CORRECTION_REASON_MAX = 1000;
@@ -340,6 +343,9 @@ export interface SpecialAdvanceCorrection {
   kind: CorrectionKind;
   repayment_id: string | null;
   repayment: { id: string; amount: number; received_date: string; method: string; reference: string } | null;
+  /** topup_reversal only (migration 20261119140000). */
+  topup_id?: string | null;
+  topup?: { id: string; reference: string; principal: number; access_fee: number; total_repayable: number; payout_method: string; topup_date: string } | null;
   amount: number;
   reason: string;
   proof_path: string;
@@ -354,6 +360,7 @@ export interface SpecialAdvanceCorrection {
 export function buildCorrectionRequest(input: {
   kind: CorrectionKind;
   repaymentId?: string | null;
+  topupId?: string | null;
   reason: string;
   proofPath: string;
   idempotencyKey: string;
@@ -361,6 +368,7 @@ export function buildCorrectionRequest(input: {
   return {
     kind: input.kind,
     ...(input.kind === 'repayment_reversal' ? { repayment_id: input.repaymentId } : {}),
+    ...(input.kind === 'topup_reversal' ? { topup_id: input.topupId } : {}),
     reason: input.reason.trim(),
     proof_path: input.proofPath,
     idempotency_key: input.idempotencyKey,
@@ -518,7 +526,14 @@ export function describeSpecialAdvanceError(err: unknown): string {
   }
   if (msg.includes('SPECIAL_ADVANCE_NOT_TOPUPABLE')) return 'Only a paid-out advance with its schedule running can be topped up.';
   if (msg.includes('TOPUP_REFERENCE_ALREADY_RECORDED')) return 'A payout with this transaction reference is already recorded.';
-  if (msg.includes('PAYOUT_REVERSAL_HAS_TOPUP')) return 'This advance has a top-up, so its payout cannot be reversed here.';
+  if (msg.includes('PAYOUT_REVERSAL_HAS_TOPUP')) return 'This advance has a top-up: reverse the top-up first, then the payout.';
+  if (msg.includes('TOPUP_NOT_FOUND')) return 'That top-up is not on this advance.';
+  if (msg.includes('TOPUP_ALREADY_REVERSED')) return 'This top-up has already been reversed.';
+  if (msg.includes('TOPUP_HAS_REPAYMENTS')) return 'A repayment has been applied to this top-up. Reverse that repayment first, then the top-up.';
+  if (msg.includes('TOPUP_FUNDS_NOT_IN_WALLET')) {
+    const d = (detail as { available?: number; needed?: number } | null) ?? {};
+    return `The borrower's wallet no longer holds the top-up (available UGX ${(d.available ?? 0).toLocaleString()}, needed UGX ${(d.needed ?? 0).toLocaleString()}). Nothing was taken.`;
+  }
   if (msg.includes('SPECIAL_ADVANCE_NOT_FOUND')) return 'Special Advance not found.';
   return msg || 'The Special Advance request could not be completed.';
 }

@@ -140,6 +140,8 @@ describe('SpecialAdvanceTopUpDialog', () => {
     expect(describeSpecialAdvanceError({ message: 'STALE_VERSION' })).toMatch(/changed by someone else/);
     expect(describeSpecialAdvanceError({ message: 'QUOTE_CHANGED', details: '{"total_repayable": 367335}' })).toMatch(/UGX 367,335/);
     expect(describeSpecialAdvanceError({ message: 'NOT_AUTHORIZED' })).toMatch(/CFO/);
+    expect(describeSpecialAdvanceError({ message: 'TOPUP_FUNDS_NOT_IN_WALLET', details: '{"available": 50000, "needed": 200000}' })).toMatch(/available UGX 50,000, needed UGX 200,000/);
+    expect(describeSpecialAdvanceError({ message: 'TOPUP_HAS_REPAYMENTS' })).toMatch(/Reverse that repayment first/);
   });
 });
 
@@ -157,6 +159,30 @@ describe('Special Advance detail: Add top-up action and top-ups list', () => {
     expect(screen.getByText('SAT-000004')).toBeInTheDocument();
     expect(screen.getByText('Seasonal stock top-up approved')).toBeInTheDocument();
     expect(screen.getByText('Total repayable (incl. top-ups)').nextSibling).toHaveTextContent('1,307,334');
+  });
+
+  it('a live top-up can be reversed from its row (reason + proof); a reversed one shows as reversed', async () => {
+    // the correction dialog opens over the sheet (nested modal layers)
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const topup = { id: 't1', reference: 'SAT-000004', advance_id: ADV_ID, topup_date: '2026-11-12', principal: 300000, access_fee: 67334,
+      total_repayable: 367334, term_days: 80, reason: 'Seasonal stock top-up approved', payout_method: 'wallet', payout_reference: null,
+      payout_proof_path: null, ledger_group_id: 'g1', recorded_by: 'c', recorded_at: '2026-11-12T08:00:00Z', reversed_by_correction: null };
+    const stmt = advance({ position: { ...advance().position, total_repayable: 1307334 }, topups: [topup, { ...topup, id: 't0', reference: 'SAT-000003', reversed_by_correction: 'c0' }] });
+    mocks.rpc.mockImplementation((fn: string) => Promise.resolve(fn === 'special_advance_statement' ? { data: stmt, error: null }
+      : fn === 'special_advance_record_correction' ? { data: { reference: 'SAC-000010' }, error: null } : { data: null, error: null }));
+    renderUi(<SpecialAdvanceDetailSheet advanceId={ADV_ID} issuanceEnabled onOpenChange={() => {}} />);
+    expect(await screen.findByText('Reversed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reverse top-up SAT-000003' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Reverse top-up SAT-000004' }));
+    expect(await screen.findByText(/taken back from the borrower's wallet/)).toBeInTheDocument();
+    await user.type(screen.getByRole('textbox'), 'Top-up entered against the wrong advance by mistake');
+    const dialog = screen.getByRole('dialog', { name: 'Reverse a top-up' });
+    await user.upload(dialog.querySelector('input[type="file"]') as HTMLInputElement, new File(['%PDF'], 'proof.pdf', { type: 'application/pdf' }));
+    await user.click(screen.getByRole('button', { name: /Post correction/ }));
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('special_advance_record_correction', expect.anything()));
+    const [, args] = mocks.rpc.mock.calls.find(([fn]) => fn === 'special_advance_record_correction')!;
+    expect(args.p_request).toMatchObject({ kind: 'topup_reversal', topup_id: 't1', reason: 'Top-up entered against the wrong advance by mistake' });
+    expect(args.p_request).not.toHaveProperty('repayment_id');
   });
 
   it('no Add top-up before payout or after settlement', async () => {

@@ -77,6 +77,8 @@ export function SpecialAdvanceDetailSheet({
     repaymentId?: string | null;
     amount?: number;
     reference?: string;
+    topupId?: string;
+    topupWallet?: boolean;
   } | null>(null);
 
   // Dialog state for write-off
@@ -125,7 +127,7 @@ export function SpecialAdvanceDetailSheet({
               <Item label="Term" value={`${a.term_days} days, ${a.frequency} repayments`} />
               <Item label="Principal" value={formatUGX(a.principal)} />
               <Item label="Access fee" value={formatUGX(combinedAccessFee(a))} />
-              {(a.topups?.length ?? 0) > 0 ? (
+              {a.topups?.some((t) => !t.reversed_by_correction) ? (
                 <Item label="Total repayable (incl. top-ups)" value={formatUGX(a.position.total_repayable)} />
               ) : (
                 <Item label="Total repayable" value={formatUGX(a.total_repayable)} />
@@ -173,11 +175,25 @@ export function SpecialAdvanceDetailSheet({
                   <dt className="text-[11px] text-muted-foreground">Top-ups (included in Outstanding)</dt>
                   {a.topups!.map((t) => (
                     <dd key={t.id} className="flex flex-wrap items-center justify-between gap-2 font-medium text-foreground">
-                      <span>
+                      <span className={t.reversed_by_correction ? 'text-muted-foreground line-through' : undefined}>
                         <span className="font-mono">{t.reference}</span> · {kampalaLabel(t.topup_date)} · {formatUGX(t.principal)} + fee {formatUGX(t.access_fee)}
                         {' · '}{t.payout_method === 'wallet' ? 'credited to wallet' : `${t.payout_method.replace('_', ' ')} (${t.payout_reference})`}
                       </span>
                       {t.payout_proof_path && <SpecialAdvanceProofLink path={t.payout_proof_path} label="View proof" />}
+                      {t.reversed_by_correction ? (
+                        <span className="text-[11px] font-normal text-muted-foreground">Reversed</span>
+                      ) : a.status === 'disbursed' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10"
+                          aria-label={`Reverse top-up ${t.reference}`}
+                          onClick={() => setCorrectionTarget({ kind: 'topup_reversal', topupId: t.id, amount: t.principal, reference: t.reference,
+                            topupWallet: t.payout_method === 'wallet' })}
+                        >
+                          <RotateCcw className="mr-1 h-3 w-3" /> Reverse
+                        </Button>
+                      )}
                       <span className="w-full text-[11px] font-normal text-muted-foreground">{t.reason}</span>
                     </dd>
                   ))}
@@ -508,6 +524,10 @@ export function SpecialAdvanceDetailSheet({
           repaymentId={correctionTarget.repaymentId}
           repaymentAmount={correctionTarget.amount}
           repaymentReference={correctionTarget.reference}
+          topupId={correctionTarget.topupId}
+          topupReference={correctionTarget.reference}
+          topupAmount={correctionTarget.amount}
+          topupWallet={correctionTarget.topupWallet}
           onSuccess={() => st.refetch()}
         />
       )}
