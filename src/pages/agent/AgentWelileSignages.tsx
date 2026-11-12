@@ -894,7 +894,7 @@ export default function AgentWelileSignages() {
                       />
                     </div>
                     <div>
-                      <Label className="text-xs font-medium">Phone Number (MoMo Payouts) *</Label>
+                      <Label className="text-xs font-medium">Shop owner's registered phone number *</Label>
                       <Input
                         placeholder="07XX XXX XXX or 256..."
                         value={ownerPhone}
@@ -936,6 +936,7 @@ export default function AgentWelileSignages() {
                       <span className="text-xs font-bold text-foreground">Monthly Rent Payout (UGX 10,000/mo)</span>
                       <Badge variant="outline" className="text-[10px] bg-background">Owner Direct</Badge>
                     </div>
+                    <p className="text-xs text-muted-foreground">No owner payout in the first 30 days after submission.</p>
                     <div className="grid grid-cols-3 gap-1.5">
                       {(['momo_mtn', 'momo_airtel', 'bank'] as const).map((method) => (
                         <button

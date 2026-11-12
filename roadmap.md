@@ -28,11 +28,10 @@
 - [ ] Verify real board totals with an enabled display link; no valid display token was supplied. Real invalid-link message verified.
 
 # Signages CFO disbursement
-- [ ] Capture registered owner phone; enforce no owner payout before submission + 30 days and separate CFO activation from payments.
-- [ ] Test owner payout timing, approval-only activation and unchanged agent rewards.
-- [ ] Change verified installations to Awaiting CFO, with activation only after CFO disbursement.
-- [ ] Connect Pay Agent, Pay Owner and Batch Pay Agents to authorized, duplicate-safe payments.
-- [ ] Test installation/payment rules and verify available preview signals.
+- [x] Capture registered owner phone; enforce no owner payout before submission + 30 days and separate CFO activation from payments.
+- [x] Test owner payout timing, approval-only activation and unchanged agent rewards; 28 tests and all guards pass, build OK.
+- [x] Preserve authorized, duplicate-safe agent and monthly owner payments; no payout triggered during this work.
+- [ ] Verify real CFO activation and payout through a signed-in screen; external unmanaged authentication prevents authenticated browser checks.
 
 # Signages and dashboard loading
 - [x] Fetch photo-free cached Signages queues from the restored/cached session; load evidence only for the selected application.
