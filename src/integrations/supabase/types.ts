@@ -23491,7 +23491,10 @@ export type Database = {
       funder_release_sms: {
         Row: {
           attempts: number
+          audience: string
+          channel: string
           created_at: string
+          fallback_message: string | null
           id: string
           last_error: string | null
           message: string
@@ -23499,10 +23502,14 @@ export type Database = {
           rent_request_id: string
           sent_at: string | null
           status: string
+          template_params: Json | null
         }
         Insert: {
           attempts?: number
+          audience?: string
+          channel?: string
           created_at?: string
+          fallback_message?: string | null
           id?: string
           last_error?: string | null
           message: string
@@ -23510,10 +23517,14 @@ export type Database = {
           rent_request_id: string
           sent_at?: string | null
           status?: string
+          template_params?: Json | null
         }
         Update: {
           attempts?: number
+          audience?: string
+          channel?: string
           created_at?: string
+          fallback_message?: string | null
           id?: string
           last_error?: string | null
           message?: string
@@ -23521,6 +23532,7 @@ export type Database = {
           rent_request_id?: string
           sent_at?: string | null
           status?: string
+          template_params?: Json | null
         }
         Relationships: []
       }
@@ -78518,6 +78530,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      _funder_release_mask_phone: { Args: { p_phone: string }; Returns: string }
       _funder_release_notify_plan: {
         Args: {
           p_agent_id: string
