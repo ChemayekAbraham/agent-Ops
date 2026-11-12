@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Loader2, AlertCircle, RotateCcw, AlertTriangle, PlusCircle } from 'lucide-react';
+import { Loader2, AlertCircle, RotateCcw, AlertTriangle, PlusCircle, Pencil } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -18,10 +19,14 @@ import {
   combinedAccessFee,
   describeSpecialAdvanceError,
   newIdempotencyKey,
+  canEditRecordedPrincipal,
+  isRecordedAdvance,
   type SpecialAdvanceStatement,
   type CorrectionKind,
 } from '@/lib/specialAdvances';
 import {
+  useEditSpecialAdvancePrincipal,
+  useEditSpecialAdvanceName,
   useDisburseSpecialAdvance,
   useRecordSpecialAdvanceRepayment,
   useSpecialAdvanceDecision,
@@ -49,6 +54,9 @@ const EVENT_TEXT: Record<string, string> = {
   provision_posted: 'Provision posted',
   recovery_recorded: 'Recovery recorded',
   topup_posted: 'Top-up added and paid out',
+  note_added: 'Note added',
+  principal_edited: 'Principal edited',
+  name_edited: 'Name edited',
 };
 
 const INSTALMENT_TEXT: Record<string, string> = {
@@ -59,7 +67,7 @@ const INSTALMENT_TEXT: Record<string, string> = {
   due: 'Due',
 };
 
-export type SpecialAdvanceSheetAction = 'repay' | 'topup' | 'reverse' | null;
+export type SpecialAdvanceSheetAction = 'edit' | 'repay' | 'topup' | 'reverse' | null;
 
 export function SpecialAdvanceDetailSheet({
   advanceId,
@@ -90,6 +98,45 @@ export function SpecialAdvanceDetailSheet({
   const [writeOffOpen, setWriteOffOpen] = useState(false);
   // Dialog state for a top-up (CFO, 12 Nov 2026)
   const [topUpOpen, setTopUpOpen] = useState(false);
+  // Edit = principal only, for a recorded already-issued advance with no repayment or top-up
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [principalText, setPrincipalText] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const editPrincipal = useEditSpecialAdvancePrincipal();
+  const editName = useEditSpecialAdvanceName();
+  const [nameText, setNameText] = useState('');
+  const [dateText, setDateText] = useState('');
+  const [termText, setTermText] = useState('');
+  const principalEditable = !!a && canEditRecordedPrincipal(a);
+  const cleanName = nameText.trim().replace(/\s+/g, ' ');
+  const nameChanged = !!a && cleanName.length >= 2 && cleanName !== (a.borrower_name ?? '');
+  const newPrincipal = Number(principalText.replace(/[^0-9]/g, '')) || 0;
+  const reasonLen = editReason.trim().length;
+  const newTerm = Number(termText.replace(/[^0-9]/g, '')) || 0;
+  const principalChanged = !!a && principalEditable && newPrincipal > 0 && newTerm > 0 && !!dateText
+    && (newPrincipal !== a.principal || newTerm !== a.term_days || dateText !== (a.payout_date ?? ''));
+  const editReady = (principalChanged || nameChanged) && reasonLen >= 5;
+  const editBusy = editPrincipal.isPending || editName.isPending;
+  const savePrincipal = async () => {
+    if (!advanceId || !a) return;
+    try {
+      let version = a.updated_at;
+      if (principalChanged) {
+        const res = await editPrincipal.mutateAsync({ advanceId, expectedUpdatedAt: version, principal: newPrincipal, payoutDate: dateText, termDays: newTerm, reason: editReason.trim() });
+        version = res.updated_at;
+        toast.success(`Advance updated. New total repayable ${formatUGX(res.total_repayable)}`);
+      }
+      if (nameChanged) {
+        await editName.mutateAsync({ advanceId, expectedUpdatedAt: version, name: cleanName, reason: editReason.trim() });
+        toast.success('Name updated');
+      }
+      setNoteOpen(false);
+      setPrincipalText(''); setEditReason(''); setNameText(''); setDateText(''); setTermText('');
+    } catch (e) {
+      toast.error(describeSpecialAdvanceError(e));
+    }
+  };
+
 
   // Active repayments (not reversed)
   const standingRepayments = a?.repayments.filter((r) => !r.reversed_by_correction) ?? [];
@@ -104,6 +151,11 @@ export function SpecialAdvanceDetailSheet({
     const key = `${advanceId}:${initialAction}`;
     if (handledAction.current === key) return;
     handledAction.current = key;
+    if (initialAction === 'edit') {
+      if (isRecordedAdvance(a)) { setPrincipalText(String(a.principal)); setDateText(a.payout_date ?? ''); setTermText(String(a.term_days)); setNameText(a.borrower_name ?? ''); setNoteOpen(true); }
+      else toast.error('Only an already-issued advance that was recorded can be edited.');
+      return;
+    }
     if (a.status !== 'disbursed') {
       if (initialAction !== 'repay') toast.error('Only a paid-out advance can be topped up or reversed.');
       return;
@@ -541,6 +593,49 @@ export function SpecialAdvanceDetailSheet({
           </div>
         )}
       </SheetContent>
+
+      <Dialog open={noteOpen} onOpenChange={(o) => { setNoteOpen(o); if (!o) { setPrincipalText(''); setEditReason(''); setNameText(''); setDateText(''); setTermText(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Pencil className="h-4 w-4" /> Edit {a?.reference ?? ''}</DialogTitle>
+            <DialogDescription>Only the name and principal can change. A new principal recalculates the access fee and instalments at the agreed rate and term. Every change is kept in History.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="special-advance-name">Recipient name *</Label>
+              <Input id="special-advance-name" value={nameText} maxLength={120} onChange={(e) => setNameText(e.target.value)} />
+              <p className="text-xs text-muted-foreground">Changes the name on this advance only.</p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="special-advance-principal">Principal (UGX) *</Label>
+              <Input id="special-advance-principal" inputMode="numeric" value={principalText} disabled={!principalEditable} onChange={(e) => setPrincipalText(e.target.value)} />
+              {a && <p className="text-xs text-muted-foreground">Current: {formatUGX(a.principal)}{!principalEditable ? ' · locked: a repayment or top-up has been recorded' : ''}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="special-advance-issued-date">Date Issued *</Label>
+                <Input id="special-advance-issued-date" type="date" value={dateText} max={new Date().toISOString().slice(0, 10)} disabled={!principalEditable} onChange={(e) => setDateText(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="special-advance-term">Period (days) *</Label>
+                <Input id="special-advance-term" inputMode="numeric" value={termText} disabled={!principalEditable} onChange={(e) => setTermText(e.target.value)} />
+              </div>
+            </div>
+            {principalEditable && <p className="text-xs text-muted-foreground">Fee, instalments and due dates are recalculated.</p>}
+            <div className="space-y-1">
+              <Label htmlFor="special-advance-edit-reason">Reason *</Label>
+              <Textarea id="special-advance-edit-reason" value={editReason} maxLength={1000} onChange={(e) => setEditReason(e.target.value)} />
+              <p className="text-xs text-muted-foreground">{reasonLen}/1000 (at least 5)</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNoteOpen(false)}>Cancel</Button>
+            <Button disabled={!editReady || editBusy} onClick={savePrincipal}>
+              {editBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reversal dialog */}
       {a && correctionTarget && (

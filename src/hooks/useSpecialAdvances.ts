@@ -131,6 +131,31 @@ export function useRecordSpecialAdvanceRepayment() {
   });
 }
 
+/** CFO edits the principal of a recorded already-issued advance; fee and instalments are recalculated server-side. */
+export function useEditSpecialAdvancePrincipal() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ advanceId, expectedUpdatedAt, principal, payoutDate, termDays, reason }: { advanceId: string; expectedUpdatedAt: string; principal: number; payoutDate: string; termDays: number; reason: string }) =>
+      call<SpecialAdvanceStatement>('special_advance_edit_terms' as never, {
+        p_id: advanceId, p_expected_updated_at: expectedUpdatedAt, p_principal: principal,
+        p_payout_date: payoutDate, p_term_days: termDays, p_reason: reason,
+      }),
+    onSuccess: invalidate,
+  });
+}
+
+/** CFO corrects the recipient name shown on a recorded already-issued advance (append-only history). */
+export function useEditSpecialAdvanceName() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ advanceId, expectedUpdatedAt, name, reason }: { advanceId: string; expectedUpdatedAt: string; name: string; reason: string }) =>
+      call<SpecialAdvanceStatement>('special_advance_edit_name', {
+        p_id: advanceId, p_expected_updated_at: expectedUpdatedAt, p_name: name, p_reason: reason,
+      }),
+    onSuccess: invalidate,
+  });
+}
+
 /* ── Top-ups (migration 20261119120000) ─────────────────────────────────────────────────────────────── */
 
 /** What a top-up of `principal` would cost and how it would be repaid (read-only). `principal` null = nothing to quote. */

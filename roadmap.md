@@ -144,3 +144,11 @@
 - [x] Special Advances table: overflow menu with Record Repayment, Top up, Reverse
 - [x] Alpha Ssema only: pay assigned landlords himself from Landlord Float (code + location kept), record TID/receipt, no merchant queue, wallet untouched
 - [x] Funder Saved Items: Co-support/Bookmarked/Booked pills + float-hold line on Support screen (UI only, sync 89c304d876)
+
+## Error-watch fixes (frontend only)
+- [ ] wallet_transactions.user_id: not in this app code (blocked: caller unknown); profiles referred_by fixed
+- [x] resolve_short_link already .maybeSingle()
+- [ ] escape search regex input (blocked: source not found in logs)
+- [x] nexa_learned_knowledge browser call removed; houses not queried by app
+- [x] avatar fallback + failure cache already in place
+- [ ] investor_portfolios 400 (blocked: no failing request in logs)

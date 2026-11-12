@@ -30,7 +30,7 @@ Losing access to any of these is an existential event, in roughly descending sev
 | 8 | **Africa's Talking** (SMS/USSD/voice fallback) | FILL IN | FILL IN | FILL IN | — |
 | 9 | **Google Cloud project** (Maps, Gmail API, Drive, Search Console) | FILL IN | FILL IN | FILL IN | — |
 | 10 | **Gmail mailbox polled for MoMo receipts** — deposits stop matching without it | FILL IN address | FILL IN | FILL IN | — |
-| 11 | **Twilio** (WhatsApp login links) | FILL IN | FILL IN | FILL IN | — |
+| 11 | **Meta WhatsApp Cloud API** (WhatsApp messages) | FILL IN | FILL IN | FILL IN | — |
 | 12 | **MTN / Airtel merchant + till accounts** (the actual money rails) | FILL IN | FILL IN | **REQUIRED** | Telco account manager |
 | 13 | **Cloudflare** (`infra/share-proxy/worker.js`, `wrangler.toml`) | FILL IN | FILL IN | FILL IN | — |
 
@@ -85,7 +85,6 @@ each one, i.e. its blast radius if rotated wrongly.
 | `AFRICASTALKING_API_KEY` + `AFRICASTALKING_USERNAME` | 56 | SMS fallback, USSD, voice |
 | `LANA_SMS_API_KEY` | 11 | Last-resort SMS |
 | `MAILGUN_API_KEY` + `MAILGUN_DOMAIN` + `MAILGUN_API_BASE` | 18 | All email, all reports |
-| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_API_KEY` / `TWILIO_WHATSAPP_FROM` / `TWILIO_WHATSAPP_CONTENT_SID` | 4 | WhatsApp login links |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | 2 | Web push. **Rotating invalidates every existing subscription** |
 | `INNGEST_API_KEY` | 1 | Background SMS event queue |
 

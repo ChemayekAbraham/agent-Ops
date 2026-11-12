@@ -93,7 +93,7 @@ describe('Already-issued outside-Welile advances', () => {
     renderModal(true);
     fireEvent.change(screen.getByLabelText(/Original payment date/), { target: { value: '2026-10-01' } });
     await fillValid();
-    const submit = screen.getByRole('button', { name: 'Record already-issued advance' });
+    const submit = screen.getByRole('button', { name: 'Record Special Advance' });
     expect(submit.hasAttribute('disabled')).toBe(true);
     fireEvent.change(screen.getByLabelText(/Original transaction/), { target: { value: 'EXTERNAL-TID-123' } });
     fireEvent.change(document.getElementById('historical-payment-proof') as HTMLInputElement, {
@@ -117,7 +117,7 @@ describe('Already-issued outside-Welile advances', () => {
     renderModal(true);
     fireEvent.change(screen.getByLabelText(/Original payment date/), { target: { value: '2099-01-01' } });
     await fillValid();
-    expect(screen.getByRole('button', { name: 'Record already-issued advance' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Record Special Advance' }).hasAttribute('disabled')).toBe(true);
     expect(calls('special_advance_record_historical')).toHaveLength(0);
   });
 });

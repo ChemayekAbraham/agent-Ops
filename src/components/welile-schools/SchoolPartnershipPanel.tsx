@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, CheckCircle2, FileText, Handshake, Loader2, Pencil, Plus, Send, Trash2, Upload, Wallet, X } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Download, FileText, Handshake, Loader2, Pencil, Plus, Send, Trash2, Upload, Wallet, X } from 'lucide-react';
+import { PARTNERSHIP_AGREEMENT_URL } from '@/lib/welileSchoolsAgreements';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -364,8 +365,14 @@ function AgreementCard({ school, partnership, editable, onSaved }: { school: Sch
           <Button variant="outline" size="sm" className="min-h-[40px] shrink-0" onClick={view}>View</Button>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">Upload a photo or PDF of the agreement signed by the head teacher.</p>
+        <p className="text-sm text-muted-foreground">Download the agreement, print it, have the head teacher sign it, then upload a photo or PDF of the signed copy.</p>
       )}
+      {/* The blank template, with the Welile logo in the header. */}
+      <Button asChild variant="outline" className="min-h-[44px] w-full gap-2 border-primary/40 text-primary hover:bg-primary/5 hover:text-primary">
+        <a href={PARTNERSHIP_AGREEMENT_URL} download="Welile_Schools_Partnership_Agreement.docx">
+          <Download className="h-4 w-4" />Download the agreement
+        </a>
+      </Button>
       {editable && (
         <>
           <input ref={input} type="file" accept="application/pdf,image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
