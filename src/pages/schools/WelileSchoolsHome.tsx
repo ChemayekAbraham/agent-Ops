@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle, ArrowLeft, Banknote, Building2, Check, ChevronDown, ChevronRight, ClipboardCheck, CloudOff, DoorOpen, FileSignature, GraduationCap,
-  Handshake, Hourglass, IdCard, Loader2, LogIn, MapPin, MessageCircle, MessageSquareText, Receipt, RotateCcw, School,
+  Handshake, Hourglass, IdCard, Loader2, LogIn, MapPin, MessageCircle, MessageSquareText, Plus, Receipt, RotateCcw, School,
   Smartphone, TrendingDown, UserPlus, Users,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,7 +11,6 @@ import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
 import { wordmarkClass } from '@/components/welile-schools/wordmark';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StickyCta from '@/components/welile-schools/StickyCta';
@@ -334,109 +333,123 @@ function AgentHome({ userId }: { userId: string }) {
   const TONE = { danger: 'text-destructive', warning: 'text-amber-600 dark:text-amber-400', info: 'text-muted-foreground' } as const;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-6">
       <SchoolsPhotoCarousel />
-      {school ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-          <MapPin className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">You're at {school.name}</p>
-            <p className="truncate text-xs text-muted-foreground">{[school.district, school.gate_name].filter(Boolean).join(' · ')}</p>
-          </div>
-          <Button variant="ghost" size="sm" className="min-h-[40px] text-primary" onClick={() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Change</Button>
-        </div>
-      ) : null}
 
-      {school && (
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { label: 'In today', value: data?.enteredToday },
-            { label: 'Inside now', value: data?.insideNow },
-            { label: 'You registered', value: data?.registered },
-          ].map((s) => (
-            <div key={s.label} className="rounded-xl bg-muted/60 p-3">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className="mt-0.5 text-xl font-bold tabular-nums">{isLoading || s.value == null ? '…' : s.value.toLocaleString()}</p>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'today' | 'schools')} className="w-full">
+        <TabsList className="grid h-11 w-full grid-cols-2 rounded-full bg-muted p-1">
+          <TabsTrigger value="today" className="rounded-full">Today</TabsTrigger>
+          <TabsTrigger value="schools" className="rounded-full">Schools{data ? ` (${data.schools.length})` : ''}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="today" className="mt-3 space-y-4">
+          {/* Current school, with today's numbers inside the same card. */}
+          {school ? (
+            <section className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"><School className="h-5 w-5" aria-hidden /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground">You're at</p>
+                  <p className="truncate text-sm font-bold">{school.name}</p>
+                </div>
+                <Button variant="ghost" size="sm" className="min-h-[40px] rounded-full text-primary" onClick={showSchools}>Change</Button>
+              </div>
+              <div className="mt-3 grid grid-cols-3 divide-x divide-border/60 rounded-2xl bg-muted/50 py-2.5 text-center">
+                {[
+                  { label: 'In today', value: data?.enteredToday },
+                  { label: 'Inside now', value: data?.insideNow },
+                  { label: 'You registered', value: data?.registered },
+                ].map((s) => (
+                  <div key={s.label} className="px-1">
+                    <p className="text-lg font-bold tabular-nums">{isLoading || s.value == null ? '…' : s.value.toLocaleString()}</p>
+                    <p className="text-[11px] text-muted-foreground">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {/* Quick actions as a row of round icons, like an app's shortcut bar. */}
+          <section aria-label="Quick actions" className="grid grid-cols-4 gap-1">
+            <ActionTile icon={DoorOpen} label="Gate log" primary onClick={() => open('gate')} />
+            <ActionTile icon={UserPlus} label="Register" onClick={() => open('register')} />
+            <ActionTile icon={Building2} label="Set-up" onClick={() => open('partner')} />
+            <ActionTile icon={Receipt} label="Families" soon
+              onClick={() => toast.message('Family sign-up for School Fees Plans opens soon', { description: 'It starts once this school is an approved partner.' })} />
+          </section>
+
+          <section aria-labelledby="ws-attention">
+            <h2 id="ws-attention" className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Needs your attention</h2>
+            {attention.length === 0 ? (
+              <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">
+                <Check className="h-4 w-4" aria-hidden />All caught up at this school.
+              </p>
+            ) : (
+              <div className="divide-y divide-border/60 overflow-hidden rounded-3xl border border-border/70 bg-card">
+                {attention.map((item) => {
+                  const Icon = ATTENTION_ICON[item.kind];
+                  return (
+                    <button key={item.kind} type="button" onClick={() => onAttention(item)} className="flex min-h-[60px] w-full items-center gap-3 p-3 text-left hover:bg-muted/50">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted"><Icon className={cn('h-4 w-4', TONE[item.tone])} aria-hidden /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium">{item.title}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{item.detail}</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </TabsContent>
+
+        <TabsContent value="schools" className="mt-3 space-y-3">
+          <Button variant="outline" className="min-h-[48px] w-full gap-2 rounded-2xl border-dashed border-primary/50 text-primary hover:bg-primary/5 hover:text-primary" onClick={() => navigate(`${WORKSPACE}?new=1`)}>
+            <Plus className="h-4 w-4" aria-hidden />Add a school
+          </Button>
+          {isLoading ? (
+            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+          ) : (data?.schools.length ?? 0) === 0 ? (
+            <p className="rounded-2xl bg-muted/50 p-3 text-sm text-muted-foreground">No schools registered yet. Add the first one.</p>
+          ) : (
+            <div className="divide-y divide-border/60 overflow-hidden rounded-3xl border border-border/70 bg-card">
+              {data!.schools.map((s) => {
+                const st = data!.statusBySchool[s.id];
+                const current = school?.id === s.id;
+                return (
+                  <button key={s.id} type="button" onClick={() => pick(s)} aria-current={current ? 'true' : undefined}
+                    className={cn('flex min-h-[60px] w-full items-center gap-3 p-3 text-left hover:bg-muted/50', current && 'bg-primary/5')}>
+                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full', current ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+                      <School className="h-4 w-4" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">{s.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{[s.school_level, s.district].filter(Boolean).join(' · ')}</span>
+                    </span>
+                    {st ? <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_TONE[st])}>{STATUS_LABEL[st]}</span>
+                      : current ? <span className="shrink-0 text-xs font-semibold text-primary">Current</span> : null}
+                  </button>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      )}
-
-      <section aria-labelledby="ws-attention">
-        <h2 id="ws-attention" className="mb-2 text-sm font-semibold">Needs your attention</h2>
-        {attention.length === 0 ? (
-          <p className="rounded-2xl border border-border bg-card p-3 text-sm text-muted-foreground">All caught up at this school.</p>
-        ) : (
-          <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-            {attention.map((item) => {
-              const Icon = ATTENTION_ICON[item.kind];
-              return (
-                <button key={item.kind} type="button" onClick={() => onAttention(item)} className="flex min-h-[56px] w-full items-center gap-3 p-3 text-left hover:bg-muted/50">
-                  <Icon className={cn('h-5 w-5 shrink-0', TONE[item.tone])} aria-hidden />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium">{item.title}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{item.detail}</span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <section aria-label="Quick actions" className="grid grid-cols-2 gap-2">
-        <ActionTile icon={DoorOpen} label="Gate log" hint="Record in and out" primary onClick={() => open('gate')} />
-        <ActionTile icon={UserPlus} label="Register a student" hint="With parent or guardian details" onClick={() => open('register')} />
-        <ActionTile icon={Building2} label="School set-up" hint={status ? STATUS_LABEL[status] : 'Partnership, terms, fees'} onClick={() => open('partner')} />
-        <ActionTile icon={Receipt} label="Sign up a family" hint="Coming soon"
-          onClick={() => toast.message('Family sign-up for School Fees Plans opens soon', { description: 'It starts once this school is an approved partner.' })} />
-      </section>
-
-      <section ref={listRef} aria-labelledby="ws-schools" className="scroll-mt-20">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 id="ws-schools" className="text-sm font-semibold">Schools</h2>
-          <Button variant="ghost" size="sm" className="min-h-[40px] text-primary" onClick={() => navigate(`${WORKSPACE}?new=1`)}>+ Add a school</Button>
-        </div>
-        {isLoading ? (
-          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-        ) : (data?.schools.length ?? 0) === 0 ? (
-          <p className="rounded-2xl border border-border bg-card p-3 text-sm text-muted-foreground">No schools registered yet. Add the first one.</p>
-        ) : (
-          <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-            {data!.schools.map((s) => {
-              const st = data!.statusBySchool[s.id];
-              const current = school?.id === s.id;
-              return (
-                <button key={s.id} type="button" onClick={() => pick(s)} aria-current={current ? 'true' : undefined}
-                  className={cn('flex min-h-[56px] w-full items-center gap-3 p-3 text-left hover:bg-muted/50', current && 'bg-primary/5')}>
-                  <School className={cn('h-5 w-5 shrink-0', current ? 'text-primary' : 'text-muted-foreground')} aria-hidden />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{s.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{[s.school_level, s.district].filter(Boolean).join(' · ')}</span>
-                  </span>
-                  {st ? <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_TONE[st])}>{STATUS_LABEL[st]}</span>
-                    : current ? <span className="shrink-0 text-xs font-semibold text-primary">Current</span> : null}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </section>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
-function ActionTile({ icon: Icon, label, hint, onClick, primary }: { icon: typeof DoorOpen; label: string; hint: string; onClick: () => void; primary?: boolean }) {
+/** One shortcut: a round icon with a short label underneath. */
+function ActionTile({ icon: Icon, label, onClick, primary, soon }: { icon: typeof DoorOpen; label: string; onClick: () => void; primary?: boolean; soon?: boolean }) {
   return (
-    <button type="button" onClick={onClick}
-      className={cn('flex min-h-[88px] flex-col items-start justify-between gap-2 rounded-2xl border p-3 text-left transition-colors',
-        primary ? 'border-primary/40 bg-primary/10 hover:bg-primary/15' : 'border-border bg-card hover:bg-muted/50')}>
-      <Icon className={cn('h-5 w-5', primary ? 'text-primary' : 'text-foreground')} aria-hidden />
-      <span>
-        <span className={cn('block text-sm font-semibold', primary && 'text-primary')}>{label}</span>
-        <span className="block text-xs text-muted-foreground">{hint}</span>
+    <button type="button" onClick={onClick} className="flex min-h-[84px] flex-col items-center gap-1.5 rounded-2xl p-1 text-center transition active:scale-[0.97]">
+      <span className={cn('relative flex h-14 w-14 items-center justify-center rounded-2xl',
+        primary ? 'bg-primary text-primary-foreground shadow-md' : 'bg-primary/10 text-primary')}>
+        <Icon className="h-6 w-6" aria-hidden />
+        {soon ? <span className="absolute -right-1 -top-1 rounded-full bg-muted px-1.5 text-[9px] font-bold text-muted-foreground ring-2 ring-background">Soon</span> : null}
       </span>
+      <span className="text-xs font-semibold leading-tight">{label}</span>
     </button>
   );
 }
