@@ -4136,7 +4136,7 @@ Deno.serve(async (req) => {
         sendReceiptEmail("primary channel");
       }
 
-      // WhatsApp proof of payment (best-effort, no-op if Twilio WhatsApp
+      // WhatsApp proof of payment (best-effort, no-op if the Meta WhatsApp
       // sender is not configured). Carries the same secure receipt link.
       if (profile?.phone) {
         const customerFirstNameWa = (profile?.full_name || "").toString().trim().split(/\s+/)[0] || "Customer";

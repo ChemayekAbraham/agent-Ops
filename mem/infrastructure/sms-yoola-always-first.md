@@ -4,8 +4,8 @@ description: OTP/password-reset SMS must always try Yoola first; no rotation awa
 type: constraint
 ---
 Yoola is ALWAYS the first provider attempted for `sms-otp` and
-`password-reset-sms` — on first sends AND on resends. Africa's Talking, LANA and
-Twilio are fallbacks only, tried in order when Yoola is unconfigured or rejects.
+`password-reset-sms` — on first sends AND on resends. Africa's Talking and LANA
+are fallbacks only, tried in order when Yoola is unconfigured or rejects.
 
 Do NOT reintroduce the "rotate away from the previously accepted provider"
 (`preferBackupRoute` / `previousAcceptedProvider`) behaviour: it pushed resends
