@@ -142,3 +142,5 @@
 - [ ] Apply receipt columns migration; waiting on Josh/Benjamin go-ahead.
 - [x] Publish so browsers load the login telemetry fix.
 - [x] Special Advances table: overflow menu with Record Repayment, Top up, Reverse
+- [x] Alpha Ssema only: pay assigned landlords himself from Landlord Float (code + location kept), record TID/receipt, no merchant queue, wallet untouched
+- [ ] Funder Saved Items: Co-support/Bookmarked/Booked pills + float-hold line on Support screen (UI only, sync 89c304d876)
