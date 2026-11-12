@@ -217,107 +217,107 @@ export function FunderNewReviewDialog({
         </div>
 
         {/* Scrollable body */}
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
-          {items[0] && <SalesSheet item={items[0]} />}
+        {/* App-style body: photo header, one summary card, then three tabs so nothing is stacked at once. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-6 [-webkit-overflow-scrolling:touch]">
+          {items[0] && <PlanHero item={items[0]} more={items.length - 1} />}
 
-          {/* 1. House & tenant summary */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Selected Homes ({items.length})
-            </h3>
-            <ul className="space-y-2">
-              {items.map((item) => (
-                <li
-                  key={`${item.category}:${item.id}`}
-                  className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card p-3 shadow-2xs"
-                >
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.title} className="h-14 w-14 shrink-0 rounded-xl object-cover" />
-                  ) : (
-                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <Home className="h-6 w-6" />
-                    </span>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words text-sm sm:text-base font-semibold text-foreground">{item.title}</p>
-                    <Badge variant="outline" className="mt-1 rounded-full px-2 py-0 text-xs font-medium">
-                      {categoryLabel(item.category)}
-                    </Badge>
-                    <p className="mt-1 break-words text-sm text-muted-foreground">{item.place}</p>
-                    {item.tenantName ? (
-                      <p className="mt-0.5 break-words text-sm text-foreground">Tenant: {item.tenantName}</p>
-                    ) : null}
-                    <p className="mt-1 text-base font-bold text-foreground">{formatDynamic(item.amount)}</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-11 w-11 shrink-0 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    aria-label={`Remove ${item.title}`}
-                    onClick={() => onRemove(item)}
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {/* 2. Support amount / plan details */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Plan details</h3>
-            <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
-              <div className="rounded-2xl bg-primary p-3.5 text-primary-foreground shadow-xs">
-                <p className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/75">Total Support</p>
-                <p className="mt-1 break-words text-lg sm:text-xl font-bold tracking-tight">{formatDynamic(total)}</p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-primary/5 p-3.5 shadow-2xs">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly Rent profit share{ownRatePct ? ` (${ownRatePct})` : ''}</p>
-                <p className="mt-1 break-words text-lg sm:text-xl font-bold tracking-tight text-success">
-                  {monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/70 bg-muted/30 px-3.5 py-3 shadow-2xs min-[380px]:col-span-2">
+          <div className="relative z-10 -mt-8 space-y-4 px-4 sm:px-6">
+            {/* Summary card: what you put in, what you earn, and whether your float covers it. */}
+            <section className="rounded-3xl border border-border/70 bg-card p-4 shadow-lg">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Available operational float</p>
-                  <p className="mt-0.5 break-words text-base font-bold tracking-tight text-foreground">
-                    {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
+                  <p className="text-xs font-medium text-muted-foreground">You support</p>
+                  <p className="mt-0.5 break-words text-xl font-bold tracking-tight">{formatDynamic(total)}</p>
+                </div>
+                <div className="min-w-0 border-l border-border/60 pl-3">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    You earn monthly{ownRatePct ? ` · ${ownRatePct}` : ''}
+                  </p>
+                  <p className="mt-0.5 break-words text-xl font-bold tracking-tight text-success">
+                    {monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}
                   </p>
                 </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-muted/50 px-3 py-2.5">
+                <span className="flex min-w-0 items-center gap-2 text-sm">
+                  <Wallet className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <span className="text-muted-foreground">Your float</span>
+                  <span className="truncate font-semibold">
+                    {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
+                  </span>
+                </span>
                 {shortfall !== null && (
-                  <Badge
-                    variant="outline"
+                  <span
                     className={cn(
-                      'rounded-full border px-2.5 py-0.5 text-xs font-semibold shadow-2xs',
-                      shortfall > 0
-                        ? 'bg-warning/10 text-warning border-warning/30'
-                        : 'bg-success/10 text-success border-success/30',
+                      'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                      shortfall > 0 ? 'bg-warning/15 text-warning' : 'bg-success/15 text-success',
                     )}
                   >
                     {shortfall > 0 ? `${formatDynamic(shortfall)} short` : 'Fully covered'}
-                  </Badge>
+                  </span>
                 )}
               </div>
-            </div>
-          </section>
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden />
+                Support once, earn for 12 months. Backed by Welile's operational guarantee.
+              </p>
+            </section>
 
-          {/* 3. WhatsApp contacts */}
-          {items.length > 0 && (
-            <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">The people behind this home</h3>
-              <div className="space-y-3">
+            <Tabs defaultValue="homes" className="w-full">
+              <TabsList className="grid h-11 w-full grid-cols-3 rounded-full bg-muted p-1">
+                <TabsTrigger value="homes" className="rounded-full">
+                  Homes{items.length > 1 ? ` (${items.length})` : ''}
+                </TabsTrigger>
+                <TabsTrigger value="people" className="rounded-full">People</TabsTrigger>
+                <TabsTrigger value="how" className="rounded-full">How it works</TabsTrigger>
+              </TabsList>
+
+              {/* forceMount keeps every tab in the page (hidden when inactive) so screen readers and tests still find it. */}
+              <TabsContent value="homes" forceMount className="mt-3 space-y-3 data-[state=inactive]:hidden">
+                <ul className="divide-y divide-border/60 overflow-hidden rounded-3xl border border-border/70 bg-card">
+                  {items.map((item) => (
+                    <li key={`${item.category}:${item.id}`} className="flex items-center gap-3 p-3">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.title} className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                      ) : (
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Home className="h-5 w-5" />
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">{item.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {item.tenantName ? `${item.tenantName} · ` : ''}{item.place}
+                        </p>
+                        <p className="mt-0.5 text-sm font-bold text-foreground">{formatDynamic(item.amount)}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        aria-label={`Remove ${item.title}`}
+                        onClick={() => onRemove(item)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+                <p className="px-1 text-xs leading-relaxed text-muted-foreground">
+                  Nothing is charged until you confirm. When your float covers the rent, it goes to the agent, who pays the landlord within 24 hours. Rent profit share figures are estimates{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}.
+                </p>
+              </TabsContent>
+
+              <TabsContent value="people" forceMount className="mt-3 space-y-3 data-[state=inactive]:hidden">
                 {items.map((item) => (
                   <HomeContacts key={`wa:${item.category}:${item.id}`} item={item} showTitle={items.length > 1} />
                 ))}
-              </div>
-            </section>
-          )}
+              </TabsContent>
 
-          <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-3 text-muted-foreground">
-            <Info className="mt-0.5 h-4 w-4 shrink-0" />
-            <p className="min-w-0 flex-1 text-sm leading-relaxed">
-              Selecting and reviewing homes is planning only. Support starts when you confirm. When your float covers the rent, it goes to the agent, who pays the landlord within 24 hours. Rent profit share shown are estimates{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}.
-            </p>
+              <TabsContent value="how" forceMount className="mt-3 data-[state=inactive]:hidden">
+                {items[0] && <HowItWorks item={items[0]} />}
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 
