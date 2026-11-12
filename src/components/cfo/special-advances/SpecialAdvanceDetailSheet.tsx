@@ -59,13 +59,18 @@ const INSTALMENT_TEXT: Record<string, string> = {
   due: 'Due',
 };
 
+export type SpecialAdvanceSheetAction = 'repay' | 'topup' | 'reverse' | null;
+
 export function SpecialAdvanceDetailSheet({
   advanceId,
   issuanceEnabled,
+  initialAction = null,
   onOpenChange,
 }: {
   advanceId: string | null;
   issuanceEnabled: boolean;
+  /** Action picked from the table's overflow menu; opens that step once the advance loads. */
+  initialAction?: SpecialAdvanceSheetAction;
   onOpenChange: (open: boolean) => void;
 }) {
   const st = useSpecialAdvanceStatement(advanceId);
@@ -88,6 +93,27 @@ export function SpecialAdvanceDetailSheet({
   const standingRepayments = a?.repayments.filter((r) => !r.reversed_by_correction) ?? [];
   const canReversePayout = a?.status === 'disbursed' && a.borrower_kind === 'external' && standingRepayments.length === 0;
   const canWriteOff = a?.status === 'disbursed' && a.position.outstanding > 0;
+
+  // Run the menu action once per opening, after the statement has loaded.
+  const handledAction = useRef<string | null>(null);
+  useEffect(() => {
+    if (!advanceId) { handledAction.current = null; return; }
+    if (!a || !initialAction) return;
+    const key = `${advanceId}:${initialAction}`;
+    if (handledAction.current === key) return;
+    handledAction.current = key;
+    if (a.status !== 'disbursed') {
+      if (initialAction !== 'repay') toast.error('Only a paid-out advance can be topped up or reversed.');
+      return;
+    }
+    if (initialAction === 'topup') setTopUpOpen(true);
+    else if (initialAction === 'reverse') {
+      if (canReversePayout) setCorrectionTarget({ kind: 'payout_reversal' });
+      else toast.error('This payout can be reversed only for an external recipient with no standing repayments. Reverse a repayment from the list below instead.');
+    } else if (initialAction === 'repay') {
+      document.getElementById('special-advance-repayment-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [advanceId, a, initialAction, canReversePayout]);
 
   return (
     <Sheet open={!!advanceId} onOpenChange={onOpenChange}>
@@ -212,7 +238,9 @@ export function SpecialAdvanceDetailSheet({
               {/* Status: disbursed */}
               {a.status === 'disbursed' && (
                 <>
-                  <RepaymentForm advance={a} />
+                  <div id="special-advance-repayment-form">
+                    <RepaymentForm advance={a} />
+                  </div>
 
                   <div className="flex flex-wrap gap-2 pt-2 border-t border-border/60">
                     <Button
