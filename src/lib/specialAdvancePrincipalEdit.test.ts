@@ -15,3 +15,13 @@ describe('Edit principal on Special Advances', () => {
     expect(canEditRecordedPrincipal({ ...base, topups: [{}] })).toBe(false);
   });
 });
+
+import { isRecordedAdvance } from './specialAdvances';
+describe('Edit name on Special Advances', () => {
+  it('is offered for a recorded advance even after a repayment', () => {
+    expect(isRecordedAdvance({ decision_reason: RECORDED_ADVANCE_MARKER })).toBe(true);
+  });
+  it('is not offered for an advance issued through Welile', () => {
+    expect(isRecordedAdvance({ decision_reason: 'Approved' })).toBe(false);
+  });
+});

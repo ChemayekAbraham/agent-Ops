@@ -82,7 +82,7 @@ export interface SpecialAdvanceQuote {
 
 export interface SpecialAdvanceEvent {
   event_type: 'created' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reopened' | 'reversed'
-    | 'correction_posted' | 'written_off' | 'write_off_posted' | 'provision_posted' | 'recovery_recorded' | 'topup_posted' | 'note_added' | 'principal_edited';
+    | 'correction_posted' | 'written_off' | 'write_off_posted' | 'provision_posted' | 'recovery_recorded' | 'topup_posted' | 'note_added' | 'principal_edited' | 'name_edited';
   from_status: string | null;
   to_status: string;
   actor_id: string;
@@ -212,6 +212,10 @@ export const RECORDED_ADVANCE_MARKER = 'Recorded already-issued outside-Welile a
 
 /** Edit (principal only) is offered for a recorded, paid-out advance with no repayment or top-up yet.
  *  The server (special_advance_edit_principal) re-checks all of this and recalculates fee and instalments. */
+export function isRecordedAdvance(a: { decision_reason: string | null }): boolean {
+  return a.decision_reason === RECORDED_ADVANCE_MARKER;
+}
+
 export function canEditRecordedPrincipal(a: { decision_reason: string | null; status: string; repayments?: unknown[]; topups?: unknown[] }): boolean {
   return a.decision_reason === RECORDED_ADVANCE_MARKER && a.status === 'disbursed'
     && (a.repayments?.length ?? 0) === 0 && (a.topups?.length ?? 0) === 0;
@@ -499,6 +503,8 @@ export function describeSpecialAdvanceError(err: unknown): string {
   if (msg.includes('PRINCIPAL_EDIT_ONLY_RECORDED')) return 'Only an already-issued advance that was recorded can be edited.';
   if (msg.includes('PRINCIPAL_EDIT_HAS_ACTIVITY')) return 'The principal can no longer be edited: a repayment or top-up has been recorded.';
   if (msg.includes('PRINCIPAL_EDIT_NOT_ALLOWED')) return 'Only a paid-out advance can be edited.';
+  if (msg.includes('NAME_INVALID')) return 'Enter a name of 2 to 120 characters.';
+  if (msg.includes('NAME_UNCHANGED')) return 'Enter a name different from the current one.';
   if (msg.includes('PRINCIPAL_UNCHANGED')) return 'Enter a principal different from the current one.';
   if (msg.includes('PRINCIPAL_EDIT_SCHEDULE_CHANGED')) return 'This principal would change the number of instalments. Use a different amount.';
   if (msg.includes('STALE_VERSION')) return 'This advance was changed by someone else. Reload it and try again.';

@@ -56948,6 +56948,44 @@ export type Database = {
           },
         ]
       }
+      special_advance_name_edits: {
+        Row: {
+          advance_id: string
+          created_at: string
+          edited_by: string
+          id: string
+          new_name: string
+          old_name: string | null
+          reason: string
+        }
+        Insert: {
+          advance_id: string
+          created_at?: string
+          edited_by: string
+          id?: string
+          new_name: string
+          old_name?: string | null
+          reason: string
+        }
+        Update: {
+          advance_id?: string
+          created_at?: string
+          edited_by?: string
+          id?: string
+          new_name?: string
+          old_name?: string | null
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_name_edits_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       special_advance_provision_lines: {
         Row: {
           advance_id: string
@@ -100003,6 +100041,15 @@ export type Database = {
       special_advance_create: { Args: { p_request: Json }; Returns: Json }
       special_advance_disburse: {
         Args: { p_expected_updated_at: string; p_id: string; p_payout: Json }
+        Returns: Json
+      }
+      special_advance_edit_name: {
+        Args: {
+          p_expected_updated_at: string
+          p_id: string
+          p_name: string
+          p_reason: string
+        }
         Returns: Json
       }
       special_advance_edit_principal: {

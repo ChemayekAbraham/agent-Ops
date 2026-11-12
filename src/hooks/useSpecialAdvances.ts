@@ -143,6 +143,18 @@ export function useEditSpecialAdvancePrincipal() {
   });
 }
 
+/** CFO corrects the recipient name shown on a recorded already-issued advance (append-only history). */
+export function useEditSpecialAdvanceName() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ advanceId, expectedUpdatedAt, name, reason }: { advanceId: string; expectedUpdatedAt: string; name: string; reason: string }) =>
+      call<SpecialAdvanceStatement>('special_advance_edit_name', {
+        p_id: advanceId, p_expected_updated_at: expectedUpdatedAt, p_name: name, p_reason: reason,
+      }),
+    onSuccess: invalidate,
+  });
+}
+
 /* ── Top-ups (migration 20261119120000) ─────────────────────────────────────────────────────────────── */
 
 /** What a top-up of `principal` would cost and how it would be repaid (read-only). `principal` null = nothing to quote. */

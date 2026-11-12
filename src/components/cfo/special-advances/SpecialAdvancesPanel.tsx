@@ -199,7 +199,7 @@ export function SpecialAdvancesPanel() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuItem disabled={a.status !== 'disbursed' || a.decision_reason !== RECORDED_ADVANCE_MARKER} onSelect={() => { setOpenAction('edit'); setOpenId(a.id); }}>
+                            <DropdownMenuItem disabled={a.decision_reason !== RECORDED_ADVANCE_MARKER} onSelect={() => { setOpenAction('edit'); setOpenId(a.id); }}>
                               <Pencil className="mr-2 h-4 w-4" /> Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => { setOpenAction('repay'); setOpenId(a.id); }}>

@@ -20,11 +20,13 @@ import {
   describeSpecialAdvanceError,
   newIdempotencyKey,
   canEditRecordedPrincipal,
+  isRecordedAdvance,
   type SpecialAdvanceStatement,
   type CorrectionKind,
 } from '@/lib/specialAdvances';
 import {
   useEditSpecialAdvancePrincipal,
+  useEditSpecialAdvanceName,
   useDisburseSpecialAdvance,
   useRecordSpecialAdvanceRepayment,
   useSpecialAdvanceDecision,
@@ -54,6 +56,7 @@ const EVENT_TEXT: Record<string, string> = {
   topup_posted: 'Top-up added and paid out',
   note_added: 'Note added',
   principal_edited: 'Principal edited',
+  name_edited: 'Name edited',
 };
 
 const INSTALMENT_TEXT: Record<string, string> = {
@@ -100,16 +103,31 @@ export function SpecialAdvanceDetailSheet({
   const [principalText, setPrincipalText] = useState('');
   const [editReason, setEditReason] = useState('');
   const editPrincipal = useEditSpecialAdvancePrincipal();
+  const editName = useEditSpecialAdvanceName();
+  const [nameText, setNameText] = useState('');
+  const principalEditable = !!a && canEditRecordedPrincipal(a);
+  const cleanName = nameText.trim().replace(/\s+/g, ' ');
+  const nameChanged = !!a && cleanName.length >= 2 && cleanName !== (a.borrower_name ?? '');
   const newPrincipal = Number(principalText.replace(/[^0-9]/g, '')) || 0;
   const reasonLen = editReason.trim().length;
-  const editReady = !!a && newPrincipal > 0 && newPrincipal !== a.principal && reasonLen >= 5;
+  const principalChanged = !!a && principalEditable && newPrincipal > 0 && newPrincipal !== a.principal;
+  const editReady = (principalChanged || nameChanged) && reasonLen >= 5;
+  const editBusy = editPrincipal.isPending || editName.isPending;
   const savePrincipal = async () => {
     if (!advanceId || !a) return;
     try {
-      const res = await editPrincipal.mutateAsync({ advanceId, expectedUpdatedAt: a.updated_at, principal: newPrincipal, reason: editReason.trim() });
-      toast.success(`Principal updated. New total repayable ${formatUGX(res.total_repayable)}`);
+      let version = a.updated_at;
+      if (principalChanged) {
+        const res = await editPrincipal.mutateAsync({ advanceId, expectedUpdatedAt: version, principal: newPrincipal, reason: editReason.trim() });
+        version = res.updated_at;
+        toast.success(`Principal updated. New total repayable ${formatUGX(res.total_repayable)}`);
+      }
+      if (nameChanged) {
+        await editName.mutateAsync({ advanceId, expectedUpdatedAt: version, name: cleanName, reason: editReason.trim() });
+        toast.success('Name updated');
+      }
       setNoteOpen(false);
-      setPrincipalText(''); setEditReason('');
+      setPrincipalText(''); setEditReason(''); setNameText('');
     } catch (e) {
       toast.error(describeSpecialAdvanceError(e));
     }
@@ -130,8 +148,8 @@ export function SpecialAdvanceDetailSheet({
     if (handledAction.current === key) return;
     handledAction.current = key;
     if (initialAction === 'edit') {
-      if (canEditRecordedPrincipal(a)) { setPrincipalText(String(a.principal)); setNoteOpen(true); }
-      else toast.error('Only the principal of an already-issued advance that was recorded can be edited, and only before any repayment or top-up.');
+      if (isRecordedAdvance(a)) { setPrincipalText(String(a.principal)); setNameText(a.borrower_name ?? ''); setNoteOpen(true); }
+      else toast.error('Only an already-issued advance that was recorded can be edited.');
       return;
     }
     if (a.status !== 'disbursed') {
@@ -572,17 +590,22 @@ export function SpecialAdvanceDetailSheet({
         )}
       </SheetContent>
 
-      <Dialog open={noteOpen} onOpenChange={(o) => { setNoteOpen(o); if (!o) { setPrincipalText(''); setEditReason(''); } }}>
+      <Dialog open={noteOpen} onOpenChange={(o) => { setNoteOpen(o); if (!o) { setPrincipalText(''); setEditReason(''); setNameText(''); } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Pencil className="h-4 w-4" /> Edit principal {a?.reference ?? ''}</DialogTitle>
-            <DialogDescription>Only the principal can change. The access fee and instalments are recalculated at the agreed rate and term, and the change is kept in History.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Pencil className="h-4 w-4" /> Edit {a?.reference ?? ''}</DialogTitle>
+            <DialogDescription>Only the name and principal can change. A new principal recalculates the access fee and instalments at the agreed rate and term. Every change is kept in History.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
+              <Label htmlFor="special-advance-name">Recipient name *</Label>
+              <Input id="special-advance-name" value={nameText} maxLength={120} onChange={(e) => setNameText(e.target.value)} />
+              <p className="text-xs text-muted-foreground">Changes the name on this advance only.</p>
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="special-advance-principal">Principal (UGX) *</Label>
-              <Input id="special-advance-principal" inputMode="numeric" value={principalText} onChange={(e) => setPrincipalText(e.target.value)} />
-              {a && <p className="text-xs text-muted-foreground">Current: {formatUGX(a.principal)}</p>}
+              <Input id="special-advance-principal" inputMode="numeric" value={principalText} disabled={!principalEditable} onChange={(e) => setPrincipalText(e.target.value)} />
+              {a && <p className="text-xs text-muted-foreground">Current: {formatUGX(a.principal)}{!principalEditable ? ' · locked: a repayment or top-up has been recorded' : ''}</p>}
             </div>
             <div className="space-y-1">
               <Label htmlFor="special-advance-edit-reason">Reason *</Label>
@@ -592,8 +615,8 @@ export function SpecialAdvanceDetailSheet({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNoteOpen(false)}>Cancel</Button>
-            <Button disabled={!editReady || editPrincipal.isPending} onClick={savePrincipal}>
-              {editPrincipal.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save principal
+            <Button disabled={!editReady || editBusy} onClick={savePrincipal}>
+              {editBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save changes
             </Button>
           </DialogFooter>
         </DialogContent>
