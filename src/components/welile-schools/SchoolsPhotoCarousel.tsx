@@ -15,7 +15,7 @@ const AUTO_ADVANCE_MS = 5000;
  * Stops advancing once the viewer swipes, and never auto-advances for people
  * who ask their device for reduced motion.
  */
-export default function SchoolsPhotoCarousel({ className }: { className?: string }) {
+export default function SchoolsPhotoCarousel({ className, dotsAtTop = false }: { className?: string; /** For a header with a card overlapping the photo's bottom edge. */ dotsAtTop?: boolean }) {
   const [api, setApi] = useState<CarouselApi>();
   const [index, setIndex] = useState(0);
   const [touched, setTouched] = useState(false);
@@ -49,7 +49,7 @@ export default function SchoolsPhotoCarousel({ className }: { className?: string
           ))}
         </CarouselContent>
       </Carousel>
-      <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1.5">
+      <div className={cn('absolute inset-x-0 flex justify-center gap-1.5', dotsAtTop ? 'top-2' : 'bottom-2')}>
         {SLIDES.map((s, i) => (
           <button key={s.src} type="button" aria-label={`Show photo ${i + 1}`} aria-current={index === i ? 'true' : undefined}
             onClick={() => { setTouched(true); api?.scrollTo(i); }}
