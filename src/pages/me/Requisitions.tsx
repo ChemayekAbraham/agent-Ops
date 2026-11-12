@@ -676,17 +676,6 @@ const MyRequisitions = () => {
                       </label>
                     </div>
                   )}
-                  {!isRefund && (
-                  <div className="space-y-2">
-                    <Label htmlFor="req-category">Category (optional)</Label>
-                    <Input
-                      id="req-category"
-                      value={form.category}
-                      onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                      placeholder="Operations, marketing, travel…"
-                    />
-                  </div>
-                  )}
                   <div className="space-y-2">
                     <Label htmlFor="req-reason">{isRefund ? 'Why should it be refunded' : 'Why do you need it'}</Label>
                     <Textarea
