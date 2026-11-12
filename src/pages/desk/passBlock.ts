@@ -30,6 +30,8 @@ export function needsValue(item: Pick<ChecklistItem, 'code' | 'value_kind'>, lc1
 const empty = (v: unknown) => v === undefined || v === null || (typeof v === 'string' && v.trim() === '') || (typeof v === 'number' && !Number.isFinite(v));
 
 export type PassBlockInput = {
+  /** E82: what the request still misses (from the board row); the server refuses the pass until it is done. */
+  incomplete?: string[] | null;
   /** 'tenant' / 'landlord' at Tenant and Landlord Ops, where an answered call must come first. */
   callDesk: 'tenant' | 'landlord' | null;
   callAnswered: boolean;
@@ -45,6 +47,8 @@ export type PassBlockInput = {
 };
 
 export function passBlock(i: PassBlockInput): string | null {
+  const missing = (i.incomplete ?? []).filter(Boolean);
+  if (missing.length) return `Missing: ${missing.join(', ')}`;
   if (i.callDesk && !i.callAnswered) return `Log an answered ${i.callDesk} call first`;
 
   const open = i.items.filter((c) => c.required && c.method !== 'system' && !i.entries[c.code]?.result).length;

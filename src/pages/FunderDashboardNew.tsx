@@ -13,6 +13,7 @@ import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig'
 import { generateWelileAiId } from '@/lib/welileAiId';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { useFunderFloatAvailable } from '@/components/funder-preview/useFunderPreviewSupport';
+import { requireFunderOperationalFloat } from '@/components/funder-preview/funderOperationalFloat';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -699,6 +700,7 @@ export default function FunderDashboardNew() {
               .filter((name): name is string => !!name && name.trim().length > 0);
             const rentRequestIds = category === 'ready' ? ids : [];
             try {
+              await requireFunderOperationalFloat(user?.id, total);
               let reference: string | null = null;
               let releasedToAgent = false;
               if (category === 'empty') {

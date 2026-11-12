@@ -17,6 +17,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { useFunderFloatAvailable } from '@/components/funder-preview/useFunderPreviewSupport';
+import { requireFunderOperationalFloat } from '@/components/funder-preview/funderOperationalFloat';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -954,6 +955,7 @@ export function FunderHouseListingsSection({
           if (ids.length === 0) return;
           const category = selectedItems[0].category;
           try {
+            await requireFunderOperationalFloat(user?.id, total);
             let reference: string | null = null;
             if (category === 'empty') {
               // Same path as the map screen: book the homes, then submit them

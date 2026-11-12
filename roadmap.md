@@ -1,4 +1,6 @@
 # Production log fixes (12 November)
+- [x] Add fresh operational-float-only funding checks for Rent Plans and empty houses and clarify the review balance labels.
+- [ ] Verify support through a real signed-in Funder; external unmanaged authentication prevents an authenticated browser check.
 - [x] Normalize timestamp filters and regression-test the three reported tables plus sibling raw cursors.
 - [x] Isolate service-role float readers and replace the browser helper with the ownership-checked capacity wrapper.
 - [x] Gate weekly posting eligibility on a usable session; 25 focused tests and all guards passed; build OK.

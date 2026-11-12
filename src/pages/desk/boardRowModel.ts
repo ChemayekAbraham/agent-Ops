@@ -21,8 +21,16 @@ export type ChipModel = { key: string; text: string; tone: Status; title?: strin
  *   3. the checks ("5/5 ✓")
  *   then the August batch and "3 tries today".
  */
+/** E82: the red "Missing: …" chip, first on any row that still lacks something. */
+export function missingChip(list: string[] | null | undefined): ChipModel | null {
+  const l = (list ?? []).filter(Boolean);
+  return l.length ? { key: 'missing', text: `Missing: ${l.join(', ')}`, tone: 'bad', strong: true } : null;
+}
+
 export function rowChips(row: BoardRow, stage: Stage, health?: TenantHealth, concerns?: ConcernSummary): ChipModel[] {
   const out: ChipModel[] = [];
+  const m = missingChip(row.incomplete);
+  if (m) out.push(m);
   if (stage === 'agent_ops') {
     const e = eligibilityChip(row.eligibility);
     if (e) out.push({ key: 'elig', text: e.text, tone: e.tone });
@@ -155,6 +163,8 @@ const LC1_NOTE = /LC1 not (yet )?confirmed/i;
  */
 export function landlordOpsChips(row: BoardRow, health?: TenantHealth): ChipModel[] {
   const out: ChipModel[] = [];
+  const m = missingChip(row.incomplete);
+  if (m) out.push(m);
   const c = landlordChecks(row);
   out.push({
     key: 'checks',
