@@ -93986,7 +93986,6 @@ export type Database = {
         Returns: Json
       }
       my_bank_account_lock: { Args: never; Returns: Json }
-      my_funder_float_available: { Args: never; Returns: number }
       my_location_correction_status: { Args: never; Returns: Json }
       my_partner_lead_agents: {
         Args: never
