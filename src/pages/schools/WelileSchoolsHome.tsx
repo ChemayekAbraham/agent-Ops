@@ -379,8 +379,7 @@ function AgentHome({ userId }: { userId: string }) {
             <ActionTile icon={DoorOpen} label="Gate log" primary onClick={() => open('gate')} />
             <ActionTile icon={UserPlus} label="Register" onClick={() => open('register')} />
             <ActionTile icon={Building2} label="Set-up" onClick={() => open('partner')} />
-            <ActionTile icon={Receipt} label="Families" soon
-              onClick={() => toast.message('Family sign-up for School Fees Plans opens soon', { description: 'It starts once this school is an approved partner.' })} />
+            <ActionTile icon={Receipt} label="School fees" onClick={() => open('fees')} />
           </section>
 
           <section aria-labelledby="ws-attention">

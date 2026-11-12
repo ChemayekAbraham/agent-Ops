@@ -7,6 +7,7 @@ import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershi
 import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
 import StudentPhotoCapture from '@/components/welile-schools/StudentPhotoCapture';
 import StudentProfileSummary from '@/components/welile-schools/StudentProfileSummary';
+import SchoolFeesRequest from '@/components/welile-schools/SchoolFeesRequest';
 import { flushPendingPhotos, uploadStudentPhoto } from '@/lib/welileSchoolsPhoto';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -100,7 +101,7 @@ export default function AgentWelileSchools() {
   const [gpsBusy, setGpsBusy] = useState(false);
   const [pendingCount, setPendingCount] = useState(() => readPendingProfiles().length);
   const [gatePendingCount, setGatePendingCount] = useState(() => readPendingGateLogs().length);
-  const [mode, setMode] = useState<'gate' | 'register' | 'partner'>(() => (initialMode === 'register' || initialMode === 'partner' ? initialMode : 'gate'));
+  const [mode, setMode] = useState<'gate' | 'register' | 'fees' | 'partner'>(() => (initialMode === 'register' || initialMode === 'partner' || initialMode === 'fees' ? initialMode : 'gate'));
 
   const { data: schools = [] } = useQuery({
     queryKey: ['welile-schools-list'],
@@ -211,7 +212,22 @@ export default function AgentWelileSchools() {
             ) : mode === 'gate' ? (
               <DailyGateLogView school={locked} agentId={user.id} onQueued={() => setGatePendingCount(readPendingGateLogs().length)} onSwitchToRegister={() => setMode('register')} />
             ) : (
-              <GateRegistration school={locked} agentId={user.id} onQueued={() => { setPendingCount(readPendingProfiles().length); setGatePendingCount(readPendingGateLogs().length); }} />
+              <>
+                {/* The agent's two jobs for a student: put them on the system, or ask Welile to pay their fees. */}
+                <div className="grid grid-cols-2 gap-1 rounded-full bg-muted p-1" role="tablist" aria-label="What do you want to do?">
+                  {([['register', 'Register a student'], ['fees', 'Request school fees']] as const).map(([k, label]) => (
+                    <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)}
+                      className={cn('min-h-[44px] rounded-full px-2 text-sm font-semibold transition-colors', mode === k ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground')}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {mode === 'fees' ? (
+                  <SchoolFeesRequest school={locked} onRegisterStudent={() => setMode('register')} />
+                ) : (
+                  <GateRegistration school={locked} agentId={user.id} onQueued={() => { setPendingCount(readPendingProfiles().length); setGatePendingCount(readPendingGateLogs().length); }} />
+                )}
+              </>
             )}
           </>
         )}
