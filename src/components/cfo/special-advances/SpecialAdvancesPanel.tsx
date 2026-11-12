@@ -18,6 +18,7 @@ import {
   describeSpecialAdvanceError,
   type SpecialAdvanceStatus,
   RECORDED_ADVANCE_MARKER,
+  repaymentStatusLabel,
 } from '@/lib/specialAdvances';
 import { useSpecialAdvanceList } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceModal } from '@/components/cfo/SpecialAdvanceModal';
@@ -107,6 +108,7 @@ export function SpecialAdvancesPanel() {
                     <th className="px-3 py-2 text-right font-medium">Principal</th>
                     <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Total repayable</th>
                     <th className="px-3 py-2 text-right font-medium">Outstanding</th>
+                    <th className="px-3 py-2 text-left font-medium">Repayment status</th>
                     <th className="px-3 py-2 text-left font-medium">Date Issued</th>
                     <th className="px-3 py-2 text-left font-medium">Period</th>
                     <th className="px-3 py-2 text-left font-medium">Status</th>
@@ -159,6 +161,7 @@ export function SpecialAdvancesPanel() {
                       <td className="px-3 py-2 text-right tabular-nums">
                         {a.paid_out ? formatUGX(a.outstanding ?? 0) : '—'}
                       </td>
+                      <td className="px-3 py-2 whitespace-nowrap">{repaymentStatusLabel(a)}</td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         {a.payout_date ? kampalaLabel(a.payout_date) : '—'}
                       </td>

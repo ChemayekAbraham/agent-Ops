@@ -149,6 +149,17 @@ export function outstandingAccessFee(p: Pick<SpecialAdvancePosition, 'outstandin
   return combinedAccessFee({ access_fee: p.outstanding_access_fee, registration_fee: p.outstanding_registration_fee });
 }
 
+/**
+ * Repayment progress for the register's Repayment status column, read only from the server figures
+ * (`paid_out`, `outstanding`, `total_repayable`) — never recomputed. Not paid out yet shows '—'.
+ */
+export function repaymentStatusLabel(a: { paid_out?: boolean; outstanding?: number; total_repayable: number }): string {
+  if (!a.paid_out || a.outstanding === undefined) return '—';
+  if (a.outstanding <= 0) return 'Fully repaid';
+  if (a.outstanding >= a.total_repayable) return 'Not started';
+  return 'Partly repaid';
+}
+
 export interface SpecialAdvancePosition {
   total_repayable: number;
   total_paid: number;

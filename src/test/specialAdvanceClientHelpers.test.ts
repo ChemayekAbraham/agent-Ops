@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ from: vi.fn(), createSignedUrl: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { storage: { from: mocks.from } } }));
 import { getSpecialAdvanceProofUrl } from '@/hooks/useSpecialAdvances';
-import { isMissingServerFunction, SPECIAL_ADVANCE_PROOF_BUCKET, SPECIAL_ADVANCE_PROOF_LINK_SECONDS } from '@/lib/specialAdvances';
+import { isMissingServerFunction, repaymentStatusLabel, SPECIAL_ADVANCE_PROOF_BUCKET, SPECIAL_ADVANCE_PROOF_LINK_SECONDS } from '@/lib/specialAdvances';
 
 const PATH = 'advances/0b6f1c2e-3d4a-4b5c-8d9e-0f1a2b3c4d5e/9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b.pdf';
 
@@ -53,5 +53,18 @@ describe('getSpecialAdvanceProofUrl', () => {
     await expect(getSpecialAdvanceProofUrl(PATH)).rejects.toThrow(/row-level security/);
     mocks.createSignedUrl.mockResolvedValue({ data: { signedUrl: '' }, error: null });
     await expect(getSpecialAdvanceProofUrl(PATH)).rejects.toThrow(/could not be opened/);
+  });
+});
+
+describe('repaymentStatusLabel', () => {
+  it('shows a dash until the advance is paid out or the server sends no figures', () => {
+    expect(repaymentStatusLabel({ total_repayable: 1000 })).toBe('—');
+    expect(repaymentStatusLabel({ paid_out: true, total_repayable: 1000 })).toBe('—');
+  });
+
+  it('reads the server outstanding figure: nothing repaid, part repaid, fully repaid', () => {
+    expect(repaymentStatusLabel({ paid_out: true, outstanding: 1000, total_repayable: 1000 })).toBe('Not started');
+    expect(repaymentStatusLabel({ paid_out: true, outstanding: 400, total_repayable: 1000 })).toBe('Partly repaid');
+    expect(repaymentStatusLabel({ paid_out: true, outstanding: 0, total_repayable: 1000 })).toBe('Fully repaid');
   });
 });
