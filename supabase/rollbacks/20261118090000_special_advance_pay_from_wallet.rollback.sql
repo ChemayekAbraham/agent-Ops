@@ -1,4 +1,4 @@
--- ROLLBACK of 20261117140000_special_advance_pay_from_wallet (only on CFO instruction).
+-- ROLLBACK of 20261118090000_special_advance_pay_from_wallet (only on CFO instruction).
 -- Restores production's definitions of 12 Nov 2026 verbatim. Refuses while any wallet repayment or wallet ledger row
 -- exists: those are real money movements and must first be reversed through a correction (which returns the money).
 DO $pre$

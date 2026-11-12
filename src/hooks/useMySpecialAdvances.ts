@@ -4,7 +4,7 @@ import { isMissingServerFunction } from '@/lib/specialAdvances';
 import type { MySpecialAdvances, WalletRepaymentReceipt } from '@/lib/specialAdvanceWallet';
 
 /**
- * The signed-in borrower's Special Advances and Pay from Wallet (migration 20261117140000).
+ * The signed-in borrower's Special Advances and Pay from Wallet (migration 20261118090000).
  * Both calls go to SECURITY DEFINER functions that read the caller from the session; this hook never computes a
  * balance and never writes a table, the ledger or a wallet itself.
  */

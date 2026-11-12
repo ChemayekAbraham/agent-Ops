@@ -1,17 +1,17 @@
 -- Special Advances: SMS to the borrower after a Pay from Wallet repayment (CFO, 12 Nov 2026).
--- Requires 20261117140000_special_advance_pay_from_wallet. Notification only: posts nothing, moves no money.
+-- Requires 20261118090000_special_advance_pay_from_wallet. Notification only: posts nothing, moves no money.
 --
 -- A wallet repayment row queues one call to the edge function notify-special-advance-payment with the repayment id.
 -- pg_net sends queued calls only after the transaction commits, so a payment that fails or rolls back never texts.
 -- Any error queuing the call is swallowed: the SMS can never block or undo a payment.
 -- Merchant Line repayments (recorded by the CFO) are not texted by this trigger.
 -- Same mechanism and vault key as trg_sms_advance_deduction (sms_advance_deduction_on_ledger).
--- Rollback: supabase/rollbacks/20261117150000_special_advance_wallet_payment_sms.rollback.sql
+-- Rollback: supabase/rollbacks/20261118090100_special_advance_wallet_payment_sms.rollback.sql
 
 DO $pre$
 BEGIN
   IF to_regprocedure('public.special_advance_pay_from_wallet(uuid,bigint,bigint,text)') IS NULL THEN
-    RAISE EXCEPTION 'precondition failed: apply 20261117140000_special_advance_pay_from_wallet first';
+    RAISE EXCEPTION 'precondition failed: apply 20261118090000_special_advance_pay_from_wallet first';
   END IF;
 END $pre$;
 

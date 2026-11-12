@@ -20,7 +20,7 @@
 --   6. special_advance_record_correction: a reversed wallet repayment goes back to the borrower's wallet (CR L1 / DR A24);
 --      Merchant Line reversals unchanged.
 -- Preflight: refuses unless the replaced functions are exactly production's of 12 Nov 2026.
--- Rollback: supabase/rollbacks/20261117140000_special_advance_pay_from_wallet.rollback.sql
+-- Rollback: supabase/rollbacks/20261118090000_special_advance_pay_from_wallet.rollback.sql
 
 DO $pre$
 BEGIN

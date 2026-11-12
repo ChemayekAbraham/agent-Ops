@@ -1,5 +1,5 @@
 -- Verbatim production copy (12 Nov 2026, read-only export via pg_get_functiondef, project byrzshwlentqvktcksem) of the
--- ledger category allowlist that 20261117140000_special_advance_pay_from_wallet extends. The base list is unchanged since
+-- ledger category allowlist that 20261118090000_special_advance_pay_from_wallet extends. The base list is unchanged since
 -- scripts/fixtures/ledger-allowlist-prod-2026-10-27.sql (md5 8270ad0ea82af904767ff6cba4c26f18); load that file first.
 --   ledger_category_allowlist()  md5(prosrc) 48c0d407fc784bdfebb59f7ed9364e14  (202 categories)
 CREATE OR REPLACE FUNCTION public.ledger_category_allowlist()

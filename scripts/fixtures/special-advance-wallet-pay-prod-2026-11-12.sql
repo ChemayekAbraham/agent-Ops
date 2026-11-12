@@ -1,5 +1,5 @@
 -- Verbatim production copies (12 Nov 2026, read-only export via pg_get_functiondef, project byrzshwlentqvktcksem) of the
--- wallet-debit code that Special Advances Pay from Wallet (20261117140000) runs through. Test fixture only.
+-- wallet-debit code that Special Advances Pay from Wallet (20261118090000) runs through. Test fixture only.
 --   md5(prosrc) where recorded:
 --   public.create_ledger_transaction(jsonb,text,boolean)  8e570ba579b151ac17788c0ee668a93b
 --   public.enforce_no_negative_wallet_ledger()  5b84f2e9f2793debdd631351094793bf

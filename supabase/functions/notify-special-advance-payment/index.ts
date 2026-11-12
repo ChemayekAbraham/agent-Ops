@@ -12,7 +12,7 @@ const fmtUGX = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * SMS to the borrower after a Special Advance repayment from their wallet (migration 20261117150000).
+ * SMS to the borrower after a Special Advance repayment from their wallet (migration 20261118090100).
  * Called only by the database (trigger on special_advance_repayments via pg_net, which posts after the payment has
  * committed), never by a browser. It takes just the repayment id and reads every figure from the database, so it can
  * only ever describe a payment that really happened.

@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Special Advances: Pay from Wallet (supabase/migrations/20261117140000_special_advance_pay_from_wallet.sql).
+ * Special Advances: Pay from Wallet (supabase/migrations/20261118090000_special_advance_pay_from_wallet.sql).
  *
  * Runs on PGlite on top of production as on 12 Nov 2026: the Special Advances migrations up to the single access fee,
  * production's create_ledger_transaction, overdraft trigger (enforce_no_negative_wallet_ledger) and available-balance
@@ -22,8 +22,8 @@ vi.setConfig({ testTimeout: 120_000, hookTimeout: 600_000 });
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8').replace(/\r/g, '');
 const MIG = (f: string) => read(`supabase/migrations/${f}`);
-const WALLET_PAY = MIG('20261117140000_special_advance_pay_from_wallet.sql');
-const WALLET_PAY_RB = read('supabase/rollbacks/20261117140000_special_advance_pay_from_wallet.rollback.sql');
+const WALLET_PAY = MIG('20261118090000_special_advance_pay_from_wallet.sql');
+const WALLET_PAY_RB = read('supabase/rollbacks/20261118090000_special_advance_pay_from_wallet.rollback.sql');
 const RESOLVER = read('src/test/fixtures/sofp_ledger_legs.live.sql');
 
 /** The CREATE OR REPLACE FUNCTION block for `signature`, verbatim. */
@@ -333,7 +333,7 @@ describe('before the migration: production as on 12 Nov 2026', () => {
   });
 });
 
-describe('20261117140000 migration', () => {
+describe('20261118090000 migration', () => {
   it('applies over production\'s definitions only, once', async () => {
     const before = await h.counts();
     expect(await run(db, WALLET_PAY)).toBeUndefined();
@@ -557,9 +557,9 @@ describe('corrections', () => {
   });
 });
 
-describe('20261117150000: SMS after a wallet repayment', () => {
-  const SMS = MIG('20261117150000_special_advance_wallet_payment_sms.sql');
-  const SMS_RB = read('supabase/rollbacks/20261117150000_special_advance_wallet_payment_sms.rollback.sql');
+describe('20261118090100: SMS after a wallet repayment', () => {
+  const SMS = MIG('20261118090100_special_advance_wallet_payment_sms.sql');
+  const SMS_RB = read('supabase/rollbacks/20261118090100_special_advance_wallet_payment_sms.rollback.sql');
   // stand-ins for pg_net (a queue table: a rolled-back insert leaves nothing queued, as with pg_net) and the vault
   const STUBS = `
     create schema net; create table net.queue (url text, headers jsonb, body jsonb);

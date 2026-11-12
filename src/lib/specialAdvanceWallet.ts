@@ -1,5 +1,5 @@
 /**
- * Special Advances: Pay from Wallet, borrower side (migration 20261117140000).
+ * Special Advances: Pay from Wallet, borrower side (migration 20261118090000).
  * Types for `special_advance_my_advances` / `special_advance_pay_from_wallet`, the amount rules the screen applies
  * before asking the server, and borrower-facing messages for the server's refusals. The server decides everything
  * (balance, outstanding, allocation); these helpers only stop obviously wrong input early and explain refusals.
