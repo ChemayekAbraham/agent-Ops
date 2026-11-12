@@ -1,3 +1,9 @@
+# Production log fixes (12 November)
+- [x] Normalize timestamp filters and regression-test the three reported tables plus sibling raw cursors.
+- [x] Isolate service-role float readers and replace the browser helper with the ownership-checked capacity wrapper.
+- [x] Gate weekly posting eligibility on a usable session; 25 focused tests and all guards passed; build OK.
+- [ ] Verify authenticated production flows; external unmanaged authentication prevents signed-in checks here.
+
 # Tenant Repayment Tracker exception investigation
 - [x] Reproduce the displayed 243 exceptions across 208 tenants and compare plan-specific receipts, repayments, edits and Tenant Operations activity sources.
 - [x] Prepare the case register and evidence-backed reporting proposal without financial or production data changes.

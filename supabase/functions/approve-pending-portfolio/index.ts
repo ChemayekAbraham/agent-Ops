@@ -90,7 +90,9 @@ Deno.serve(async (req) => {
     const portfolioId = String(body?.portfolio_id || "");
     if (!UUID.test(portfolioId)) return json({ error: "Invalid portfolio ID" }, 400);
 
-    const admin = createClient(supabaseUrl, serviceKey);
+    const admin = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
 
     // AUTHORIZATION FIRST. The wallet debit below must never run for a caller
     // that the DB gate will reject, otherwise the partner is debited while the
