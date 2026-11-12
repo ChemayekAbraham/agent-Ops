@@ -57,6 +57,7 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
   const [search, setSearch] = useState('');
   const [student, setStudent] = useState<StudentOption | null>(null);
   const [termId, setTermId] = useState<string>('');
+  const [termStart, setTermStart] = useState(() => isoDate(new Date()));
   const [termEnd, setTermEnd] = useState(() => isoDate(new Date(Date.now() + 90 * 86_400_000)));
   const [fee, setFee] = useState(0);
   const [guardianName, setGuardianName] = useState('');
@@ -83,8 +84,12 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
   const today = isoDate(new Date());
   const terms = (setup.data?.terms ?? []).filter((t) => t.end_date > today);
   const term = terms.find((t) => t.id === termId) ?? null;
+  const effectiveStart = term ? term.start_date : termStart;
   const effectiveEnd = term ? term.end_date : termEnd;
-  const days = planDaysUntil(new Date(`${effectiveEnd}T00:00:00`));
+  // The plan runs from the start of term (or today, if the term has already begun) to 14 days before it ends.
+  const planStart = effectiveStart > today ? effectiveStart : today;
+  const datesInOrder = effectiveStart < effectiveEnd;
+  const days = datesInOrder ? planDaysUntil(new Date(`${effectiveEnd}T00:00:00`), new Date(`${planStart}T00:00:00`)) : 0;
   const summary = planSummary(fee, days);
 
   const needle = search.trim().toLowerCase();
@@ -113,12 +118,13 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
   const submit = async () => {
     if (!student) { toast.error('Choose the student'); return; }
     if (!(fee > 0)) { toast.error('Enter the term fee'); return; }
+    if (!datesInOrder) { toast.error('The beginning of term must be before the end of term'); return; }
     if (days < 14) { toast.error('Too close to the end of term for a plan'); return; }
     if (!guardianName.trim() || guardianPhone.replace(/\D/g, '').length < 9) { toast.error("Enter the parent or guardian's name and phone"); return; }
     setSaving(true);
     try {
       const row = await submitFeeRequest({
-        profileId: student.id, termId: term?.id ?? null, termEnd: term ? null : termEnd, termFee: fee,
+        profileId: student.id, termId: term?.id ?? null, termStart: term ? null : termStart, termEnd: term ? null : termEnd, termFee: fee,
         guardianName, guardianPhone, guarantorName, guarantorPhone,
       });
       setSent(row);
@@ -213,12 +219,23 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
           </Field>
         ) : null}
         {!term && (
-          <Field label="End of term">
-            <div className="relative">
-              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-              <Input type="date" className="h-12 pl-9" value={termEnd} min={today} onChange={(e) => setTermEnd(e.target.value)} />
-            </div>
-          </Field>
+          <>
+            <Field label="Beginning of term">
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                <Input type="date" aria-label="Beginning of term" className="h-12 pl-9" value={termStart} onChange={(e) => setTermStart(e.target.value)} />
+              </div>
+            </Field>
+            <Field label="End of term">
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                <Input type="date" aria-label="End of term" className="h-12 pl-9" value={termEnd} min={termStart > today ? termStart : today} onChange={(e) => setTermEnd(e.target.value)} />
+              </div>
+            </Field>
+          </>
+        )}
+        {term && (
+          <p className="px-1 text-xs text-muted-foreground">{term.name}: {term.start_date} to {term.end_date}</p>
         )}
         <Field label="Term fee">
           <div className="relative">
@@ -234,7 +251,9 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
             <p className="text-xs text-primary-foreground/80">Total {formatDynamic(Math.round(summary.totalOnSchedule))} if paid on schedule. Less if paid early.</p>
           </div>
         ) : fee > 0 ? (
-          <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">Too close to the end of term. Plans are cleared 14 days before the term ends.</p>
+          <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
+            {datesInOrder ? 'Too close to the end of term. Plans are cleared 14 days before the term ends.' : 'The beginning of term must be before the end of term.'}
+          </p>
         ) : null}
       </Section>
 

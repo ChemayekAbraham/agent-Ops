@@ -17,6 +17,7 @@ export interface FeeRequestRow {
   profile_id: string;
   student_name: string;
   class_grade: string | null;
+  term_start: string | null;
   term_end: string;
   plan_due_date: string;
   term_fee: number;
@@ -42,6 +43,8 @@ export const FEE_REQUEST_STATUS_LABEL: Record<FeeRequestStatus, string> = {
 export interface FeeRequestInput {
   profileId: string;
   termId: string | null;
+  /** Beginning of term when no school term is chosen; the plan starts then (or today, if later). */
+  termStart: string | null;
   termEnd: string | null;
   termFee: number;
   guardianName: string;
@@ -55,6 +58,7 @@ export interface FeeRequestInput {
 export function feeRequestErrorMessage(error: unknown): string {
   const msg = String((error as { message?: string })?.message ?? error ?? '');
   if (msg.includes('REQUEST_ALREADY_OPEN')) return 'This student already has an open School Fees Plan request.';
+  if (msg.includes('TERM_DATES_OUT_OF_ORDER')) return 'The beginning of term must be before the end of term.';
   if (msg.includes('TERM_TOO_SHORT')) return 'Too close to the end of term. Plans are cleared 14 days before the term ends and need at least 14 days to run.';
   if (msg.includes('NOT_A_SCHOOL_AGENT')) return 'Only Welile Schools agents can request school fees.';
   if (msg.includes('STUDENT_NOT_FOUND') || msg.includes('NOT_A_STUDENT')) return 'Choose a registered student.';
@@ -69,6 +73,7 @@ export async function submitFeeRequest(input: FeeRequestInput): Promise<FeeReque
   const { data, error } = await db.rpc('welile_school_fee_request_submit', {
     p_profile_id: input.profileId,
     p_term_id: input.termId,
+    p_term_start: input.termId ? null : input.termStart,
     p_term_end: input.termId ? null : input.termEnd,
     p_term_fee: input.termFee,
     p_guardian_name: input.guardianName,
