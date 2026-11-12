@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { hasUsableUserSession, useAuthenticatedAudience, useAuthenticatedPoll } from '@/hooks/useAuthenticatedPoll';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -75,6 +76,7 @@ export function StaffRequisitionApprovalGate(
   const suppressedUntilRef = useRef(0);
   const laterTimerRef = useRef<number | null>(null);
   const ready = useAuthenticatedAudience();
+  const navigate = useNavigate();
 
   const load = useCallback(async () => {
     if (Date.now() < suppressedUntilRef.current) return;
@@ -242,12 +244,22 @@ export function StaffRequisitionApprovalGate(
 
           <div className="space-y-1 pt-1">
             <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => {
+                  const stage = prompt.stage;
+                  setPrompt(null);
+                  navigate(`/${stage}/dashboard?section=requisitions`);
+                }}
+                disabled={working}
+              >
+                Open requisitions
+              </Button>
               <Button variant="outline" onClick={() => void later()} disabled={working}>
                 {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Later
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Later tells the requester you have seen it, and hides this until you refresh or for 1 hour. Approve or decline from the requisitions review queue.</p>
+            <p className="text-xs text-muted-foreground">Open requisitions takes you to the review queue, where approval is done. Later tells the requester you have seen it, and hides this until you refresh or for 1 hour.</p>
           </div>
         </div>
       </DialogContent>
