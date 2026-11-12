@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAgentDailyEligibility } from '@/lib/agentDailyEligibilityBatch';
+import { requireUserSession, useAuthenticatedAudience, isUnauthenticatedRpcError } from '@/hooks/useAuthenticatedPoll';
 
 export const ACTIVE_RENT_STATUSES = [
   'pending', 'agent_verified', 'tenant_ops_approved',
@@ -315,6 +316,7 @@ export function classifyAgent(
  * Returns a Map keyed by agent_id.
  */
 export function useAgentCapacityMap(agentIds: string[]) {
+  const ready = useAuthenticatedAudience();
   const sortedKey = [...agentIds].sort().join(',');
   const queryClient = useQueryClient();
 
@@ -368,13 +370,15 @@ export function useAgentCapacityMap(agentIds: string[]) {
 
   return useQuery({
     queryKey: ['agent-capacity-map', sortedKey],
-    enabled: agentIds.length > 0,
+    enabled: ready && agentIds.length > 0,
+    retry: (count, error) => !isUnauthenticatedRpcError(error) && count < 2,
     // Short stale window + always refetch on mount/focus so navigating back
     // to any agent panel reflects collections made seconds ago.
     staleTime: 15_000,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     queryFn: async (): Promise<Map<string, AgentCapacity>> => {
+      await requireUserSession();
       if (agentIds.length === 0) return new Map();
       const weekAgoISO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -400,6 +404,7 @@ export function useAgentCapacityMap(agentIds: string[]) {
       // rules together.
       const weeklyByAgent = new Map<string, WeeklyPostingResult>();
       let weeklyEnforced = false;
+      await requireUserSession();
       const { data: weeklyRows, error: weeklyErr } = await (supabase.rpc as any)(
         'get_agent_weekly_posting_eligibility',
         { p_agent_ids: agentIds },

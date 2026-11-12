@@ -2,6 +2,7 @@ import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePolling } from '@/hooks/usePolling';
+import { timestampToIso } from '@/lib/timestampSafeFetch';
 import { supabase } from '@/integrations/supabase/client';
 import { hasUsableUserSession } from '@/hooks/useAuthenticatedPoll';
 import { useToast } from '@/hooks/use-toast';
@@ -832,7 +833,7 @@ export function useEmailTransactionsPanel() {
     }
     const { data, error } = await (supabase.from('gmail_transactions') as any)
       .select('id,gmail_message_id,from_email,from_name,subject,snippet,amount,transaction_id,parsed,internal_date,direction,channel,counterparty,counterparty_name,fee,balance,linked_deposit_request_id,auto_matched_at,created_at')
-      .gt('created_at', newRowsCursorRef.current)
+      .gt('created_at', timestampToIso(newRowsCursorRef.current))
       .order('created_at', { ascending: true })
       .limit(200);
     if (error || !data?.length) return;

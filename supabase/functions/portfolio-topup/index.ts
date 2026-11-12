@@ -17,7 +17,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
 
     // Treasury guard: portfolio top-ups move money — block when paused
     const guardBlock = await checkTreasuryGuard(supabase, "any", req.headers.get("Authorization"));
