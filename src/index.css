@@ -46,6 +46,7 @@ section[aria-label*="Notifications" i]:empty {
   --board-posted: 217 91% 45%;
   --board-sold: 142 72% 29%;
   --board-waiting: 24 90% 40%;
+  --board-selected: 262 60% 47%;
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
@@ -89,10 +90,11 @@ section[aria-label*="Notifications" i]:empty {
 .board-idle, .board-idle * { cursor: none !important; }
 .board-idle .board-fullscreen { opacity: 0; pointer-events: none; }
 
-/* Today: three huge tiles */
-.board-hero { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--u) * 1.2); }
+/* Four huge tiles (E94): posted · sold · selected, waiting · waiting for funder */
+.board-hero { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: calc(var(--u) * 1.2); }
 .board-posted { --board-tone: var(--board-posted); }
 .board-sold { --board-tone: var(--board-sold); }
+.board-selected { --board-tone: var(--board-selected); }
 .board-waiting { --board-tone: var(--board-waiting); }
 .board-tile {
   display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
@@ -107,7 +109,8 @@ section[aria-label*="Notifications" i]:empty {
 .board-tile:focus-visible { outline: 3px solid hsl(var(--board-tone)); outline-offset: 2px; }
 .board-tile-when { display: block; font-size: clamp(10px, calc(var(--u) * 0.85), 24px); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: hsl(var(--muted-foreground)); }
 .board-tile h2 { font-size: clamp(14px, calc(var(--u) * 1.4), 38px); font-weight: 700; margin-top: 0.15em; color: hsl(var(--board-tone)); }
-.board-hero-count { font-size: clamp(48px, calc(var(--u) * 8), 220px); line-height: 1; font-weight: 800; color: hsl(var(--board-tone)); margin: calc(var(--u) * 0.4) 0 calc(var(--u) * 0.2); }
+/* 6u: four tiles across a 16:9 TV still fit "12,345" */
+.board-hero-count { font-size: clamp(48px, calc(var(--u) * 6), 180px); line-height: 1; font-weight: 800; color: hsl(var(--board-tone)); margin: calc(var(--u) * 0.4) 0 calc(var(--u) * 0.2); }
 .board-hero-money { font-size: clamp(18px, calc(var(--u) * 2.2), 60px); font-weight: 700; }
 .board-tile p { font-size: clamp(12px, calc(var(--u) * 1), 26px); line-height: 1.35; color: hsl(var(--muted-foreground)); margin-top: calc(var(--u) * 0.4); }
 
@@ -151,7 +154,13 @@ section[aria-label*="Notifications" i]:empty {
 .board-list-ref { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: clamp(12px, calc(var(--u) * 0.9), 24px); color: hsl(var(--muted-foreground)); flex-shrink: 0; }
 .board-list-area { flex: 1; min-width: 0; font-size: clamp(14px, calc(var(--u) * 1.15), 30px); font-weight: 600; overflow-wrap: anywhere; }
 .board-list-rent { flex-shrink: 0; font-size: clamp(15px, calc(var(--u) * 1.25), 32px); font-weight: 750; }
-.board-list-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: clamp(12px, calc(var(--u) * 0.95), 26px); color: hsl(var(--muted-foreground)); }
+.board-list-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: 4px; font-size: clamp(12px, calc(var(--u) * 0.95), 26px); color: hsl(var(--muted-foreground)); }
+/* The tenant's name leads the row; the people under it are small. */
+.board-list-tenant { flex: 1; min-width: 0; font-size: clamp(16px, calc(var(--u) * 1.35), 36px); font-weight: 700; overflow-wrap: anywhere; }
+.board-list-people { display: flex; flex-wrap: wrap; gap: 2px 16px; margin-top: 2px; font-size: clamp(12px, calc(var(--u) * 0.95), 26px); color: hsl(var(--muted-foreground)); }
+.board-list-people b { font-weight: 600; color: hsl(var(--foreground)); }
+.board-sort { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px clamp(16px, calc(var(--u) * 1.4), 36px) 0; }
+.board-sort .board-period { font-size: clamp(12px, calc(var(--u) * 0.95), 26px); padding: 4px calc(var(--u) * 1); }
 .board-list-status { color: hsl(var(--board-tone)); font-weight: 650; }
 @media (min-width: 900px) {
   .board-panel-wrap { align-items: stretch; justify-content: flex-end; }
@@ -168,6 +177,7 @@ section[aria-label*="Notifications" i]:empty {
 .board-number-changed { animation: board-value-pulse 800ms ease-out; }
 @keyframes board-value-pulse { 0%, 25% { background: hsl(var(--warning) / 0.35); } 100% { background: transparent; } }
 
+@media (min-width: 761px) and (max-width: 1100px) { .board-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
   .board-topbar { flex-wrap: wrap; }
   .board-brand { flex-basis: 100%; }

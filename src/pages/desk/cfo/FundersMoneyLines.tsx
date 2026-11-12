@@ -57,13 +57,16 @@ export function IncompleteLine({ board }: { board: boolean }) {
   );
 }
 
-/** Which releases each line lists; `released` is all of them. */
-export const LINE_LIST: Record<string, { title: string; stages: string[] | null }> = {
+/** Which releases each line lists; `released` is all of them. `now`: the line counts right now, not the last 30 days. */
+export const LINE_LIST: Record<string, { title: string; stages: string[] | null; now?: boolean }> = {
   released: { title: 'Released to agents', stages: null },
   with_agent: { title: 'With agents, landlord not paid', stages: ['with_agent'] },
   part_paid: { title: 'Part paid to landlords', stages: ['part_paid'] },
   // E93: the server's LIVE count includes the sold ones (landlord paid, OTP confirmed).
   live: { title: 'LIVE (landlord paid)', stages: ['live', 'sold', 'paid_to_landlord', 'plan_live'] },
+  // E93 lines (Op 5, 1e0b25f4c5): sold = landlord paid after the OTP; selected, waiting = every selection not sold yet.
+  sold: { title: 'Sold (landlord paid, OTP)', stages: ['sold'] },
+  selected_waiting: { title: 'Selected, waiting', stages: ['with_agent', 'part_paid', 'live', 'paid_to_landlord', 'plan_live'], now: true },
 };
 
 function MoneyLines({ board }: { board: boolean }) {
@@ -87,8 +90,15 @@ function MoneyLines({ board }: { board: boolean }) {
 
   const list = open ? LINE_LIST[open] : null;
   const items = (f.items.filter((i) => !!i.rent_request_id) as Release[]).filter((i) => !list?.stages || list.stages.includes(String(i.stage)));
-  const total =
-    open === 'released' ? f.released.count : open === 'with_agent' ? f.with_agent.count : open === 'part_paid' ? f.part_paid.count : open === 'live' ? f.live.count : 0;
+  const totals: Record<string, number> = {
+    released: f.released.count,
+    with_agent: f.with_agent.count,
+    part_paid: f.part_paid.count,
+    live: f.live.count,
+    sold: f.sold?.count ?? 0,
+    selected_waiting: f.selected_waiting?.count ?? 0,
+  };
+  const total = open ? totals[open] ?? 0 : 0;
 
   return (
     <div style={stackLayout(2)} data-money-lines>
@@ -110,7 +120,7 @@ function MoneyLines({ board }: { board: boolean }) {
         <ReleasesPanel
           title={list.title}
           items={items}
-          note={`Last ${MONEY_FLOW_DAYS} days${items.length < total ? ` · latest ${items.length} of ${fmt('int', total)} shown` : ''}`}
+          note={`${list.now ? 'Right now' : `Last ${MONEY_FLOW_DAYS} days`}${items.length < total ? ` · latest ${items.length} of ${fmt('int', total)} shown` : ''}`}
           onClose={() => setOpen(null)}
         />
       )}
