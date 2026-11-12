@@ -768,6 +768,8 @@ describe('20261119120000: top-ups', () => {
   it('applies over production\'s definitions only, once; adds nothing to the ledger', async () => {
     const before = await h.counts();
     expect(await run(db, TOPUP)).toBeUndefined();
+    // Lovable's production fix (12 Nov): a top-up's ledger legs carry the top-up's own reference
+    expect(await run(db, MIG('20261112123351_a678478e-25c4-466a-b05e-48afa611f0e6.sql'))).toBeUndefined();
     expect(await h.counts()).toEqual(before);
     expect((await run(db, TOPUP))?.message).toMatch(/precondition failed/);
     const [g] = await db.q<Record<string, boolean>>(`select
@@ -1136,6 +1138,7 @@ describe('20261119140000: reverse a top-up', () => {
     await buildStack(fresh, cfo);
     expect(await run(fresh, WALLET_PAY)).toBeUndefined();
     expect(await run(fresh, MIG('20261119120000_special_advance_topups.sql'))).toBeUndefined();
+    expect(await run(fresh, MIG('20261112123351_a678478e-25c4-466a-b05e-48afa611f0e6.sql'))).toBeUndefined();
     const sigs = ['public.special_advance_record_correction(uuid,jsonb)', 'public._special_advance_position(uuid)',
       'public._special_advance_apply_repayment(uuid,uuid,bigint)', 'public.special_advance_my_advances()', 'public._special_advance_correction_json(uuid)'];
     const state = async () => Promise.all(sigs.map((s) => md5Of(fresh, s)));
@@ -1145,6 +1148,95 @@ describe('20261119140000: reverse a top-up', () => {
     expect(await state()).toEqual(prod);
     expect(await fresh.q(`select tgfoid::regproc::text f from pg_trigger where tgname = 'special_advance_topups_guard'`)).toEqual([{ f: '_special_advance_guard_posted' }]);
     await fresh.close();
+  });
+});
+
+describe('20261119150000: each wallet leg carries its own reference', () => {
+  const FIX = MIG('20261119150000_special_advance_wallet_leg_references.sql');
+  const FIX_RB = read('supabase/rollbacks/20261119150000_special_advance_wallet_leg_references.rollback.sql');
+  const walletRefs = (user: string) => db.q<{ category: string; direction: string; reference_id: string }>(
+    `select category, direction, reference_id from public.general_ledger where ledger_scope = 'wallet' and user_id = $1 order by created_at, id`, [user]);
+  const correctRep = async (advId: string, repId: string) => db.call<{ reference: string }>(cfo, `select public.special_advance_record_correction($1, $2::text::jsonb) r`, [advId, JSON.stringify({
+    idempotency_key: uuid(), kind: 'repayment_reversal', repayment_id: repId, reason: 'Repayment entered twice by the borrower', proof_path: await h.proof(advId) })]);
+
+  beforeAll(async () => {
+    // production's unique index (uq_general_ledger_reference_dedupe), from this point on, as production applies it after its cut-off
+    const [{ t }] = await db.q<{ t: string }>(`select clock_timestamp()::text t`);
+    await db.exec(`create unique index uq_general_ledger_reference_dedupe on public.general_ledger (user_id, category, reference_id, direction, ledger_scope)
+      where reference_id is not null and user_id is not null and created_at >= '${t}'`);
+  });
+
+  it("before the fix: a borrower's second wallet payment on the same advance is refused (nothing moves)", async () => {
+    const { user, adv } = await h.paidOut();
+    expect((await h.pay(user, adv.id, 1_000, await h.outstanding(adv.id))).err).toBeUndefined();
+    const before = await h.counts();
+    const w = await h.wallet(user);
+    const second = await h.pay(user, adv.id, 1_000, await h.outstanding(adv.id));
+    expect(second.err?.message).toMatch(/uq_general_ledger_reference_dedupe|duplicate key/);
+    expect(await h.counts()).toEqual(before);
+    expect(await h.wallet(user)).toBe(w);
+  });
+
+  it("applies over production's definitions only, once", async () => {
+    expect(await run(db, FIX)).toBeUndefined();
+    expect((await run(db, FIX))?.message).toMatch(/precondition failed/);
+  });
+
+  it('after the fix: several wallet payments on one advance all go through, each wallet leg under its own receipt', async () => {
+    const { user, adv } = await h.paidOut();
+    const receipts: string[] = [];
+    for (let k = 0; k < 3; k++) {
+      const r = await h.pay(user, adv.id, 10_000, await h.outstanding(adv.id));
+      expect(r.err).toBeUndefined();
+      receipts.push(r.out!.receipt_reference);
+    }
+    expect(await h.wallet(user)).toBe(470_000);
+    const legs = (await walletRefs(user)).filter((x) => x.category === 'special_advance_wallet_repayment');
+    expect(legs.map((x) => x.reference_id)).toEqual(receipts);
+    expect((await h.recon()).balanced).toBe(true);
+  });
+
+  it("two wallet repayments on one advance can both be reversed; each returns its money under the correction's reference", async () => {
+    const { user, adv } = await h.paidOut();
+    const a = await h.pay(user, adv.id, 20_000, await h.outstanding(adv.id));
+    const b = await h.pay(user, adv.id, 30_000, await h.outstanding(adv.id));
+    const ra = await correctRep(adv.id, a.out!.repayment_id);
+    const rb = await correctRep(adv.id, b.out!.repayment_id);
+    expect([ra.err, rb.err]).toEqual([undefined, undefined]);
+    expect(await h.wallet(user)).toBe(500_000);
+    const back = (await walletRefs(user)).filter((x) => x.category === 'special_advance_wallet_repayment' && x.direction === 'cash_in');
+    expect(back.map((x) => x.reference_id)).toEqual([ra.out!.reference, rb.out!.reference]);
+    expect((await h.recon()).balanced).toBe(true);
+  });
+
+  it('two wallet top-ups on one advance can both be reversed', async () => {
+    const { user, adv } = await h.paidOut();
+    const topUp = async (principal: number) => {
+      const st = (await db.call<{ updated_at: string }>(cfo, `select public.special_advance_statement($1) r`, [adv.id])).out!;
+      const q = (await db.call<{ schedule: { total_repayable: number } }>(cfo, `select public.special_advance_topup_quote($1, $2::bigint) r`, [adv.id, principal])).out!;
+      const r = await db.call<{ topup: { id: string } }>(cfo, `select public.special_advance_add_topup($1, $2::text::timestamptz, $3::text::jsonb) r`,
+        [adv.id, st.updated_at, JSON.stringify({ idempotency_key: uuid(), principal, expected_total_repayable: q.schedule.total_repayable, reason: 'Seasonal stock top-up approved' })]);
+      if (r.err) throw new Error(r.err.message);
+      return r.out!.topup.id;
+    };
+    const t1 = await topUp(100_000);
+    const t2 = await topUp(150_000);
+    expect(await h.wallet(user)).toBe(750_000);
+    for (const t of [t1, t2]) {
+      const r = await db.call(cfo, `select public.special_advance_record_correction($1, $2::text::jsonb) r`, [adv.id, JSON.stringify({
+        idempotency_key: uuid(), kind: 'topup_reversal', topup_id: t, reason: 'Top-up entered against the wrong advance by mistake', proof_path: await h.proof(adv.id) })]);
+      expect(r.err).toBeUndefined();
+    }
+    expect(await h.wallet(user)).toBe(500_000);
+    expect(await h.outstanding(adv.id)).toBe(adv.total_repayable);
+    expect((await h.recon()).balanced).toBe(true);
+  });
+
+  it("rollback restores production's definitions exactly; the fix applies again", async () => {
+    const sigs = ['public.special_advance_pay_from_wallet(uuid,bigint,bigint,text)', 'public.special_advance_record_correction(uuid,jsonb)'];
+    expect(await run(db, FIX_RB)).toBeUndefined();
+    expect(await Promise.all(sigs.map((s) => md5Of(db, s)))).toEqual(['3979dbaace78dde9230e3aa72963cafc', '614bdb48e28410591dc32370f344dd16']);
+    expect(await run(db, FIX)).toBeUndefined();
   });
 });
 
@@ -1183,6 +1275,7 @@ const PARALLEL = 8;
     await buildStack(pg, cfo);
     await pg.exec(`BEGIN;\n${WALLET_PAY}\nCOMMIT;`);
     await pg.exec(`BEGIN;\n${MIG('20261119120000_special_advance_topups.sql')}\nCOMMIT;`);
+    await pg.exec(`BEGIN;\n${MIG('20261112123351_a678478e-25c4-466a-b05e-48afa611f0e6.sql')}\nCOMMIT;`);
     ph = helpers(pg, cfo);
   }, 600_000);
   afterAll(async () => { await pg?.close(); });
