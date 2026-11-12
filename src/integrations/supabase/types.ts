@@ -70055,6 +70055,109 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_school_fee_requests: {
+        Row: {
+          class_grade: string | null
+          created_at: string
+          daily_rate: number
+          guarantor_name: string | null
+          guarantor_phone: string | null
+          guardian_name: string
+          guardian_phone: string
+          id: string
+          note: string | null
+          plan_days: number
+          plan_due_date: string
+          profile_id: string
+          requested_by: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          student_name: string
+          term_end: string
+          term_fee: number
+          term_id: string | null
+          total_on_schedule: number
+          updated_at: string
+        }
+        Insert: {
+          class_grade?: string | null
+          created_at?: string
+          daily_rate: number
+          guarantor_name?: string | null
+          guarantor_phone?: string | null
+          guardian_name: string
+          guardian_phone: string
+          id?: string
+          note?: string | null
+          plan_days: number
+          plan_due_date: string
+          profile_id: string
+          requested_by: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school_id: string
+          status?: string
+          student_name: string
+          term_end: string
+          term_fee: number
+          term_id?: string | null
+          total_on_schedule: number
+          updated_at?: string
+        }
+        Update: {
+          class_grade?: string | null
+          created_at?: string
+          daily_rate?: number
+          guarantor_name?: string | null
+          guarantor_phone?: string | null
+          guardian_name?: string
+          guardian_phone?: string
+          id?: string
+          note?: string | null
+          plan_days?: number
+          plan_due_date?: string
+          profile_id?: string
+          requested_by?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school_id?: string
+          status?: string
+          student_name?: string
+          term_end?: string
+          term_fee?: number
+          term_id?: string | null
+          total_on_schedule?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_fee_requests_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "welile_school_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_school_fee_requests_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "welile_schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_school_fee_requests_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "welile_school_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_school_fee_structures: {
         Row: {
           amount: number
@@ -103943,6 +104046,51 @@ export type Database = {
           src: string
           unit_id: string
         }[]
+      }
+      welile_school_fee_request_submit: {
+        Args: {
+          p_guarantor_name: string
+          p_guarantor_phone: string
+          p_guardian_name: string
+          p_guardian_phone: string
+          p_note: string
+          p_profile_id: string
+          p_term_end: string
+          p_term_fee: number
+          p_term_id: string
+        }
+        Returns: {
+          class_grade: string | null
+          created_at: string
+          daily_rate: number
+          guarantor_name: string | null
+          guarantor_phone: string | null
+          guardian_name: string
+          guardian_phone: string
+          id: string
+          note: string | null
+          plan_days: number
+          plan_due_date: string
+          profile_id: string
+          requested_by: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          student_name: string
+          term_end: string
+          term_fee: number
+          term_id: string | null
+          total_on_schedule: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_fee_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       welile_school_partnership_editable: {
         Args: { p_school_id: string }
