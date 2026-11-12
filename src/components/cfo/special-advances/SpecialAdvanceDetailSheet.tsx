@@ -105,12 +105,16 @@ export function SpecialAdvanceDetailSheet({
   const editPrincipal = useEditSpecialAdvancePrincipal();
   const editName = useEditSpecialAdvanceName();
   const [nameText, setNameText] = useState('');
+  const [dateText, setDateText] = useState('');
+  const [termText, setTermText] = useState('');
   const principalEditable = !!a && canEditRecordedPrincipal(a);
   const cleanName = nameText.trim().replace(/\s+/g, ' ');
   const nameChanged = !!a && cleanName.length >= 2 && cleanName !== (a.borrower_name ?? '');
   const newPrincipal = Number(principalText.replace(/[^0-9]/g, '')) || 0;
   const reasonLen = editReason.trim().length;
-  const principalChanged = !!a && principalEditable && newPrincipal > 0 && newPrincipal !== a.principal;
+  const newTerm = Number(termText.replace(/[^0-9]/g, '')) || 0;
+  const principalChanged = !!a && principalEditable && newPrincipal > 0 && newTerm > 0 && !!dateText
+    && (newPrincipal !== a.principal || newTerm !== a.term_days || dateText !== (a.payout_date ?? ''));
   const editReady = (principalChanged || nameChanged) && reasonLen >= 5;
   const editBusy = editPrincipal.isPending || editName.isPending;
   const savePrincipal = async () => {
@@ -118,16 +122,16 @@ export function SpecialAdvanceDetailSheet({
     try {
       let version = a.updated_at;
       if (principalChanged) {
-        const res = await editPrincipal.mutateAsync({ advanceId, expectedUpdatedAt: version, principal: newPrincipal, reason: editReason.trim() });
+        const res = await editPrincipal.mutateAsync({ advanceId, expectedUpdatedAt: version, principal: newPrincipal, payoutDate: dateText, termDays: newTerm, reason: editReason.trim() });
         version = res.updated_at;
-        toast.success(`Principal updated. New total repayable ${formatUGX(res.total_repayable)}`);
+        toast.success(`Advance updated. New total repayable ${formatUGX(res.total_repayable)}`);
       }
       if (nameChanged) {
         await editName.mutateAsync({ advanceId, expectedUpdatedAt: version, name: cleanName, reason: editReason.trim() });
         toast.success('Name updated');
       }
       setNoteOpen(false);
-      setPrincipalText(''); setEditReason(''); setNameText('');
+      setPrincipalText(''); setEditReason(''); setNameText(''); setDateText(''); setTermText('');
     } catch (e) {
       toast.error(describeSpecialAdvanceError(e));
     }
@@ -148,7 +152,7 @@ export function SpecialAdvanceDetailSheet({
     if (handledAction.current === key) return;
     handledAction.current = key;
     if (initialAction === 'edit') {
-      if (isRecordedAdvance(a)) { setPrincipalText(String(a.principal)); setNameText(a.borrower_name ?? ''); setNoteOpen(true); }
+      if (isRecordedAdvance(a)) { setPrincipalText(String(a.principal)); setDateText(a.payout_date ?? ''); setTermText(String(a.term_days)); setNameText(a.borrower_name ?? ''); setNoteOpen(true); }
       else toast.error('Only an already-issued advance that was recorded can be edited.');
       return;
     }
@@ -590,7 +594,7 @@ export function SpecialAdvanceDetailSheet({
         )}
       </SheetContent>
 
-      <Dialog open={noteOpen} onOpenChange={(o) => { setNoteOpen(o); if (!o) { setPrincipalText(''); setEditReason(''); setNameText(''); } }}>
+      <Dialog open={noteOpen} onOpenChange={(o) => { setNoteOpen(o); if (!o) { setPrincipalText(''); setEditReason(''); setNameText(''); setDateText(''); setTermText(''); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Pencil className="h-4 w-4" /> Edit {a?.reference ?? ''}</DialogTitle>
@@ -607,6 +611,17 @@ export function SpecialAdvanceDetailSheet({
               <Input id="special-advance-principal" inputMode="numeric" value={principalText} disabled={!principalEditable} onChange={(e) => setPrincipalText(e.target.value)} />
               {a && <p className="text-xs text-muted-foreground">Current: {formatUGX(a.principal)}{!principalEditable ? ' · locked: a repayment or top-up has been recorded' : ''}</p>}
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="special-advance-issued-date">Date Issued *</Label>
+                <Input id="special-advance-issued-date" type="date" value={dateText} max={new Date().toISOString().slice(0, 10)} disabled={!principalEditable} onChange={(e) => setDateText(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="special-advance-term">Period (days) *</Label>
+                <Input id="special-advance-term" inputMode="numeric" value={termText} disabled={!principalEditable} onChange={(e) => setTermText(e.target.value)} />
+              </div>
+            </div>
+            {principalEditable && <p className="text-xs text-muted-foreground">Fee, instalments and due dates are recalculated.</p>}
             <div className="space-y-1">
               <Label htmlFor="special-advance-edit-reason">Reason *</Label>
               <Textarea id="special-advance-edit-reason" value={editReason} maxLength={1000} onChange={(e) => setEditReason(e.target.value)} />

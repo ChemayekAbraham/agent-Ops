@@ -100164,6 +100164,17 @@ export type Database = {
         }
         Returns: Json
       }
+      special_advance_edit_terms: {
+        Args: {
+          p_expected_updated_at: string
+          p_id: string
+          p_payout_date: string
+          p_principal: number
+          p_reason: string
+          p_term_days: number
+        }
+        Returns: Json
+      }
       special_advance_get: { Args: { p_id: string }; Returns: Json }
       special_advance_list: {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
