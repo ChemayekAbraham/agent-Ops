@@ -37,9 +37,11 @@ const AvatarImage = React.forwardRef<
       className={cn("aspect-square h-full w-full object-cover", className)}
       src={usable}
       onLoadingStatusChange={(status) => {
-        if (status === 'error') {
+        // Radix also reports an error when src is temporarily undefined while
+        // signing. Only cache failures of an actual attempted image URL.
+        if (status === 'error' && usable) {
           if (src) failedAvatarUrls.add(src);
-          if (signedSrc) failedAvatarUrls.add(signedSrc);
+          failedAvatarUrls.add(usable);
           force();
         }
         onLoadingStatusChange?.(status);

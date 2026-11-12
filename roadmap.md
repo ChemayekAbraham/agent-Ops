@@ -1,3 +1,24 @@
+# Already-issued Special Advances
+- [ ] Add CFO recording for advances paid outside Welile without sending another payment; blocked pending approval of a dedicated historical-recording server action, because live create/payout actions reject past dates and wallet borrowers receive a fresh wallet credit.
+- [ ] Test the non-payout flow and existing Special Advances safeguards.
+
+# Agent Ops signage location filters
+- [x] Add a region filter and search across region, district, county, sub-county, parish, village and landmarks using authorized loaded signage rows and the shared official district-region reference.
+- [x] Twelve filter/photo/approval checks pass; automatic build OK. Authorized live Agent Ops browser verification remains unavailable with external unmanaged authentication.
+
+# Invitation profile picture
+- [x] Diagnose signing-placeholder errors incorrectly poisoning the shared avatar failure cache; cache only failed image attempts, keeping real failure suppression unchanged.
+- [x] All 45 avatar/co-support checks pass and build OK; Benjamin's real invitation photo loads and remains visible after the one-minute refresh. Storage access unchanged.
+
+# Agent Ops signage evidence photos
+- [x] Fit complete photos inside their frames and open any clicked photo in a full-screen, closable preview; other signage desks and financial actions unchanged.
+- [x] Six photo/approval tests pass and automatic build OK; isolated desktop/phone checks confirm contained portrait/landscape images, full-screen sizing and Escape returns to review. Live authorized inspection remains unavailable with external unmanaged authentication.
+
+# Co-support invitation follow-ups
+- [x] Confirm pushed commit 447b8bdd02 and the supplied float-watch regression test; keep the hook and safety boundary unchanged.
+- [x] Use the supplied waiting-sheet and joined-card labels and suppress the global install prompt on invitation links only; storage untouched.
+- [x] Co-support library, both page tests, upstream float-watch tests and install-route tests pass (49 checks); automatic build OK. Phone invitation route remains uncovered by the install prompt; live payment verification still requires an authorized session and valid invitation.
+
 # Signage GPS-only locations
 - [x] Populate read-only location fields from captured GPS for new and returned applications; block failed/unresolved lookups without guessing missing optional levels.
 - [x] Test capture, recapture, lookup failures, locked fields and existing signage safeguards; 24 tests and all guards passed, build OK.
@@ -7,7 +28,7 @@
 - [x] Confirm commit 604a836d18, eight owner boards and required hooks/deposit callback.
 - [x] Match invitation and joined views and connect existing DepositFlow to float-watch sheets; no financial writer changes.
 - [x] Run co-support tests and check mobile/desktop invitation rendering and build output.
-- [ ] Enable real deposit-progress checks: supplied useCoSupportFloatWatch has a depositStatus initialization crash; awaits permission to fix the off-limits hook. Failure is isolated so the invitation still opens.
+- [x] Float-watch initialization crash fixed upstream in 447b8bdd02; retain the safety boundary and re-run the supplied hook and page regressions.
 - [x] Resolve merchandise storage finding: user selected uploaders and staff; applied owner/staff read restrictions, verified live policies, private bucket unchanged and finding cleared.
 
 # Production log fixes (12 November)
