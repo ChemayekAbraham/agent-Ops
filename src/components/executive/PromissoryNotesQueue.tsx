@@ -37,7 +37,7 @@ import { CompactAmount } from '@/components/ui/CompactAmount';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
-import { countPromissoryQueue, isPromissoryOverdue, promissoryFilterCount, promissoryFilterHelp, PROMISSORY_COUNT_HELP } from '@/lib/promissoryQueueCounts';
+import { countPromissoryQueue, isAwaitingPromissoryReview, isPromissoryOverdue, promissoryFilterCount, promissoryFilterHelp, promissoryReviewStatus, PROMISSORY_COUNT_HELP } from '@/lib/promissoryQueueCounts';
 import { PromissoryNoteReviewActions } from './partner-ops/PromissoryNoteReviewActions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -65,7 +65,7 @@ function SwipeableNoteCard({
   onReject,
   children,
 }: {
-  note: { id: string; status: string };
+  note: { id: string; status: string; approval_bonus_paid?: boolean | null };
   onOpen: () => void;
   onApprove: () => void;
   onReject: () => void;
@@ -77,8 +77,9 @@ function SwipeableNoteCard({
   const swiping = useRef(false);
   const moved = useRef(false);
 
-  const canApprove = note.status === 'pending';
-  const canReject = note.status === 'activated';
+  // A note opened from its link is stored as activated but is not approved until Partner Ops approve it.
+  const canApprove = isAwaitingPromissoryReview(note);
+  const canReject = !canApprove && note.status === 'activated';
   const enabled = canApprove || canReject;
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -413,7 +414,7 @@ export function PromissoryNotesQueue({
 
   const runReverseBonus = async (target: any, reason: string) => {
     setRejecting(true);
-    const wasPending = (target?.status || '').toLowerCase() === 'pending';
+    const wasPending = isAwaitingPromissoryReview(target ?? {});
     if (wasPending) bumpPromissoryPendingCount(queryClient, -1);
     try {
       const { data, error } = await supabase.rpc('reverse_promissory_note_bonus' as any, {
@@ -470,7 +471,7 @@ export function PromissoryNotesQueue({
     setApproving(true);
     // Optimistic: drop the pending badge now; roll back if the RPC fails,
     // reconcile with the true count on success.
-    const wasPending = (target?.status || '').toLowerCase() === 'pending';
+    const wasPending = isAwaitingPromissoryReview(target ?? {});
     if (wasPending) bumpPromissoryPendingCount(queryClient, -1);
     try {
       if (lead?.user_id && target.agent_id) {
@@ -521,7 +522,7 @@ export function PromissoryNotesQueue({
       return;
     }
     setDeleting(true);
-    const wasPending = (deleteTarget.status || '').toLowerCase() === 'pending';
+    const wasPending = isAwaitingPromissoryReview(deleteTarget);
     if (wasPending) bumpPromissoryPendingCount(queryClient, -1);
     try {
       const { data: userData } = await getSessionCheckedUser();
@@ -642,7 +643,7 @@ export function PromissoryNotesQueue({
         ? !n.came_in
         : statusFilter === 'portfolio_pending' || statusFilter === 'portfolio_active'
         ? n.journey_stage === statusFilter
-        : n.status === statusFilter;
+        : promissoryReviewStatus(n) === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -1120,7 +1121,7 @@ export function PromissoryNotesQueue({
                   </thead>
                   <tbody>
                     {pagedNotes.map(note => {
-                      const config = statusConfig[note.status] || statusConfig.pending;
+                      const config = statusConfig[promissoryReviewStatus(note)] || statusConfig.pending;
                       const StatusIcon = config.icon;
                       return (
                         <tr key={note.id} className="border-b last:border-0 cursor-pointer hover:bg-muted/40" onClick={() => setSelectedNote(note)}>
@@ -1225,7 +1226,7 @@ export function PromissoryNotesQueue({
               {/* Mobile cards */}
               <div className="md:hidden space-y-2">
                 {pagedNotes.map(note => {
-                  const config = statusConfig[note.status] || statusConfig.pending;
+                  const config = statusConfig[promissoryReviewStatus(note)] || statusConfig.pending;
                   const StatusIcon = config.icon;
                   return (
                     <SwipeableNoteCard
@@ -1370,7 +1371,7 @@ export function PromissoryNotesQueue({
             </SheetTitle>
           </SheetHeader>
           {selectedNote && (() => {
-            const config = statusConfig[selectedNote.status] || statusConfig.pending;
+            const config = statusConfig[promissoryReviewStatus(selectedNote)] || statusConfig.pending;
             const StatusIcon = config.icon;
             const outstanding = Number(selectedNote.amount) - Number(selectedNote.total_collected);
             const progress = Number(selectedNote.amount) > 0 ? Math.min(100, (Number(selectedNote.total_collected) / Number(selectedNote.amount)) * 100) : 0;

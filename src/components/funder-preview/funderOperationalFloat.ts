@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
+import { floatHoldBreakdown, floatShortHoldHint } from '@/lib/funderSavedTabs';
 
 /** Read fresh, caller-owned operational float after holds; never a wallet total. */
 export async function readFunderOperationalFloat(userId: string): Promise<number> {
@@ -21,6 +22,22 @@ export async function requireFunderOperationalFloat(userId: string | undefined, 
   if (!Number.isFinite(total) || total <= 0) throw new Error('Support amount is unavailable.');
   const available = await readFunderOperationalFloat(userId);
   if (total > available) {
-    throw new Error(`Your operational float is ${formatUGX(total - available)} short. Withdrawable balance cannot be used for this support.`);
+    const hint = await coSupportHoldHint(userId, available);
+    throw new Error(`Your operational float is ${formatUGX(total - available)} short. Withdrawable balance cannot be used for this support.${hint}`);
+  }
+}
+
+/** " UGX X is held for your open co-support. ..." when a co-support hold explains the gap; '' otherwise or on any read error. */
+async function coSupportHoldHint(userId: string, available: number): Promise<string> {
+  try {
+    const [bal, invites] = await Promise.all([
+      supabase.rpc('get_user_float_available_balance', { p_user_id: userId }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.rpc as any)('co_support_my_invites'),
+    ]);
+    if (bal.error || invites.error) return '';
+    return floatShortHoldHint(floatHoldBreakdown({ floatBalance: Number(bal.data ?? 0), available, invites: invites.data }));
+  } catch {
+    return '';
   }
 }

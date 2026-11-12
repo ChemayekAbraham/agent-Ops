@@ -141,3 +141,4 @@
 - [x] Requisition receipt columns: pending draft updated (helper grants for authenticated, MFA policy check).
 - [ ] Apply receipt columns migration; waiting on Josh/Benjamin go-ahead.
 - [x] Publish so browsers load the login telemetry fix.
+- [x] Special Advances table: overflow menu with Record Repayment, Top up, Reverse
