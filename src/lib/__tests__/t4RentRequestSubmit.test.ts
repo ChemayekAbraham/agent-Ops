@@ -195,12 +195,14 @@ describe('DOCS-1: attachT4Documents', () => {
     });
     expect(problems).toEqual([]);
     expect(mocks.upload).toHaveBeenCalledTimes(2);
-    expect(calls()).toEqual([
+    // All three go side by side, so the order of the calls does not matter.
+    expect(calls()).toHaveLength(3);
+    expect(calls()).toEqual(expect.arrayContaining([
       ['request_attach_document', { p_request_id: 'req-1', p_kind: 'id_front', p_bucket: 'tenant-ids', p_path: expect.stringMatching(/^agent-1\/req-1\/national_id_\d+\.jpg$/) }],
       // Already stored: attached as it is, no upload.
       ['request_attach_document', { p_request_id: 'req-1', p_kind: 'id_back', p_bucket: 'tenant-ids', p_path: 'tenant-1/old/national_id_back.jpg' }],
       ['request_attach_document', { p_request_id: 'req-1', p_kind: 'lc1_letter', p_bucket: 'lc-letters', p_path: expect.stringMatching(/^agent-1\/req-1\/lc_letter_\d+\.png$/) }],
-    ]);
+    ]));
   });
 
   it('returns each failure with the server’s message as-is and keeps going', async () => {

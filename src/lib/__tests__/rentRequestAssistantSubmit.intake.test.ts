@@ -103,10 +103,12 @@ describe('submitAssistantRentRequest: intake after the request is created', () =
     const res = await submitAssistantRentRequest(input({ lcLetter: letter, noLc1Reason: null }));
     expect(res.ok).toBe(true);
     expect(mocks.upload).toHaveBeenCalledWith('agent-1/req-1/lc_letter.jpg', letter, expect.objectContaining({ upsert: true }));
-    expect(intakeCalls().map(([fn, args]) => [fn, args])).toEqual([
+    // After the insert these run side by side, so their order does not matter.
+    expect(intakeCalls()).toHaveLength(2);
+    expect(intakeCalls().map(([fn, args]) => [fn, args])).toEqual(expect.arrayContaining([
       ['agent_attach_lc1_letter', { p_request_id: 'req-1', p_path: 'agent-1/req-1/lc_letter.jpg' }],
       ['agent_save_intake_details', { p_request_id: 'req-1', p_family_size: 4, p_work_business: 'Tailor', p_work_location: 'Owino' }],
-    ]);
+    ]));
   });
 
   it('keeps the request when saving details fails, returning the server errors as-is', async () => {

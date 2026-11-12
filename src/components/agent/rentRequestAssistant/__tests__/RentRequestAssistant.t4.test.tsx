@@ -258,6 +258,27 @@ describe('E90: ask only for what _agent_side_missing lists', () => {
   });
 });
 
+describe('send progress on the button', () => {
+  it('says Saving… while the request is being saved, then shows it sent', async () => {
+    mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+    let release: (v: unknown) => void = () => {};
+    mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === '_agent_side_missing') return { data: [], error: null };
+      if (fn === 'agent_resubmit_rent_request') return new Promise((r) => { release = r; });
+      return { data: { ok: true }, error: null };
+    });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ rejected_reason: null }) }} />);
+    await waitFor(() => expect(group('gate')).toBeNull());
+    fix(/What you changed/);
+    answer('Fixed the landlord details');
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findByTestId('send-button')).toHaveTextContent('Saving…');
+    release({ data: { ok: true }, error: null });
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+  });
+});
+
 describe('the three new gate items', () => {
   const ready = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
 
