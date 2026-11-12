@@ -20246,6 +20246,84 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_daily_tieout: {
+        Row: {
+          as_at: string
+          assets: Json
+          bs_difference: number | null
+          cash_flow: Json | null
+          changes: Json
+          error: string | null
+          finished_at: string | null
+          id: string
+          run_as: string | null
+          run_date: string
+          started_at: string
+          status: string
+          tb_difference: number | null
+          ties: Json
+          total_assets: number | null
+          trigger: string
+        }
+        Insert: {
+          as_at: string
+          assets?: Json
+          bs_difference?: number | null
+          cash_flow?: Json | null
+          changes?: Json
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          run_as?: string | null
+          run_date: string
+          started_at?: string
+          status: string
+          tb_difference?: number | null
+          ties?: Json
+          total_assets?: number | null
+          trigger?: string
+        }
+        Update: {
+          as_at?: string
+          assets?: Json
+          bs_difference?: number | null
+          cash_flow?: Json | null
+          changes?: Json
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          run_as?: string | null
+          run_date?: string
+          started_at?: string
+          status?: string
+          tb_difference?: number | null
+          ties?: Json
+          total_assets?: number | null
+          trigger?: string
+        }
+        Relationships: []
+      }
+      fin_daily_tieout_settings: {
+        Row: {
+          id: number
+          note: string | null
+          run_as: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          note?: string | null
+          run_as: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          note?: string | null
+          run_as?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fin_pnl_lines: {
         Row: {
           account_code: string
@@ -23413,7 +23491,10 @@ export type Database = {
       funder_release_sms: {
         Row: {
           attempts: number
+          audience: string
+          channel: string
           created_at: string
+          fallback_message: string | null
           id: string
           last_error: string | null
           message: string
@@ -23421,10 +23502,14 @@ export type Database = {
           rent_request_id: string
           sent_at: string | null
           status: string
+          template_params: Json | null
         }
         Insert: {
           attempts?: number
+          audience?: string
+          channel?: string
           created_at?: string
+          fallback_message?: string | null
           id?: string
           last_error?: string | null
           message: string
@@ -23432,10 +23517,14 @@ export type Database = {
           rent_request_id: string
           sent_at?: string | null
           status?: string
+          template_params?: Json | null
         }
         Update: {
           attempts?: number
+          audience?: string
+          channel?: string
           created_at?: string
+          fallback_message?: string | null
           id?: string
           last_error?: string | null
           message?: string
@@ -23443,6 +23532,7 @@ export type Database = {
           rent_request_id?: string
           sent_at?: string | null
           status?: string
+          template_params?: Json | null
         }
         Relationships: []
       }
@@ -69918,6 +70008,7 @@ export type Database = {
           needs_free_smartphone: boolean
           next_of_kin: string | null
           phone: string | null
+          photo_path: string | null
           registered_by: string
           residence_village: string | null
           role: string
@@ -69960,6 +70051,7 @@ export type Database = {
           needs_free_smartphone?: boolean
           next_of_kin?: string | null
           phone?: string | null
+          photo_path?: string | null
           registered_by?: string
           residence_village?: string | null
           role: string
@@ -70002,6 +70094,7 @@ export type Database = {
           needs_free_smartphone?: boolean
           next_of_kin?: string | null
           phone?: string | null
+          photo_path?: string | null
           registered_by?: string
           residence_village?: string | null
           role?: string
@@ -78369,6 +78462,10 @@ export type Database = {
         }[]
       }
       _e28_phone9: { Args: { p: string }; Returns: string }
+      _e84_queue_release_sms: {
+        Args: { p_rent_request_id: string }
+        Returns: number
+      }
       _eligible_agents: {
         Args: never
         Returns: {
@@ -78433,6 +78530,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      _funder_release_mask_phone: { Args: { p_phone: string }; Returns: string }
       _funder_release_notify_plan: {
         Args: {
           p_agent_id: string
@@ -85555,6 +85653,7 @@ export type Database = {
         }
         Returns: string
       }
+      fin_run_daily_tieout: { Args: { p_trigger?: string }; Returns: string }
       fin_s12_assert_controls: { Args: never; Returns: undefined }
       fin_s12_txn_financial_writes: { Args: never; Returns: number }
       fin_s14_assert_controls: { Args: never; Returns: undefined }
@@ -86310,6 +86409,7 @@ export type Database = {
         Args: { p_week_start: string }
         Returns: number
       }
+      funded_money_flow: { Args: { p_days?: number }; Returns: Json }
       funder_booked_houses: { Args: never; Returns: Json }
       funder_card_preview: { Args: { p_request_id: string }; Returns: Json }
       funder_create_pending_portfolio: {
@@ -86357,6 +86457,7 @@ export type Database = {
         Returns: Json
       }
       funder_release_sms_dispatch: { Args: never; Returns: undefined }
+      funder_selection_auto_release: { Args: never; Returns: Json }
       funder_support_capacity: { Args: { p_user_id: string }; Returns: number }
       funder_support_capacity__impl: {
         Args: { p_user_id: string }

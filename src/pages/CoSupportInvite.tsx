@@ -4,7 +4,6 @@ import { Home, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
-import { formatUGX } from '@/lib/rentCalculations';
 import {
   useAcceptCoSupport,
   useCoSupportPreview,
@@ -12,14 +11,13 @@ import {
   type CoSupportAcceptResult,
 } from '@/hooks/useCoSupport';
 import {
-  coSupportBlockMessage,
   coSupportErrorMessage,
+  coSupportInviteCopy,
   coSupportOnboardingPath,
   coSupportSignInPath,
   normalizeCoSupportCode,
   type CoSupportInvite as Invite,
 } from '@/lib/coSupport';
-import { CoSupportCountdown } from '@/components/co-support/CoSupportShareSheet';
 import { CoSupportInviteRow } from '@/components/co-support/CoSupportWaitingSection';
 
 /** Section 4: public invitation page, /co-support/:code. */
@@ -50,8 +48,10 @@ export default function CoSupportInvite() {
     return shell(<p className="text-sm text-foreground">{coSupportErrorMessage(error)}</p>);
   }
 
+  // Every sentence on this page comes from the server's figures, addressed to
+  // the person who opened the link. Amounts are never computed on screen.
+  const copy = coSupportInviteCopy(preview);
   const isHouse = preview.kind === 'house';
-  const lead = preview.lead_first_name ?? 'your partner';
 
   if (preview.your_role === 'lead') {
     return shell(
@@ -63,19 +63,18 @@ export default function CoSupportInvite() {
     );
   }
 
-  if (result?.ok && (isHouse || result.kind === 'house')) {
-    return shell(
-      <>
-        <h1 className="text-lg font-bold">You and {lead} have shared this house. Partner Ops will approve it. Your half stays held until then.</h1>
-        <Button className="w-full" asChild><Link to="/dashboard/funder">Go to my dashboard</Link></Button>
-      </>,
-    );
-  }
   if (result?.ok) {
+    // The accept answer is the freshest record of what was taken; the preview
+    // only supplies the names and the kind of support.
+    const accepted = coSupportInviteCopy({
+      ...preview,
+      kind: preview.kind ?? result.kind,
+      your_share: preview.your_share ?? result.your_share,
+    });
     return shell(
       <>
-        <h1 className="text-lg font-bold">You and {preview.lead_first_name ?? 'your partner'} now support this Rent Plan.</h1>
-        <p className="text-sm">Your portfolio: {formatUGX(result.your_share)}</p>
+        <h1 className="text-lg font-bold">{accepted.successTitle}</h1>
+        <p className="text-sm">{accepted.successDetail}</p>
         <Button className="w-full" asChild><Link to="/dashboard/funder">Go to my dashboard</Link></Button>
       </>,
     );
@@ -91,11 +90,7 @@ export default function CoSupportInvite() {
 
   const header = (
     <>
-      <h1 className="text-lg font-bold leading-snug">
-        {isHouse
-          ? `${preview.lead_first_name ?? 'A partner'} wants to support an empty house with you`
-          : `${preview.lead_first_name ?? 'A partner'} wants to support ${preview.tenant_first_name ?? 'a tenant'}'s Rent Plan with you`}
-      </h1>
+      <h1 className="text-lg font-bold leading-snug">{copy.headline}</h1>
       {isHouse && preview.house_title ? <p className="text-sm font-semibold">{preview.house_title}</p> : null}
       <div className="overflow-hidden rounded-lg border bg-muted">
         {preview.house_image_url ? (
@@ -104,9 +99,11 @@ export default function CoSupportInvite() {
           <div className="flex aspect-[16/9] items-center justify-center bg-primary/5"><Home className="h-8 w-8 text-primary/45" aria-hidden /></div>
         )}
       </div>
+      <p className="text-sm">{copy.intro}</p>
       {preview.city ? <p className="text-sm text-muted-foreground">{preview.city}</p> : null}
-      {preview.your_share != null ? <p className="text-sm font-semibold">Your half: {formatUGX(preview.your_share)}</p> : null}
-      {preview.expires_at ? <CoSupportCountdown expiresAt={preview.expires_at} /> : null}
+      {preview.your_share != null ? <p className="text-sm font-semibold">{copy.yourHalf}</p> : null}
+      {copy.yourEarning ? <p className="text-sm">{copy.yourEarning}</p> : null}
+      {copy.holdLine ? <p className="text-xs font-medium text-muted-foreground">{copy.holdLine}</p> : null}
     </>
   );
 
@@ -114,9 +111,10 @@ export default function CoSupportInvite() {
     return shell(
       <>
         {header}
+        <p className="text-xs text-muted-foreground">{copy.signedOutHint}</p>
         <div className="grid gap-2">
-          <Button onClick={() => navigate(coSupportSignInPath(code))}>I have an account</Button>
-          <Button variant="outline" onClick={() => navigate(coSupportOnboardingPath(code, preview.referrer_id))}>I'm new to Welile</Button>
+          <Button onClick={() => navigate(coSupportSignInPath(code))}>{copy.signInLabel}</Button>
+          <Button variant="outline" onClick={() => navigate(coSupportOnboardingPath(code, preview.referrer_id))}>{copy.joinLabel}</Button>
         </div>
       </>,
     );
@@ -136,39 +134,34 @@ export default function CoSupportInvite() {
     return shell(
       <>
         {header}
-        {preview.your_monthly_rent_profit_share != null ? (
-          <p className="text-sm">
-            Your Rent Profit Share: <span className="font-semibold text-primary">{formatUGX(preview.your_monthly_rent_profit_share)}</span> a month
-          </p>
-        ) : null}
         {result && !result.ok && result.message ? <p className="text-sm text-destructive">{result.message} Nothing was charged.</p> : null}
         <div className="grid gap-2">
           <Button onClick={doAccept} disabled={accept.isPending || decline.isPending}>
             {accept.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-            Accept
+            {copy.acceptLabel}
           </Button>
-          <Button variant="outline" onClick={doDecline} disabled={accept.isPending || decline.isPending}>Decline</Button>
+          <Button variant="outline" onClick={doDecline} disabled={accept.isPending || decline.isPending}>{copy.declineLabel}</Button>
         </div>
       </>,
     );
   }
 
-  const block = coSupportBlockMessage(preview);
+  // Where the fix lives: wallet, agreement, or partner sign-up. The server
+  // decides which; only the label comes from the copy.
   const next =
     preview.reason === 'not_a_partner'
-      ? { label: 'Finish partner sign-up', to: coSupportOnboardingPath(code, preview.referrer_id) }
-      : preview.reason === 'agreement_required'
-        ? { label: 'Sign your partnership agreement', to: '/dashboard/funder' }
-        : preview.reason === 'funds_short'
-          ? { label: 'Add float to your wallet', to: '/dashboard/funder' }
-          : null;
+      ? { to: coSupportOnboardingPath(code, preview.referrer_id) }
+      : preview.reason === 'agreement_required' || preview.reason === 'funds_short'
+        ? { to: '/dashboard/funder' }
+        : null;
   return shell(
     <>
       {header}
-      {block ? <p className="text-sm text-foreground">{block}</p> : null}
-      {next ? (
+      {copy.blockTitle ? <p className="text-sm font-bold text-foreground">{copy.blockTitle}</p> : null}
+      {copy.blockDetail ? <p className="text-sm text-foreground">{copy.blockDetail}</p> : null}
+      {next && copy.blockAction ? (
         <>
-          <Button className="w-full" onClick={() => navigate(next.to)}>{next.label}</Button>
+          <Button className="w-full" onClick={() => navigate(next.to)}>{copy.blockAction}</Button>
           {preview.reason !== 'not_a_partner' ? (
             <p className="text-xs text-muted-foreground">Then open this link again to take your half.</p>
           ) : null}

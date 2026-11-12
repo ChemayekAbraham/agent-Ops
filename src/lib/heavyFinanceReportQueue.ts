@@ -213,10 +213,10 @@ async function callRpc(name: HeavyFinanceReportName, args: Record<string, unknow
   // The generated `rpc` type is a generic overload set, so it does not overlap
   // with the plain call shape used here; go through `unknown`. A function with
   // no arguments is called with no params object, matching supabase.rpc(name).
-  const rpc = supabase.rpc as unknown as (
+  const rpc = (supabase.rpc as unknown as (
     fn: string,
     params?: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: unknown }>;
+  ) => Promise<{ data: unknown; error: unknown }>).bind(supabase);
   const { data, error } = Object.keys(args).length === 0
     ? await rpc(name)
     : await rpc(name, args);

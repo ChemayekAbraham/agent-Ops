@@ -48,7 +48,7 @@ export async function getContributedPrincipal(
       .eq("action_type", "roi_compounded")
       .eq("table_name", "investor_portfolios")
       .eq("record_id", portfolioId);
-    if (baselineAt) query = query.gt("created_at", baselineAt);
+    if (baselineAt) query = query.gt("created_at", new Date(baselineAt.replace(/([+-]\d{2})$/, '$1:00')).toISOString());
     const { data, error } = await query;
     if (error) throw error;
     const compounded = (data ?? []).reduce(

@@ -36,6 +36,20 @@ const dateLabel = (iso: string | null) => {
 
 const DASHBOARD_URL = "https://welileapp.com/dashboard/funder";
 
+// Same window as retry_funder_house_progress_notices. The batch drain ignores
+// anything older, so correcting the email payload does not flush a stale backlog.
+const DRAIN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+// send-transactional-email answers 200 { success: false, reason } for a
+// suppressed or placeholder address. That notice is finished. A non-2xx reply
+// stays an error so the existing catch can retry it.
+function declinedEmail(mailData: unknown): { reason: string } | null {
+  if (!mailData || typeof mailData !== "object") return null;
+  if ((mailData as { success?: unknown }).success !== false) return null;
+  const reason = String((mailData as { reason?: unknown }).reason ?? "email_not_sent").slice(0, 160);
+  return { reason: reason || "email_not_sent" };
+}
+
 // First monthly Returns date: one month after the money starts working,
 // with the day capped at 28 so every month has it.
 const firstReturnLabel = (baseIso: string | null): string => {
@@ -137,10 +151,16 @@ Deno.serve(async (req) => {
   let q = admin
     .from("funder_house_progress_notices")
     .select("*")
-    .or("sms_sent_at.is.null,email_sent_at.is.null")
     .order("created_at", { ascending: true })
     .limit(limit);
-  if (noticeId) q = q.eq("id", noticeId);
+  if (noticeId) {
+    // A named notice is still sent whenever it is asked for, including one
+    // older than the drain window.
+    q = q.eq("id", noticeId).or("sms_sent_at.is.null,email_sent_at.is.null");
+  } else {
+    const drainSince = new Date(Date.now() - DRAIN_WINDOW_MS).toISOString();
+    q = q.gte("created_at", drainSince).or("sms_sent_at.is.null,email_sent_at.is.null");
+  }
 
   const { data: rows, error } = await q;
   if (error) return json(500, { error: error.message });
@@ -212,11 +232,12 @@ Deno.serve(async (req) => {
         patch.email_error = "missing_partner_email";
       } else {
         try {
-          const { error: mailErr } = await admin.functions.invoke("send-transactional-email", {
+          const { data: mailData, error: mailErr } = await admin.functions.invoke("send-transactional-email", {
             body: {
-              template: "funder-house-progress",
-              to: target.to,
-              data: {
+              templateName: "funder-house-progress",
+              recipientEmail: target.to,
+              idempotencyKey: `funder-house-progress:${row.id}`,
+              templateData: {
                 kind: row.kind,
                 partner_name: row.partner_name,
                 house_title: row.house_title,
@@ -237,9 +258,14 @@ Deno.serve(async (req) => {
             },
           });
           if (mailErr) throw mailErr;
-          emailsSent++;
+          const declined = declinedEmail(mailData);
           patch.email_sent_at = new Date().toISOString();
-          patch.email_error = null;
+          if (declined) {
+            patch.email_error = declined.reason;
+          } else {
+            emailsSent++;
+            patch.email_error = null;
+          }
         } catch (e) {
           patch.email_error = String((e as Error)?.message || "email_failed").slice(0, 160);
         }

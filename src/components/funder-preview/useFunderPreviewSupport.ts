@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { selfSupportFeeErrorMessage } from '@/lib/selfSupportFeeMessages';
 import type { FunderNewSelectionItem } from '@/components/funder-new/types';
+import { useAuth } from '@/hooks/useAuth';
+import { requireUserSession, useAuthenticatedAudience, isUnauthenticatedRpcError } from '@/hooks/useAuthenticatedPoll';
 
 /** Server floor for house support (partner_support_houses raises below it). */
 export const HOUSE_MIN_FUNDING = 50_000;
@@ -11,13 +13,38 @@ export const HOUSE_MIN_FUNDING = 50_000;
  * Both support RPCs check this figure, never the withdrawable balance, so the
  * pay step must show the same number the server will enforce.
  */
+/** Operational float the direct-release path spends (funder_float_available). */
+export function useFunderFloatAvailable(userId: string | undefined) {
+  const { user } = useAuth();
+  const ready = useAuthenticatedAudience();
+  return useQuery({
+    queryKey: ['funder-float-available', userId],
+    enabled: ready && !!userId && userId === user?.id,
+    staleTime: 15_000,
+    retry: (count, error) => !isUnauthenticatedRpcError(error) && count < 2,
+    queryFn: async () => {
+      await requireUserSession();
+      if (!userId || userId !== user?.id) throw new Error('Sign in again to continue.');
+      // The live ownership-checked wrapper delegates to funder_float_available.
+      // It preserves pending holds without exposing the service-only helper.
+      const { data, error } = await supabase.rpc('funder_support_capacity', { p_user_id: userId });
+      if (error) throw error;
+      if (data == null) throw new Error('Support balance is unavailable.');
+      const amount = Number(data);
+      if (!Number.isFinite(amount)) throw new Error('Support balance is unavailable.');
+      return amount;
+    },
+  });
+}
+
 export function useSupportCapacity(userId: string | undefined, enabled: boolean) {
   return useQuery({
     queryKey: ['funder-preview-support-capacity', userId],
     enabled: !!userId && enabled,
     staleTime: 15_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('funder_support_capacity', { p_user_id: userId! });
+      if (!userId) throw new Error('Sign in again to continue.');
+      const { data, error } = await supabase.rpc('funder_support_capacity', { p_user_id: userId });
       if (error) throw error;
       return Number(data ?? 0);
     },

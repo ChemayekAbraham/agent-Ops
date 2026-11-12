@@ -1,6 +1,7 @@
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
 import { useEffect, useState, useCallback } from 'react';
 import { usePolling } from '@/hooks/usePolling';
+import { timestampToIso } from '@/lib/timestampSafeFetch';
 import { supabase } from '@/integrations/supabase/client';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import HROverview from '@/components/hr/HROverview';
@@ -30,7 +31,7 @@ export default function HRDashboard() {
       .from('leave_requests')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending')
-      .gt('created_at', seenAt);
+      .gt('created_at', timestampToIso(seenAt));
     setPendingLeave(count ?? 0);
   }, []);
 

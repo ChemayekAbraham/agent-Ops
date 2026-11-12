@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { timestampToIso } from '@/lib/timestampSafeFetch';
 import {
   applyCustomerWalletLedgerFilters,
   isCustomerWalletLedgerEntryVisible,
@@ -125,8 +126,8 @@ export async function fetchAgentLedgerEarnings(
         .in('category', EARNING_CATEGORIES)
         .in('direction', ['credit', 'cash_in']),
     );
-    if (opts.from) q = q.gte('created_at', opts.from);
-    if (opts.to) q = q.lte('created_at', opts.to);
+    if (opts.from) q = q.gte('created_at', timestampToIso(opts.from));
+    if (opts.to) q = q.lte('created_at', timestampToIso(opts.to));
 
     const { data, error } = await q
       .order('created_at', { ascending: false })

@@ -108,7 +108,9 @@ Deno.serve(async (req) => {
       return json({ error: "Invalid Returns mode" }, 400);
     }
 
-    const admin = createClient(supabaseUrl, serviceKey);
+    const admin = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
 
     // A screen that typed a rate without seeing the switch on is stale once the switch is on (409).
     if (await typedRateNeedsReload(admin, typed !== null, body?.policy_enabled_seen)) {
