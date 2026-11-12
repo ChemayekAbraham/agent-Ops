@@ -243,7 +243,7 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Sparkles className="h-4 w-4" />
             </span>
-            {historical ? 'Record already-issued advance' : 'Special Advance'}
+            {historical ? 'Record Special Advance' : 'Special Advance'}
           </DialogTitle>
           <DialogDescription>
             {historical ? 'Record the original outside-Welile payment and agreed terms. No money will be sent again.' : "Record the borrower's agreed terms. The server calculates every figure; nothing is paid out from this screen."}
@@ -545,7 +545,7 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
             <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
             {server && (
               <Button id="special-advance-submit" disabled={!canSubmit} onClick={() => void submit()}>
-                {busy && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} {historical ? 'Record already-issued advance' : 'Record Special Advance'}
+                {busy && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} {historical ? 'Record Special Advance' : 'Record Special Advance'}
               </Button>
             )}
           </div>
