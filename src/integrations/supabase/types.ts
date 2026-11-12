@@ -76197,6 +76197,8 @@ export type Database = {
       v_partner_self_fundable_plans: {
         Row: {
           active_claim_id: string | null
+          agent_name: string | null
+          agent_phone: string | null
           approved_at: string | null
           daily_repayment: number | null
           duration_days: number | null
@@ -93984,6 +93986,7 @@ export type Database = {
         Returns: Json
       }
       my_bank_account_lock: { Args: never; Returns: Json }
+      my_funder_float_available: { Args: never; Returns: number }
       my_location_correction_status: { Args: never; Returns: Json }
       my_partner_lead_agents: {
         Args: never
@@ -94517,6 +94520,10 @@ export type Database = {
       ops_landlord_ops_weekly_bundle: {
         Args: { p_from: string; p_to: string }
         Returns: Json
+      }
+      ops_landlord_paid_unverified_count: {
+        Args: { p_date_from?: string; p_date_to?: string; p_search?: string }
+        Returns: number
       }
       ops_landlord_report: {
         Args: {
