@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
-const notices = read('supabase/migrations/20261115130000_funder_release_landlord_sms_agent_whatsapp.sql');
+const notices = read('supabase/migrations/20261116110000_funder_release_landlord_sms_agent_whatsapp.sql');
 const cover = read('supabase/migrations/20261115130100_welile_cover_revenue.sql');
 const status = read('supabase/migrations/20261115130200_fundable_status_includes_agent_verified.sql');
 const sender = read('supabase/functions/notify-funder-release-sms/index.ts');
@@ -21,6 +21,9 @@ describe('funder release follow-up', () => {
     expect(notices).toContain('is with your Welile agent');
     expect(notices).toContain('Keep your phone on.');
     expect(notices).toContain("VALUES (p_rent_request_id, 'landlord', 'sms', v_landlord_phone, v_msg)");
+    expect(notices).toContain("audience = 'legacy_tenant'");
+    expect(notices).toContain('funder_release_sms_request_phone_key');
+    expect(notices).toContain("WHERE audience <> 'legacy_tenant'");
     expect(notices).not.toMatch(/partner_float_landlord_notices'\s*\)/);
     expect(notices).not.toMatch(/\u2014/);
   });

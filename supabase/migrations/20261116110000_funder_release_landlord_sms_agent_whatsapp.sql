@@ -10,7 +10,14 @@
 -- (rent_request_id, audience, channel) on funder_release_notice_log and on the
 -- queue. A notice failure still does not roll back the float.
 --
--- This file is not applied by the pull request.
+-- Filename is 20261116110000. 20261115130000 is already used on lovable, and the
+-- earlier copy of this migration rolled back on live (23505) so it is not in
+-- schema_migrations. Apply this version.
+-- funder_release_sms already has several sent rows per plan, and live uniqueness
+-- is funder_release_sms_request_phone_key on (rent_request_id, phone), not
+-- funder_release_sms_rent_request_id_key. Existing phone, message, and status
+-- values are left as they are. Those rows are marked audience legacy_tenant and
+-- sit outside the new unique index.
 
 CREATE OR REPLACE FUNCTION public._funder_release_mask_phone(p_phone text)
 RETURNS text
@@ -28,26 +35,46 @@ $$;
 REVOKE ALL ON FUNCTION public._funder_release_mask_phone(text) FROM PUBLIC, anon, authenticated;
 
 ALTER TABLE public.funder_release_sms
-  ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'tenant',
-  ADD COLUMN IF NOT EXISTS channel text NOT NULL DEFAULT 'sms',
+  ADD COLUMN IF NOT EXISTS audience text,
+  ADD COLUMN IF NOT EXISTS channel text,
   ADD COLUMN IF NOT EXISTS fallback_message text,
   ADD COLUMN IF NOT EXISTS template_params jsonb;
 
+-- New columns only. Sent phone, message, and status stay untouched.
+UPDATE public.funder_release_sms
+   SET audience = 'legacy_tenant'
+ WHERE audience IS NULL;
+
+UPDATE public.funder_release_sms
+   SET channel = 'sms'
+ WHERE channel IS NULL;
+
+ALTER TABLE public.funder_release_sms
+  ALTER COLUMN audience SET DEFAULT 'tenant',
+  ALTER COLUMN channel SET DEFAULT 'sms',
+  ALTER COLUMN audience SET NOT NULL,
+  ALTER COLUMN channel SET NOT NULL;
+
+-- Repo builds used a rent_request_id key. Live uses the phone key. Drop either if present.
 ALTER TABLE public.funder_release_sms DROP CONSTRAINT IF EXISTS funder_release_sms_rent_request_id_key;
 DROP INDEX IF EXISTS public.funder_release_sms_rent_request_id_key;
+ALTER TABLE public.funder_release_sms DROP CONSTRAINT IF EXISTS funder_release_sms_request_phone_key;
+DROP INDEX IF EXISTS public.funder_release_sms_request_phone_key;
 
 ALTER TABLE public.funder_release_sms DROP CONSTRAINT IF EXISTS funder_release_sms_audience_chk;
 ALTER TABLE public.funder_release_sms
   ADD CONSTRAINT funder_release_sms_audience_chk
-  CHECK (audience IN ('tenant', 'landlord', 'agent'));
+  CHECK (audience IN ('tenant', 'landlord', 'agent', 'legacy_tenant'));
 
 ALTER TABLE public.funder_release_sms DROP CONSTRAINT IF EXISTS funder_release_sms_channel_chk;
 ALTER TABLE public.funder_release_sms
   ADD CONSTRAINT funder_release_sms_channel_chk
   CHECK (channel IN ('sms', 'whatsapp'));
 
+-- One new notice per plan, audience, and channel. The already-sent rows are outside this index.
 CREATE UNIQUE INDEX IF NOT EXISTS funder_release_sms_once
-  ON public.funder_release_sms (rent_request_id, audience, channel);
+  ON public.funder_release_sms (rent_request_id, audience, channel)
+  WHERE audience <> 'legacy_tenant';
 
 COMMENT ON TABLE public.funder_release_sms IS
   'Tenant SMS, landlord SMS, and agent WhatsApp after a partner release. Drained by notify-funder-release-sms.';
@@ -302,7 +329,7 @@ BEGIN
           'WELILE: Your rent of ' || v_rent || ' is paid to your landlord through Welile. '
             || 'Finish this rent and you can access more, up to UGX 30,000,000.'
         )
-        ON CONFLICT (rent_request_id, audience, channel) DO NOTHING;
+        ON CONFLICT (rent_request_id, audience, channel) WHERE audience <> 'legacy_tenant' DO NOTHING;
         v_wake := true;
         PERFORM public._funder_release_finish(p_rent_request_id, 'tenant', 'sms', 'queued', v_tenant_phone, 'funder_release_sms');
       EXCEPTION WHEN OTHERS THEN
@@ -387,7 +414,7 @@ BEGIN
               || '. They will pay you within 24 hours. Keep your phone on.';
         INSERT INTO public.funder_release_sms (rent_request_id, audience, channel, phone, message)
         VALUES (p_rent_request_id, 'landlord', 'sms', v_landlord_phone, v_msg)
-        ON CONFLICT (rent_request_id, audience, channel) DO NOTHING;
+        ON CONFLICT (rent_request_id, audience, channel) WHERE audience <> 'legacy_tenant' DO NOTHING;
         v_wake := true;
         IF v_commitment IS NOT NULL THEN
           UPDATE public.partner_float_landlord_notices
@@ -429,7 +456,7 @@ BEGIN
           p_rent_request_id, 'agent', 'whatsapp', v_agent_phone, v_msg, v_msg,
           jsonb_build_array(v_agent_first, 'UGX ' || v_rent_amt, v_tenant_name, v_landlord_name)
         )
-        ON CONFLICT (rent_request_id, audience, channel) DO NOTHING;
+        ON CONFLICT (rent_request_id, audience, channel) WHERE audience <> 'legacy_tenant' DO NOTHING;
         v_wake := true;
         PERFORM public._funder_release_finish(
           p_rent_request_id, 'agent', 'whatsapp', 'queued',
