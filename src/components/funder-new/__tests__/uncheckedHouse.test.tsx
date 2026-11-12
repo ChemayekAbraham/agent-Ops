@@ -46,3 +46,25 @@ describe('empty houses Welile has not checked (house_listings.verified = false)'
     });
   }
 });
+
+describe('COO/CEO Incomplete chip on Verified cards', () => {
+  for (const [name, Card] of [['legacy', FunderNewHouseCard], ['V3', FunderV3HouseCard]] as const) {
+    it(`${name} card: shows "Incomplete: …" when the list has items, nothing for null or empty`, () => {
+      const { unmount } = render(<Card {...common} cardId="ready:plan-0" category="ready" item={makeReadyPlan(0)} incomplete={['family size', 'work / business']} />);
+      expect(screen.getByTestId('fv3-incomplete-chip').textContent).toBe('Incomplete: family size, work / business');
+      unmount();
+      for (const none of [null, []]) {
+        const r = render(<Card {...common} cardId="ready:plan-0" category="ready" item={makeReadyPlan(0)} incomplete={none} />);
+        expect(screen.queryByTestId('fv3-incomplete-chip')).toBeNull();
+        r.unmount();
+      }
+    });
+  }
+
+  it('V3 card: the chip sits above the demote control', () => {
+    render(<FunderV3HouseCard {...common} cardId="ready:plan-0" category="ready" item={makeReadyPlan(0)} incomplete={['family size']} demoteMode onDemoteToggle={noop} />);
+    const chip = screen.getByTestId('fv3-incomplete-chip');
+    const demote = screen.getByTestId('fv3-demote-check');
+    expect(chip.compareDocumentPosition(demote) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});

@@ -275,6 +275,10 @@ export function FunderHouseListingsSection({
 
   // E72b: every rent request on the funders board, all four tags, sorted by
   // group. Under 'funder-new' so a demote refreshes it too.
+  // COO/CEO only (funders_board_can_demote): the header totals and each Verified
+  // request's "Incomplete: …" list. The server already sends incomplete as null
+  // to everyone else; it is dropped here too so a funder can never see it.
+  const canSeeBoardTotals = useFundersBoardCanDemote(user?.id);
   const boardQuery = useQuery({
     queryKey: ['funder-new', 'board-items'],
     queryFn: fetchBoardItems,
@@ -384,7 +388,7 @@ export function FunderHouseListingsSection({
   const boardGroups = useMemo<BoardGroup<FeedEntry>[] | null>(() => {
     if (!boardTagsOn || !boardQuery.data) return null;
     return buildBoardGroups<FeedEntry>({
-      board: boardQuery.data.items,
+      board: canSeeBoardTotals ? boardQuery.data.items : boardQuery.data.items.map((item) => (item.incomplete ? { ...item, incomplete: null } : item)),
       ready: readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
       empty: emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
       sort: orderSort,
@@ -394,7 +398,7 @@ export function FunderHouseListingsSection({
       filters,
       emptyTotal,
     });
-  }, [boardTagsOn, boardQuery.data, readyItems, emptyItems, orderSort, radiusKm, kmOf, kmOfItem, filters, emptyTotal]);
+  }, [boardTagsOn, boardQuery.data, canSeeBoardTotals, readyItems, emptyItems, orderSort, radiusKm, kmOf, kmOfItem, filters, emptyTotal]);
   const boardPins = useMemo<BoardPin[]>(() => {
     const out: BoardPin[] = [];
     for (const group of boardGroups ?? []) {
@@ -417,7 +421,6 @@ export function FunderHouseListingsSection({
   // The header totals ("16 ready to fund · UGX …", "12 verified · 4 pending
   // verification") are for COO/CEO only (funders_board_can_demote); funders see
   // the grouped list and its group headers without them.
-  const canSeeBoardTotals = useFundersBoardCanDemote(user?.id);
   const boardCounts = boardTagsOn && canSeeBoardTotals ? boardQuery.data?.counts ?? null : null;
 
   useEffect(() => {
@@ -771,6 +774,7 @@ export function FunderHouseListingsSection({
                       onDetail={() => openDetail(entry.category, entry.item)}
                       boardTagsOn
                       boardTag={row.tag}
+                      incomplete={row.incomplete ?? null}
                     />
                   );
                 })}

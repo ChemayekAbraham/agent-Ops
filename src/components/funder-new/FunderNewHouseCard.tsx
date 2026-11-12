@@ -17,6 +17,7 @@ import {
 } from './utils';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
 import { FundersBoardTag, tagKindFor } from './FundersBoardTag';
+import { FundersIncompleteChip } from './FundersIncompleteChip';
 import type { BoardTag } from '@/lib/fundersBoard';
 import { CoSupportStartButton } from '@/components/co-support/CoSupportStartButton';
 
@@ -30,6 +31,7 @@ export function FunderNewHouseCard({
   onDetail,
   boardTagsOn = false,
   boardTag = null,
+  incomplete = null,
 }: {
   category: FunderNewCategory;
   item: FunderNewEmptyHouse | FunderNewReadyPlan;
@@ -44,6 +46,8 @@ export function FunderNewHouseCard({
   boardTagsOn?: boolean;
   /** E65: the server's tag for this card, when known. */
   boardTag?: BoardTag | null;
+  /** COO/CEO only (null for funders): what this Verified request still lacks. */
+  incomplete?: string[] | null;
 }) {
   const isEmpty = category === 'empty';
   const title = isEmpty ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan);
@@ -113,6 +117,7 @@ export function FunderNewHouseCard({
       </div>
 
         <div className="space-y-3 p-4">
+        {isEmpty ? null : <FundersIncompleteChip items={incomplete} />}
         {boardTagsOn ? <FundersBoardTag kind={tagKindFor(boardTag, category)} /> : null}
         {/* Tapping the text block opens the full house details, like the photo does. */}
         <div

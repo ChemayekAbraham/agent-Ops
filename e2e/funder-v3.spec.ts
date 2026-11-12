@@ -475,6 +475,50 @@ for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
   });
 }
 
+for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
+  test(`${size.width}x${size.height}: COO/CEO see a red "Incomplete" chip above the demote control on Verified cards`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await open(page, 'view=houses&count=24&tags=board&demote=1');
+    await page.getByTestId('fv3-demote-toggle').click();
+    const fundable = page.locator('article[data-card-id="ready:plan-0"]');
+    await expect(fundable.getByTestId('fv3-incomplete-chip')).toHaveText('Incomplete: family size, LC1 (letter or phone confirmation)');
+    const held = page.locator('article[data-card-id="board:rq-held"]');
+    await expect(held.getByTestId('fv3-incomplete-chip')).toHaveText('Incomplete: photo review (3+ approved, main photo)');
+    // Nothing missing → no chip; never on other groups.
+    await expect(page.locator('article[data-card-id="ready:plan-1"] [data-testid="fv3-incomplete-chip"]')).toHaveCount(0);
+    for (const tag of ['booked', 'funded', 'pending_verification', 'empty_house']) {
+      await expect(page.locator(`[data-board-group="${tag}"] [data-testid="fv3-incomplete-chip"]`)).toHaveCount(0);
+    }
+    // Above the demote control, and red.
+    for (const card of [fundable, held]) {
+      const chip = await card.getByTestId('fv3-incomplete-chip').boundingBox();
+      const check = await card.getByTestId('fv3-demote-check').boundingBox();
+      expect(chip!.y + chip!.height).toBeLessThanOrEqual(check!.y);
+    }
+    const colour = await fundable.getByTestId('fv3-incomplete-chip').evaluate((el) => getComputedStyle(el).color);
+    const red = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      probe.className = 'text-destructive';
+      document.body.appendChild(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return c;
+    });
+    expect(colour).toBe(red);
+    await noHorizontalScroll(page);
+    await fundable.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, `houses-incomplete-coo-${size.width}x${size.height}.png`) });
+  });
+}
+
+test('funders never see the Incomplete chip', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, 'view=houses&count=24&tags=board');
+  await expect(page.locator('[data-board-group="verified"]')).toBeVisible();
+  await expect(page.getByTestId('fv3-incomplete-chip')).toHaveCount(0);
+  await expect(page.getByText(/Incomplete:/)).toHaveCount(0);
+});
+
 test('E72b: demote stays on Verified and Empty house cards only', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page, 'view=houses&count=24&tags=board&demote=1');

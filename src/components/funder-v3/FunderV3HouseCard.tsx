@@ -17,6 +17,7 @@ import {
 } from '@/components/funder-new/utils';
 import { STRAIGHT_LINE_EXPLANATION } from '@/components/funder-new/distance';
 import { FundersBoardTag, tagKindFor } from '@/components/funder-new/FundersBoardTag';
+import { FundersIncompleteChip } from '@/components/funder-new/FundersIncompleteChip';
 import type { BoardTag } from '@/lib/fundersBoard';
 
 /** Rendered photo box is 16:10; these are the intrinsic hints for the browser. */
@@ -50,6 +51,8 @@ export interface FunderV3HouseCardProps {
   demoteMode?: boolean;
   demoteChecked?: boolean;
   onDemoteToggle?: () => void;
+  /** COO/CEO only (null for funders): what this Verified request still lacks. */
+  incomplete?: string[] | null;
 }
 
 /**
@@ -75,6 +78,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   demoteMode = false,
   demoteChecked = false,
   onDemoteToggle,
+  incomplete = null,
 }: FunderV3HouseCardProps) {
   const isEmpty = category === 'empty';
   const title = isEmpty ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan);
@@ -162,6 +166,8 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
       </div>
 
       <div className="flex flex-col gap-3 p-3.5 @[420px]:p-4">
+        {/* COO/CEO: what is still missing, above the demote control. */}
+        {category === 'ready' ? <FundersIncompleteChip items={incomplete} /> : null}
         {demoteMode ? (
           <label
             data-testid="fv3-demote-check"

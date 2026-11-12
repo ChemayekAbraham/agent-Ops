@@ -522,6 +522,11 @@ export interface BoardItem {
   lng: number | null;
   /** When it went on the board (or was booked/funded): the server's order inside a group. */
   sortAt: string | null;
+  /**
+   * What the request still lacks (_request_incomplete), for COO/CEO only: the
+   * server sends it only when funders_board_can_demote() is true, else null.
+   */
+  incomplete: string[] | null;
 }
 
 export interface BoardItemsCounts {
@@ -566,6 +571,7 @@ export function parseBoardItems(data: unknown): BoardItems {
       lat: optNum(x.lat),
       lng: optNum(x.lng),
       sortAt: optStr(x.sort_at),
+      incomplete: Array.isArray(x.incomplete) ? x.incomplete.filter((v): v is string => typeof v === 'string' && !!v.trim()) : null,
     });
   }
   const counts: BoardItemsCounts = {
