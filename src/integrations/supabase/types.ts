@@ -86413,6 +86413,15 @@ export type Database = {
         Returns: number
       }
       funded_money_flow: { Args: { p_days?: number }; Returns: Json }
+      funded_recall: {
+        Args: {
+          p_level?: string
+          p_note: string
+          p_reason_code: string
+          p_rent_request_id: string
+        }
+        Returns: Json
+      }
       funder_booked_houses: { Args: never; Returns: Json }
       funder_card_preview: { Args: { p_request_id: string }; Returns: Json }
       funder_create_pending_portfolio: {

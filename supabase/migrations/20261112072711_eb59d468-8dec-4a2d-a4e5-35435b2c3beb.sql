@@ -1,0 +1,2 @@
+ALTER POLICY "Merchandise images readable by authenticated" ON storage.objects TO authenticated USING (bucket_id = 'merchandise' AND (owner_id = (SELECT auth.uid()::text) OR (SELECT public.has_internal_staff_role((SELECT auth.uid())))));
+CREATE POLICY "Merchandise reads restricted to uploaders and staff" ON storage.objects AS RESTRICTIVE FOR SELECT TO authenticated USING (bucket_id <> 'merchandise' OR ((SELECT public.staff_mfa_ok()) AND (owner_id = (SELECT auth.uid()::text) OR (SELECT public.has_internal_staff_role((SELECT auth.uid()))))));
