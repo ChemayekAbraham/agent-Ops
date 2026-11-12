@@ -704,7 +704,7 @@ export default function FunderDashboardNew() {
               await requireFunderOperationalFloat(user?.id, total);
               let reference: string | null = null;
               let releasedToAgent = false;
-              let merchantDirect = false;
+              let activatesOnLandlordPaid = false;
               if (category === 'empty') {
                 const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
                   p_payload: {
@@ -742,7 +742,7 @@ export default function FunderDashboardNew() {
                 };
                 reference = payload.commitment_id ?? payload.portfolio_id ?? null;
                 releasedToAgent = payload.landlord_float_released === true;
-                merchantDirect = supportOutcome(payload) === 'merchant_queue';
+                activatesOnLandlordPaid = supportOutcome(payload) === 'awaiting_landlord';
               }
               setSelectedItems([]);
               setSelectedCategory(null);
@@ -751,7 +751,7 @@ export default function FunderDashboardNew() {
                 submitted: true,
                 reference,
                 releasedToAgent,
-                merchantDirect,
+                activatesOnLandlordPaid,
                 supportKind: category === 'empty' ? 'house' : 'rent',
                 landlordNames,
                 rentRequestIds,

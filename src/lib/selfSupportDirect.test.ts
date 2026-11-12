@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AWAITING_LANDLORD_PAYMENT,
+  LANDLORD_PAID_STEPS,
   formatDay,
   hoursLeft,
   landlordPaymentCopy,
@@ -8,6 +9,7 @@ import {
   staffAttentionReason,
   staffResolveErrorMessage,
   staffResolveProblem,
+  supportErrorMessage,
   supportOutcome,
   supportSubmittedCopy,
   type LandlordPayment,
@@ -16,6 +18,7 @@ import {
 
 const NOW = Date.parse('2026-11-12T10:00:00Z');
 const inHours = (h: number) => new Date(NOW + h * 3_600_000).toISOString();
+const BANNED = /\b(loan|lender|interest|ROI|returns?)\b/i;
 
 const payment = (over: Partial<LandlordPayment> = {}): LandlordPayment => ({
   id: 'p1', status: 'queued', rent_request_id: 'rr1', amount: 1_000_000, landlord_name: 'Mukasa',
@@ -26,9 +29,9 @@ const payment = (over: Partial<LandlordPayment> = {}): LandlordPayment => ({
 const staffRow = (over: Partial<StaffLandlordPayment> = {}): StaffLandlordPayment => ({
   id: 's1', status: 'queued', rent_request_id: 'rr1', amount: 500_000, landlord_name: 'Mukasa', landlord_phone: '0772000001',
   created_at: inHours(-50), expires_at: inHours(-2), paid_at: null, refunded_at: null, refund_reason: null,
-  earning_from: null, stuck_flagged_at: null, overdue: true, withdrawal_id: 'w1', withdrawal_status: 'pending',
-  merchant_claimed: false, landlord_payout_id: 'lp1', payout_status: 'pending_merchant_payout', payout_error: null,
-  agent_id: 'a1', agent_name: 'Agent', tenant_name: 'Odenyo', partners: [], can_refund: true, can_mark_paid: false, ...over,
+  earning_from: null, stuck_flagged_at: null, overdue: true, agent_id: 'a1', agent_name: 'Agent', tenant_name: 'Odenyo',
+  float_remaining: 500_000, float_paid_out: 0, payout_id: null, payout_status: null, payout_error: null,
+  partners: [], can_refund: true, can_mark_paid: false, ...over,
 });
 
 describe('landlordPaymentState', () => {
@@ -46,87 +49,86 @@ describe('landlordPaymentState', () => {
 });
 
 describe('landlordPaymentCopy', () => {
-  it('partner waiting: the merchant pays, earning starts the day after', () => {
+  it('partner waiting: with the agent, earning from the day the landlord is paid', () => {
     const c = landlordPaymentCopy(payment(), NOW);
-    expect(c.label).toBe('Waiting for the merchant to pay the landlord');
-    expect(c.detail).toContain('Mukasa UGX 1,000,000 within 48 hours');
-    expect(c.detail).toContain('Rent Profit Share starts the day after the landlord is paid');
-    expect(c.tone).toBe('pending');
+    expect(c.label).toBe('Waiting for the landlord to be paid');
+    expect(c.detail).toContain('Your UGX 510,000 is with the agent');
+    expect(c.detail).toContain('Rent Profit Share starts the day the landlord is paid');
   });
-  it('agent waiting: handles no money', () => {
-    expect(landlordPaymentCopy(payment({ role: 'agent' }), NOW).detail).toContain('You do not handle this money');
+  it('agent waiting: pay within the hours left or it is recalled', () => {
+    const c = landlordPaymentCopy(payment({ role: 'agent' }), NOW);
+    expect(c.label).toBe('Pay the landlord');
+    expect(c.detail).toContain('Pay Mukasa within 48 hours, or it is recalled');
   });
-  it('paid shows the earning date; refunded shows the partner their own half', () => {
-    expect(landlordPaymentCopy(payment({ status: 'paid', earning_from: '2026-11-13' }), NOW).detail)
-      .toContain('Rent Profit Share started on 13 Nov 2026');
+  it('paid and recalled', () => {
+    expect(landlordPaymentCopy(payment({ status: 'paid', earning_from: '2026-11-12' }), NOW).detail)
+      .toContain('Rent Profit Share started on 12 Nov 2026');
     expect(landlordPaymentCopy(payment({ status: 'refunded' }), NOW).detail).toContain('your UGX 510,000 is back in your float');
+    expect(landlordPaymentCopy(payment({ status: 'refunded', role: 'agent' }), NOW).detail).toContain('Do not pay the landlord');
   });
   it('never uses banned words', () => {
     for (const status of ['queued', 'paid', 'refunded'] as const) {
       for (const role of ['partner', 'agent'] as const) {
-        const c = landlordPaymentCopy(payment({ status, role, earning_from: '2026-11-13' }), NOW);
-        expect(`${c.label} ${c.detail}`).not.toMatch(/\b(loan|lender|interest|ROI|returns?)\b/i);
+        const c = landlordPaymentCopy(payment({ status, role, earning_from: '2026-11-12' }), NOW);
+        expect(`${c.label} ${c.detail}`).not.toMatch(BANNED);
       }
     }
+    expect(LANDLORD_PAID_STEPS.map((s) => `${s.title} ${s.text}`).join(' ')).not.toMatch(BANNED);
   });
 });
 
 describe('supportOutcome / supportSubmittedCopy', () => {
   it('reads every server shape', () => {
-    expect(supportOutcome({ status: AWAITING_LANDLORD_PAYMENT, merchant_direct: true })).toBe('merchant_queue');
-    expect(supportOutcome({ status: 'active', earning_from: '2026-11-13' })).toBe('house_active');
+    expect(supportOutcome({ status: AWAITING_LANDLORD_PAYMENT, activates_when_landlord_paid: true, landlord_float_released: true }))
+      .toBe('awaiting_landlord');
+    expect(supportOutcome({ status: 'active', earning_from: '2026-11-12' })).toBe('house_active');
     expect(supportOutcome({ house_active: true })).toBe('house_active');
     expect(supportOutcome({ funding_mode: 'receivable' })).toBe('receivable');
     expect(supportOutcome({ status: 'active', landlord_float_released: true })).toBe('released_to_agent');
     expect(supportOutcome({ status: 'pending_ops_approval' })).toBe('pending_approval');
     expect(supportOutcome(null)).toBe('pending_approval');
   });
-  it('merchant queue toast promises no Partner Ops step', () => {
-    const t = supportSubmittedCopy({ merchant_direct: true }, 510_000);
-    expect(t.title).toBe('Sent to the merchant');
+  it('the Rent Plan toast promises no Partner Ops step and explains the 48 hours', () => {
+    const t = supportSubmittedCopy({ activates_when_landlord_paid: true }, 510_000);
+    expect(t.title).toBe('Sent to the agent');
     expect(t.description).toContain('UGX 510,000');
+    expect(t.description).toContain('48 hours');
     expect(t.description).not.toContain('Partner Operations');
   });
   it('house toast gives the start date', () => {
-    expect(supportSubmittedCopy({ status: 'active', earning_from: '2026-11-13' }, 306_000).description).toContain('13 Nov 2026');
+    expect(supportSubmittedCopy({ status: 'active', earning_from: '2026-11-12' }, 306_000).description).toContain('12 Nov 2026');
   });
 });
 
 describe('staff helpers', () => {
   it('attention reasons', () => {
-    expect(staffAttentionReason(staffRow({ payout_status: 'failed', withdrawal_status: 'processing', can_refund: true }), NOW))
-      .toContain('confirm with the merchant');
-    expect(staffAttentionReason(staffRow({ can_mark_paid: true, can_refund: false, withdrawal_status: 'completed' }), NOW))
-      .toContain('completed');
-    expect(staffAttentionReason(staffRow({ merchant_claimed: true }), NOW)).toContain('claimed by a merchant');
-    expect(staffAttentionReason(staffRow(), NOW)).toContain('Over 48 hours');
+    expect(staffAttentionReason(staffRow({ can_mark_paid: true, can_refund: false, payout_status: 'awaiting_agent_receipt' }), NOW))
+      .toContain('mark it paid');
+    expect(staffAttentionReason(staffRow({ float_paid_out: 100_000, can_refund: false }), NOW)).toContain('recovery case');
+    expect(staffAttentionReason(staffRow({ payout_status: 'pending_merchant_payout', can_refund: false }), NOW))
+      .toContain('pending merchant payout');
+    expect(staffAttentionReason(staffRow(), NOW)).toContain('recall it');
   });
   it('resolve problems mirror the server', () => {
     expect(staffResolveProblem(staffRow(), 'refund', 'short')).toMatch(/10 characters/);
-    expect(staffResolveProblem(staffRow(), 'refund', 'merchant confirmed nothing sent')).toBeNull();
-    expect(staffResolveProblem(staffRow(), 'paid', 'merchant confirmed nothing sent')).toMatch(/not completed/);
-    expect(staffResolveProblem(staffRow({ can_refund: false, can_mark_paid: true }), 'refund', 'xxxxxxxxxxxx')).toMatch(/Resolve it as paid/);
+    expect(staffResolveProblem(staffRow(), 'refund', 'agent never paid the landlord')).toBeNull();
+    expect(staffResolveProblem(staffRow(), 'paid', 'agent never paid the landlord')).toMatch(/not paid/);
+    expect(staffResolveProblem(staffRow({ can_refund: false, payout_status: 'pending_merchant_payout' }), 'refund', 'xxxxxxxxxxxx'))
+      .toMatch(/Settle or fail it first/);
+    expect(staffResolveProblem(staffRow({ can_refund: false, float_paid_out: 5 }), 'refund', 'xxxxxxxxxxxx')).toMatch(/recovery/);
     expect(staffResolveProblem(staffRow({ status: 'paid' }), 'paid', 'xxxxxxxxxxxx')).toMatch(/already settled/);
   });
   it('server errors in plain words', () => {
     expect(staffResolveErrorMessage({ message: 'only Financial Ops can resolve a self-support landlord payment' }))
-      .toBe('Only Financial Ops can settle these payments.');
-    expect(staffResolveErrorMessage({ message: 'The merchant withdrawal is completed: the landlord was paid. Resolve as paid.' }))
-      .toBe('The merchant withdrawal is completed: the landlord was paid. Resolve as paid.');
+      .toBe('Only Financial Ops can settle these plans.');
+    expect(staffResolveErrorMessage({ message: 'Cannot recall: an agent landlord payout for this Rent Plan is in progress or paid' }))
+      .toMatch(/Settle or fail it first/);
+    expect(supportErrorMessage('RENT_RECALLED: the rent for this tenant was recalled. Do not pay the landlord.'))
+      .toBe('the rent for this tenant was recalled. Do not pay the landlord.');
+    expect(supportErrorMessage('something else')).toBeNull();
   });
   it('formatDay is timezone-safe', () => {
     expect(formatDay('2026-11-13')).toBe('13 Nov 2026');
     expect(formatDay(null)).toBe('');
-  });
-});
-
-describe('supportErrorMessage / steps', () => {
-  it('drops the code, keeps the sentence', async () => {
-    const { supportErrorMessage, MERCHANT_DIRECT_STEPS } = await import('./selfSupportDirect');
-    expect(supportErrorMessage('LANDLORD_NOT_READY: Welile has not yet approved this landlord\'s payout number. Nothing was taken from your wallet.'))
-      .toBe('Welile has not yet approved this landlord\'s payout number. Nothing was taken from your wallet.');
-    expect(supportErrorMessage('PLAN_AGENT_RESTRICTED: This Rent Plan cannot be supported right now.')).toBe('This Rent Plan cannot be supported right now.');
-    expect(supportErrorMessage('something else')).toBeNull();
-    expect(MERCHANT_DIRECT_STEPS.map((s) => s.text).join(' ')).not.toMatch(/\b(loan|interest|ROI|returns?)\b/i);
   });
 });

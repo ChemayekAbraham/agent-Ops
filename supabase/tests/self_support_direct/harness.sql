@@ -106,3 +106,45 @@ BEGIN
   END;
   PERFORM tt.as_user(NULL);
 END $$;
+
+-- ---- v2: the agent's own withdrawal (what landlord-payout-disburse does after the landlord OTP) ----
+CREATE OR REPLACE FUNCTION tt.agent_withdraws(p_rr uuid) RETURNS uuid LANGUAGE plpgsql AS $$
+DECLARE a record; v_lp uuid; v_phone text; v_name text;
+BEGIN
+  SELECT al.agent_id, al.landlord_id, al.tenant_id, al.allocated_amount - COALESCE(al.paid_out_amount, 0) AS amt INTO a
+    FROM public.agent_landlord_float_allocations al
+   WHERE al.rent_request_id = p_rr AND al.source = 'partner_self_funding' AND al.status IN ('open', 'partially_paid')
+   ORDER BY al.created_at DESC LIMIT 1;
+  IF a.agent_id IS NULL THEN RAISE EXCEPTION 'no open allocation for %', p_rr; END IF;
+  SELECT verified_mobile_money_number, name INTO v_phone, v_name FROM public.landlords WHERE id = a.landlord_id;
+  PERFORM tt.as_user(NULL);
+  INSERT INTO public.landlord_payouts (agent_id, landlord_id, tenant_id, rent_request_id, amount, landlord_phone, landlord_name,
+                                       mobile_money_provider, otp_verified_at, status)
+  VALUES (a.agent_id, a.landlord_id, a.tenant_id, p_rr, a.amt, v_phone, v_name, 'MTN', now(), 'otp_verified')
+  RETURNING id INTO v_lp;
+  INSERT INTO public.withdrawal_requests (user_id, amount, status, payout_method, mobile_money_provider, mobile_money_number,
+                                         mobile_money_name, reason, landlord_payout_id)
+  VALUES (a.agent_id, a.amt, 'pending', 'mobile_money', 'mtn', v_phone, v_name,
+          'Landlord float payout — ' || v_name || ' (' || v_phone || ')', v_lp);
+  UPDATE public.landlord_payouts SET status = 'pending_merchant_payout' WHERE id = v_lp;
+  RETURN v_lp;
+END $$;
+
+-- The merchant settles it (approve-withdrawal: claim flip, float debit, completed -> payout paid).
+CREATE OR REPLACE FUNCTION tt.merchant_settles(p_lp uuid) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE v_wr uuid;
+BEGIN
+  SELECT id INTO v_wr FROM public.withdrawal_requests WHERE landlord_payout_id = p_lp ORDER BY created_at DESC LIMIT 1;
+  PERFORM tt.as_user(NULL);
+  UPDATE public.withdrawal_requests SET status = 'processing' WHERE id = v_wr AND status = 'pending';
+  IF NOT FOUND THEN RAISE EXCEPTION 'NOT_PAYABLE: withdrawal is no longer pending'; END IF;
+  PERFORM public.deduct_agent_float_for_payout(p_lp);
+  UPDATE public.withdrawal_requests SET status = 'completed', processed_at = now(), transaction_id = 'TID' || nextval('tt.seq')
+   WHERE id = v_wr;
+  UPDATE public.landlord_payouts SET status = 'awaiting_agent_receipt', finops_disbursed_at = now(), disbursed_at = now(),
+         finops_momo_reference = 'MOMO' || nextval('tt.seq')
+   WHERE id = p_lp AND status IN ('pending_merchant_payout', 'awaiting_agent_receipt');
+END $$;
+
+CREATE OR REPLACE FUNCTION tt.agent_float(p_agent uuid) RETURNS numeric LANGUAGE sql AS
+$$ SELECT COALESCE((SELECT balance FROM public.agent_landlord_float WHERE agent_id = p_agent), 0) $$;

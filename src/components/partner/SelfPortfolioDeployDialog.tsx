@@ -183,7 +183,7 @@ export function SelfPortfolioDeployDialog({
         });
         if (error) throw error;
         const payload = (data ?? {}) as SupportResultPayload;
-        if (supportOutcome(payload) === 'merchant_queue') {
+        if (supportOutcome(payload) === 'awaiting_landlord') {
           const copy = supportSubmittedCopy(payload, total);
           toast.success(copy.title, { description: copy.description, duration: 9000 });
         } else if (payload.funding_mode === 'receivable') {

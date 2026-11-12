@@ -8,7 +8,7 @@ import type {
 } from '@/lib/selfSupportDirect';
 
 /**
- * Merchant-direct self-support data calls. Every call is a SECURITY DEFINER
+ * Self-support (activate on landlord paid) data calls. Every call is a SECURITY DEFINER
  * function that checks the caller itself; the browser never writes these rows.
  * Not in the generated Supabase types until types.ts is regenerated, hence the
  * untyped rpc (same pattern as useCoSupport).
@@ -30,7 +30,7 @@ export const selfSupportDirectKeys = {
 
 /**
  * My landlord payments, as the partner (my halves) or as the plan's agent.
- * Refreshes every minute while one is still waiting for the merchant.
+ * Refreshes every minute while one is still waiting for its landlord.
  */
 export function useMyLandlordPayments(enabled = true) {
   return useQuery({
@@ -60,9 +60,10 @@ export interface StaffResolveResult {
 }
 
 /**
- * Financial Ops settles a held or stuck payment:
- * 'refund' when the merchant did NOT pay (partner refunded, queue row closed),
- * 'paid' when the merchant DID pay (portfolio activates, everyone is told).
+ * Financial Ops settles a held partner-funded plan:
+ * 'refund' recalls it (rent back off the agent's landlord float, partner refunded); refused while an
+ *          agent payout for the plan is in progress or paid,
+ * 'paid'   activates it when the agent's landlord payout for the plan is paid.
  * Use staffResolveProblem() first so the button explains why it is disabled.
  */
 export function useResolveLandlordPayment() {

@@ -1,6 +1,6 @@
 -- Merchant-direct: empty houses are instant (no Partner Ops), earning from tomorrow.
 SET client_min_messages = warning;
-UPDATE public.pipeline_switches SET is_on = true WHERE key = 'self_support_merchant_direct';
+UPDATE public.pipeline_switches SET is_on = true WHERE key = 'self_support_activate_on_landlord_paid';
 
 CREATE OR REPLACE FUNCTION tt.house(p_rent integer) RETURNS uuid
 LANGUAGE plpgsql SET session_replication_role = replica AS $$
@@ -15,13 +15,13 @@ END $$;
 
 CALL tt.run('H01', 'One partner supports an empty house: active at once, no Partner Ops, earning from tomorrow', $t$
 DECLARE pa uuid := tt.person('Pius Partner', ARRAY['supporter']); h uuid := tt.house(300000); r jsonb;
-        v_day date := (now() AT TIME ZONE 'Africa/Kampala')::date + 1; ip record;
+        v_day date := (now() AT TIME ZONE 'Africa/Kampala')::date; ip record;
 BEGIN
   PERFORM tt.float(pa, 1000000);
   PERFORM tt.as_user(pa); r := partner_support_houses(ARRAY[h], 1, 'house-' || h::text, NULL::uuid);
   ASSERT r->>'status' = 'active' AND (r->>'earning_from')::date = v_day, 'result ' || r;
   SELECT * INTO ip FROM investor_portfolios WHERE id = (r->>'portfolio_id')::uuid;
-  ASSERT ip.status = 'active' AND ip.next_roi_date = v_day + 30, 'portfolio ' || ip.status || ' ' || ip.next_roi_date;
+  ASSERT ip.status = 'active' AND ip.next_roi_date = (now() AT TIME ZONE 'Africa/Kampala')::date + 30, 'portfolio ' || ip.status || ' ' || ip.next_roi_date;
   ASSERT (SELECT status FROM funder_pending_portfolios WHERE portfolio_id = ip.id) = 'approved', 'not in the Partner Ops queue';
   ASSERT (SELECT status FROM partner_self_commitments WHERE id = (r->>'commitment_id')::uuid) = 'active', 'commitment active';
   ASSERT (SELECT status FROM partner_supported_houses WHERE commitment_id = (r->>'commitment_id')::uuid) = 'active', 'house active';
@@ -56,11 +56,11 @@ END $t$);
 CALL tt.run('H04', 'Switch OFF: houses still wait for Partner Ops', $t$
 DECLARE pa uuid := tt.person('Pius Partner', ARRAY['supporter']); h uuid := tt.house(200000); r jsonb;
 BEGIN
-  UPDATE pipeline_switches SET is_on = false WHERE key = 'self_support_merchant_direct';
+  UPDATE pipeline_switches SET is_on = false WHERE key = 'self_support_activate_on_landlord_paid';
   PERFORM tt.float(pa, 1000000);
   PERFORM tt.as_user(pa); r := partner_support_houses(ARRAY[h], 1, 'houseoff-' || h::text, NULL::uuid);
   PERFORM tt.as_user(NULL);
-  UPDATE pipeline_switches SET is_on = true WHERE key = 'self_support_merchant_direct';
+  UPDATE pipeline_switches SET is_on = true WHERE key = 'self_support_activate_on_landlord_paid';
   ASSERT r->>'status' = 'pending_ops_approval', 'old behaviour ' || r;
 END $t$);
 

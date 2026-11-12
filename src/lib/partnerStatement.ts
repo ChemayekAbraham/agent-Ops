@@ -73,8 +73,8 @@ const STATUS: Record<string, { label: string; tag: string }> = {
   awaiting_partner_details: { label: 'Awaiting Details', tag: 'tag-awaiting' },
   locked: { label: 'Locked', tag: 'tag-awaiting' },
   pending_ops_approval: { label: 'Processing', tag: 'tag-awaiting' },
-  // merchant-direct self-support: the merchant has not paid the landlord yet
-  awaiting_landlord_payment: { label: 'Paying landlord', tag: 'tag-awaiting' },
+  // self-support: the rent is with the agent; the portfolio activates once the landlord is paid
+  awaiting_landlord_payment: { label: 'Waiting for landlord', tag: 'tag-awaiting' },
 };
 const statusOf = (s: string) => STATUS[s] ?? {
   label: s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
