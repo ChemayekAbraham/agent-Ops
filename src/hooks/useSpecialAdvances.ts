@@ -131,6 +131,16 @@ export function useRecordSpecialAdvanceRepayment() {
   });
 }
 
+/** CFO adds a dated note; the original purpose and reason stay locked (migration 20261112). */
+export function useAddSpecialAdvanceNote() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ advanceId, note }: { advanceId: string; note: string }) =>
+      call<SpecialAdvanceStatement>('special_advance_add_note', { p_id: advanceId, p_note: note }),
+    onSuccess: invalidate,
+  });
+}
+
 /* ── Top-ups (migration 20261119120000) ─────────────────────────────────────────────────────────────── */
 
 /** What a top-up of `principal` would cost and how it would be repaid (read-only). `principal` null = nothing to quote. */

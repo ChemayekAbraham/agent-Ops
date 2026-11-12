@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Loader2, AlertCircle, RotateCcw, AlertTriangle, PlusCircle } from 'lucide-react';
+import { Loader2, AlertCircle, RotateCcw, AlertTriangle, PlusCircle, Pencil } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import {
   type CorrectionKind,
 } from '@/lib/specialAdvances';
 import {
+  useAddSpecialAdvanceNote,
   useDisburseSpecialAdvance,
   useRecordSpecialAdvanceRepayment,
   useSpecialAdvanceDecision,
@@ -49,6 +51,7 @@ const EVENT_TEXT: Record<string, string> = {
   provision_posted: 'Provision posted',
   recovery_recorded: 'Recovery recorded',
   topup_posted: 'Top-up added and paid out',
+  note_added: 'Note added',
 };
 
 const INSTALMENT_TEXT: Record<string, string> = {
@@ -59,7 +62,7 @@ const INSTALMENT_TEXT: Record<string, string> = {
   due: 'Due',
 };
 
-export type SpecialAdvanceSheetAction = 'repay' | 'topup' | 'reverse' | null;
+export type SpecialAdvanceSheetAction = 'edit' | 'repay' | 'topup' | 'reverse' | null;
 
 export function SpecialAdvanceDetailSheet({
   advanceId,
@@ -90,6 +93,22 @@ export function SpecialAdvanceDetailSheet({
   const [writeOffOpen, setWriteOffOpen] = useState(false);
   // Dialog state for a top-up (CFO, 12 Nov 2026)
   const [topUpOpen, setTopUpOpen] = useState(false);
+  // Edit = add a dated note; purpose and reason stay locked
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const addNote = useAddSpecialAdvanceNote();
+  const noteLen = noteText.trim().length;
+  const saveNote = async () => {
+    if (!advanceId) return;
+    try {
+      await addNote.mutateAsync({ advanceId, note: noteText.trim() });
+      toast.success('Note added');
+      setNoteOpen(false);
+      setNoteText('');
+    } catch (e) {
+      toast.error(describeSpecialAdvanceError(e));
+    }
+  };
 
   // Active repayments (not reversed)
   const standingRepayments = a?.repayments.filter((r) => !r.reversed_by_correction) ?? [];
@@ -104,6 +123,7 @@ export function SpecialAdvanceDetailSheet({
     const key = `${advanceId}:${initialAction}`;
     if (handledAction.current === key) return;
     handledAction.current = key;
+    if (initialAction === 'edit') { setNoteOpen(true); return; }
     if (a.status !== 'disbursed') {
       if (initialAction !== 'repay') toast.error('Only a paid-out advance can be topped up or reversed.');
       return;
@@ -541,6 +561,26 @@ export function SpecialAdvanceDetailSheet({
           </div>
         )}
       </SheetContent>
+
+      <Dialog open={noteOpen} onOpenChange={(o) => { setNoteOpen(o); if (!o) setNoteText(''); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Pencil className="h-4 w-4" /> Edit {a?.reference ?? ''}</DialogTitle>
+            <DialogDescription>Add a dated note. The original purpose and reason stay as recorded; the note is kept in History with your name.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1">
+            <Label htmlFor="special-advance-note">Note *</Label>
+            <Textarea id="special-advance-note" value={noteText} maxLength={1000} onChange={(e) => setNoteText(e.target.value)} />
+            <p className="text-xs text-muted-foreground">{noteLen}/1000 (at least 5)</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNoteOpen(false)}>Cancel</Button>
+            <Button disabled={noteLen < 5 || addNote.isPending} onClick={saveNote}>
+              {addNote.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reversal dialog */}
       {a && correctionTarget && (

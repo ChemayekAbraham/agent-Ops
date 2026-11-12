@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Scale, Clock, Sparkles, MoreHorizontal, Wallet, PlusCircle, RotateCcw } from 'lucide-react';
+import { Plus, Scale, Clock, Sparkles, MoreHorizontal, Wallet, PlusCircle, RotateCcw, Pencil } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -198,6 +198,9 @@ export function SpecialAdvancesPanel() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onSelect={() => { setOpenAction('edit'); setOpenId(a.id); }}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => { setOpenAction('repay'); setOpenId(a.id); }}>
                               <Wallet className="mr-2 h-4 w-4" /> Record Repayment
                             </DropdownMenuItem>

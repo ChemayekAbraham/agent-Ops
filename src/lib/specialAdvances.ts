@@ -82,7 +82,7 @@ export interface SpecialAdvanceQuote {
 
 export interface SpecialAdvanceEvent {
   event_type: 'created' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reopened' | 'reversed'
-    | 'correction_posted' | 'written_off' | 'write_off_posted' | 'provision_posted' | 'recovery_recorded';
+    | 'correction_posted' | 'written_off' | 'write_off_posted' | 'provision_posted' | 'recovery_recorded' | 'topup_posted' | 'note_added';
   from_status: string | null;
   to_status: string;
   actor_id: string;

@@ -99983,6 +99983,10 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      special_advance_add_note: {
+        Args: { p_id: string; p_note: string }
+        Returns: Json
+      }
       special_advance_add_topup: {
         Args: { p_expected_updated_at: string; p_id: string; p_request: Json }
         Returns: Json
