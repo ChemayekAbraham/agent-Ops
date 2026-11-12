@@ -175,11 +175,11 @@ export interface SpecialAdvanceStatement extends SpecialAdvance {
   provision_history?: Array<ProvisionLine & { review: string; recorded_at: string }>;
   write_offs?: SpecialAdvanceWriteOff[];
   recoveries?: SpecialAdvanceRecovery[];
-  /** Top-ups recorded and paid out against this advance, oldest first (migration 20261118100000). */
+  /** Top-ups recorded and paid out against this advance, oldest first (migration 20261119120000). */
   topups?: SpecialAdvanceTopup[];
 }
 
-/* ── Top-ups (CFO, 12 Nov 2026; migration 20261118100000) ──────────────────────────────────────────────
+/* ── Top-ups (CFO, 12 Nov 2026; migration 20261119120000) ──────────────────────────────────────────────
  * Recorded AND paid out in one CFO action: a Welile-user borrower's wallet is credited at once; an external borrower is
  * paid by mobile money / bank (reference + proof). Fee at the agreed rate over the top-up's term plus the fixed fee;
  * own instalments at the agreed frequency, ending on the original final due date. The original agreement is untouched. */
@@ -503,7 +503,7 @@ export function describeSpecialAdvanceError(err: unknown): string {
   if (msg.includes('SPECIAL_ADVANCE_NOT_APPROVED')) return 'Only an approved advance can be paid out.';
   if (msg.includes('SPECIAL_ADVANCE_ALREADY_PAID_OUT')) return 'This advance has already been paid out.';
   if (msg.includes('SPECIAL_ADVANCE_NOT_REPAYABLE')) return 'Repayments can only be recorded for an advance that is paid out and not settled.';
-  // Top-ups (migration 20261118100000)
+  // Top-ups (migration 20261119120000)
   if (msg.includes('TOPUP_AFTER_END')) {
     const end = (detail as { end_date?: string } | null)?.end_date;
     return `The original final due date${end ? ` (${end})` : ''} has passed; a top-up must be repaid by then.`;

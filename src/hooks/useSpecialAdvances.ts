@@ -131,7 +131,7 @@ export function useRecordSpecialAdvanceRepayment() {
   });
 }
 
-/* ── Top-ups (migration 20261118100000) ─────────────────────────────────────────────────────────────── */
+/* ── Top-ups (migration 20261119120000) ─────────────────────────────────────────────────────────────── */
 
 /** What a top-up of `principal` would cost and how it would be repaid (read-only). `principal` null = nothing to quote. */
 export function useSpecialAdvanceTopupQuote(advanceId: string | null, principal: number | null) {

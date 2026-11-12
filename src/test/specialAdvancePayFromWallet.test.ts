@@ -728,9 +728,9 @@ describe('20261118090100: SMS after a wallet repayment', () => {
   });
 });
 
-describe('20261118100000: top-ups', () => {
-  const TOPUP = MIG('20261118100000_special_advance_topups.sql');
-  const TOPUP_RB = read('supabase/rollbacks/20261118100000_special_advance_topups.rollback.sql');
+describe('20261119120000: top-ups', () => {
+  const TOPUP = MIG('20261119120000_special_advance_topups.sql');
+  const TOPUP_RB = read('supabase/rollbacks/20261119120000_special_advance_topups.rollback.sql');
   const coo = uuid();
   type Stmt = Adv & { updated_at: string; topups: Array<Record<string, unknown>>; schedule: Array<{ number: number; due_date: string; amount: number; topup_id: string | null }>;
     events: Array<{ event_type: string; actor_id: string; details: Record<string, unknown> }>; position: Adv['position'] & { total_repayable: number } };
@@ -1015,7 +1015,7 @@ const PARALLEL = 8;
     if (n !== 0) throw new Error('SA_PG_URL must be an EMPTY, disposable database');
     await buildStack(pg, cfo);
     await pg.exec(`BEGIN;\n${WALLET_PAY}\nCOMMIT;`);
-    await pg.exec(`BEGIN;\n${MIG('20261118100000_special_advance_topups.sql')}\nCOMMIT;`);
+    await pg.exec(`BEGIN;\n${MIG('20261119120000_special_advance_topups.sql')}\nCOMMIT;`);
     ph = helpers(pg, cfo);
   }, 600_000);
   afterAll(async () => { await pg?.close(); });
