@@ -56755,6 +56755,7 @@ export type Database = {
           recorded_by: string
           reference: string
           repayment_id: string | null
+          topup_id: string | null
         }
         Insert: {
           advance_id: string
@@ -56769,6 +56770,7 @@ export type Database = {
           recorded_by: string
           reference: string
           repayment_id?: string | null
+          topup_id?: string | null
         }
         Update: {
           advance_id?: string
@@ -56783,6 +56785,7 @@ export type Database = {
           recorded_by?: string
           reference?: string
           repayment_id?: string | null
+          topup_id?: string | null
         }
         Relationships: [
           {
@@ -56797,6 +56800,13 @@ export type Database = {
             columns: ["repayment_id"]
             isOneToOne: false
             referencedRelation: "special_advance_repayments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_corrections_topup_id_fkey"
+            columns: ["topup_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_topups"
             referencedColumns: ["id"]
           },
         ]
@@ -57229,6 +57239,7 @@ export type Database = {
           recorded_at: string
           recorded_by: string
           reference: string
+          reversed_by_correction: string | null
           term_days: number
           topup_date: string
           total_repayable: number
@@ -57248,6 +57259,7 @@ export type Database = {
           recorded_at?: string
           recorded_by: string
           reference: string
+          reversed_by_correction?: string | null
           term_days: number
           topup_date: string
           total_repayable: number
@@ -57267,6 +57279,7 @@ export type Database = {
           recorded_at?: string
           recorded_by?: string
           reference?: string
+          reversed_by_correction?: string | null
           term_days?: number
           topup_date?: string
           total_repayable?: number
@@ -57277,6 +57290,13 @@ export type Database = {
             columns: ["advance_id"]
             isOneToOne: false
             referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_topups_reversed_by_correction_fkey"
+            columns: ["reversed_by_correction"]
+            isOneToOne: false
+            referencedRelation: "special_advance_corrections"
             referencedColumns: ["id"]
           },
         ]
