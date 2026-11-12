@@ -77904,6 +77904,7 @@ export type Database = {
       _agent_red_flags: { Args: { p_agent: string }; Returns: Json }
       _agent_rule_judged_week_start: { Args: never; Returns: string }
       _agent_rule_week_start: { Args: { p_day: string }; Returns: string }
+      _agent_side_missing: { Args: { p_request_id: string }; Returns: string[] }
       _agent_vetting_ensure: {
         Args: { p_uid: string }
         Returns: {
