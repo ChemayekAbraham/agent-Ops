@@ -34,6 +34,8 @@ export type FunderFundResult = {
   reference?: string | null;
   /** True only when the server moved the rent to the agent's landlord float. */
   releasedToAgent?: boolean;
+  /** True when the portfolio activates only once the landlord is paid (show LANDLORD_PAID_STEPS). */
+  activatesOnLandlordPaid?: boolean;
   /** House bookings are not a rent release. */
   supportKind?: 'rent' | 'house';
   landlordNames?: string[];

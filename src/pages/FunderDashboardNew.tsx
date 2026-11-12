@@ -54,6 +54,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import type { FunderFundResult } from '@/components/funder-new/FunderNewSelectionPanel';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
+import { supportErrorMessage, supportOutcome, type SupportResultPayload } from '@/lib/selfSupportDirect';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 import { FunderSavedItemsDialog } from '@/components/funder-new/FunderSavedItemsDialog';
 export { sortFunderFeedEntries } from '@/lib/funderHouseSort';
@@ -703,6 +704,7 @@ export default function FunderDashboardNew() {
               await requireFunderOperationalFloat(user?.id, total);
               let reference: string | null = null;
               let releasedToAgent = false;
+              let activatesOnLandlordPaid = false;
               if (category === 'empty') {
                 const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
                   p_payload: {
@@ -734,13 +736,13 @@ export default function FunderDashboardNew() {
                   p_promised_deposit_date: null,
                 });
                 if (error) throw error;
-                const payload = (data ?? {}) as {
+                const payload = (data ?? {}) as SupportResultPayload & {
                   commitment_id?: string;
                   portfolio_id?: string;
-                  landlord_float_released?: boolean;
                 };
                 reference = payload.commitment_id ?? payload.portfolio_id ?? null;
                 releasedToAgent = payload.landlord_float_released === true;
+                activatesOnLandlordPaid = supportOutcome(payload) === 'awaiting_landlord';
               }
               setSelectedItems([]);
               setSelectedCategory(null);
@@ -749,6 +751,7 @@ export default function FunderDashboardNew() {
                 submitted: true,
                 reference,
                 releasedToAgent,
+                activatesOnLandlordPaid,
                 supportKind: category === 'empty' ? 'house' : 'rent',
                 landlordNames,
                 rentRequestIds,
@@ -757,7 +760,7 @@ export default function FunderDashboardNew() {
               const raw = String((err as { message?: string })?.message || 'Could not submit support');
               const message = raw.includes('NO_AGENT_ASSIGNED')
                 ? 'This Rent Plan has no assigned agent, so it cannot be funded.'
-                : raw;
+                : supportErrorMessage(raw) ?? raw;
               toast.error(message);
               throw err;
             }

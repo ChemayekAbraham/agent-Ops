@@ -109,8 +109,8 @@ function PickLine({ requestId }: { requestId: string }) {
 
 /** The money stage from funded_money_flow: With agent, Part paid or LIVE, else not released. */
 function MoneyStage({ q, item }: { q: ReturnType<typeof useMoneyFlow>; item: MoneyFlowItem | undefined }) {
-  if (q.isLoading) return <Skeleton className="h-4 w-48" />;
-  if (q.error) return <ErrorLine>{readableError(q.error)}</ErrorLine>;
+  if (!item && q.isLoading) return <Skeleton className="h-4 w-48" />;
+  if (!item && q.error) return <ErrorLine>{readableError(q.error)}</ErrorLine>;
   if (!item) {
     return (
       <p className="text-sm text-muted-foreground" style={{ margin: 0 }} data-money-stage="none">
@@ -131,7 +131,18 @@ function MoneyStage({ q, item }: { q: ReturnType<typeof useMoneyFlow>; item: Mon
   );
 }
 
-export function FundersPlanDrawer({ row, facts, onClose }: { row: FundersRow; facts: BoardFacts | null; onClose: () => void }) {
+export function FundersPlanDrawer({
+  row,
+  facts,
+  onClose,
+  release,
+}: {
+  row: FundersRow;
+  facts: BoardFacts | null;
+  onClose: () => void;
+  /** Opened from a release list: its stage stands in when the 30-day feed does not carry it. */
+  release?: MoneyFlowItem | null;
+}) {
   const phone = !atLeast(useBreakpoint(), 'md');
   const close = useRef<HTMLButtonElement>(null);
   const { pay } = useSelfSupportFeePolicy();
@@ -140,7 +151,7 @@ export function FundersPlanDrawer({ row, facts, onClose }: { row: FundersRow; fa
   const { user } = useAuth();
   const canDemote = useFundersBoardCanDemote(user?.id);
   const flow = useMoneyFlow();
-  const moneyItem = flow.data?.items.find((i) => i.rent_request_id === row.id);
+  const moneyItem = flow.data?.items.find((i) => i.rent_request_id === row.id) ?? release ?? undefined;
   const pick = useFunderPick(row.id);
   const [recallOpen, setRecallOpen] = useState(false);
   const recallable = canRecall(canDemote, moneyItem?.stage);
