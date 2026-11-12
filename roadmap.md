@@ -1,3 +1,10 @@
+# Co-support invitation redesign
+- [x] Confirm commit 604a836d18, eight owner boards and required hooks/deposit callback.
+- [x] Match invitation and joined views and connect existing DepositFlow to float-watch sheets; no financial writer changes.
+- [x] Run co-support tests and check mobile/desktop invitation rendering and build output.
+- [ ] Enable real deposit-progress checks: supplied useCoSupportFloatWatch has a depositStatus initialization crash; awaits permission to fix the off-limits hook. Failure is isolated so the invitation still opens.
+- [ ] Resolve merchandise storage finding: requires the owner's intended audience before changing file access; no permissions or bucket changes made.
+
 # Production log fixes (12 November)
 - [x] Add fresh operational-float-only funding checks for Rent Plans and empty houses and clarify the review balance labels.
 - [ ] Verify support through a real signed-in Funder; external unmanaged authentication prevents an authenticated browser check.
