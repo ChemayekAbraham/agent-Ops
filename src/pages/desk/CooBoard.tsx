@@ -15,7 +15,7 @@ import { AgentSheet } from './agents/AgentSheet';
 import { SendBackSheet } from './sendBack';
 import { KindChip, type RequestKind } from './KindChip';
 import { AT_COO, DeskSearchBox, SearchResults } from './deskSearch';
-import { MissingLine, toAgentOps } from './incomplete';
+import { MissingLine, SendBackIncompleteSheet } from './incomplete';
 import { missingChip } from './boardRowModel';
 import { awaitingRentRequestIds } from '@/lib/fundersBoard';
 import { useCooDemoted } from './fundersBoard/DemotedPanel';
@@ -282,7 +282,7 @@ function CooRowLine({
   onAgent: (row: CooRow) => void;
   /** Opens "Send back…" to a chosen office (E63). */
   onSendBack: (row: CooRow) => void;
-  /** E82: "Send back to Agent Ops" for a row that misses something. */
+  /** E82 / E89: "Send back…" for a row that misses something (Agent Ops, Service Centre or agent). */
   onSendBackAgentOps?: (row: CooRow) => void;
   /** Concerns any desk logged on this request. */
   concerns?: ConcernSummary;
@@ -617,7 +617,7 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
   const closeAgent = useCallback(() => setAgentRow(null), []);
   const [sendBackRow, setSendBackRow] = useState<CooRow | null>(null);
   const closeSendBack = useCallback(() => setSendBackRow(null), []);
-  // E82: the same sheet, started on Agent Ops with the missing list as the note.
+  // E89: a row that misses something goes back to Agent Ops, the Service Centre or the agent.
   const [agentOpsRow, setAgentOpsRow] = useState<CooRow | null>(null);
   const closeAgentOps = useCallback(() => setAgentOpsRow(null), []);
   // Requests demoted from the funders board wait for a level on the panel above; mark them so they are never pushed.
@@ -701,7 +701,9 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
       {confirm && valid && <PushSheet plan={plan} n={n} onClose={() => setConfirm(false)} />}
       {pushRow && <RowPushConfirm row={pushRow} onClose={() => setPushRow(null)} />}
       {sendBackRow && <SendBackSheet requestId={sendBackRow.id} stage="coo" tenant={sendBackRow.tenant} onClose={closeSendBack} />}
-      {agentOpsRow && <SendBackSheet requestId={agentOpsRow.id} stage="coo" tenant={agentOpsRow.tenant} initial={toAgentOps(agentOpsRow.incomplete)} onClose={closeAgentOps} />}
+      {agentOpsRow && (
+        <SendBackIncompleteSheet requestId={agentOpsRow.id} tenant={agentOpsRow.tenant} missing={agentOpsRow.incomplete} onClose={closeAgentOps} />
+      )}
       {agentRow && (
         <AgentSheet target={{ kind: 'request', requestId: agentRow.id, name: agentRow.agent, grade: agentRow.agent_grade }} onClose={closeAgent} />
       )}

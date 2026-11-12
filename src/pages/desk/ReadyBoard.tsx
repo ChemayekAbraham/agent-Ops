@@ -30,7 +30,7 @@ import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { SENT_BACK_TO_AGENT, passMovesOnServer, passSentTo, rejectMovesOnServer } from './deskActions';
 import { toast } from 'sonner';
 import { KindChip } from './KindChip';
-import { MissingLine, hasMissing, missingText, toAgentOps } from './incomplete';
+import { MissingLine, SendBackIncompleteSheet, hasMissing, missingText } from './incomplete';
 import { DeskSearchBox, SearchResults, searchReady, type SearchDesk } from './deskSearch';
 import { asIs } from './deskActions';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
@@ -45,6 +45,7 @@ import {
   GROUP_LABEL,
   PUSHABLE,
   afterServerPass,
+  removeFromBoard,
   boardKey,
   boardLimit,
   flagsChip,
@@ -155,7 +156,7 @@ function BoardRowLine({
   onPrimary: () => void;
   onRetry: () => void;
   onOpen: OpenDrawer;
-  /** E82: "Send back to Agent Ops" for a row that misses something (Tenant / Landlord Ops). */
+  /** E82 / E89: "Send back…" for a row that misses something (Tenant / Landlord Ops). */
   onSendBackAgentOps?: () => void;
   /** Agent Ops transfer rows: choose a different receiving agent. */
   onPick?: () => void;
@@ -596,7 +597,9 @@ function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onO
   // The transfer picker: a suggested transfer's "Pick another agent…", or E73's "Assign agent".
   const [picker, setPicker] = useState<{ row: BoardRow; mode: 'transfer' | 'assign' } | null>(null);
   // E63: a suggested send-back opens the send-back sheet, prefilled with the server's suggestion.
-  const [sendBack, setSendBack] = useState<{ row: BoardRow; to: 'suggested' | 'agent_ops' } | null>(null);
+  const [sendBack, setSendBack] = useState<{ row: BoardRow; to: 'suggested' } | null>(null);
+  // E89: a row that misses something goes back to Agent Ops, the Service Centre or the agent.
+  const [incompleteRow, setIncompleteRow] = useState<BoardRow | null>(null);
   const closeSendBack = useCallback(() => setSendBack(null), []);
 
   const data = q.data;
@@ -819,7 +822,7 @@ function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onO
                     onRetry={() => void retry(r)}
                     onOpen={open}
                     onSendBackAgentOps={
-                      (stage === 'tenant_ops' || stage === 'landlord_ops') && hasMissing(r.incomplete) ? () => setSendBack({ row: r, to: 'agent_ops' }) : undefined
+                      (stage === 'tenant_ops' || stage === 'landlord_ops') && hasMissing(r.incomplete) ? () => setIncompleteRow(r) : undefined
                     }
                     onPick={stage === 'agent_ops' ? () => setPicker({ row: r, mode: 'transfer' }) : undefined}
                     health={r.tenant_id ? health.data?.[r.tenant_id] : undefined}
@@ -860,17 +863,27 @@ function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onO
           requestId={sendBack.row.id}
           stage={stage}
           tenant={sendBack.row.tenant}
-          initial={
-            sendBack.to === 'agent_ops'
-              ? toAgentOps(sendBack.row.incomplete)
-              : { to: SUGGESTED_OFFICE, reasonCode: sendBack.row.push?.reason_code ?? null, note: sendBack.row.push?.note ?? sendBack.row.why ?? null }
-          }
+          initial={{ to: SUGGESTED_OFFICE, reasonCode: sendBack.row.push?.reason_code ?? null, note: sendBack.row.push?.note ?? sendBack.row.why ?? null }}
           onDone={(message) => {
             clear(sendBack.row.id);
             mark(sendBack.row.id, { kind: 'moved', message });
             setNote(sendBack.row.id, { kind: 'ok', text: message });
           }}
           onClose={closeSendBack}
+        />
+      )}
+
+      {incompleteRow && (
+        <SendBackIncompleteSheet
+          requestId={incompleteRow.id}
+          tenant={incompleteRow.tenant}
+          missing={incompleteRow.incomplete}
+          onDone={(message) => {
+            clear(incompleteRow.id);
+            mark(incompleteRow.id, { kind: 'moved', message });
+            removeFromBoard(queryClient, stage, incompleteRow.id);
+          }}
+          onClose={() => setIncompleteRow(null)}
         />
       )}
 

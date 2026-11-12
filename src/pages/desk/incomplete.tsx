@@ -31,7 +31,19 @@ export function missingText(list: string[] | null | undefined): string | null {
 
 export const hasMissing = (list: string[] | null | undefined): boolean => (list ?? []).filter(Boolean).length > 0;
 
-export type IncompleteItem = { id: string; short_id: string; desk: string | null; tenant: string | null; agent: string | null; rent: number | null; missing: string[] };
+export type IncompleteItem = {
+  id: string;
+  short_id: string;
+  desk: string | null;
+  tenant: string | null;
+  agent: string | null;
+  rent: number | null;
+  missing: string[];
+  /** E89: who should complete it — the server's suggestion for the send-back. */
+  suggest_send_to?: SendBackTarget | string | null;
+  /** E89: the request's status; 'coo_approved' is on the funders board. */
+  status?: string | null;
+};
 export type IncompleteQueue = { count: number; by_desk: Record<string, number>; items: IncompleteItem[] };
 
 export const INCOMPLETE_LIMIT = 200;
@@ -77,7 +89,19 @@ function byDeskLine(by: Record<string, number>): string {
 
 /* ───────────── the list (Agent Ops section, and the tile's sheet) ───────────── */
 
-function ItemList({ items, onPick }: { items: IncompleteItem[]; onPick?: (i: IncompleteItem) => void }) {
+function ItemList({
+  items,
+  onPick,
+  onSendBack,
+  canDemote,
+}: {
+  items: IncompleteItem[];
+  onPick?: (i: IncompleteItem) => void;
+  /** E89: "Send back" on each row (Agent Ops' list). */
+  onSendBack?: (i: IncompleteItem) => void;
+  /** Rows on the funders board offer it only to someone who may take them off it. */
+  canDemote?: boolean;
+}) {
   return (
     <ul style={{ margin: 0, padding: 0, listStyle: 'none' }} aria-label="Incomplete requests">
       {items.map((it) => {
@@ -110,6 +134,13 @@ function ItemList({ items, onPick }: { items: IncompleteItem[]; onPick?: (i: Inc
                 {body}
               </div>
             )}
+            {onSendBack && (it.status !== ON_FUNDERS_BOARD || canDemote) && (
+              <div className="px-2 pb-2.5">
+                <DecisionButton size="sm" variant="quiet" onClick={() => onSendBack(it)}>
+                  Send back…
+                </DecisionButton>
+              </div>
+            )}
           </li>
         );
       })}
@@ -121,6 +152,8 @@ function ItemList({ items, onPick }: { items: IncompleteItem[]; onPick?: (i: Inc
 export function IncompleteSection({ board }: { board: boolean }) {
   const q = useIncompleteQueue();
   const [open, setOpen] = useState<IncompleteItem | null>(null);
+  const [sending, setSending] = useState<IncompleteItem | null>(null);
+  const demote = useCanDemote();
   if (q.error && notAuthorized(q.error)) return null;
   const d = q.data;
   return (
@@ -140,10 +173,19 @@ export function IncompleteSection({ board }: { board: boolean }) {
       ) : (
         <>
           {byDeskLine(d.by_desk) && <p className="text-sm text-foreground">{byDeskLine(d.by_desk)}</p>}
-          <ItemList items={d.items} onPick={setOpen} />
+          <ItemList items={d.items} onPick={setOpen} onSendBack={setSending} canDemote={demote.data === true} />
         </>
       )}
       {open && <CompleteMissingSheet item={open} onClose={() => setOpen(null)} />}
+      {sending && (
+        <SendBackIncompleteSheet
+          requestId={sending.id}
+          tenant={sending.tenant}
+          missing={sending.missing}
+          suggest={sending.suggest_send_to}
+          onClose={() => setSending(null)}
+        />
+      )}
     </section>
   );
 }
@@ -349,8 +391,7 @@ export function CompleteMissingSheet({ item, onClose }: { item: IncompleteItem; 
 
 /**
  * Under a row that misses something: the list in red and, where the desk may
- * send it back there, "Send back to Agent Ops" (opens the send-back sheet with
- * Agent Ops picked and the list as the note).
+ * send it back, "Send back…" (E89: Agent Ops, the Service Centre or the agent).
  */
 export function MissingLine({ list, onSendBack }: { list: string[] | null | undefined; onSendBack?: () => void }) {
   const text = missingText(list);
@@ -362,12 +403,132 @@ export function MissingLine({ list, onSendBack }: { list: string[] | null | unde
       </span>
       {onSendBack && (
         <DecisionButton size="sm" variant="quiet" onClick={onSendBack}>
-          Send back to Agent Ops
+          Send back…
         </DecisionButton>
       )}
     </div>
   );
 }
 
-/** The send-back sheet's start for that shortcut: Agent Ops, with the list as the note. */
-export const toAgentOps = (list: string[] | null | undefined) => ({ to: 'agent_ops', reasonCode: null, note: missingText(list) });
+/* ───────────── E89: send an incomplete request back to whoever completes it ───────────── */
+
+export type SendBackTarget = 'agent_ops' | 'service_centre' | 'agent';
+export const SEND_BACK_TARGETS: { code: SendBackTarget; label: string }[] = [
+  { code: 'agent_ops', label: 'Agent Ops' },
+  { code: 'service_centre', label: 'Service Centre' },
+  { code: 'agent', label: 'Agent' },
+];
+/** The status a request has while it sits on the funders board. */
+export const ON_FUNDERS_BOARD = 'coo_approved';
+
+const isTarget = (t: unknown): t is SendBackTarget => SEND_BACK_TARGETS.some((x) => x.code === t);
+
+/** May this person take a request off the funders board (`funders_board_can_demote`)? */
+export function useCanDemote(enabled = true) {
+  return useQuery({
+    queryKey: ['desk-feed', 'funders-board-can-demote'],
+    enabled,
+    queryFn: async (): Promise<boolean> => {
+      const { data, error } = await rpc('funders_board_can_demote', {});
+      if (error) return false;
+      return data === true;
+    },
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+}
+
+/** `pipeline_send_back_incomplete`: the server's "sent_to" on success, its own words on a refusal. */
+export async function sendBackIncomplete(input: { requestId: string; to: SendBackTarget; note: string }): Promise<{ ok: boolean; sentTo?: string; message?: string }> {
+  const { data, error } = await rpc('pipeline_send_back_incomplete', {
+    p_request_id: input.requestId,
+    p_to: input.to,
+    p_note: input.note.trim() || null,
+  });
+  if (error) return { ok: false, message: asIs(error) };
+  const sentTo = (data as { sent_to?: string } | null)?.sent_to ?? SEND_BACK_TARGETS.find((t) => t.code === input.to)?.label;
+  return { ok: true, sentTo };
+}
+
+/**
+ * "Send back…" for a request that misses something: Agent Ops, the Service
+ * Centre or the agent (the server's suggestion picked), an optional note, then
+ * "Send back to {target}? Missing: …". On success: "Sent back to {sent_to}",
+ * and the list and the board refetch.
+ */
+export function SendBackIncompleteSheet({
+  requestId,
+  tenant,
+  missing,
+  suggest,
+  onDone,
+  onClose,
+}: {
+  requestId: string;
+  tenant: string | null;
+  missing: string[] | null | undefined;
+  suggest?: string | null;
+  onDone?: (message: string) => void;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [to, setTo] = useState<SendBackTarget>(isTarget(suggest) ? suggest : 'agent_ops');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const target = SEND_BACK_TARGETS.find((t) => t.code === to)!;
+
+  const send = async () => {
+    setBusy(true);
+    setError(null);
+    const out = await sendBackIncomplete({ requestId, to, note });
+    setBusy(false);
+    if (!out.ok) return setError(out.message ?? 'The send-back did not go through.');
+    const message = `Sent back to ${out.sentTo}`;
+    toast.success(message);
+    void queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
+    onDone?.(message);
+    onClose();
+  };
+
+  return (
+    <Sheet title={`Send back ${tenant ?? 'this request'}`} onClose={onClose}>
+      <div data-send-back-incomplete style={stackLayout(12)}>
+        <div role="radiogroup" aria-label="Send it back to" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {SEND_BACK_TARGETS.map((t) => (
+            <button
+              key={t.code}
+              type="button"
+              role="radio"
+              aria-checked={to === t.code}
+              data-target={t.code}
+              onClick={() => setTo(t.code)}
+              className={`desk-pill border px-3 py-1.5 text-sm ${CALM} ${FOCUS} ${to === t.code ? statusGlass.ok : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'}`}
+            >
+              {t.label}
+              {suggest === t.code ? <span className="ml-1 text-xs opacity-80">· suggested</span> : null}
+            </button>
+          ))}
+        </div>
+        <label className="block space-y-1">
+          <span className={LABEL}>Note (optional)</span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            className={`w-full rounded-xl border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 py-2 text-sm text-foreground ${FOCUS}`}
+          />
+        </label>
+        <p className="text-sm text-foreground" style={{ margin: 0 }} data-confirm-line>
+          Send back to {target.label}? {missingText(missing) ?? ''}
+        </p>
+        {error && <ErrorLine>{error}</ErrorLine>}
+        <div>
+          <DecisionButton variant="primary" disabled={busy} onClick={send}>
+            {busy ? 'Sending back…' : `Send back to ${target.label}`}
+          </DecisionButton>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
