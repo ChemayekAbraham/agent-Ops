@@ -9644,6 +9644,7 @@ export type Database = {
           last_seen_at: string | null
           last_seen_ip: string | null
           revoked_at: string | null
+          screen: string
           seen_count: number
           token_hash: string
         }
@@ -9657,6 +9658,7 @@ export type Database = {
           last_seen_at?: string | null
           last_seen_ip?: string | null
           revoked_at?: string | null
+          screen?: string
           seen_count?: number
           token_hash: string
         }
@@ -9670,6 +9672,7 @@ export type Database = {
           last_seen_at?: string | null
           last_seen_ip?: string | null
           revoked_at?: string | null
+          screen?: string
           seen_count?: number
           token_hash?: string
         }
@@ -78493,6 +78496,7 @@ export type Database = {
           last_seen_at: string | null
           last_seen_ip: string | null
           revoked_at: string | null
+          screen: string
           seen_count: number
           token_hash: string
         }
