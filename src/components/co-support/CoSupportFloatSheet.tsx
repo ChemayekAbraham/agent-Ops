@@ -24,10 +24,10 @@ export function CoSupportFloatSheet({ open, onOpenChange, state, deposit, previe
       <div className="space-y-1.5"><SheetTitle className="text-xl font-bold">{title}</SheetTitle><SheetDescription className="mx-auto max-w-[300px] text-sm leading-relaxed">{detail}</SheetDescription></div>
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
       <dl className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 border-y py-3.5 text-left text-[13px]">
-        {arrived ? <><dt className="text-muted-foreground">{copy.arrivedFreeLabel}</dt><dd className="co-support-amount text-right font-mono font-bold">{ugx(preview?.float_available ?? 0)}</dd></> : <><dt className="text-muted-foreground">{copy.successCard.putInLabel}</dt><dd className="co-support-amount text-right font-mono font-bold">{ugx(deposit.amount)}</dd><dt className="sr-only">{deposit.transactionId}</dt><dd className="col-span-2 break-all text-right font-mono">{deposit.transactionId}</dd></>}
+        {arrived ? <><dt className="text-muted-foreground">{copy.arrivedFreeLabel}</dt><dd className="co-support-amount text-right font-mono font-bold">{ugx(preview?.float_available ?? 0)}</dd></> : <><dt className="text-muted-foreground">{copy.waitingAmountLabel}</dt><dd className="co-support-amount text-right font-mono font-bold">{ugx(deposit.amount)}</dd><dt className="text-muted-foreground">{copy.waitingTidLabel}</dt><dd className="min-w-0 break-all text-right font-mono">{deposit.transactionId}</dd></>}
       </dl>
       {!arrived && !rejected ? <p className="text-xs leading-relaxed text-muted-foreground">{copy.waitingNote}</p> : null}
-      {arrived ? <Button className="h-12 w-full rounded-2xl text-[15px]" onClick={() => onOpenChange(false)}>{copy.arrivedAction}</Button> : rejected ? <Button className="h-12 w-full rounded-2xl" onClick={onRetry}>{copy.blockAction ?? copy.depositTitle}</Button> : <Button variant="outline" size="icon" className="h-12 w-full rounded-2xl" onClick={() => onOpenChange(false)} aria-label={copy.waitingNote}><X className="h-5 w-5" aria-hidden /></Button>}
+      {arrived ? <Button className="h-12 w-full rounded-2xl text-[15px]" onClick={() => onOpenChange(false)}>{copy.arrivedAction}</Button> : rejected ? <Button className="h-12 w-full rounded-2xl" onClick={onRetry}>{copy.blockAction ?? copy.depositTitle}</Button> : <Button variant="outline" className="h-12 w-full rounded-2xl bg-card" onClick={() => onOpenChange(false)}>{copy.closeLabel}</Button>}
     </SheetContent>
   </Sheet>;
 }

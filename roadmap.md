@@ -1,3 +1,8 @@
+# Co-support invitation follow-ups
+- [x] Confirm pushed commit 447b8bdd02 and the supplied float-watch regression test; keep the hook and safety boundary unchanged.
+- [x] Use the supplied waiting-sheet and joined-card labels and suppress the global install prompt on invitation links only; storage untouched.
+- [x] Co-support library, both page tests, upstream float-watch tests and install-route tests pass (49 checks); automatic build OK. Phone invitation route remains uncovered by the install prompt; live payment verification still requires an authorized session and valid invitation.
+
 # Signage GPS-only locations
 - [x] Populate read-only location fields from captured GPS for new and returned applications; block failed/unresolved lookups without guessing missing optional levels.
 - [x] Test capture, recapture, lookup failures, locked fields and existing signage safeguards; 24 tests and all guards passed, build OK.
@@ -7,7 +12,7 @@
 - [x] Confirm commit 604a836d18, eight owner boards and required hooks/deposit callback.
 - [x] Match invitation and joined views and connect existing DepositFlow to float-watch sheets; no financial writer changes.
 - [x] Run co-support tests and check mobile/desktop invitation rendering and build output.
-- [ ] Enable real deposit-progress checks: supplied useCoSupportFloatWatch has a depositStatus initialization crash; awaits permission to fix the off-limits hook. Failure is isolated so the invitation still opens.
+- [x] Float-watch initialization crash fixed upstream in 447b8bdd02; retain the safety boundary and re-run the supplied hook and page regressions.
 - [x] Resolve merchandise storage finding: user selected uploaders and staff; applied owner/staff read restrictions, verified live policies, private bucket unchanged and finding cleared.
 
 # Production log fixes (12 November)

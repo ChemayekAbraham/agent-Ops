@@ -49,12 +49,14 @@ describe('invitation deposit handoff', () => {
     act(() => depositProps.current.onSubmitted({ id: 'deposit', amount: 1335514, transactionId: 'MP123456789', provider: 'mtn', outcome: 'no_match' }));
     expect(depositProps.current.open).toBe(false);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     state.watchState = 'arrived';
     state.fresh = { ...state.preview, can_accept: true, reason: null, float_available: 1530000 };
     view.rerender(page());
     await userEvent.click(screen.getByRole('button', { name: 'Join Benjamin now' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Join Benjamin' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(accept).not.toHaveBeenCalled();
   });
   it('rejected payments reopen the same deposit form without accepting', async () => {

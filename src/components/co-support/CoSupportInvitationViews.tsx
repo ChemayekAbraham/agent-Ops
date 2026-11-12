@@ -66,7 +66,7 @@ export function CoSupportJoined({ preview, copy, leadPhoto, ownPhoto }: { previe
         <div className="flex items-center gap-3"><CoSupportHousePhoto preview={preview} copy={copy} small /><div className="min-w-0"><p className="text-xs opacity-80">{copy.successCard.eyebrow}</p><h2 className="text-base font-bold">{copy.successCard.title}</h2></div></div>
         <div className="grid grid-cols-2 gap-3">
           <div><p className="text-xs opacity-80">{copy.successCard.putInLabel}</p><p className="co-support-amount mt-0.5 font-mono text-base font-bold">{copy.successCard.putIn}</p></div>
-          {copy.successCard.earning ? <div><p className="text-xs opacity-80">{copy.earningLabel}</p><p className="co-support-amount mt-0.5 font-mono text-base font-bold">{copy.successCard.earning}</p></div> : null}
+          {copy.successCard.earning ? <div><p className="text-xs opacity-80">{copy.successCard.earningLabel}</p><p className="co-support-amount mt-0.5 font-mono text-base font-bold">{copy.successCard.earning}<span className="font-sans text-xs font-normal opacity-80">{copy.successCard.earningSuffix}</span></p></div> : null}
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-primary-foreground/20 pt-3 text-[13px]"><span className="opacity-85">{copy.successCard.firstLabel}</span><strong className="text-right">{copy.successCard.first}</strong></div>
       </section>
