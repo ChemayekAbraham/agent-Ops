@@ -41,6 +41,7 @@ export interface LandlordOpsNavSection {
 export const LANDLORD_OPS_SECTIONS: LandlordOpsNavSection[] = [
   {
     items: [
+      { key: 'pipeline-rent-requests', label: 'Rent Requests', path: 'pipeline/rent-requests', icon: GitBranch, badgeKey: 'pipeline' },
       { key: 'today', label: 'Today', path: '', icon: LayoutDashboard },
     ],
   },
@@ -55,7 +56,6 @@ export const LANDLORD_OPS_SECTIONS: LandlordOpsNavSection[] = [
   {
     title: 'PIPELINE',
     items: [
-      { key: 'pipeline-rent-requests', label: 'Rent Requests', path: 'pipeline/rent-requests', icon: GitBranch, badgeKey: 'pipeline' },
       { key: 'pipeline-welile-homes-float', label: 'Welile Homes Float', path: 'pipeline/welile-homes-float', icon: Building2 },
       { key: 'pipeline-advances', label: 'Business Advances', path: 'pipeline/advances', icon: Banknote },
     ],
@@ -106,7 +106,9 @@ export const ALL_LANDLORD_OPS_ITEMS: LandlordOpsNavItem[] = LANDLORD_OPS_SECTION
 
 export function findLandlordOpsItem(pathOrKey: string): LandlordOpsNavItem | undefined {
   const clean = pathOrKey.replace(/^\//, '').replace(/^landlord-ops\/?/, '');
-  if (!clean || clean === 'today') return ALL_LANDLORD_OPS_ITEMS[0];
+  if (!clean || clean === 'today') {
+    return ALL_LANDLORD_OPS_ITEMS.find((i) => i.key === 'today' || i.path === '') ?? ALL_LANDLORD_OPS_ITEMS[0];
+  }
   return ALL_LANDLORD_OPS_ITEMS.find((i) => i.path === clean || i.key === clean);
 }
 
