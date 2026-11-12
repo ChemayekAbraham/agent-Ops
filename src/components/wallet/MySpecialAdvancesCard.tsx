@@ -137,6 +137,7 @@ function PayFromWalletDialog({ advance, walletAvailable, onClose, onPaid }: {
 
   const check = checkWalletAmount(text, outstanding, walletAvailable);
   const amount = check.ok ? check.amount : 0;
+  const amountError = 'message' in check ? check.message : null;
   const chips = [
     next && next.outstanding <= max ? { label: 'Next instalment', value: next.outstanding } : null,
     advance.position.overdue_amount > 0 && advance.position.overdue_amount <= max && advance.position.overdue_amount !== next?.outstanding
@@ -199,7 +200,7 @@ function PayFromWalletDialog({ advance, walletAvailable, onClose, onPaid }: {
               <Label htmlFor="sa-wallet-amount">Amount to pay (UGX)</Label>
               <Input id="sa-wallet-amount" inputMode="numeric" autoComplete="off" value={text}
                 onChange={(e) => setText(e.target.value)} aria-invalid={!check.ok} />
-              {!check.ok && text !== '' && <p className="text-xs text-destructive">{check.message}</p>}
+              {amountError && text !== '' && <p className="text-xs text-destructive">{amountError}</p>}
             </div>
             {chips.length > 0 && (
               <div className="flex flex-wrap gap-2">

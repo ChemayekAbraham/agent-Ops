@@ -207,7 +207,7 @@ function ChooserBody({
     <div className="space-y-2" role="radiogroup" aria-label="How to fund this house">
       <ChoiceButton
         icon={<Wallet className="h-5 w-5" />}
-        title="Fund this house through Welile"
+        title="Fund this house through Welile agent"
         detail="The rent goes straight to the agent's landlord float. The agent pays the landlord within 24 hours. You will see the rent and the 2% Welile Cover before your balance is used."
         checked={choice === 'welile'}
         onClick={() => setChoice('welile')}

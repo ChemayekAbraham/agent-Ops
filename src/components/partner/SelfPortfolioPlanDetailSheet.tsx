@@ -7,7 +7,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Home, MapPin, Phone, ShieldCheck, User, UserCheck, Wallet, X } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ChevronLeft, ChevronRight, Home, MapPin, Phone, Share2, ShieldCheck, User, UserCheck, Wallet, X } from 'lucide-react';
 import tenantPhotoPlaceholder from '@/assets/tenant-photo-placeholder.jpg';
 import { cn } from '@/lib/utils';
 import { PlanShareButton } from './PlanShareButton';
@@ -276,6 +277,21 @@ export function SelfPortfolioPlanDetailSheet({
   const regionLabel = addressParts.length
     ? addressParts[addressParts.length - 1]
     : 'Uganda';
+  const rent = pay(Number(plan.funding_amount || 0));
+  const monthly = ownRatePct === null ? null : (rent * ownRatePct) / 100;
+  const daily = monthly === null ? null : monthly / 30;
+  // The partner earns across the whole contract, not for the plan's length.
+  const total = monthly === null ? null : monthly * CONTRACT_TERM_MONTHS;
+  const agentTel = (plan.agent_phone || plan.proxy_agent_phone || '').replace(/\s/g, '') || null;
+  // Opens the house in Google Maps: pinned coordinates when the request has them, otherwise the written address.
+  const openMap = () => {
+    const lat = Number(plan.request_latitude);
+    const lng = Number(plan.request_longitude);
+    const hasCoords = plan.request_latitude != null && plan.request_longitude != null
+      && Number.isFinite(lat) && Number.isFinite(lng);
+    const query = hasCoords ? `${lat},${lng}` : fullAddress;
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+  };
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       {/* No `relative` here: it would override the sheet's own `fixed`
@@ -356,58 +372,89 @@ export function SelfPortfolioPlanDetailSheet({
 
         {/* Content sheet overlapping the photo, rounded like a Material bottom sheet */}
         <div className="relative -mt-5 rounded-t-[28px] bg-background px-4 pt-6 pb-0">
-          <h2 className="text-2xl font-bold leading-tight tracking-tight">
+          <h2 className="text-xl font-bold leading-tight tracking-tight first-letter:uppercase">
             {plan.house_category ? `${plan.house_category.replace(/-/g, ' ')} in ` : 'Rent plan in '}
             {regionLabel}
           </h2>
-          <p className="mt-2 text-sm text-muted-foreground flex items-start gap-1.5">
-            <MapPin className="h-4 w-4 flex-none mt-0.5 text-red-600" />
-            <span>{fullAddress}</span>
+          <p className="mt-1.5 flex items-start gap-1.5 text-sm text-muted-foreground">
+            <MapPin className="mt-0.5 h-4 w-4 flex-none text-red-600" />
+            <span className="line-clamp-2">{fullAddress}</span>
           </p>
 
-          {/* Invite others to support this plan (tonal card) */}
-          <div className="mt-4 rounded-3xl bg-primary/10 p-4">
-            <p className="text-sm font-semibold">Invite someone to support this tenant</p>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">
-              {planShareFallbackDescription(plan)}
-            </p>
-            <div className="mt-3">
-              <PlanShareButton plan={plan} variant="block" />
+          {/* Summary card: the rent and what this partner earns on it. */}
+          <section className="mt-4 rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">Rent</p>
+                <p className="mt-0.5 break-words text-xl font-bold tracking-tight">{formatDynamic(rent)}</p>
+                <p className="text-xs text-muted-foreground">Paid once</p>
+              </div>
+              <div className="min-w-0 border-l border-border/60 pl-3">
+                <p className="text-xs font-medium text-muted-foreground">You earn monthly</p>
+                <p className="mt-0.5 break-words text-xl font-bold tracking-tight text-success">
+                  {monthly === null ? '—' : formatDynamic(Math.round(monthly))}
+                </p>
+                {formatRatePct(ownRatePct) ? (
+                  <p className="text-xs text-muted-foreground">at {formatRatePct(ownRatePct)} a month</p>
+                ) : null}
+              </div>
             </div>
+          </section>
+
+          {/* Quick actions, like an app's action row: map, share, call the agent. */}
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={openMap}
+              className="flex flex-col items-center gap-1 rounded-2xl bg-muted/50 py-3 text-xs font-semibold transition active:scale-[0.97] hover:bg-muted"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+                <path
+                  d="M12 1.5a8 8 0 0 0-8 8c0 5.6 6.6 11.8 7.3 12.5a1 1 0 0 0 1.4 0c.7-.7 7.3-6.9 7.3-12.5a8 8 0 0 0-8-8Z"
+                  fill="#EA4335"
+                  stroke="#B3261E"
+                  strokeWidth="1"
+                />
+                <circle cx="12" cy="9.5" r="3" fill="#8C1D18" />
+              </svg>
+              Location
+            </button>
+            {/* Share: the description the database composed for this plan doubles as the tooltip. */}
+            <div
+              title={planShareFallbackDescription(plan)}
+              className="relative flex flex-col items-center gap-1 rounded-2xl bg-muted/50 py-3 text-xs font-semibold transition active:scale-[0.97] hover:bg-muted [&_button]:absolute [&_button]:inset-0 [&_button]:!h-full [&_button]:!w-full [&_button]:rounded-2xl [&_button]:opacity-0"
+            >
+              {/* The real share button is an invisible layer over the whole tile, so the full tile is tappable. */}
+              <Share2 className="h-5 w-5 text-primary" aria-hidden />
+              Share
+              <PlanShareButton plan={plan} />
+            </div>
+            {agentTel ? (
+              <a
+                href={`tel:${agentTel}`}
+                className="flex flex-col items-center gap-1 rounded-2xl bg-muted/50 py-3 text-xs font-semibold transition active:scale-[0.97] hover:bg-muted"
+              >
+                <Phone className="h-5 w-5 text-primary" aria-hidden />
+                Call agent
+              </a>
+            ) : (
+              <span className="flex flex-col items-center gap-1 rounded-2xl bg-muted/30 py-3 text-xs font-semibold text-muted-foreground">
+                <Phone className="h-5 w-5" aria-hidden />
+                No agent yet
+              </span>
+            )}
           </div>
 
-          {/* Opens the house in Google Maps: pinned coordinates when the request
-              has them, otherwise a search for the written address. */}
-          <Button
-            variant="outline"
-            className="mt-3 h-11 w-full gap-2 rounded-xl border-primary text-primary hover:bg-primary/5 hover:text-primary"
-            onClick={() => {
-              const lat = Number(plan.request_latitude);
-              const lng = Number(plan.request_longitude);
-              const hasCoords = plan.request_latitude != null && plan.request_longitude != null
-                && Number.isFinite(lat) && Number.isFinite(lng);
-              const query = hasCoords ? `${lat},${lng}` : fullAddress;
-              window.open(
-                `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`,
-                '_blank',
-                'noopener,noreferrer',
-              );
-            }}
-          >
-            <svg viewBox="0 0 24 24" className="!h-5 !w-5" aria-hidden>
-              <path
-                d="M12 1.5a8 8 0 0 0-8 8c0 5.6 6.6 11.8 7.3 12.5a1 1 0 0 0 1.4 0c.7-.7 7.3-6.9 7.3-12.5a8 8 0 0 0-8-8Z"
-                fill="#EA4335"
-                stroke="#B3261E"
-                strokeWidth="1"
-              />
-              <circle cx="12" cy="9.5" r="3" fill="#8C1D18" />
-            </svg>
-            House location
-          </Button>
+          <Tabs defaultValue="people" className="mt-5 w-full">
+            <TabsList className="grid h-11 w-full grid-cols-2 rounded-full bg-muted p-1">
+              <TabsTrigger value="people" className="rounded-full">People</TabsTrigger>
+              <TabsTrigger value="earnings" className="rounded-full">Earnings</TabsTrigger>
+            </TabsList>
 
+            {/* forceMount keeps each tab's content loaded (hidden when inactive). */}
+            <TabsContent value="people" forceMount className="mt-3 data-[state=inactive]:hidden">
           {/* Tenant row (list tile) */}
-          <div className="mt-5 flex items-center gap-3">
+          <div className="flex items-center gap-3">
             {/* Privacy: the tenant photo is never sent to the client for this
                 view, so there is no image URL to reveal via devtools. */}
             <div
@@ -425,24 +472,12 @@ export function SelfPortfolioPlanDetailSheet({
             </div>
             <div className="min-w-0">
               <p className="font-bold text-sm truncate">Plan for {name}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                Landlord: {plan.landlord_name ?? 'Landlord'}
-              </p>
+              <p className="text-xs text-muted-foreground truncate">Tenant</p>
             </div>
           </div>
 
           {/* Key details: list tiles with a tonal leading icon */}
-          <ul className="mt-4 divide-y divide-border/60 rounded-3xl bg-muted/40 px-3">
-            <li className="flex items-center gap-3 py-3">
-              <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
-                <Home className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1 text-sm text-muted-foreground">Rent amount</span>
-              <span className="text-base font-bold text-primary truncate">
-                {formatDynamic(pay(Number(plan.funding_amount || 0)))}
-              </span>
-            </li>
-            <li className="py-3 empty:hidden"><AgentCareNote kind="tenant" rent={Number(plan.funding_amount || 0)} /></li>
+          <ul className="mt-3 divide-y divide-border/60 rounded-3xl bg-muted/40 px-3">
             <li className="flex items-center gap-3 py-3">
               <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
                 <User className="h-5 w-5" />
@@ -487,100 +522,49 @@ export function SelfPortfolioPlanDetailSheet({
             </li>
           </ul>
 
-          {/* Thumbnails */}
-          {photos.length > 1 && (
-            <div className="mt-5">
-              <p className="text-sm font-bold mb-2">More photos</p>
-              <div className="grid grid-cols-3 gap-2">
-                {photos.map((url, i) => (
-                  <button
-                    type="button"
-                    key={`thumb-${url}-${i}`}
-                    onClick={() => {
-                      setHeroIndex(i);
-                      setLightboxIndex(i);
-                    }}
-                    aria-label={`Expand house photo ${i + 1}`}
-                    className={cn(
-                      'rounded-xl overflow-hidden ring-2 ring-transparent transition',
-                      i === heroIndex && 'ring-primary',
-                    )}
-                  >
-                    <img
-                      src={url}
-                      alt={`House photo ${i + 1}`}
-                      loading="lazy"
-                      className="w-full h-24 object-cover bg-muted"
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Privacy note, as small print under the people it covers. */}
+          <p className="mt-3 flex items-start gap-1.5 px-1 text-xs text-muted-foreground">
+            <ShieldCheck className="mt-0.5 h-3.5 w-3.5 flex-none" aria-hidden />
+            {isFunded
+              ? 'You already support this tenant. The landlord and tenant have agreed to share this information through Welile.'
+              : 'Summary only. Photo and contact details stay hidden until you support this tenant.'}
+          </p>
+            </TabsContent>
 
-          {/* Earnings projection */}
-          {(() => {
-            const monthly = ownRatePct === null ? null : (pay(Number(plan.funding_amount || 0)) * ownRatePct) / 100;
-            const daily = monthly === null ? null : monthly / 30;
-            // The partner earns across the whole contract, not for the plan's length.
-            const months = CONTRACT_TERM_MONTHS;
-            const total = monthly === null ? null : monthly * months;
-            return (
-              <div className="mt-5 rounded-3xl bg-primary/10 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold">Your projected Rent profit share</p>
-                  {formatRatePct(ownRatePct) && (
-                    <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-bold text-primary">
-                      {formatRatePct(ownRatePct)} per month
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Based on {formatDynamic(pay(Number(plan.funding_amount || 0)))}.
-                </p>
-                <ul className="mt-3 divide-y divide-primary/20">
-                  {[
-                    { label: 'Per day', value: daily },
-                    { label: 'Per month', value: monthly },
-                  ].map((row) => (
-                    <li key={row.label} className="flex items-center justify-between gap-3 py-2.5">
-                      <span className="text-xs text-muted-foreground">{row.label}</span>
-                      <span className="text-sm font-black text-primary">
-                        {row.value === null ? '—' : formatDynamic(Math.round(row.value))}
-                      </span>
-                    </li>
-                  ))}
-                  <li className="flex items-center justify-between gap-3 py-2.5">
-                    <span className="text-xs text-muted-foreground">
-                      Over {months} months
-                    </span>
-                    <span className="text-base font-black text-primary">
-                      {total === null ? '—' : formatDynamic(Math.round(total))}
+            <TabsContent value="earnings" forceMount className="mt-3 space-y-3 data-[state=inactive]:hidden">
+              {/* Earnings projection at this partner's own rate. */}
+              <ul className="divide-y divide-border/60 rounded-3xl border border-border/70 bg-card px-4">
+                {[
+                  { label: 'Per day', value: daily },
+                  { label: 'Per month', value: monthly },
+                ].map((row) => (
+                  <li key={row.label} className="flex items-center justify-between gap-3 py-3">
+                    <span className="text-sm text-muted-foreground">{row.label}</span>
+                    <span className="text-sm font-bold text-success">
+                      {row.value === null ? '—' : formatDynamic(Math.round(row.value))}
                     </span>
                   </li>
-                </ul>
-              </div>
-            );
-          })()}
-
-          {isFunded && (
-            <FunderVerifiedPlanPack rentRequestId={plan.rent_request_id} />
-          )}
-          {!isFunded && <div className="px-0"><OffplatformCoverStatus rentRequestId={plan.rent_request_id} /></div>}
-
-          <div className="mt-4">
-            <V360PlanCaptions rentRequestId={plan.rent_request_id} />
-          </div>
-
-          {/* Privacy notice band */}
-          <div className="mt-4 -mx-4 bg-muted/50 px-4 py-3 flex items-start gap-2">
-            <ShieldCheck className="h-4 w-4 text-muted-foreground flex-none mt-0.5" />
-            <p className="text-xs text-muted-foreground">
-              {isFunded
-                ? 'You already support this tenant. The landlord and tenant have agreed to share this information through Welile.'
-                : 'Summary only. Photo and contact details stay hidden until you support this tenant.'}
-            </p>
-          </div>
+                ))}
+                <li className="flex items-center justify-between gap-3 py-3">
+                  <span className="text-sm text-muted-foreground">Over {CONTRACT_TERM_MONTHS} months</span>
+                  <span className="text-base font-black text-success">
+                    {total === null ? '—' : formatDynamic(Math.round(total))}
+                  </span>
+                </li>
+              </ul>
+              <p className="px-1 text-xs text-muted-foreground">
+                Your projected Rent profit share, based on {formatDynamic(rent)}
+                {formatRatePct(ownRatePct) ? ` at ${formatRatePct(ownRatePct)} a month` : ''}.
+              </p>
+              <AgentCareNote kind="tenant" rent={Number(plan.funding_amount || 0)} />
+              {/* Each of these renders only when it applies (funded plan, off-platform cover, 360-day plan); otherwise nothing. */}
+              {isFunded && (
+                <FunderVerifiedPlanPack rentRequestId={plan.rent_request_id} />
+              )}
+              {!isFunded && <OffplatformCoverStatus rentRequestId={plan.rent_request_id} />}
+              <V360PlanCaptions rentRequestId={plan.rent_request_id} />
+            </TabsContent>
+          </Tabs>
 
           {/* Bottom action bar: stays on screen while the details scroll */}
           {onFund && !isFunded && (
@@ -590,12 +574,12 @@ export function SelfPortfolioPlanDetailSheet({
                 onClick={() => onFund(plan)}
               >
                 <Wallet className="h-5 w-5" />
-                Fund this house, {formatDynamic(pay(Number(plan.funding_amount || 0)))}
+                Fund this house, {formatDynamic(rent)}
               </Button>
               <CoSupportStartButton
                 className="mt-2"
                 rentRequestId={plan.rent_request_id}
-                planAmount={pay(Number(plan.funding_amount || 0))}
+                planAmount={rent}
               />
             </div>
           )}

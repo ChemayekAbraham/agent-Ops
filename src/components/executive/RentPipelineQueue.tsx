@@ -408,6 +408,16 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       return next;
     });
   };
+  const [collapsedCardIds, setCollapsedCardIds] = useState<Set<string>>(new Set());
+  const toggleCardCollapsed = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setCollapsedCardIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Open the detail sheet AND seed the sheet's landlord checklist from the ticks
   // the operator already made on the card (otherwise the sheet's checkboxes start
@@ -1599,8 +1609,78 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
     return rows.reduce((s, r) => s + Number(r.rent_amount || 0), 0);
   }, [rows]);
 
+  const jumpToFirstRequest = () => {
+    // Ensure the full queue is visible and ready to work through
+    setSelectedTenantId('all');
+    setSearch('');
+    setAgentSearch('');
+    setLandlordSearch('');
+    clearDeskFilters();
+    setAboveOnly(false);
+    setNoCallOnly(false);
+    setCollapsedCardIds(new Set());
+
+    requestAnimationFrame(() => {
+      const queueEl = document.querySelector('[data-rent-requests-queue="true"]') as HTMLElement | null;
+      const firstEl = document.querySelector('[data-first-rent-request="true"]') as HTMLElement | null;
+      if (queueEl) {
+        queueEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (firstEl) {
+        firstEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      if (firstEl) {
+        firstEl.classList.add('ring-2', 'ring-primary', 'bg-primary/5');
+        window.setTimeout(() => {
+          firstEl.classList.remove('ring-2', 'ring-primary', 'bg-primary/5');
+        }, 1800);
+      }
+    });
+  };
+
   return (
     <div className="space-y-4">
+      {/* Independent First Card on its own line — Rent Requests waiting to be Approved */}
+      <Card
+        role="button"
+        tabIndex={0}
+        onClick={jumpToFirstRequest}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            jumpToFirstRequest();
+          }
+        }}
+        className="w-full rounded-3xl border-2 border-primary/40 bg-gradient-to-br from-primary via-primary/95 to-violet-700 text-primary-foreground shadow-lg hover:shadow-xl hover:brightness-105 active:scale-[0.99] transition-all duration-200 cursor-pointer select-none overflow-hidden group"
+      >
+        <CardContent className="p-6 sm:p-8 min-h-[220px] sm:min-h-[240px] flex flex-col justify-between gap-5">
+          {/* Top Row: Icon on Left, Pending Count Pill on Right */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-primary-foreground/15 text-primary-foreground shrink-0 shadow-inner ring-1 ring-primary-foreground/20">
+              <config.icon className="h-7 w-7 sm:h-8 sm:w-8" />
+            </div>
+
+            <span className="inline-flex items-center justify-center rounded-full bg-primary-foreground text-primary px-4 py-1.5 sm:px-5 sm:py-2 text-sm sm:text-base font-black tabular-nums shadow-sm shrink-0">
+              {rows.length} pending
+            </span>
+          </div>
+
+          {/* Middle Row: Full-Width Bold Heading — never squished between icon and pill */}
+          <h2 className="w-full text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-snug text-primary-foreground text-left">
+            Rent Requests waiting to be Approved
+          </h2>
+
+          {/* Bottom Row: Total UGX Value on Left, Action Arrow on Right */}
+          <div className="flex items-center justify-between gap-4 pt-4 sm:pt-5 border-t border-primary-foreground/20">
+            <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-primary-foreground tracking-tight tabular-nums leading-none">
+              {formatUGX(queueTotalAmount)}
+            </p>
+            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-primary-foreground text-primary shadow-md group-hover:translate-x-1 transition-transform shrink-0">
+              <ArrowRight className="h-6 w-6 sm:h-7 sm:w-7" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {isCooStage && cooReason.picker}
       {isCooStage && (landlordFloatBudget.data ? <LandlordFloatBudgetPosition position={landlordFloatBudget.data} /> : <p role="status" className="text-sm text-destructive">{landlordFloatBudget.isError ? landlordFloatErrorText(landlordFloatBudget.error) : 'Loading landlord float budget…'}</p>)}
       {isCfoStage && landlordFloatBudget.data && <LandlordFloatExcessBanner daily={landlordFloatBudget.data.daily.excess} weekly={landlordFloatBudget.data.weekly.excess} />}
@@ -1615,9 +1695,10 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         queueRequests={rows}
         selectedRequests={rows.filter((r) => selectedIds.has(r.id))}
         onRequestClick={(req) => setSelectedRequest(req)}
+        onJumpToFirstRequest={jumpToFirstRequest}
       />
 
-      <Card className="border border-border">
+      <Card data-rent-requests-queue="true" className="border border-border scroll-mt-4">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-base font-bold flex items-center gap-2.5">
@@ -2041,30 +2122,32 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                 Desk time and agent details are loaded for the first {TIMING_BATCH_LIMIT} requests in this list. Narrow the filters to see the rest.
               </p>
             )}
-            {filtered.map(req => {
+            {filtered.map((req, index) => {
               const isLandlordStage = config.showLandlordChecklist && req.registration_type !== 'outstanding_balance';
               const cl = getCardChecklist(req.id);
               const checklistDone = (cl.called ? 1 : 0) + (cl.acknowledged ? 1 : 0);
               const checklistComplete = checklistDone === 2;
               const isExpanded = expandedCardIds.has(req.id);
+              const isCardCollapsed = collapsedCardIds.has(req.id);
 
               return (
               <div
                 key={req.id}
-                className="w-full text-left px-3.5 py-3 hover:bg-muted/30 transition-colors"
+                data-first-rent-request={index === 0 ? 'true' : undefined}
+                className="w-full text-left px-3.5 py-3 hover:bg-muted/30 transition-all"
               >
-                {/* Header row: Checkbox + Tenant info + Amount + Fold Toggle */}
+                {/* Top Header Row: Checkbox + Tenant Name on Left, Amount (when expanded) + Collapse Arrow on Right */}
                 <div
-                  onClick={() => openRequestDetail(req)}
-                  className="flex items-start justify-between gap-2 cursor-pointer group/header select-none"
-                  title="Click to view full rent request details"
+                  onClick={() => isCardCollapsed ? toggleCardCollapsed(req.id) : openRequestDetail(req)}
+                  className="flex items-center justify-between gap-2 cursor-pointer group/header select-none"
+                  title={isCardCollapsed ? "Click to expand application" : "Click to view full rent request details"}
                 >
-                  <div className="flex items-start gap-2 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     {/* Bulk review selection checkbox */}
                     {allowBulkActions && (
                       <div
                         onClick={(e) => e.stopPropagation()}
-                        className="shrink-0 mt-0.5"
+                        className="shrink-0"
                         title={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : undefined}
                       >
                         <Checkbox
@@ -2076,133 +2159,172 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                         />
                       </div>
                     )}
-                    <div className="text-left min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                        <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="font-semibold text-sm break-words leading-tight group-hover/header:text-primary group-hover/header:underline transition-colors">
-                          {req.tenant_name}
-                        </span>
-                        {(() => {
-                          const cyc = getRentCycleLabel(req.repayment_frequency, req.duration_days);
-                          return (
+                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="font-bold text-sm sm:text-base text-foreground truncate group-hover/header:text-primary group-hover/header:underline transition-colors">
+                      {req.tenant_name}
+                    </span>
+                  </div>
+
+                  {/* Right side: Amount (hidden when collapsed so only the name is visible) + Collapse/Expand Chevron */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!isCardCollapsed && (
+                      <span className="font-extrabold text-sm sm:text-base text-primary tabular-nums group-hover/header:text-primary transition-colors">
+                        UGX {fmt(req.rent_amount)}
+                      </span>
+                    )}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => toggleCardCollapsed(req.id, e)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleCardCollapsed(req.id, e as unknown as React.MouseEvent);
+                        }
+                      }}
+                      aria-expanded={!isCardCollapsed}
+                      aria-label={isCardCollapsed ? `Expand ${req.tenant_name}` : `Collapse ${req.tenant_name}`}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 cursor-pointer"
+                      title={isCardCollapsed ? "Expand application" : "Collapse application"}
+                    >
+                      <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", !isCardCollapsed && "rotate-180")} />
+                    </span>
+                  </div>
+                </div>
+
+                {/* Full-Width Application Body — Hidden completely when collapsed so only the name is visible */}
+                {!isCardCollapsed && (
+                  <div className="mt-2 space-y-2">
+                    {/* Row 1: Status & Cycle Badges spanning full width */}
+                    <div
+                      onClick={() => openRequestDetail(req)}
+                      className="flex items-center gap-1.5 flex-wrap cursor-pointer"
+                    >
+                      {(() => {
+                        const cyc = getRentCycleLabel(req.repayment_frequency, req.duration_days);
+                        return (
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border shrink-0',
+                              RENT_CYCLE_BADGE_CLASSES[cyc.tone],
+                            )}
+                            title={`Repayment cycle: ${cyc.full}`}
+                          >
+                            <CalendarClock className="h-2.5 w-2.5" />
+                            {cyc.full}
+                          </span>
+                        );
+                      })()}
+                      {(() => {
+                        const approved = approvedCycleMap?.get(req.tenant_id) ?? 0;
+                        const isRenewal = approved > 0;
+                        return (
+                          <>
+                            <span
+                              className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30 shrink-0"
+                              title={`Approved rent plans for this tenant: ${approved}`}
+                            >
+                              <Repeat className="h-2.5 w-2.5" />
+                              Cycle {approved}
+                            </span>
                             <span
                               className={cn(
                                 'inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border shrink-0',
-                                RENT_CYCLE_BADGE_CLASSES[cyc.tone],
+                                isRenewal
+                                  ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30'
+                                  : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
                               )}
-                              title={`Repayment cycle: ${cyc.full}`}
+                              title={
+                                isRenewal
+                                  ? 'Renewal — this tenant has had a rent plan approved before'
+                                  : 'New — no approved rent plan for this tenant yet'
+                              }
                             >
-                              <CalendarClock className="h-2.5 w-2.5" />
-                              {cyc.full}
+                              <Sparkles className="h-2.5 w-2.5" />
+                              {isRenewal ? 'Renewal' : 'New'}
                             </span>
-                          );
-                        })()}
-                        {(() => {
-                          const approved = approvedCycleMap?.get(req.tenant_id) ?? 0;
-                          const isRenewal = approved > 0;
-                          return (
-                            <>
-                              <span
-                                className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30 shrink-0"
-                                title={`Approved rent plans for this tenant: ${approved}`}
-                              >
-                                <Repeat className="h-2.5 w-2.5" />
-                                Cycle {approved}
-                              </span>
-                              <span
-                                className={cn(
-                                  'inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border shrink-0',
-                                  isRenewal
-                                    ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30'
-                                    : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
-                                )}
-                                title={
-                                  isRenewal
-                                    ? 'Renewal — this tenant has had a rent plan approved before'
-                                    : 'New — no approved rent plan for this tenant yet'
-                                }
-                              >
-                                <Sparkles className="h-2.5 w-2.5" />
-                                {isRenewal ? 'Renewal' : 'New'}
-                              </span>
-                            </>
-                          );
-                        })()}
-                        {req.registration_type === 'outstanding_balance' && (
-                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 shrink-0">
-                            <AlertCircle className="h-2.5 w-2.5" />
-                            Outstanding
-                          </span>
-                        )}
-                        {isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at) && (
-                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
-                            <Clock className="h-2.5 w-2.5" />
-                            Expired (&gt;30d)
-                          </span>
-                        )}
-                        {req.is_resubmitted && (
-                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-700 border border-violet-500/30 shrink-0">
-                            <RotateCcw className="h-2.5 w-2.5" />
-                            Resubmitted
-                          </span>
-                        )}
-                        <RenewalListTags request={req as any} />
-                        <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
-                        <PaymentLabelChip label={req.payment_label} score={req.payment_score} reason={req.payment_reason} showReason={false} />
-                        {req.funder_visible === false && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
-                                <AlertCircle className="h-2.5 w-2.5" />
-                                No proxy attached
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs text-xs">
-                              Not published to the Funder dashboard. Tenant Ops reason:{' '}
-                              {req.funder_visibility_reason || 'not provided'}
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                      </div>
-                      {req.payment_reason && (
-                        <p className="mt-1 text-[11px] leading-snug text-muted-foreground" data-testid="payment-label-reason">{req.payment_reason}</p>
+                          </>
+                        );
+                      })()}
+                      {req.registration_type === 'outstanding_balance' && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 shrink-0">
+                          <AlertCircle className="h-2.5 w-2.5" />
+                          Outstanding
+                        </span>
                       )}
-                      <div className="flex items-center gap-3 flex-wrap mt-1.5 text-[11px] text-muted-foreground">
-                        <RentAgentChain lines={chainFor(req)} onOpenAgent={(id) => setDrilldownAgentId(id)} afterName={(l) => (l.role === 'Agent' || l.role === 'Sub-agent') ? <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} /> : null} className="basis-full space-y-0.5" />
-                        {req.landlord_id && (
+                      {isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at) && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
+                          <Clock className="h-2.5 w-2.5" />
+                          Expired (&gt;30d)
+                        </span>
+                      )}
+                      {req.is_resubmitted && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-700 border border-violet-500/30 shrink-0">
+                          <RotateCcw className="h-2.5 w-2.5" />
+                          Resubmitted
+                        </span>
+                      )}
+                      <RenewalListTags request={req as any} />
+                      <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
+                      <PaymentLabelChip label={req.payment_label} score={req.payment_score} reason={req.payment_reason} showReason={false} />
+                      {req.funder_visible === false && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
+                              <AlertCircle className="h-2.5 w-2.5" />
+                              No proxy attached
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs text-xs">
+                            Not published to the Funder dashboard. Tenant Ops reason:{' '}
+                            {req.funder_visibility_reason || 'not provided'}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+
+                    {/* Row 2: Payment Reason spanning full width */}
+                    {req.payment_reason && (
+                      <p className="text-xs leading-snug text-muted-foreground" data-testid="payment-label-reason">
+                        {req.payment_reason}
+                      </p>
+                    )}
+
+                    {/* Row 3: Smartly Aligned Agent / Sub-agent Chain & Landlord Info */}
+                    <div className="space-y-1.5 text-xs text-muted-foreground">
+                      <RentAgentChain
+                        lines={chainFor(req)}
+                        onOpenAgent={(id) => setDrilldownAgentId(id)}
+                        afterName={(l) =>
+                          l.role === 'Agent' || l.role === 'Sub-agent' ? (
+                            <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} />
+                          ) : null
+                        }
+                        className="space-y-1.5"
+                      />
+                      {req.landlord_id && (
+                        <div className="flex items-center justify-between gap-2 rounded-lg border border-border/50 bg-muted/20 px-2.5 py-1.5">
                           <span
                             role="button"
                             tabIndex={0}
                             onClick={(e) => { e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); }}
                             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); } }}
-                            className="inline-flex items-center gap-1 hover:text-primary hover:underline cursor-pointer"
+                            className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary hover:underline cursor-pointer min-w-0"
                             title="Open landlord profile"
                           >
-                            <Home className="h-3 w-3 shrink-0" />
-                            <span className="truncate max-w-[140px] sm:max-w-[180px]">{req.landlord_name || 'Unknown'}</span>
+                            <Home className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-muted-foreground text-xs shrink-0">Landlord:</span>
+                            <span className="font-semibold truncate">{req.landlord_name || 'Unknown'}</span>
                           </span>
-                        )}
-                      </div>
+                          {(req.request_city || req.landlord_district || req.tenant_district) && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              <span className="truncate max-w-[120px]">{req.request_city || req.landlord_district || req.tenant_district}</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-
-                  {/* Right side: Amount and Fold/Unfold Chevron */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="font-bold text-sm text-foreground tabular-nums group-hover/header:text-primary transition-colors">
-                      UGX {fmt(req.rent_amount)}
-                    </span>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => toggleCardExpanded(req.id, e)}
-                      className="h-7 w-7 p-0 rounded-full hover:bg-muted text-muted-foreground"
-                      title={isExpanded ? "Fold details" : "Unfold details"}
-                    >
-                      <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isExpanded && "rotate-180")} />
-                    </Button>
-                  </div>
-                </div>
                 {req.pricing_version === 'v360' && (
                   <div className="mt-2">
                     <V360PlanCaptions rentRequestId={req.id} expectV360 />
@@ -2450,6 +2572,8 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   </Button>}
                 </div>
                 {isCooStage && landlordFloatBudget.data && (landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id) || (!landlordFloatBudget.data.blocked && !requestFitsLandlordFloatBudget(req))) && <div className="pt-2"><LandlordFloatMiscAction requestId={req.id} tenantName={req.tenant_name} pending={landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id)} requestMisc={requestLandlordFloatMisc} /></div>}
+                  </div>
+                )}
               </div>
               );
             })}

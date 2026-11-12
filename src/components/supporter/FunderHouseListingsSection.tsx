@@ -115,6 +115,12 @@ export interface FunderListingsViewApi {
  * There are no tabs: one feed, one list.
  */
 // The top-up dialog is only needed after a tap; keep its (large) code out of opening the list.
+/**
+ * Multi-home "cart" (sticky selection bar, "Selected" cards). Off for now: "Fund this House"
+ * opens the support plan for that one home. Set to true to bring the cart back.
+ */
+const MULTI_SELECT_CART = false;
+
 const DepositFlow = lazyWithRetry(() => import('@/components/payments/DepositFlow'));
 
 export type FunderListMapFilters = Pick<FunderNewFilters, 'search' | 'location' | 'amount'>;
@@ -485,13 +491,25 @@ export function FunderHouseListingsSection({
     });
   }, [partnerPay]);
 
+  /** Single-house flow: this one home replaces any earlier pick and its support plan opens straight away. */
+  const fundSingle = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
+    setSelectedCategory(category);
+    setSelectedItems([toSelectionItem(category, item, partnerPay)]);
+    setReviewOpen(true);
+  }, [partnerPay]);
+
+  /** What "Fund this House" does after the chooser: add to the cart, or (cart off) open the plan. */
+  const pick = MULTI_SELECT_CART ? toggleSelect : fundSingle;
+  const isPicked = (category: FunderNewCategory, id: string) =>
+    MULTI_SELECT_CART && selectedItems.some((entry) => entry.category === category && entry.id === id);
+
   const requestFund = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
     if (category !== 'ready') {
-      toggleSelect(category, item);
+      pick(category, item);
       return;
     }
     const plan = item as FunderNewReadyPlan;
-    const already = selectedItems.some((entry) => entry.category === 'ready' && entry.id === plan.rent_request_id);
+    const already = MULTI_SELECT_CART && selectedItems.some((entry) => entry.category === 'ready' && entry.id === plan.rent_request_id);
     if (already) {
       toggleSelect(category, item);
       return;
@@ -502,13 +520,17 @@ export function FunderHouseListingsSection({
       place: readyPlanPlace(plan),
       landlordName: plan.landlord_name,
       rentAmount: Number(plan.funding_amount || 0),
-    }, () => toggleSelect('ready', plan));
-  }, [fundChoice, selectedItems, toggleSelect]);
+    }, () => pick('ready', plan));
+  }, [fundChoice, pick, selectedItems, toggleSelect]);
 
   const removeSelected = (item: FunderNewSelectionItem) => {
     setSelectedItems((current) => {
       const nextList = current.filter((entry) => !(entry.category === item.category && entry.id === item.id));
-      if (nextList.length === 0) setSelectedCategory(null);
+      if (nextList.length === 0) {
+        setSelectedCategory(null);
+        // Nothing left to review: close the plan sheet instead of showing an empty one.
+        setReviewOpen(false);
+      }
       return nextList;
     });
   };
@@ -555,13 +577,13 @@ export function FunderHouseListingsSection({
         fetchNextFeed,
         withinFloatApplied: filters.withinFloat && availableBalance !== null,
         isSaved: (category, id) => saved[category].includes(id),
-        isSelected: (category, id) => selectedItems.some((selected) => selected.category === category && selected.id === id),
+        isSelected: isPicked,
         distanceFor: (entry) => {
           const coords = itemCoordinates(entry.item, entry.category);
           return coords ? straightLineDistance(deviceOrigin, coords) : null;
         },
         toggleSave,
-        toggleSelect,
+        toggleSelect: pick,
         openDetail,
         location,
       }
@@ -767,7 +789,7 @@ export function FunderHouseListingsSection({
                       category={entry.category}
                       item={entry.item}
                       saved={saved[entry.category].includes(id)}
-                      selected={selectedItems.some((selected) => selected.category === entry.category && selected.id === id)}
+                      selected={isPicked(entry.category, id)}
                       distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
                       onSave={() => toggleSave(entry.category, id)}
                       onSelect={() => requestFund(entry.category, entry.item)}
@@ -808,9 +830,7 @@ export function FunderHouseListingsSection({
                   category={entry.category}
                   item={entry.item}
                   saved={saved[entry.category].includes(id)}
-                  selected={selectedItems.some(
-                    (selected) => selected.category === entry.category && selected.id === id,
-                  )}
+                  selected={isPicked(entry.category, id)}
                   distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
                   onSave={() => toggleSave(entry.category, id)}
                   onSelect={() => requestFund(entry.category, entry.item)}
@@ -889,8 +909,11 @@ export function FunderHouseListingsSection({
         onOpenChange={(open) => {
           if (!open) setDetailHouse(null);
         }}
-        isPicked={detailHouse ? selectedItems.some((i) => i.category === 'empty' && i.id === detailHouse.house_id) : false}
-        onTogglePick={(house) => toggleSelect('empty', house as FunderNewEmptyHouse)}
+        isPicked={detailHouse ? isPicked('empty', detailHouse.house_id) : false}
+        onTogglePick={(house) => {
+          if (!MULTI_SELECT_CART) setDetailHouse(null);
+          pick('empty', house as FunderNewEmptyHouse);
+        }}
         isPartner
         onRelatedHouseClick={(h) => setDetailHouse(h as any)}
         remaining={availableBalance ?? undefined}
@@ -899,10 +922,14 @@ export function FunderHouseListingsSection({
           const avail = availableBalance ?? 0;
           if (avail >= cost) {
             // Enough balance: select the house and open the funding review.
+            setDetailHouse(null);
+            if (!MULTI_SELECT_CART) {
+              fundSingle('empty', house as FunderNewEmptyHouse);
+              return;
+            }
             if (!selectedItems.some((i) => i.category === 'empty' && i.id === house.house_id)) {
               toggleSelect('empty', house as FunderNewEmptyHouse);
             }
-            setDetailHouse(null);
             setReviewOpen(true);
           } else {
             // Not enough balance: open the deposit sheet with the exact shortfall.
@@ -928,6 +955,10 @@ export function FunderHouseListingsSection({
             landlordName: plan.landlord_name,
             rentAmount: Number(plan.funding_amount || 0),
           }, () => {
+            if (!MULTI_SELECT_CART) {
+              fundSingle('ready', plan as FunderNewReadyPlan);
+              return;
+            }
             setSelectedCategory('ready');
             setSelectedItems((current) => {
               const ready = current.filter((entry) => entry.category === 'ready');
@@ -1008,15 +1039,17 @@ export function FunderHouseListingsSection({
           }
         }}
       />
-      <FunderNewSelectionBar
-        items={selectedItems}
-        category={selectedCategory}
-        onClear={() => {
-          setSelectedItems([]);
-          setSelectedCategory(null);
-        }}
-        onReview={() => setReviewOpen(true)}
-      />
+      {MULTI_SELECT_CART ? (
+        <FunderNewSelectionBar
+          items={selectedItems}
+          category={selectedCategory}
+          onClear={() => {
+            setSelectedItems([]);
+            setSelectedCategory(null);
+          }}
+          onReview={() => setReviewOpen(true)}
+        />
+      ) : null}
       {mountDeposit && (
         <Suspense fallback={null}>
           <DepositFlow
