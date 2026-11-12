@@ -148,7 +148,9 @@ const SA = ['20261028150000_special_advances_calc_engine.sql', '20261028151000_s
   '20261028152000_special_advances_functions.sql', '20261028153000_special_advances_payout_repayment.sql',
   '20261102200000_special_advances_receivable_after_payout.sql', '20261102210000_special_advances_corrections.sql',
   '20261102220000_special_advances_impairment_writeoff.sql', '20261103150000_special_advances_remove_mfa.sql',
-  '20261103170000_special_advances_single_access_fee.sql'].map(MIG);
+  '20261103170000_special_advances_single_access_fee.sql',
+  // 12 Nov 2026 (live): record an already-issued outside-Welile advance without another payout
+  '20261112080840_f2dc8ec7-d62e-49a7-adaa-e59a1bedd9b7.sql', '20261112081541_ada2af8d-2eb3-456b-80c0-1b298502b9df.sql'].map(MIG);
 const TRIGGERS = `
 create trigger trg_validate_ledger_category before insert on public.general_ledger for each row execute function public.validate_ledger_category();
 create trigger trg_enforce_no_negative_wallet_ledger before insert on public.general_ledger for each row execute function public.enforce_no_negative_wallet_ledger();
@@ -554,6 +556,109 @@ describe('corrections', () => {
       idempotency_key: uuid(), kind: 'repayment_reversal', repayment_id: id,
       reason: 'Mobile money repayment recorded against the wrong advance', proof_path: await h.proof(adv.id) })]);
     expect(await h.mapped(c.out!.ledger_group_id)).toEqual([{ account: 'A1', dr: 0, cr: 5_000 }, { account: 'A24', dr: 5_000, cr: 0 }]);
+  });
+});
+
+describe('already-issued advance (Record already-issued) repaid by Merchant Line and from the wallet', () => {
+  const daysAgo = (n: number) => new Date(Date.now() + 3 * 3_600_000 - n * 86_400_000).toISOString().slice(0, 10);
+  const record = async (borrower: Record<string, unknown>, over: Record<string, unknown> = {}) => {
+    const id = uuid();
+    const quote = (await db.call<{ schedule: { total_repayable: number } }>(cfo, `select public.special_advance_quote($1::text::jsonb) r`, [JSON.stringify({ terms: TERMS })])).out!;
+    const req = { advance_id: id, borrower, terms: TERMS, purpose: 'Original outside-Welile supplier stock payment',
+      original_payout_date: daysAgo(40), method: 'cash', reference: `RCPT-${uuid().slice(0, 8)}`, proof_path: await h.proof(id),
+      expected_total_repayable: quote.schedule.total_repayable, idempotency_key: uuid(), confirm_not_recorded: true, ...over };
+    const r = await db.call<Adv & { payout_ledger_group_id: string; payment_sent: boolean; replayed: boolean; payout_date: string }>(
+      cfo, `select public.special_advance_record_historical($1::text::jsonb) r`, [JSON.stringify(req)]);
+    return { req, ...r };
+  };
+  const walletLegs = (user: string) => db.q(`select category, direction, amount::int from public.general_ledger where ledger_scope = 'wallet' and user_id = $1 order by created_at`, [user]);
+  const a24For = async (id: string) => Number((await db.q<{ v: string }>(`select coalesce(sum(case when gl.direction = m.debit_when then gl.amount else -gl.amount end), 0)::text v
+      from public.general_ledger gl join public.ledger_account_map m on m.ledger_scope = gl.ledger_scope and m.category = gl.category and m.account_code = 'A24'
+     where (gl.source_table = 'special_advances' and gl.source_id = $1)
+        or (gl.source_table = 'special_advance_repayments' and gl.source_id in (select id from public.special_advance_repayments where advance_id = $1))`, [id]))[0].v);
+
+  let borrower: string;
+  let adv: Adv & { payout_ledger_group_id: string };
+  let req: Record<string, unknown>;
+
+  it('records the original payment once: receivable and fee recognised, cash out on the original date, NO wallet movement, no payout', async () => {
+    borrower = await h.newUser();
+    const r = await record({ kind: 'welile_user', user_id: borrower });
+    expect(r.err).toBeUndefined();
+    adv = r.out!; req = r.req;
+    expect(r.out).toMatchObject({ status: 'disbursed', payout_method: 'cash', payout_date: daysAgo(40), payment_sent: false, replayed: false });
+    const total = adv.total_repayable;
+    expect(await h.mapped(adv.payout_ledger_group_id)).toEqual([
+      { account: 'A1', dr: 0, cr: 500_000 }, { account: 'A24', dr: total, cr: 0 }, { account: 'R1', dr: 0, cr: total - 500_000 }]);
+    expect(await db.q(`select distinct ledger_scope from public.general_ledger where transaction_group_id = $1`, [adv.payout_ledger_group_id])).toEqual([{ ledger_scope: 'platform' }]);
+    expect(await walletLegs(borrower)).toEqual([]);          // nothing credited to the borrower's wallet
+    expect(await h.wallet(borrower)).toBe(0);
+    expect(await h.outstanding(adv.id)).toBe(total);
+    expect((await h.recon()).balanced).toBe(true);
+  });
+
+  it('cannot pay out again or be recorded twice', async () => {
+    const again = await db.call<{ replayed: boolean }>(cfo, `select public.special_advance_record_historical($1::text::jsonb) r`, [JSON.stringify(req)]);
+    expect(again.out?.replayed).toBe(true);
+    expect(await db.q(`select count(distinct transaction_group_id)::int n from public.general_ledger where source_table = 'special_advances' and source_id = $1`, [adv.id])).toEqual([{ n: 1 }]);
+    const [{ updated_at }] = await db.q<{ updated_at: string }>(`select updated_at::text from public.special_advances where id = $1`, [adv.id]);
+    const payout = await db.call(cfo, `select public.special_advance_disburse($1, $2::text::timestamptz, $3::text::jsonb) r`,
+      [adv.id, updated_at, JSON.stringify({ payout_date: today(), method: 'wallet' })]);
+    expect(payout.err?.message).toBe('SPECIAL_ADVANCE_ALREADY_PAID_OUT');
+    const id = uuid();
+    const dupRef = await db.call(cfo, `select public.special_advance_record_historical($1::text::jsonb) r`, [JSON.stringify({ ...req, advance_id: id,
+      idempotency_key: uuid(), proof_path: await h.proof(id), borrower: { kind: 'welile_user', user_id: await h.newUser() } })]);
+    expect(dupRef.err?.message).toBe('HISTORICAL_REFERENCE_ALREADY_RECORDED');
+    expect(await walletLegs(borrower)).toEqual([]);
+  });
+
+  it('a Merchant Line repayment posts DR A1 / CR A24 and is allocated; it cannot be dated before the original payment', async () => {
+    expect((await h.cfoRepay(adv.id, { amount: 100_000, received_date: daysAgo(41) })).err?.detail).toMatch(/received_date/);
+    const before = await h.outstanding(adv.id);
+    expect((await h.cfoRepay(adv.id, { amount: 100_000, received_date: daysAgo(10) })).err).toBeUndefined();
+    const [{ g }] = await db.q<{ g: string }>(`select ledger_group_id g from public.special_advance_repayments where advance_id = $1 and method = 'mobile_money'`, [adv.id]);
+    expect(await h.mapped(g)).toEqual([{ account: 'A1', dr: 100_000, cr: 0 }, { account: 'A24', dr: 0, cr: 100_000 }]);
+    expect(await h.outstanding(adv.id)).toBe(before - 100_000);
+    expect(await walletLegs(borrower)).toEqual([]);
+  });
+
+  it('the borrower pays from the wallet: DR L1 / CR A24, wallet falls by exactly the amount', async () => {
+    await h.deposit(borrower, 300_000);
+    const due = await h.outstanding(adv.id);
+    const r = await h.pay(borrower, adv.id, 250_000, due);
+    expect(r.err).toBeUndefined();
+    expect(r.out).toMatchObject({ amount: 250_000, outstanding: due - 250_000, wallet_available: 50_000 });
+    const [{ g }] = await db.q<{ g: string }>(`select ledger_group_id g from public.special_advance_repayments where id = $1`, [r.out!.repayment_id]);
+    expect(await h.mapped(g)).toEqual([{ account: 'A24', dr: 0, cr: 250_000 }, { account: 'L1', dr: 250_000, cr: 0 }]);
+    expect(await walletLegs(borrower)).toEqual([
+      { category: 'wallet_deposit', direction: 'cash_in', amount: 300_000 },
+      { category: 'special_advance_wallet_repayment', direction: 'cash_out', amount: 250_000 }]);
+    // the borrower sees it, with both payments listed
+    const mine = (await db.call<{ advances: Array<{ id: string; repayments: Array<{ method: string }> }> }>(borrower, `select public.special_advance_my_advances() r`)).out!;
+    expect(mine.advances.find((a) => a.id === adv.id)!.repayments.map((x) => x.method).sort()).toEqual(['mobile_money', 'wallet']);
+    expect((await h.recon()).balanced).toBe(true);
+  });
+
+  it('the rest is cleared by a mix of both routes; the advance settles and its receivable is exactly zero', async () => {
+    let due = await h.outstanding(adv.id);
+    expect((await h.cfoRepay(adv.id, { amount: due - 50_000 })).err).toBeUndefined();
+    due = await h.outstanding(adv.id);
+    expect(due).toBe(50_000);
+    const r = await h.pay(borrower, adv.id, 50_000, 50_000);
+    expect(r.out).toMatchObject({ status: 'settled', outstanding: 0, wallet_available: 0 });
+    expect(await a24For(adv.id)).toBe(0);
+    expect(await db.q(`select sum(amount)::int paid from public.special_advance_repayments where advance_id = $1`, [adv.id])).toEqual([{ paid: adv.total_repayable }]);
+    expect((await h.recon()).balanced).toBe(true);
+  });
+
+  it('an already-issued advance to an EXTERNAL borrower: Merchant Line works, wallet payment is not possible', async () => {
+    const ext = await record({ kind: 'external', borrower_type: 'individual', full_name: 'Outside Borrower', phone: `+25670${String(Date.now()).slice(-7)}`, national_id: `CM${String(Date.now()).slice(-12)}ABCD` });
+    expect(ext.err).toBeUndefined();
+    expect((await h.cfoRepay(ext.out!.id, { amount: 10_000 })).err).toBeUndefined();
+    const someone = await h.newUser();
+    await h.deposit(someone, 50_000);
+    expect((await h.pay(someone, ext.out!.id, 10_000, await h.outstanding(ext.out!.id))).err?.message).toBe('SPECIAL_ADVANCE_NOT_FOUND');
+    expect((await h.recon()).balanced).toBe(true);
   });
 });
 
