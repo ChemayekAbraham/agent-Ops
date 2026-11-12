@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AgentCallMenu } from '../PromissoryNotesQueue';
 import { bumpPromissoryPendingCount, reconcilePromissoryPendingCount } from './promissoryPendingCount';
-import { countPromissoryQueue, isPromissoryOverdue, PROMISSORY_COUNT_HELP } from '@/lib/promissoryQueueCounts';
+import { countPromissoryQueue, isAwaitingPromissoryReview, isPromissoryOverdue, promissoryReviewStatus, PROMISSORY_COUNT_HELP } from '@/lib/promissoryQueueCounts';
 import { PromissoryNoteReviewActions } from './PromissoryNoteReviewActions';
 
 const QUICK_LIST_SIZE = 6;
@@ -100,12 +100,14 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   };
 
   const statusNotes = useMemo(() => {
-    const match = (n: any) =>
-      selected === 'pending' ? n.status === 'pending'
-      : selected === 'activated' ? n.status === 'activated'
-      : selected === 'rejected' ? n.status === 'cancelled' || n.status === 'defaulted'
-      : selected === 'fulfilled' ? n.status === 'fulfilled'
-      : isOverdue(n);
+    const match = (n: any) => {
+      const status = promissoryReviewStatus(n);
+      return selected === 'pending' ? status === 'pending'
+        : selected === 'activated' ? status === 'activated'
+        : selected === 'rejected' ? status === 'cancelled' || status === 'defaulted'
+        : selected === 'fulfilled' ? status === 'fulfilled'
+        : isOverdue(n);
+    };
     return filteredNotes.filter(match).slice(0, QUICK_LIST_SIZE);
   }, [filteredNotes, selected]);
 
@@ -117,7 +119,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
       return;
     }
     setApproving(true);
-    const wasPending = (approveTarget.status || '').toLowerCase() === 'pending';
+    const wasPending = isAwaitingPromissoryReview(approveTarget);
     if (wasPending) bumpPromissoryPendingCount(queryClient, -1);
     try {
       const { data, error } = await supabase.rpc('approve_promissory_note', {
@@ -152,7 +154,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
       return;
     }
     setRejecting(true);
-    const wasPending = (rejectTarget.status || '').toLowerCase() === 'pending';
+    const wasPending = isAwaitingPromissoryReview(rejectTarget);
     if (wasPending) bumpPromissoryPendingCount(queryClient, -1);
     try {
       const { data, error } = await supabase.rpc('reverse_promissory_note_bonus' as any, {
@@ -505,8 +507,8 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
             return (
               <div className="space-y-4 mt-4 overflow-y-auto max-h-[calc(85vh-80px)] pb-6">
                 <div className="flex items-center justify-between">
-                  <Badge variant={detailNote.status === 'pending' ? 'secondary' : 'outline'} className="text-xs">
-                    {statusMeta[detailNote.status] ?? detailNote.status}
+                  <Badge variant={promissoryReviewStatus(detailNote) === 'pending' ? 'secondary' : 'outline'} className="text-xs">
+                    {statusMeta[promissoryReviewStatus(detailNote)] ?? detailNote.status}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
                     {format(new Date(detailNote.created_at), 'dd MMM yyyy HH:mm')}
@@ -628,9 +630,9 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
                 </div>
 
                 <PromissoryNoteReviewActions
-                  showApprove={detailNote.status === 'pending'}
+                  showApprove={isAwaitingPromissoryReview(detailNote)}
                   onApprove={() => { setApproveReason(''); setApproveTarget(detailNote); }}
-                  showReject={detailNote.status === 'activated'}
+                  showReject={promissoryReviewStatus(detailNote) === 'activated'}
                   onReject={() => { setRejectReason(''); setRejectTarget(detailNote); }}
                 />
               </div>

@@ -20,7 +20,7 @@ const house = (id: string, km: number | null = null): Entry & { km: number | nul
 });
 const item = (id: string, tag: BoardItem['tag'], over: Partial<BoardItem> = {}): BoardItem => ({
   id, tag, selectable: tag === 'verified', held: false, tenantFirstName: 'Grace', houseCategory: 'Single Room', city: 'Kira',
-  mainPhoto: null, photos: [], rentAmount: 400000, durationDays: 30, dailyRepayment: null, lat: null, lng: null, sortAt: null, ...over,
+  mainPhoto: null, photos: [], rentAmount: 400000, durationDays: 30, dailyRepayment: null, lat: null, lng: null, sortAt: null, incomplete: null, ...over,
 });
 const NO_FILTERS = { search: '', location: '', amount: 'all' as const, rentMin: null, rentMax: null };
 const ids = (rows: { kind: string; cardId: string }[]) => rows.map((r) => r.cardId);
@@ -83,6 +83,18 @@ describe('E72b grouped funders list', () => {
     expect(own.rows.map((r) => [r.kind, r.cardId])).toEqual([['feed', 'ready:x']]);
   });
 
+  it('a Verified row carries the COO-only incomplete list, loaded or not', () => {
+    const verified = buildBoardGroups({
+      ...base,
+      board: [item('p1', 'verified', { incomplete: ['family size'] }), item('late', 'verified', { incomplete: ['LC1 (letter or phone confirmation)'] })],
+      ready: [plan('p1')],
+    })[0];
+    expect(verified.rows.map((r) => (r.kind === 'feed' ? [r.cardId, r.incomplete] : [r.cardId]))).toEqual([
+      ['ready:p1', ['family size']],
+      ['ready:late', ['LC1 (letter or phone confirmation)']],
+    ]);
+  });
+
   it('boardItemToReadyPlan keeps every photo the server sent', () => {
     expect(boardItemToReadyPlan(item('y', 'verified', { mainPhoto: 'a.jpg', photos: ['a.jpg', 'b.jpg'] })).house_image_urls).toEqual(['a.jpg', 'b.jpg']);
     expect(boardItemToReadyPlan(item('z', 'verified')).house_image_urls).toBeNull();
@@ -141,6 +153,10 @@ describe('E72b grouped funders list', () => {
     expect(parsed.items.map((i) => [i.id, i.tag, i.rentAmount])).toEqual([['a', 'verified', 400000], ['b', 'booked', 500000]]);
     expect(parsed.items[1].lat).toBeNull();
     expect(parsed.counts.ready_total_ugx).toBe(400000);
+    // incomplete is COO/CEO only: null (funders) stays null, never an empty list.
+    expect(parsed.items.map((i) => i.incomplete)).toEqual([null, null]);
+    const coo = parseBoardItems({ items: [{ kind: 'rent_request', id: 'a', tag: 'verified', incomplete: ['family size', '', 7, 'work / business'] }, { kind: 'rent_request', id: 'b', tag: 'verified', incomplete: [] }] });
+    expect(coo.items.map((i) => i.incomplete)).toEqual([['family size', 'work / business'], []]);
   });
 
   it('one tag chip per card in the server colour', () => {

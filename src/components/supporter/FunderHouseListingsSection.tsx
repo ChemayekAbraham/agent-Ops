@@ -16,6 +16,8 @@ import { FEATURE_FUNDERS_BOARD_TAGS, useFeaturePreview } from '@/hooks/useFeatur
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
+import { useFunderFloatAvailable } from '@/components/funder-preview/useFunderPreviewSupport';
+import { requireFunderOperationalFloat } from '@/components/funder-preview/funderOperationalFloat';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -113,6 +115,12 @@ export interface FunderListingsViewApi {
  * There are no tabs: one feed, one list.
  */
 // The top-up dialog is only needed after a tap; keep its (large) code out of opening the list.
+/**
+ * Multi-home "cart" (sticky selection bar, "Selected" cards). Off for now: "Fund this House"
+ * opens the support plan for that one home. Set to true to bring the cart back.
+ */
+const MULTI_SELECT_CART = false;
+
 const DepositFlow = lazyWithRetry(() => import('@/components/payments/DepositFlow'));
 
 export type FunderListMapFilters = Pick<FunderNewFilters, 'search' | 'location' | 'amount'>;
@@ -142,6 +150,7 @@ export function FunderHouseListingsSection({
   const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
+  const floatAvail = useFunderFloatAvailable(user?.id);
   const location = useFunderNewLocation();
   const summary = useFunderNewMarketSummary();
 
@@ -272,6 +281,10 @@ export function FunderHouseListingsSection({
 
   // E72b: every rent request on the funders board, all four tags, sorted by
   // group. Under 'funder-new' so a demote refreshes it too.
+  // COO/CEO only (funders_board_can_demote): the header totals and each Verified
+  // request's "Incomplete: …" list. The server already sends incomplete as null
+  // to everyone else; it is dropped here too so a funder can never see it.
+  const canSeeBoardTotals = useFundersBoardCanDemote(user?.id);
   const boardQuery = useQuery({
     queryKey: ['funder-new', 'board-items'],
     queryFn: fetchBoardItems,
@@ -324,8 +337,8 @@ export function FunderHouseListingsSection({
   const emptyTotal = showEmpty ? (emptyQuery.data?.pages?.[0]?.total ?? 0) : 0;
   const filteredTotal = readyTotal + emptyTotal;
 
-  // Support is funded from operational float only, never from withdrawable money.
-  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.floatBalance;
+  // The server spends funder_float_available (operational float after holds).
+  const availableBalance = floatAvail.isLoading || floatAvail.isError ? null : (floatAvail.data ?? null);
 
   /**
    * District chip lists every district in the whole market (from the summary
@@ -381,7 +394,7 @@ export function FunderHouseListingsSection({
   const boardGroups = useMemo<BoardGroup<FeedEntry>[] | null>(() => {
     if (!boardTagsOn || !boardQuery.data) return null;
     return buildBoardGroups<FeedEntry>({
-      board: boardQuery.data.items,
+      board: canSeeBoardTotals ? boardQuery.data.items : boardQuery.data.items.map((item) => (item.incomplete ? { ...item, incomplete: null } : item)),
       ready: readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
       empty: emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
       sort: orderSort,
@@ -391,7 +404,7 @@ export function FunderHouseListingsSection({
       filters,
       emptyTotal,
     });
-  }, [boardTagsOn, boardQuery.data, readyItems, emptyItems, orderSort, radiusKm, kmOf, kmOfItem, filters, emptyTotal]);
+  }, [boardTagsOn, boardQuery.data, canSeeBoardTotals, readyItems, emptyItems, orderSort, radiusKm, kmOf, kmOfItem, filters, emptyTotal]);
   const boardPins = useMemo<BoardPin[]>(() => {
     const out: BoardPin[] = [];
     for (const group of boardGroups ?? []) {
@@ -414,7 +427,6 @@ export function FunderHouseListingsSection({
   // The header totals ("16 ready to fund · UGX …", "12 verified · 4 pending
   // verification") are for COO/CEO only (funders_board_can_demote); funders see
   // the grouped list and its group headers without them.
-  const canSeeBoardTotals = useFundersBoardCanDemote(user?.id);
   const boardCounts = boardTagsOn && canSeeBoardTotals ? boardQuery.data?.counts ?? null : null;
 
   useEffect(() => {
@@ -479,13 +491,25 @@ export function FunderHouseListingsSection({
     });
   }, [partnerPay]);
 
+  /** Single-house flow: this one home replaces any earlier pick and its support plan opens straight away. */
+  const fundSingle = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
+    setSelectedCategory(category);
+    setSelectedItems([toSelectionItem(category, item, partnerPay)]);
+    setReviewOpen(true);
+  }, [partnerPay]);
+
+  /** What "Fund this House" does after the chooser: add to the cart, or (cart off) open the plan. */
+  const pick = MULTI_SELECT_CART ? toggleSelect : fundSingle;
+  const isPicked = (category: FunderNewCategory, id: string) =>
+    MULTI_SELECT_CART && selectedItems.some((entry) => entry.category === category && entry.id === id);
+
   const requestFund = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
     if (category !== 'ready') {
-      toggleSelect(category, item);
+      pick(category, item);
       return;
     }
     const plan = item as FunderNewReadyPlan;
-    const already = selectedItems.some((entry) => entry.category === 'ready' && entry.id === plan.rent_request_id);
+    const already = MULTI_SELECT_CART && selectedItems.some((entry) => entry.category === 'ready' && entry.id === plan.rent_request_id);
     if (already) {
       toggleSelect(category, item);
       return;
@@ -496,13 +520,17 @@ export function FunderHouseListingsSection({
       place: readyPlanPlace(plan),
       landlordName: plan.landlord_name,
       rentAmount: Number(plan.funding_amount || 0),
-    }, () => toggleSelect('ready', plan));
-  }, [fundChoice, selectedItems, toggleSelect]);
+    }, () => pick('ready', plan));
+  }, [fundChoice, pick, selectedItems, toggleSelect]);
 
   const removeSelected = (item: FunderNewSelectionItem) => {
     setSelectedItems((current) => {
       const nextList = current.filter((entry) => !(entry.category === item.category && entry.id === item.id));
-      if (nextList.length === 0) setSelectedCategory(null);
+      if (nextList.length === 0) {
+        setSelectedCategory(null);
+        // Nothing left to review: close the plan sheet instead of showing an empty one.
+        setReviewOpen(false);
+      }
       return nextList;
     });
   };
@@ -549,13 +577,13 @@ export function FunderHouseListingsSection({
         fetchNextFeed,
         withinFloatApplied: filters.withinFloat && availableBalance !== null,
         isSaved: (category, id) => saved[category].includes(id),
-        isSelected: (category, id) => selectedItems.some((selected) => selected.category === category && selected.id === id),
+        isSelected: isPicked,
         distanceFor: (entry) => {
           const coords = itemCoordinates(entry.item, entry.category);
           return coords ? straightLineDistance(deviceOrigin, coords) : null;
         },
         toggleSave,
-        toggleSelect,
+        toggleSelect: pick,
         openDetail,
         location,
       }
@@ -761,13 +789,14 @@ export function FunderHouseListingsSection({
                       category={entry.category}
                       item={entry.item}
                       saved={saved[entry.category].includes(id)}
-                      selected={selectedItems.some((selected) => selected.category === entry.category && selected.id === id)}
+                      selected={isPicked(entry.category, id)}
                       distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
                       onSave={() => toggleSave(entry.category, id)}
                       onSelect={() => requestFund(entry.category, entry.item)}
                       onDetail={() => openDetail(entry.category, entry.item)}
                       boardTagsOn
                       boardTag={row.tag}
+                      incomplete={row.incomplete ?? null}
                     />
                   );
                 })}
@@ -801,9 +830,7 @@ export function FunderHouseListingsSection({
                   category={entry.category}
                   item={entry.item}
                   saved={saved[entry.category].includes(id)}
-                  selected={selectedItems.some(
-                    (selected) => selected.category === entry.category && selected.id === id,
-                  )}
+                  selected={isPicked(entry.category, id)}
                   distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
                   onSave={() => toggleSave(entry.category, id)}
                   onSelect={() => requestFund(entry.category, entry.item)}
@@ -882,8 +909,11 @@ export function FunderHouseListingsSection({
         onOpenChange={(open) => {
           if (!open) setDetailHouse(null);
         }}
-        isPicked={detailHouse ? selectedItems.some((i) => i.category === 'empty' && i.id === detailHouse.house_id) : false}
-        onTogglePick={(house) => toggleSelect('empty', house as FunderNewEmptyHouse)}
+        isPicked={detailHouse ? isPicked('empty', detailHouse.house_id) : false}
+        onTogglePick={(house) => {
+          if (!MULTI_SELECT_CART) setDetailHouse(null);
+          pick('empty', house as FunderNewEmptyHouse);
+        }}
         isPartner
         onRelatedHouseClick={(h) => setDetailHouse(h as any)}
         remaining={availableBalance ?? undefined}
@@ -892,10 +922,14 @@ export function FunderHouseListingsSection({
           const avail = availableBalance ?? 0;
           if (avail >= cost) {
             // Enough balance: select the house and open the funding review.
+            setDetailHouse(null);
+            if (!MULTI_SELECT_CART) {
+              fundSingle('empty', house as FunderNewEmptyHouse);
+              return;
+            }
             if (!selectedItems.some((i) => i.category === 'empty' && i.id === house.house_id)) {
               toggleSelect('empty', house as FunderNewEmptyHouse);
             }
-            setDetailHouse(null);
             setReviewOpen(true);
           } else {
             // Not enough balance: open the deposit sheet with the exact shortfall.
@@ -913,21 +947,26 @@ export function FunderHouseListingsSection({
         }}
         isFunded={false}
         onFund={(plan) => {
-          const cost = partnerPay(Number(plan.funding_amount || 0));
-          const avail = availableBalance ?? 0;
-          if (avail >= cost) {
-            // Enough balance: select the plan and open the funding review.
-            if (!selectedItems.some((i) => i.category === 'ready' && i.id === plan.rent_request_id)) {
-              toggleSelect('ready', plan as FunderNewReadyPlan);
+          setDetailPlan(null);
+          fundChoice.ask({
+            rentRequestId: plan.rent_request_id,
+            title: plan.house_category ? plan.house_category.replace(/-/g, ' ') : 'Rent Plan',
+            place: plan.tenant_location || plan.request_city || '',
+            landlordName: plan.landlord_name,
+            rentAmount: Number(plan.funding_amount || 0),
+          }, () => {
+            if (!MULTI_SELECT_CART) {
+              fundSingle('ready', plan as FunderNewReadyPlan);
+              return;
             }
-            setDetailPlan(null);
+            setSelectedCategory('ready');
+            setSelectedItems((current) => {
+              const ready = current.filter((entry) => entry.category === 'ready');
+              if (ready.some((entry) => entry.id === plan.rent_request_id)) return ready;
+              return [...ready, toSelectionItem('ready', plan as FunderNewReadyPlan, partnerPay)];
+            });
             setReviewOpen(true);
-          } else {
-            // Not enough balance: open the deposit sheet with the exact shortfall.
-            toast.info(`Not enough balance. Deposit ${formatDynamic(cost - avail)} to fund this tenant.`);
-            setDetailPlan(null);
-            setTopUpAmount(Math.ceil(cost - avail));
-          }
+          });
         }}
       />
       {fundChoice.chooser}
@@ -936,8 +975,8 @@ export function FunderHouseListingsSection({
         onOpenChange={setReviewOpen}
         items={selectedItems}
         available={availableBalance}
-        walletLoading={wallet.isLoading}
-        walletError={wallet.error}
+        walletLoading={floatAvail.isLoading}
+        walletError={floatAvail.error}
         onRemove={removeSelected}
         onFund={async (total, shortfall) => {
           if (shortfall > 0) {
@@ -951,6 +990,7 @@ export function FunderHouseListingsSection({
           if (ids.length === 0) return;
           const category = selectedItems[0].category;
           try {
+            await requireFunderOperationalFloat(user?.id, total);
             let reference: string | null = null;
             if (category === 'empty') {
               // Same path as the map screen: book the homes, then submit them
@@ -999,15 +1039,17 @@ export function FunderHouseListingsSection({
           }
         }}
       />
-      <FunderNewSelectionBar
-        items={selectedItems}
-        category={selectedCategory}
-        onClear={() => {
-          setSelectedItems([]);
-          setSelectedCategory(null);
-        }}
-        onReview={() => setReviewOpen(true)}
-      />
+      {MULTI_SELECT_CART ? (
+        <FunderNewSelectionBar
+          items={selectedItems}
+          category={selectedCategory}
+          onClear={() => {
+            setSelectedItems([]);
+            setSelectedCategory(null);
+          }}
+          onReview={() => setReviewOpen(true)}
+        />
+      ) : null}
       {mountDeposit && (
         <Suspense fallback={null}>
           <DepositFlow

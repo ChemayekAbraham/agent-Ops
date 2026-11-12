@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
+import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 import { toast } from 'sonner';
 
 interface Props {
@@ -54,8 +55,9 @@ export function RecordAdvancePaymentDialog({ advance, open, onOpenChange, onSucc
           notes: notes || null,
         },
       });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if (error || (data as any)?.error) {
+        throw new Error(await extractEdgeFunctionError({ data, error }, 'Failed to record payment'));
+      }
       toast.success(`Recorded ${formatUGX(parsed)} payment`);
       onSuccess();
       onOpenChange(false);

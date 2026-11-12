@@ -1,4 +1,5 @@
 import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { supportErrorMessage } from '@/lib/selfSupportDirect';
 import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -300,7 +301,7 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
         toast.success('Payout submitted from Landlord Payout Float. Awaiting Landlord Ops approval.');
       }
     },
-    onError: (e: any) => toast.error(e.message || 'Failed to submit payout'),
+    onError: (e: any) => toast.error(supportErrorMessage(e?.message) ?? (e.message || 'Failed to submit payout')),
   });
 
   const req = selectedRequest;

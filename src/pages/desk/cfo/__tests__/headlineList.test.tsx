@@ -43,19 +43,33 @@ const LIST: Record<string, unknown> = {
   },
   waiting: { period: '7d', kind: 'waiting', count: 0, ugx: 0, rows: [] },
 };
-const DASH = { headline: { posted: { n: 2, ugx: 2_500_000 }, sold: { n: 1, ugx: 1_250_000 }, waiting: { n: 1, ugx: 1_250_000 } }, rows: [] };
+const DASH = { headline: { posted: { n: 2, ugx: 2_500_000 }, sold: { n: 0, ugx: 0 }, waiting: { n: 2, ugx: 2_500_000 } }, rows: [] };
+/* funded_money_flow(p_days): one release, for Tenant 1's request, money still with the agent. */
+const FLOW = {
+  released: { count: 1, ugx: 650_000 },
+  with_agent: { count: 1, ugx: 650_000, oldest_hours: 5 },
+  part_paid: { count: 0, ugx_paid: 0, ugx_left: 0 },
+  live: { count: 0, ugx: 0 },
+  items: [{ rent_request_id: ROW(1).id, tenant: 'Tenant 1', agent: 'Agent 1', landlord: 'Landlord 1', amount: 650_000, paid_out: 0, stage: 'with_agent', hours_since_release: 5 }],
+};
+let flow: unknown = FLOW;
+let lists: Record<string, unknown> = LIST;
 
 const setWidth = (w: number) => Object.defineProperty(window, 'innerWidth', { value: w, configurable: true, writable: true });
 
 beforeEach(() => {
+  flow = FLOW;
+  lists = LIST;
   rpcMock.mockReset();
   rpcMock.mockImplementation((fn: string, args: { p_kind?: string }) =>
     Promise.resolve(
       fn === 'funders_dashboard'
         ? { data: DASH, error: null }
         : fn === 'funders_headline_list'
-          ? { data: LIST[args.p_kind ?? 'posted'], error: null }
-          : { data: null, error: null },
+          ? { data: lists[args.p_kind ?? 'posted'], error: null }
+          : fn === 'funded_money_flow'
+            ? { data: flow, error: null }
+            : { data: null, error: null },
     ),
   );
 });
@@ -85,7 +99,36 @@ describe('Funders headline tiles open their list', () => {
       expect(b.className).toContain('active:scale-[0.98]');
       expect(b.className).toContain('cursor-pointer');
     }
-    expect((await tile(/^Rent requests sold/)).textContent).toContain('Money released to the landlord');
+    expect((await tile(/^Rent requests sold/)).textContent).toContain("Released to an agent's landlord float");
+    expect((await tile(/^Waiting for funder/)).textContent).toContain('Posted minus released');
+  });
+
+  it('sold = released to an agent in the period; waiting = posted minus released, so they add up', async () => {
+    mount();
+    const sold = await tile(/^Rent requests sold: 1, UGX 650K/);
+    expect(sold).toBeTruthy();
+    // 2 posted (UGX 2.5M) − 1 released (UGX 650K) = 1 waiting (UGX 1.85M), not the server's landlord-paid "sold".
+    expect(await tile(/^Waiting for funder: 1, UGX 1\.9M/)).toBeTruthy();
+    expect(rpcMock).toHaveBeenCalledWith('funded_money_flow', { p_days: 7 });
+  });
+
+  it('the period chips ask for p_days 1 / 7 / 30 / 90 / 365', async () => {
+    mount();
+    await tile(/^Rent requests sold/);
+    for (const [label, days] of [['Today', 1], ['30 days', 30], ['90 days', 90], ['All time', 365]] as const) {
+      fireEvent.click(await screen.findByRole('button', { name: label }));
+      await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('funded_money_flow', { p_days: days }));
+    }
+  });
+
+  it('a release the server has not answered is never shown as zero', async () => {
+    flow = new Promise(() => {});
+    rpcMock.mockImplementation((fn: string, args: { p_kind?: string }) =>
+      fn === 'funded_money_flow' ? new Promise(() => {}) : Promise.resolve(fn === 'funders_dashboard' ? { data: DASH, error: null } : { data: lists[args.p_kind ?? 'posted'], error: null }),
+    );
+    mount();
+    expect((await screen.findAllByRole('status', { name: 'Loading the headline' })).length).toBe(3);
+    expect(screen.queryByRole('button', { name: /^Rent requests sold/ })).toBeNull();
   });
 
   it('posted: asks for the page period and kind, header shows period, count and UGX, rows newest first', async () => {
@@ -110,21 +153,32 @@ describe('Funders headline tiles open their list', () => {
     expect(first.querySelector('[data-sold-line]')).toBeNull();
   });
 
-  it('sold: adds the partner, their phone and the money-released date', async () => {
+  it('sold: lists the releases of the period with their stage; a tap opens the plan drawer', async () => {
     mount();
     fireEvent.click(await tile(/^Rent requests sold/));
     const dlg = await screen.findByRole('dialog', { name: 'Rent requests sold' });
-    expect(rpcMock).toHaveBeenCalledWith('funders_headline_list', { p_period: '7d', p_kind: 'sold' });
-    const line = await waitFor(() => {
-      const l = dlg.querySelector('[data-sold-line]');
-      expect(l).not.toBeNull();
-      return l as HTMLElement;
-    });
-    expect(line.textContent).toBe('Partner Partner Nansubuga 0772 111 222 · Money released 8 Nov 2026');
-    expect(within(line).getByRole('link', { name: '0772 111 222' }).getAttribute('href')).toBe('tel:0772111222');
+    expect(rpcMock).not.toHaveBeenCalledWith('funders_headline_list', expect.objectContaining({ p_kind: 'sold' }));
+    expect(dlg.querySelector('[data-releases-note]')!.textContent).toBe("7 days · released to an agent's landlord float in the last 7 days");
+    const rel = dlg.querySelector(`[data-release="${ROW(1).id}"]`) as HTMLElement;
+    expect(rel.textContent).toContain('Tenant 1');
+    expect(within(rel).getByText('With agent')).toBeTruthy();
+    fireEvent.click(rel);
+    expect(await screen.findByRole('dialog', { name: 'Rent Plan Ref A1B2C3D1' })).toBeTruthy();
+  });
+
+  it('waiting: the posted list without the released requests', async () => {
+    mount();
+    fireEvent.click(await tile(/^Waiting for funder/));
+    const dlg = await screen.findByRole('dialog', { name: 'Waiting for funder' });
+    expect(rpcMock).toHaveBeenCalledWith('funders_headline_list', { p_period: '7d', p_kind: 'posted' });
+    await waitFor(() => expect(dlg.querySelectorAll('[data-headline-row]')).toHaveLength(1));
+    expect(within(dlg).getByText('Tenant 2')).toBeTruthy();
+    expect(within(dlg).queryByText('Tenant 1')).toBeNull();
+    expect(dlg.querySelector('[data-headline-summary]')!.textContent).toBe('7 days · 1 request · UGX 1.3M');
   });
 
   it('an empty list says "Nothing in this period"', async () => {
+    lists = { ...LIST, posted: { period: '7d', kind: 'posted', count: 0, ugx: 0, rows: [] } };
     mount();
     fireEvent.click(await tile(/^Waiting for funder/));
     const dlg = await screen.findByRole('dialog', { name: 'Waiting for funder' });

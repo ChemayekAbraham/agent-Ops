@@ -20,9 +20,11 @@ import { ReviewDrawer } from './ReviewDrawer';
 import { FunderBoard } from './FunderBoard';
 import { PushQueueCards } from './PushQueueCards';
 import { SelfAppliedCard } from './SelfAppliedQueue';
+import { IncompleteSection } from './incomplete';
 import { FundersDashboard } from './cfo/FundersDashboard';
 import { FundersHeadline } from './cfo/FundersHeadline';
 import { FundersBoardCounterCard } from './cfo/FundersBoardCounterCard';
+import { FundersMoneyLines } from './cfo/FundersMoneyLines';
 import { DemotedPanel } from './fundersBoard/DemotedPanel';
 import type { Period as FundersPeriod } from './cfo/cfoApi';
 import { useDeskLive } from './deskLive';
@@ -559,6 +561,8 @@ function DeskView({
       {checklistOn && desk.id === 'coo' && <PushQueueCards board={board} enabled onCooDesk />}
       {/* E73: tenants who applied alone and still need an agent — Agent Ops assigns them from the board. */}
       {checklistOn && desk.id === 'agent-ops' && <SelfAppliedCard board={board} />}
+      {/* E82: requests past Agent Ops that still miss something; completed here, in place. */}
+      {checklistOn && desk.id === 'agent-ops' && <IncompleteSection board={board} />}
     </>
   );
 
@@ -648,6 +652,8 @@ function DeskView({
       <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
         <PipelineStrip deskId={desk.id} board={board} />
         {desk.id === 'cfo' && <FundersHeadline board={board} period={fundersPeriod} onPeriodChange={setFundersPeriod} />}
+        {/* E85 on the Funders Dashboard: incomplete requests and the funders' money after release, under the top tiles. */}
+        {desk.id === 'cfo' && <FundersMoneyLines board={board} />}
         {desk.id === 'cfo' && <FundersBoardCounterCard board={board} />}
         {/* E58: everything taken off the funders board waits here for its level. */}
         {desk.id === 'coo' && <DemotedPanel board={board} />}

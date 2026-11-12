@@ -358,10 +358,27 @@ export function useCfoDisburseSignage() {
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
       toast.success(data.already_paid ? 'This payment was already credited; no duplicate payment made.'
-        : data.status === 'active' ? 'Payment credited. The signage is now Active.'
-          : 'Payment credited to Welile wallet. Awaiting the remaining CFO payment.');
+        : data.status === 'active' ? 'Payment credited to Welile wallet.'
+          : 'Agent reward credited. Signage is awaiting CFO approval.');
     },
     onError: (err: any) => toast.error(err.message),
+  });
+}
+
+export function useCfoApproveSignage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (signageId: string) => {
+      const { data, error } = await withUserSession(() => db().rpc('cfo_approve_signage', { p_signage_id: signageId }));
+      if (error) throw new Error(error.message);
+      if (data?.signage_id !== signageId || data.status !== 'active') throw new Error('Approval could not be confirmed. Refresh before trying again.');
+      return data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
+      toast.success('CFO approved. Signage is Active; no owner payment was made.');
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 }
 

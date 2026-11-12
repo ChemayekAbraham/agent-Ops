@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Loader2, AlertCircle, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertCircle, RotateCcw, AlertTriangle, PlusCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,7 @@ import {
 import { SpecialAdvanceProofInput, SpecialAdvanceProofLink } from './SpecialAdvanceProofInput';
 import { SpecialAdvanceCorrectionDialog } from './SpecialAdvanceCorrectionDialog';
 import { SpecialAdvanceWriteOffDialog } from './SpecialAdvanceWriteOffDialog';
+import { SpecialAdvanceTopUpDialog } from './SpecialAdvanceTopUpDialog';
 import { SpecialAdvanceRecoveryForm } from './SpecialAdvanceRecoveryForm';
 
 const EVENT_TEXT: Record<string, string> = {
@@ -47,6 +48,7 @@ const EVENT_TEXT: Record<string, string> = {
   write_off_posted: 'Write-off posted',
   provision_posted: 'Provision posted',
   recovery_recorded: 'Recovery recorded',
+  topup_posted: 'Top-up added and paid out',
 };
 
 const INSTALMENT_TEXT: Record<string, string> = {
@@ -57,13 +59,18 @@ const INSTALMENT_TEXT: Record<string, string> = {
   due: 'Due',
 };
 
+export type SpecialAdvanceSheetAction = 'repay' | 'topup' | 'reverse' | null;
+
 export function SpecialAdvanceDetailSheet({
   advanceId,
   issuanceEnabled,
+  initialAction = null,
   onOpenChange,
 }: {
   advanceId: string | null;
   issuanceEnabled: boolean;
+  /** Action picked from the table's overflow menu; opens that step once the advance loads. */
+  initialAction?: SpecialAdvanceSheetAction;
   onOpenChange: (open: boolean) => void;
 }) {
   const st = useSpecialAdvanceStatement(advanceId);
@@ -75,15 +82,40 @@ export function SpecialAdvanceDetailSheet({
     repaymentId?: string | null;
     amount?: number;
     reference?: string;
+    topupId?: string;
+    topupWallet?: boolean;
   } | null>(null);
 
   // Dialog state for write-off
   const [writeOffOpen, setWriteOffOpen] = useState(false);
+  // Dialog state for a top-up (CFO, 12 Nov 2026)
+  const [topUpOpen, setTopUpOpen] = useState(false);
 
   // Active repayments (not reversed)
   const standingRepayments = a?.repayments.filter((r) => !r.reversed_by_correction) ?? [];
   const canReversePayout = a?.status === 'disbursed' && a.borrower_kind === 'external' && standingRepayments.length === 0;
   const canWriteOff = a?.status === 'disbursed' && a.position.outstanding > 0;
+
+  // Run the menu action once per opening, after the statement has loaded.
+  const handledAction = useRef<string | null>(null);
+  useEffect(() => {
+    if (!advanceId) { handledAction.current = null; return; }
+    if (!a || !initialAction) return;
+    const key = `${advanceId}:${initialAction}`;
+    if (handledAction.current === key) return;
+    handledAction.current = key;
+    if (a.status !== 'disbursed') {
+      if (initialAction !== 'repay') toast.error('Only a paid-out advance can be topped up or reversed.');
+      return;
+    }
+    if (initialAction === 'topup') setTopUpOpen(true);
+    else if (initialAction === 'reverse') {
+      if (canReversePayout) setCorrectionTarget({ kind: 'payout_reversal' });
+      else toast.error('This payout can be reversed only for an external recipient with no standing repayments. Reverse a repayment from the list below instead.');
+    } else if (initialAction === 'repay') {
+      document.getElementById('special-advance-repayment-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [advanceId, a, initialAction, canReversePayout]);
 
   return (
     <Sheet open={!!advanceId} onOpenChange={onOpenChange}>
@@ -121,7 +153,11 @@ export function SpecialAdvanceDetailSheet({
               <Item label="Term" value={`${a.term_days} days, ${a.frequency} repayments`} />
               <Item label="Principal" value={formatUGX(a.principal)} />
               <Item label="Access fee" value={formatUGX(combinedAccessFee(a))} />
-              <Item label="Total repayable" value={formatUGX(a.total_repayable)} />
+              {a.topups?.some((t) => !t.reversed_by_correction) ? (
+                <Item label="Total repayable (incl. top-ups)" value={formatUGX(a.position.total_repayable)} />
+              ) : (
+                <Item label="Total repayable" value={formatUGX(a.total_repayable)} />
+              )}
               <Item label="Paid" value={formatUGX(a.position.total_paid)} />
 
               {/* Phase A: Receivable only after payout */}
@@ -160,6 +196,36 @@ export function SpecialAdvanceDetailSheet({
                 </div>
               )}
 
+              {(a.topups?.length ?? 0) > 0 && (
+                <div className="col-span-2 space-y-1 border-t border-border/40 pt-1">
+                  <dt className="text-[11px] text-muted-foreground">Top-ups (included in Outstanding)</dt>
+                  {a.topups!.map((t) => (
+                    <dd key={t.id} className="flex flex-wrap items-center justify-between gap-2 font-medium text-foreground">
+                      <span className={t.reversed_by_correction ? 'text-muted-foreground line-through' : undefined}>
+                        <span className="font-mono">{t.reference}</span> · {kampalaLabel(t.topup_date)} · {formatUGX(t.principal)} + fee {formatUGX(t.access_fee)}
+                        {' · '}{t.payout_method === 'wallet' ? 'credited to wallet' : `${t.payout_method.replace('_', ' ')} (${t.payout_reference})`}
+                      </span>
+                      {t.payout_proof_path && <SpecialAdvanceProofLink path={t.payout_proof_path} label="View proof" />}
+                      {t.reversed_by_correction ? (
+                        <span className="text-[11px] font-normal text-muted-foreground">Reversed</span>
+                      ) : a.status === 'disbursed' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10"
+                          aria-label={`Reverse top-up ${t.reference}`}
+                          onClick={() => setCorrectionTarget({ kind: 'topup_reversal', topupId: t.id, amount: t.principal, reference: t.reference,
+                            topupWallet: t.payout_method === 'wallet' })}
+                        >
+                          <RotateCcw className="mr-1 h-3 w-3" /> Reverse
+                        </Button>
+                      )}
+                      <span className="w-full text-[11px] font-normal text-muted-foreground">{t.reason}</span>
+                    </dd>
+                  ))}
+                </div>
+              )}
+
               <Item label="Purpose" value={a.purpose} wide />
               {a.decision_reason && <Item label="Decision note" value={a.decision_reason} wide />}
             </dl>
@@ -188,9 +254,22 @@ export function SpecialAdvanceDetailSheet({
               {/* Status: disbursed */}
               {a.status === 'disbursed' && (
                 <>
-                  <RepaymentForm advance={a} />
+                  <div id="special-advance-repayment-form">
+                    <RepaymentForm advance={a} />
+                  </div>
 
                   <div className="flex flex-wrap gap-2 pt-2 border-t border-border/60">
+                    <Button
+                      id="special-advance-add-topup"
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={() => setTopUpOpen(true)}
+                    >
+                      <PlusCircle className="mr-1.5 h-3.5 w-3.5" />
+                      Add top-up
+                    </Button>
+
                     {canReversePayout && (
                       <Button
                         id="special-advance-reverse-payout"
@@ -473,8 +552,17 @@ export function SpecialAdvanceDetailSheet({
           repaymentId={correctionTarget.repaymentId}
           repaymentAmount={correctionTarget.amount}
           repaymentReference={correctionTarget.reference}
+          topupId={correctionTarget.topupId}
+          topupReference={correctionTarget.reference}
+          topupAmount={correctionTarget.amount}
+          topupWallet={correctionTarget.topupWallet}
           onSuccess={() => st.refetch()}
         />
+      )}
+
+      {/* Top-up dialog */}
+      {a && a.status === 'disbursed' && (
+        <SpecialAdvanceTopUpDialog open={topUpOpen} onOpenChange={setTopUpOpen} advance={a} onSuccess={() => st.refetch()} />
       )}
 
       {/* Write-off dialog */}

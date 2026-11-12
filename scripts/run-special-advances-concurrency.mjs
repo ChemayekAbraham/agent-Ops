@@ -4,6 +4,7 @@
 // free localhost port, used once and deleted, even on failure. Nothing else is touched.
 //
 //   node scripts/run-special-advances-concurrency.mjs
+//   node scripts/run-special-advances-concurrency.mjs src/test/specialAdvancePayFromWallet.test.ts   (another suite)
 //   PG_BIN="C:/Program Files/PostgreSQL/18/bin" node scripts/run-special-advances-concurrency.mjs
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
@@ -34,7 +35,7 @@ try {
     `-p ${port} -c listen_addresses=127.0.0.1 -c max_connections=60 -c fsync=off`, 'start'], { stdio: 'ignore' });
   started = true;
   console.log(`[sa-concurrency] throwaway Postgres on 127.0.0.1:${port} (${bin})`);
-  const r = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['vitest', 'run', 'src/test/specialAdvanceConcurrency.test.ts'], {
+  const r = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['vitest', 'run', process.argv[2] ?? 'src/test/specialAdvanceConcurrency.test.ts'], {
     stdio: 'inherit', shell: process.platform === 'win32',
     env: { ...process.env, SA_PG_URL: `postgres://postgres@127.0.0.1:${port}/postgres` },
   });

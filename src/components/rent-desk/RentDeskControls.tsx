@@ -76,17 +76,17 @@ export function RentDeskControls({
         aria-label="Payer label"
         value={filters.labels}
         onValueChange={(v) => set({ labels: v as RentDeskLabel[] })}
-        className="flex-wrap justify-start"
+        className="grid grid-cols-2 sm:flex sm:flex-wrap w-full sm:w-auto justify-start gap-1.5 sm:gap-1"
       >
         {RENT_DESK_LABELS.map((l) => (
-          <ToggleGroupItem key={l} value={l} aria-label={`Payer label: ${RENT_DESK_LABEL_TEXT[l]}`} className="h-8 px-2 text-[11px]">
+          <ToggleGroupItem key={l} value={l} aria-label={`Payer label: ${RENT_DESK_LABEL_TEXT[l]}`} className="h-9 sm:h-8 px-2.5 sm:px-2 text-xs sm:text-[11px] w-full sm:w-auto justify-center">
             {RENT_DESK_LABEL_TEXT[l]}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
 
       <Select value={filters.arrived} onValueChange={(v) => set({ arrived: v as RentDeskArrived })}>
-        <SelectTrigger className="h-8 w-[150px] text-xs" aria-label="Arrived">
+        <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[150px] text-xs" aria-label="Arrived">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

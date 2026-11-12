@@ -30,6 +30,11 @@ interface SpecialAdvanceCorrectionDialogProps {
   repaymentId?: string | null;
   repaymentAmount?: number;
   repaymentReference?: string;
+  /** topup_reversal: the top-up being reversed */
+  topupId?: string | null;
+  topupReference?: string;
+  topupAmount?: number;
+  topupWallet?: boolean;
   onSuccess?: () => void;
 }
 
@@ -41,6 +46,10 @@ export function SpecialAdvanceCorrectionDialog({
   repaymentId,
   repaymentAmount,
   repaymentReference,
+  topupId,
+  topupReference,
+  topupAmount,
+  topupWallet,
   onSuccess,
 }: SpecialAdvanceCorrectionDialogProps) {
   const recordCorrection = useRecordSpecialAdvanceCorrection();
@@ -83,6 +92,7 @@ export function SpecialAdvanceCorrectionDialog({
     const payload = buildCorrectionRequest({
       kind,
       repaymentId: kind === 'repayment_reversal' ? repaymentId : null,
+      topupId: kind === 'topup_reversal' ? topupId : null,
       reason: trimmedReason,
       proofPath: proofPathToUse,
       idempotencyKey: idempotencyKey.current,
@@ -133,6 +143,12 @@ export function SpecialAdvanceCorrectionDialog({
                   Reverse repayment {repaymentReference ? `(${repaymentReference})` : ''} of{' '}
                   <strong className="text-foreground">{repaymentAmount ? formatUGX(repaymentAmount) : ''}</strong> on{' '}
                   {advance.reference}.
+                </>
+              ) : kind === 'topup_reversal' ? (
+                <>
+                  Reverse top-up {topupReference} of{' '}
+                  <strong className="text-foreground">{topupAmount ? formatUGX(topupAmount) : ''}</strong> on {advance.reference}.{' '}
+                  {topupWallet ? "The amount is taken back from the borrower's wallet." : 'Company cash is restored.'} The access fee is reversed too.
                 </>
               ) : (
                 <>

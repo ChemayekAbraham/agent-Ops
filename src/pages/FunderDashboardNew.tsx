@@ -12,6 +12,8 @@ import { roleToSlug } from '@/lib/roleRoutes';
 import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
 import { generateWelileAiId } from '@/lib/welileAiId';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
+import { useFunderFloatAvailable } from '@/components/funder-preview/useFunderPreviewSupport';
+import { requireFunderOperationalFloat } from '@/components/funder-preview/funderOperationalFloat';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -48,13 +50,16 @@ import { straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
 import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
 
-import { formatDynamic } from '@/lib/currencyFormat';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import type { FunderFundResult } from '@/components/funder-new/FunderNewSelectionPanel';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
+import { supportErrorMessage, supportOutcome, type SupportResultPayload } from '@/lib/selfSupportDirect';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
+import { LandlordPaymentStatusList } from '@/components/self-support/LandlordPaymentStatusList';
 import { FunderSavedItemsDialog } from '@/components/funder-new/FunderSavedItemsDialog';
+import { useFunderSavedTabs } from '@/hooks/useFunderSavedTabs';
+import type { FunderSavedTab } from '@/lib/funderSavedTabs';
 export { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 
 /** Default search radius applied when an origin exists. */
@@ -69,6 +74,7 @@ export default function FunderDashboardNew() {
   const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
+  const floatAvail = useFunderFloatAvailable(user?.id);
 
   const metaFullName = (user?.user_metadata?.full_name as string | undefined)?.trim() || '';
   const emailLocal = (user?.email || '').split('@')[0] || '';
@@ -102,6 +108,8 @@ export default function FunderDashboardNew() {
   const [area, setArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
   const { saved, toggleSave, count: savedCount } = useFunderSavedItems();
   const [savedOpen, setSavedOpen] = useState(false);
+  const [savedTab, setSavedTab] = useState<FunderSavedTab | null>(null);
+  const savedTabs = useFunderSavedTabs(true);
   const [selectedCategory, setSelectedCategory] = useState<FunderNewCategory | null>(null);
   const [selectedItems, setSelectedItems] = useState<FunderNewSelectionItem[]>([]);
   const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
@@ -209,6 +217,10 @@ export default function FunderDashboardNew() {
       ? loadedItems.find((e) => e.category === category && itemId(e.category, e.item) === id)
       : loadedItems.find((e) => itemId(e.category, e.item) === id);
     if (!found) return;
+    if (found.category === 'ready') {
+      setDetailPlan(found.item as FunderNewReadyPlan);
+      return;
+    }
     setSelectedCategory(found.category);
     setSelectedItems([toSelectionItem(found.category, found.item, partnerPay)]);
     setReviewOpen(true);
@@ -228,7 +240,7 @@ export default function FunderDashboardNew() {
 
   const filteredTotal = (emptyQuery.data?.pages?.[0]?.total ?? 0) + (readyQuery.data?.pages?.[0]?.total ?? 0);
 
-  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
+  const availableBalance = floatAvail.isLoading || floatAvail.isError ? null : (floatAvail.data ?? null);
 
   /**
    * District chip lists every district in the whole market (from the summary
@@ -381,7 +393,7 @@ export default function FunderDashboardNew() {
         availableRoles={roles}
         onRoleChange={handleRoleSwitch}
         onSignOut={signOut}
-        menuItems={[{ icon: Bookmark, label: 'Saved Items', onClick: () => setSavedOpen(true), badge: savedCount || undefined }]}
+        menuItems={[{ icon: Bookmark, label: 'Saved Items', onClick: () => { setSavedTab(null); setSavedOpen(true); }, badge: savedTabs.total || undefined }]}
         headerActions={user ? <NotificationBell userId={user.id} /> : undefined}
         compactInstallPrompt
       />
@@ -445,6 +457,8 @@ export default function FunderDashboardNew() {
           </Button>
         </div>
 
+
+        <LandlordPaymentStatusList role="partner" title="Your supported Rent Plans" />
 
         {/* Compact filters + calculator, directly under the map */}
         <section className="space-y-3">
@@ -616,7 +630,7 @@ export default function FunderDashboardNew() {
         </section>
       </main>
 
-      <FunderSavedItemsDialog open={savedOpen} onOpenChange={setSavedOpen} />
+      <FunderSavedItemsDialog open={savedOpen} onOpenChange={setSavedOpen} initialTab={savedTab} />
       <EmptyHouseDetailSheet
         house={detailHouse}
         open={!!detailHouse}
@@ -642,20 +656,22 @@ export default function FunderDashboardNew() {
         }}
         isFunded={false}
         onFund={(plan) => {
-          const cost = Number(plan.funding_amount || 0);
-          const avail = availableBalance ?? 0;
-          if (avail >= cost) {
-            // Enough balance: select the plan and open the funding review.
-            if (!selectedItems.some((i) => i.category === 'ready' && i.id === plan.rent_request_id)) {
-              toggleSelect('ready', plan as FunderNewReadyPlan);
-            }
-            setDetailPlan(null);
+          setDetailPlan(null);
+          fundChoice.ask({
+            rentRequestId: plan.rent_request_id,
+            title: plan.house_category ? plan.house_category.replace(/-/g, ' ') : 'Rent Plan',
+            place: plan.tenant_location || plan.request_city || '',
+            landlordName: plan.landlord_name,
+            rentAmount: Number(plan.funding_amount || 0),
+          }, () => {
+            setSelectedCategory('ready');
+            setSelectedItems((current) => {
+              const ready = current.filter((entry) => entry.category === 'ready');
+              if (ready.some((entry) => entry.id === plan.rent_request_id)) return ready;
+              return [...ready, toSelectionItem('ready', plan as FunderNewReadyPlan, partnerPay)];
+            });
             setReviewOpen(true);
-          } else {
-            // This page has no inline deposit sheet: point the funder at a top-up.
-            toast.info(`Not enough balance. Deposit ${formatDynamic(cost - avail)} to fund this tenant.`);
-            setDetailPlan(null);
-          }
+          });
         }}
       />
       <FunderNewCalculatorDialog
@@ -674,10 +690,11 @@ export default function FunderDashboardNew() {
       <FunderNewReviewDialog
         open={reviewOpen}
         onOpenChange={setReviewOpen}
+        onOpenSavedTab={(t) => { setReviewOpen(false); setSavedTab(t); setSavedOpen(true); }}
         items={selectedItems}
         available={availableBalance}
-        walletLoading={wallet.isLoading}
-        walletError={wallet.error}
+        walletLoading={floatAvail.isLoading}
+        walletError={floatAvail.error}
         onRemove={removeSelected}
         onFund={async (total) => {
           const ids = selectedItems.map((item) => item.id);
@@ -692,8 +709,10 @@ export default function FunderDashboardNew() {
               .filter((name): name is string => !!name && name.trim().length > 0);
             const rentRequestIds = category === 'ready' ? ids : [];
             try {
+              await requireFunderOperationalFloat(user?.id, total);
               let reference: string | null = null;
               let releasedToAgent = false;
+              let activatesOnLandlordPaid = false;
               if (category === 'empty') {
                 const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
                   p_payload: {
@@ -725,13 +744,13 @@ export default function FunderDashboardNew() {
                   p_promised_deposit_date: null,
                 });
                 if (error) throw error;
-                const payload = (data ?? {}) as {
+                const payload = (data ?? {}) as SupportResultPayload & {
                   commitment_id?: string;
                   portfolio_id?: string;
-                  landlord_float_released?: boolean;
                 };
                 reference = payload.commitment_id ?? payload.portfolio_id ?? null;
                 releasedToAgent = payload.landlord_float_released === true;
+                activatesOnLandlordPaid = supportOutcome(payload) === 'awaiting_landlord';
               }
               setSelectedItems([]);
               setSelectedCategory(null);
@@ -740,6 +759,7 @@ export default function FunderDashboardNew() {
                 submitted: true,
                 reference,
                 releasedToAgent,
+                activatesOnLandlordPaid,
                 supportKind: category === 'empty' ? 'house' : 'rent',
                 landlordNames,
                 rentRequestIds,
@@ -748,7 +768,7 @@ export default function FunderDashboardNew() {
               const raw = String((err as { message?: string })?.message || 'Could not submit support');
               const message = raw.includes('NO_AGENT_ASSIGNED')
                 ? 'This Rent Plan has no assigned agent, so it cannot be funded.'
-                : raw;
+                : supportErrorMessage(raw) ?? raw;
               toast.error(message);
               throw err;
             }

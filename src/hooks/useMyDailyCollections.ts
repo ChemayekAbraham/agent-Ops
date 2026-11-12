@@ -23,12 +23,13 @@ export function useMyDailyCollections(from: string | null, to: string | null, na
     enabled: !!user?.id && !!from && !!to,
     staleTime: 30_000,
     queryFn: async (): Promise<Record<string, DayCell>> => {
+      if (!user?.id) throw new Error('Sign in again to continue.');
       const [plans, cols] = await Promise.all([
         (supabase.rpc as any)('get_my_expected_days', { p_from: from, p_to: to }),
         (supabase.from as any)('agent_collections')
-          .select('tenant_id, amount, created_at, reversed_at').eq('agent_id', user!.id)
+          .select('tenant_id, amount, created_at, reversed_at').eq('agent_id', user.id)
           .is('reversed_at', null)
-          .gte('created_at', `${from}T00:00:00+03:00`).lte('created_at', `${to}T23:59:59+03:00`).limit(5000),
+          .gte('created_at', new Date(`${from}T00:00:00+03:00`).toISOString()).lte('created_at', new Date(`${to}T23:59:59+03:00`).toISOString()).limit(5000),
       ]);
       if (plans.error) throw plans.error;
       if (cols.error) throw cols.error;

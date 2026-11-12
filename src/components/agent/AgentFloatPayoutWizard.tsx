@@ -1,4 +1,5 @@
 import { landlordPayoutNumberState } from '@/lib/landlordPayoutNumberState';
+import { supportErrorMessage } from '@/lib/selfSupportDirect';
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -467,14 +468,14 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
           landlordOtp.getLastError() ||
           'Could not send the OTP. Check your connection and tap Send OTP again.';
         setSendOtpError(reason);
-        toast.error(reason);
+        toast.error(supportErrorMessage(reason) ?? reason);
       }
     } catch (error) {
       const reason = error instanceof Error
         ? error.message
         : 'Could not prepare the OTP request. Tap Send OTP to try again.';
       setSendOtpError(reason);
-      toast.error(reason);
+      toast.error(supportErrorMessage(reason) ?? reason);
     } finally {
       setPreparingOtp(false);
       // A successful send is represented by otpSent/challengeId. The ref is
@@ -659,7 +660,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
       toast.success('Disbursement retried');
     } catch (e: any) {
       setDisburseError(e?.message || 'Retry failed');
-      toast.error(e?.message || 'Retry failed');
+      toast.error(supportErrorMessage(e?.message) ?? (e?.message || 'Retry failed'));
     } finally {
       setIsRetryingDisburse(false);
     }

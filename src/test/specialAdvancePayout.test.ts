@@ -889,3 +889,60 @@ describe('Receivable only after payout (Phase A, 2026-11-02)', () => {
     expect(await md5()).toBe(PHASE_A_MD5);
   });
 });
+
+describe('Already-issued outside-Welile recording (embedded accounting)', () => {
+  let request: Record<string, unknown>;
+  let recorded: Adv;
+  const record = (req: Record<string, unknown>, user = cfo, aal = 'aal2') =>
+    call<Adv>(user, 'select public.special_advance_record_historical($1::jsonb) r', [JSON.stringify(req)], aal);
+
+  beforeAll(async () => {
+    await db.exec(MIG('20261112080840_f2dc8ec7-d62e-49a7-adaa-e59a1bedd9b7.sql'));
+    await db.exec(MIG('20261112081541_ada2af8d-2eb3-456b-80c0-1b298502b9df.sql'));
+    const borrower = uuid();
+    await db.query('insert into auth.users values ($1)', [borrower]);
+    await db.query("insert into public.profiles (id,full_name) values ($1,'Historical Borrower')", [borrower]);
+    await db.query("insert into public.user_roles (user_id,role) values ($1,'tenant')", [borrower]);
+    const id = uuid();
+    request = { advance_id: id, borrower: { kind: 'welile_user', user_id: borrower }, terms: TERMS,
+      purpose: 'Original outside-Welile supplier stock payment', original_payout_date: '2026-09-01',
+      method: 'cash', reference: 'HISTORICAL-RECEIPT-001', proof_path: await proof(id),
+      expected_total_repayable: 940000, idempotency_key: uuid(), confirm_not_recorded: true };
+  });
+
+  it('requires CFO authority and proof before writing anything', async () => {
+    expect((await record(request, coo)).err?.message).toBe('NOT_AUTHORIZED');
+    expect((await record({ ...request, proof_path: null })).err?.message).toBe('PROOF_REQUIRED');
+    expect(await q('select count(*)::int n from public.special_advances where id=$1', [request.advance_id])).toEqual([{ n: 0 }]);
+  });
+
+  it('records original-date schedule and balanced platform accounting, with no wallet movement', async () => {
+    const result = await record(request);
+    expect(result.err).toBeUndefined();
+    if (!result.out) throw new Error('Historical recording returned no statement');
+    recorded = result.out;
+    expect(recorded).toMatchObject({ status: 'disbursed', payout_date: '2026-09-01', payout_method: 'cash' });
+    expect(recorded.schedule.map(row => row.due_date)).toEqual(['2026-10-01','2026-10-31','2026-11-30']);
+    if (!recorded.payout_ledger_group_id) throw new Error('Missing original accounting group');
+    expect((await legs(recorded.payout_ledger_group_id)).every(row => row.ledger_scope === 'platform' && row.user_id === null)).toBe(true);
+    expect(await mapped(recorded.payout_ledger_group_id)).toEqual([
+      { account: 'A1', dr: 0, cr: 500000 }, { account: 'A24', dr: 940000, cr: 0 }, { account: 'R1', dr: 0, cr: 440000 },
+    ]);
+    expect(await q('select count(*)::int n from public.wallet_movements where user_id=$1', [(request.borrower as { user_id: string }).user_id])).toEqual([{ n: 0 }]);
+  });
+
+  it('replays once and refuses changed retries or another payout', async () => {
+    expect((await record(request)).out?.replayed).toBe(true);
+    expect((await record({ ...request, reference: 'CHANGED-RECEIPT' })).err?.message).toBe('IDEMPOTENCY_CONFLICT');
+    expect(await q('select count(distinct transaction_group_id)::int n from public.general_ledger where source_id=$1', [request.advance_id])).toEqual([{ n: 1 }]);
+    expect((await disburse(recorded, { method: 'wallet', payout_date: today() })).err?.message).toBe('SPECIAL_ADVANCE_ALREADY_PAID_OUT');
+  });
+
+  it('refuses a reused receipt reference and future original date', async () => {
+    const id = uuid();
+    const fresh = { ...request, advance_id: id, idempotency_key: uuid(), proof_path: await proof(id) };
+    expect((await record(fresh)).err?.message).toBe('HISTORICAL_REFERENCE_ALREADY_RECORDED');
+    expect((await record({ ...fresh, original_payout_date: '2099-01-01' })).err?.message).toBe('SPECIAL_ADVANCE_INVALID_REQUEST');
+    expect(await q('select count(*)::int n from public.special_advances where id=$1', [id])).toEqual([{ n: 0 }]);
+  });
+});

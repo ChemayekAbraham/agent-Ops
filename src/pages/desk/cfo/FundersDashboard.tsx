@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ImageOff, MapPin } from 'lucide-react';
 import { FOCUS, LABEL, PANEL } from '../deskTheme';
 import { clockTime } from '../deskPrefs';
@@ -20,6 +20,9 @@ import { stackLayout } from '../ui/layout';
 import { readableError } from '../reviewApi';
 import { PERIODS, useFundersDashboard, type FundersRow, type Period } from './cfoApi';
 import { UNSOLD_7D_LABEL, fundedSplitText, fundersLead, heldLabel, isUnsold7d, rating, sortRows, ugx, type Rank } from './fundersView';
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
+import { funderLine, refText, useBoardFacts, type BoardFacts } from './planDrawerApi';
+import { FundersPlanDrawer } from './FundersPlanDrawer';
 
 /** The listing's main photo: the first of the house photos the funders see. */
 export function mainPhoto(r: Pick<FundersRow, 'photos'>): string | null {
@@ -84,8 +87,26 @@ function Ratings({ r }: { r: FundersRow }) {
   );
 }
 
+/** "Self-contained in Kampala · UGX 650,000": what funders see, under the rent. */
+function FunderSees({ line, oneLine = false }: { line: string | null; oneLine?: boolean }) {
+  if (!line) return null;
+  if (oneLine) {
+    // In a table cell: one line under the rent, the whole of it on hover.
+    return (
+      <OneLine className="text-xs text-muted-foreground" title={`What funders see: ${line}`}>
+        <span data-funder-line>{line}</span>
+      </OneLine>
+    );
+  }
+  return (
+    <span className="block text-xs text-muted-foreground" data-funder-line title="What funders see on their card">
+      {line}
+    </span>
+  );
+}
+
 /** Below md: one listing as a card — photo, who, where, how much. */
-function FundersCard({ r, board }: { r: FundersRow; board: boolean }) {
+function FundersCard({ r, board, line, onOpen }: { r: FundersRow; board: boolean; line: string | null; onOpen: () => void }) {
   const photo = mainPhoto(r);
   return (
     <article className="desk-tile" style={{ ...stackLayout(8), padding: 12 }} data-funders-card={r.id}>
@@ -113,8 +134,13 @@ function FundersCard({ r, board }: { r: FundersRow; board: boolean }) {
         )}
         <div style={{ ...stackLayout(2), minWidth: 0, flex: '1 1 auto' }}>
           <h4 className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`} style={{ margin: 0, overflowWrap: 'anywhere' }}>
-            {r.tenant ?? '—'}
+            <button type="button" onClick={onOpen} className={`text-left underline-offset-2 hover:underline ${FOCUS}`} aria-label={`Open the plan for ${r.tenant ?? refText(r.id)}`}>
+              {r.tenant ?? '—'}
+            </button>
           </h4>
+          <span className="font-mono text-xs text-muted-foreground" data-ref>
+            {refText(r.id)}
+          </span>
           {r.tenant_location && (
             <p
               className="text-sm text-muted-foreground"
@@ -134,6 +160,9 @@ function FundersCard({ r, board }: { r: FundersRow; board: boolean }) {
           {moneyCard(r.rent)}
         </span>
         <GradeBadge grade={r.grade} />
+        <span style={{ flexBasis: '100%' }}>
+          <FunderSees line={line} />
+        </span>
         <span className="tabular-nums text-muted-foreground">{daysShort(r.days_on_board)} on board</span>
         <StatusChips r={r} />
       </div>
@@ -169,6 +198,15 @@ export function FundersDashboard({
   const period = controlled ? periodProp : ownPeriod;
   const setPeriod = (p: Period) => (onPeriodChange ? onPeriodChange(p) : setOwnPeriod(p));
   const [rank, setRank] = useState<Rank>('grade');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const closeDrawer = useCallback(() => setOpenId(null), []);
+  const facts = useBoardFacts();
+  const { pay } = useSelfSupportFeePolicy();
+  const factsFor = (id: string): BoardFacts | null => facts.data?.get(id) ?? null;
+  const lineFor = (id: string): string | null => {
+    const f = factsFor(id);
+    return f ? funderLine(f, pay) : null;
+  };
 
   const q = useFundersDashboard(period);
   const d = q.data;
@@ -201,8 +239,8 @@ export function FundersDashboard({
       label: 'Request',
       priority: 2,
       kind: 'code',
-      render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.req ?? r.id.slice(0, 8)}</span>,
-      text: (r) => r.req ?? r.id.slice(0, 8),
+      render: (r) => <span className="font-mono text-xs text-muted-foreground" data-ref>{refText(r.id)}</span>,
+      text: (r) => refText(r.id),
     },
     {
       key: 'tenant',
@@ -211,7 +249,11 @@ export function FundersDashboard({
       kind: 'name',
       render: (r) => (
         <>
-          <OneLine className="text-foreground" title={r.tenant}>{r.tenant ?? '—'}</OneLine>
+          <OneLine className="text-foreground" title={r.tenant}>
+            <button type="button" onClick={() => setOpenId(r.id)} className={`text-left underline-offset-2 hover:underline ${FOCUS}`} aria-label={`Open the plan for ${r.tenant ?? refText(r.id)}`}>
+              {r.tenant ?? '—'}
+            </button>
+          </OneLine>
           {r.tenant_location && (
             <OneLine className="text-xs text-muted-foreground" title={r.tenant_location}>
               {r.tenant_location}
@@ -224,7 +266,20 @@ export function FundersDashboard({
     { key: 'agent', label: 'Agent', priority: 2, kind: 'name', render: (r) => r.agent ?? '—' },
     { key: 'grade', label: 'Grade', priority: 2, kind: 'number', render: (r) => <GradeBadge grade={r.grade} />, text: (r) => r.grade ?? '' },
     { key: 'days', label: 'Days', priority: 2, kind: 'number', align: 'right', render: (r) => (r.days_on_board === null ? '—' : String(r.days_on_board)) },
-    { key: 'rent', label: 'Rent (UGX)', priority: 1, kind: 'money', align: 'right', render: (r) => (r.rent === null ? '—' : Math.round(r.rent).toLocaleString('en')) },
+    {
+      key: 'rent',
+      label: 'Rent (UGX)',
+      priority: 1,
+      kind: 'money',
+      align: 'right',
+      render: (r) => (
+        <>
+          {r.rent === null ? '—' : Math.round(r.rent).toLocaleString('en')}
+          <FunderSees line={lineFor(r.id)} oneLine />
+        </>
+      ),
+      text: (r) => [r.rent === null ? '—' : Math.round(r.rent).toLocaleString('en'), lineFor(r.id)].filter(Boolean).join(' · '),
+    },
     {
       key: 'status',
       label: 'Status',
@@ -323,7 +378,8 @@ export function FundersDashboard({
           emptyText="Nothing is on the funders’ board right now."
           board={board}
           rowAttrs={(r) => ({ 'data-unsold-7d': isUnsold7d(r) ? '' : undefined })}
-          card={(r) => <FundersCard r={r} board={board} />}
+          card={(r) => <FundersCard r={r} board={board} line={lineFor(r.id)} onOpen={() => setOpenId(r.id)} />}
+          onRowOpen={(r) => setOpenId(r.id)}
         />
         {!wide && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -333,6 +389,9 @@ export function FundersDashboard({
         )}
       </section>
 
+      {openId && rows.find((r) => r.id === openId) && (
+        <FundersPlanDrawer row={rows.find((r) => r.id === openId) as FundersRow} facts={factsFor(openId)} onClose={closeDrawer} />
+      )}
     </div>
   );
 }

@@ -2,9 +2,11 @@
  * Resubmit and renewal for the T4 rent request form. A new request posts through
  * submitAssistantRentRequest (rentRequestAssistantSubmit.ts).
  *
- * - Resubmit: the same server call the old Edit/Resubmit dialog made
- *   (agent_resubmit_rent_request with a patch of what changed), then the T4
- *   intake (agent_save_intake_details, agent_note_lc1_missing).
+ * - Resubmit (E90): family size and work (agent_save_intake_details, allowed on a
+ *   rejected request), the documents (request_attach_document) and the house photos
+ *   go in side by side, then the same server call the old Edit/Resubmit dialog made
+ *   (agent_resubmit_rent_request with a patch of what changed). The server refuses
+ *   with RESUBMIT_INCOMPLETE until everything _agent_side_missing lists is in.
  * - Renewal: the same audited renew_rent_request the tenant screens call (after
  *   the agent's rent/days choice and the tenant's code), then the LC1 letter or
  *   reason on the new request.
@@ -20,6 +22,7 @@ import { attachLc1Letter, noteLc1Missing, saveIntakeDetails } from '@/lib/agentI
 import { uploadLcLetter } from '@/lib/rentRequestAssistantSubmit';
 import { safeUUID } from '@/lib/safeUUID';
 import { OPEN_REQUEST_STATUSES, type TenantIdFields } from '@/lib/t4RentRequest';
+import { counted, createSendTimer, createUploadCounter, type OnSendProgress, type UploadCounter } from '@/lib/sendProgress';
 
 type UntypedRpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
 const rpc: UntypedRpc = (fn, args) => (supabase.rpc as unknown as UntypedRpc).call(supabase, fn, args);
@@ -47,34 +50,43 @@ export async function uploadResubmitEvidence(
   photos: PhotoSlot[],
   extraUrls: string[],
   lcLetter: File | null,
+  counter?: UploadCounter | null,
 ): Promise<Record<string, unknown>> {
   const patch: Record<string, unknown> = {};
-  if (photos.some((p) => p instanceof File)) {
-    const urls: string[] = [];
-    for (let i = 0; i < photos.length; i++) {
-      const p = photos[i];
-      if (typeof p === 'string') { urls.push(p); continue; }
-      if (!p) continue;
-      let file = p;
-      try { file = (await optimizeImage(p, { maxWidth: 1200, quality: 0.8 })).file; } catch { /* keep the original */ }
-      const ext = file.name.split('.').pop() || 'webp';
-      const path = `${agentId}/${requestId}/photo_${i}_${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('house-images').upload(path, file, { cacheControl: '86400', upsert: false });
-      if (error) throw new Error(`House photo ${i + 1} did not upload: ${error.message}`);
-      urls.push(supabase.storage.from('house-images').getPublicUrl(path).data.publicUrl);
-    }
-    // A full new set drops the old extras so reviewers never see a mix.
-    const allNew = photos.every((p) => p instanceof File);
-    patch.house_image_urls = [...urls, ...(allNew ? [] : extraUrls)];
-  }
-  if (lcLetter) {
-    let file = lcLetter;
-    try { file = (await optimizeImage(lcLetter, { maxWidth: 2000, maxHeight: 2000, quality: 0.85, format: 'image/jpeg' })).file; } catch { /* keep the original */ }
+  const newPhotos = photos.filter((p) => p instanceof File).length;
+  counter?.add(newPhotos + (lcLetter ? 1 : 0));
+  // Every new photo and the letter upload side by side.
+  const photo = async (p: File, i: number): Promise<string> => {
+    let file = p;
+    try { file = (await optimizeImage(p, { maxWidth: 1200, quality: 0.8 })).file; } catch { /* keep the original */ }
+    const ext = file.name.split('.').pop() || 'webp';
+    const path = `${agentId}/${requestId}/photo_${i}_${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('house-images').upload(path, file, { cacheControl: '86400', upsert: false });
+    if (error) throw new Error(`House photo ${i + 1} did not upload: ${error.message}`);
+    return supabase.storage.from('house-images').getPublicUrl(path).data.publicUrl;
+  };
+  const letter = async (f: File): Promise<string> => {
+    let file = f;
+    try { file = (await optimizeImage(f, { maxWidth: 2000, maxHeight: 2000, quality: 0.85, format: 'image/jpeg' })).file; } catch { /* keep the original */ }
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const path = `${agentId}/${requestId}/lc_letter_${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from('lc-letters').upload(path, file, { cacheControl: '86400', upsert: false, contentType: file.type });
     if (error) throw new Error(`The LC letter did not upload: ${error.message}`);
-    patch.lc_letter_path = path;
+    return path;
+  };
+  const photosP = newPhotos > 0
+    ? Promise.all(photos.map((p, i) => (typeof p === 'string' ? p : p ? counted(counter, photo(p, i)) : null)))
+    : null;
+  const letterP = lcLetter ? counted(counter, letter(lcLetter)) : null;
+  const [slots, letterPath] = await Promise.all([photosP, letterP]);
+  if (slots) {
+    const urls = slots.filter((u): u is string => !!u);
+    // A full new set drops the old extras so reviewers never see a mix.
+    const allNew = photos.every((p) => p instanceof File);
+    patch.house_image_urls = [...urls, ...(allNew ? [] : extraUrls)];
+  }
+  if (letterPath) {
+    patch.lc_letter_path = letterPath;
     patch.lc_letter_bucket = 'lc-letters';
   }
   return patch;
@@ -104,24 +116,43 @@ export interface ResubmitInput {
   noLc1Reason: string | null;
   /** Family size and work: saved unless the request is a renewal (SC-2 skips them). */
   details: { familySize: number | null; workBusiness: string | null; workLocation: string | null } | null;
+  /** ID front / back and LC1 letter to attach (request_attach_document) before the resubmit. */
+  docs?: Partial<Record<DocKind, DocSource>>;
+  /** "Uploading photos 3/6…", "Saving…": the button follows this. */
+  onProgress?: OnSendProgress;
 }
 
 export type ResubmitResult = ({ ok: true; requestId: string } & T4IntakeOutcome) | { ok: false; message: string };
 
-/** Resubmits a rejected request from the T4 form. Server errors are returned as-is. */
+/**
+ * Resubmits a rejected request from the T4 form. Family size and work, the documents and
+ * the house photos go in side by side; the resubmit waits for all of them, since the server
+ * refuses it without them (E90). Server errors are returned as-is.
+ */
 export async function resubmitT4Request(input: ResubmitInput): Promise<ResubmitResult> {
-  let evidence: Record<string, unknown>;
+  const timer = createSendTimer('resubmit');
+  const res = await resubmitTimed(input, timer);
+  timer.finish(res.ok ? 'ok' : 'failed');
+  return res;
+}
+
+async function resubmitTimed(input: ResubmitInput, timer: ReturnType<typeof createSendTimer>): Promise<ResubmitResult> {
+  const counter = createUploadCounter(input.onProgress);
+  const intakeP = input.details ? saveIntakeDetails(input.requestId, input.details) : Promise.resolve(null);
+  const docsP = input.docs ? attachT4Documents(input.agentId, input.requestId, input.docs, counter) : Promise.resolve([] as string[]);
+  const evidenceP = uploadResubmitEvidence(input.agentId, input.requestId, input.photos, input.extraPhotoUrls, input.lcLetter, counter)
+    .then((patch) => ({ patch }), (e: unknown) => ({ error: errorText(e) }));
+  const [saved, docProblems, evidence] = await timer.step('details, documents and photos', Promise.all([intakeP, docsP, evidenceP]));
+  counter.saving();
+  if (saved && !saved.ok) return { ok: false, message: saved.message || 'The family size and work were not saved.' };
+  if (docProblems.length) return { ok: false, message: docProblems.join(' · ') };
+  if ('error' in evidence) return { ok: false, message: evidence.error };
   try {
-    evidence = await uploadResubmitEvidence(input.agentId, input.requestId, input.photos, input.extraPhotoUrls, input.lcLetter);
-  } catch (e) {
-    return { ok: false, message: errorText(e) };
-  }
-  try {
-    const { error } = await rpc('agent_resubmit_rent_request', {
+    const { error } = await timer.step('resubmit', rpc('agent_resubmit_rent_request', {
       p_request_id: input.requestId,
-      p_patch: { ...input.patch, ...evidence },
+      p_patch: { ...input.patch, ...evidence.patch },
       p_agent_note: input.note.trim(),
-    });
+    }));
     if (error) return { ok: false, message: errorText(error) || 'The request was not resubmitted.' };
   } catch (e) {
     return { ok: false, message: errorText(e) || 'The request was not resubmitted.' };
@@ -131,11 +162,72 @@ export async function resubmitT4Request(input: ResubmitInput): Promise<ResubmitR
     const noted = await noteLc1Missing(input.requestId, input.noLc1Reason);
     if (!noted.ok) out.lc1NoteError = noted.message;
   }
-  if (input.details) {
-    const saved = await saveIntakeDetails(input.requestId, input.details);
-    if (!saved.ok) out.intakeError = saved.message;
-  }
   return { ok: true, requestId: input.requestId, ...out };
+}
+
+/** The resubmit questions that can fix an agent-side gap. */
+export type SideMissingStep = 'rent' | 'landlord' | 'photos' | 'gps' | 'familySize' | 'work' | 'idFront' | 'idBack' | 'lcLetter';
+
+/**
+ * What the agent still has to add before a rejected request can go back (E90), from
+ * _agent_side_missing(p_request_id). null when the list could not be read; the form then
+ * asks everything as before and the server's refusal is shown as it comes.
+ */
+export async function fetchAgentSideMissing(requestId: string): Promise<string[] | null> {
+  try {
+    const { data, error } = await rpc('_agent_side_missing', { p_request_id: requestId });
+    if (error || !Array.isArray(data)) return null;
+    return data.filter((x): x is string => typeof x === 'string' && x.trim() !== '').map((x) => x.trim());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The exact lines _agent_side_missing returns, and the question each one opens. Matched
+ * first (ignoring case and surrounding spaces); keywords are only a fallback for a line
+ * the server adds later.
+ */
+export const SIDE_MISSING_LINES: Readonly<Record<string, SideMissingStep>> = {
+  'Photos of the house': 'photos',
+  'Landlord details': 'landlord',
+  'Rent amount needed': 'rent',
+  'GPS of the house': 'gps',
+  'family size': 'familySize',
+  'work / business': 'work',
+  'ID photo (front)': 'idFront',
+  'ID photo (back)': 'idBack',
+  'LC1 letter (photo)': 'lcLetter',
+};
+const EXACT_SIDE_MISSING = new Map(
+  Object.entries(SIDE_MISSING_LINES).map(([line, step]) => [line.trim().toLowerCase(), step] as const),
+);
+
+/** The questions one server line asks for (none for a line no question fixes). */
+export function sideMissingSteps(line: string): SideMissingStep[] {
+  const t = line.trim().toLowerCase();
+  const exact = EXACT_SIDE_MISSING.get(t);
+  if (exact) return [exact];
+
+  // Fallback for a line not in the list. ID photos and the LC1 letter come before any
+  // generic "photo", so "LC1 letter (photo)"-style lines never open the house photos.
+  if (/\blc\s?1\b|\blc\b|letter/.test(t)) return ['lcLetter'];
+  if (/\bid\b|national id|\bnin\b/.test(t)) {
+    const front = t.includes('front');
+    const back = t.includes('back');
+    const out: SideMissingStep[] = [];
+    if (front || !back) out.push('idFront');
+    if (back || !front) out.push('idBack');
+    return out;
+  }
+  const out: SideMissingStep[] = [];
+  if (t.includes('photo')) out.push('photos');
+  if (t.includes('landlord')) out.push('landlord');
+  if (/\brent\b/.test(t) && !t.includes('landlord')) out.push('rent');
+  if (t.includes('gps') || t.includes('location')) out.push('gps');
+  if (t.includes('family') || t.includes('household')) out.push('familySize');
+  if (t.includes('work') || t.includes('business') || t.includes('occupation')) out.push('work');
+  return out;
 }
 
 const RENEWAL_TIMEOUT_MS = 25000;
@@ -197,10 +289,10 @@ export async function saveTenantProfile(
 }
 
 /** New house photos for a renewal go on the new request, kept beside the ones already on file. */
-export async function attachRenewalPhotos(agentId: string, requestId: string, photos: PhotoSlot[]): Promise<string | null> {
+export async function attachRenewalPhotos(agentId: string, requestId: string, photos: PhotoSlot[], counter?: UploadCounter | null): Promise<string | null> {
   if (!photos.some((p) => p instanceof File)) return null;
   try {
-    const patch = await uploadResubmitEvidence(agentId, requestId, photos, [], null);
+    const patch = await uploadResubmitEvidence(agentId, requestId, photos, [], null, counter);
     const { error } = await supabase.from('rent_requests').update({ house_image_urls: patch.house_image_urls as string[] }).eq('id', requestId);
     return error ? errorText(error) : null;
   } catch (e) {
@@ -363,27 +455,29 @@ export async function attachDocument(requestId: string, kind: DocKind, doc: Stor
 }
 
 /**
- * Uploads any new photos and attaches each document to the request. Returns the
- * problems, each with the server's own message.
+ * Uploads any new photos and attaches each document to the request, all documents side
+ * by side (each one is attached as soon as it is stored). Returns the problems, each with
+ * the server's own message, in ID front, ID back, LC1 letter order.
  */
 export async function attachT4Documents(
   agentId: string,
   requestId: string,
   docs: Partial<Record<DocKind, DocSource>>,
+  counter?: UploadCounter | null,
 ): Promise<string[]> {
-  const problems: string[] = [];
-  for (const kind of DOC_KINDS) {
-    const src = docs[kind];
-    if (!src) continue;
+  const kinds = DOC_KINDS.filter((k) => !!docs[k]);
+  counter?.add(kinds.filter((k) => docs[k] instanceof File).length);
+  const problems = await Promise.all(kinds.map(async (kind): Promise<string | null> => {
+    const src = docs[kind] as File | StoredDoc;
     try {
-      const stored = src instanceof File ? await uploadDocument(agentId, requestId, kind, src) : src;
+      const stored = src instanceof File ? await counted(counter, uploadDocument(agentId, requestId, kind, src)) : src;
       const e = await attachDocument(requestId, kind, stored);
-      if (e) problems.push(`${DOC_LABEL[kind]}: ${e}`);
+      return e ? `${DOC_LABEL[kind]}: ${e}` : null;
     } catch (e) {
-      problems.push(`${DOC_LABEL[kind]}: ${errorText(e)}`);
+      return `${DOC_LABEL[kind]}: ${errorText(e)}`;
     }
-  }
-  return problems;
+  }));
+  return problems.filter((x): x is string => !!x);
 }
 
 /**
@@ -394,23 +488,26 @@ export async function attachT4Documents(
 export async function uploadNewRequestDocs(
   agentId: string,
   files: { idFront: File; idBack: File; lcLetter: File },
+  counter?: UploadCounter | null,
 ): Promise<{ idFront: StoredDoc; idBack: StoredDoc; lcLetter: StoredDoc }> {
   const folder = `new-${safeUUID()}`;
+  counter?.add(3);
   const one = async (kind: DocKind, file: File) => {
     try {
-      return await uploadDocument(agentId, folder, kind, file);
+      return await counted(counter, uploadDocument(agentId, folder, kind, file));
     } catch (e) {
       throw new Error(`${DOC_LABEL[kind]}: ${errorText(e)}`);
     }
   };
-  return {
-    idFront: await one('id_front', files.idFront),
-    idBack: await one('id_back', files.idBack),
-    lcLetter: await one('lc1_letter', files.lcLetter),
-  };
+  // Side by side; the first failure is reported, naming the photo.
+  const [idFront, idBack, lcLetter] = await Promise.all([
+    one('id_front', files.idFront),
+    one('id_back', files.idBack),
+    one('lc1_letter', files.lcLetter),
+  ]);
+  return { idFront, idBack, lcLetter };
 }
 
-/** The tenant profile's ID back photo (E75b column, not in the generated types yet). Null when none or unknown. */
 export async function loadProfileIdBack(tenantId: string): Promise<string | null> {
   try {
     const { data, error } = await untypedFrom('profiles').select('national_id_photo_back_path').eq('id', tenantId).maybeSingle();

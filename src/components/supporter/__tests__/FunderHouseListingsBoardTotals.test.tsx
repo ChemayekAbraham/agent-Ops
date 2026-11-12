@@ -54,7 +54,13 @@ const boardItem = (id: string, tag: string, extra: Record<string, unknown> = {})
   kind: 'rent_request', id, tag, selectable: tag === 'verified', held: false, house_category: 'Single Room', city: 'Kira', rent_amount: 400000, ...extra,
 });
 const BOARD = {
-  items: [boardItem('a', 'verified'), boardItem('late', 'verified'), boardItem('held', 'verified', { selectable: false, held: true }), boardItem('b1', 'booked'), boardItem('p1', 'pending_verification')],
+  items: [
+    boardItem('a', 'verified', { incomplete: ['family size', 'LC1 (letter or phone confirmation)'] }),
+    boardItem('late', 'verified', { incomplete: [] }),
+    boardItem('held', 'verified', { selectable: false, held: true, incomplete: ['photo review (3+ approved, main photo)'] }),
+    boardItem('b1', 'booked'),
+    boardItem('p1', 'pending_verification'),
+  ],
   counts: { verified: 3, verified_ugx: 1200000, booked: 1, funded: 0, pending_verification: 1, pending_verification_ugx: 400000, ready_total: 4, ready_total_ugx: 1600000 },
 };
 
@@ -102,6 +108,23 @@ describe('funders houses list: header totals are COO/CEO only', { timeout: 20_00
     await renderSection();
     expect(await screen.findByTestId('board-headline')).toHaveTextContent('4 ready to fund · UGX 1,600,000');
     expect(screen.getByTestId('board-subline')).toHaveTextContent('3 verified · 1 pending verification');
+  });
+
+  it('COO/CEO view: Verified cards with something missing show the red Incomplete chip', async () => {
+    mockRpc(true);
+    await renderSection();
+    await screen.findByTestId('board-headline');
+    const chips = screen.getAllByTestId('fv3-incomplete-chip').map((el) => el.textContent);
+    expect(chips).toEqual(['Incomplete: family size, LC1 (letter or phone confirmation)', 'Incomplete: photo review (3+ approved, main photo)']);
+  });
+
+  it('funder view: never an Incomplete chip, even if a list arrived', async () => {
+    // The server sends incomplete as null to funders; the list drops it as well.
+    mockRpc(false);
+    await renderSection();
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('funders_board_can_demote', {}));
+    expect(screen.queryByTestId('fv3-incomplete-chip')).toBeNull();
+    expect(screen.queryByText(/Incomplete:/)).toBeNull();
   });
 
   it("a selectable Verified item follows the server's selectable: fundable before its plan loads, never \"View only\"", async () => {

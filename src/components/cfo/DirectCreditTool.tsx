@@ -155,6 +155,16 @@ export const PAYOUT_CATEGORIES: PayoutCategory[] = [
     ],
   },
   {
+    id: 'testing',
+    label: '🧪 Testing',
+    description: 'Testing expenditures',
+    impact: 'expense',
+    walletCategory: 'research_development_expense',
+    platformCategory: 'research_development_expense',
+    allowedOps: ['credit'],
+    recipientLock: 'either',
+  },
+  {
     id: 'school_of_ai',
     label: '🎓 School of AI',
     description: 'Welile School of AI expenditures — training programs, curriculum, facilitators, learner stipends, and AI education initiatives. Routes to the R&D expense ledger for reporting consistency.',

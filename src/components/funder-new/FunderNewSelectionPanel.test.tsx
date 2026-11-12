@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 // The sales sheet prices its worked example at the viewer's own rate (15 while the switch is off).
+vi.mock('@/hooks/useFunderSavedTabs', () => ({
+  useFunderFloatHolds: () => ({ line: null, tab: null, breakdown: null, isLoading: false, error: null }),
+}));
 vi.mock('@/hooks/usePartnerQuoteRate', () => ({
   useOwnNewPortfolioRate: () => ({ rate: 15, isLoading: false }),
 }));
@@ -57,7 +60,7 @@ describe('FunderNewReviewDialog', () => {
     expect(screen.getByText(/Monthly Rent profit share \(15%\)/i)).toBeInTheDocument();
     expect(screen.getByText('UGX 67,500')).toBeInTheDocument();
 
-    expect(screen.getByText(/Available Balance/i)).toBeInTheDocument();
+    expect(screen.getByText(/Available operational float/i)).toBeInTheDocument();
     expect(screen.getByText('UGX 450,000 short')).toBeInTheDocument();
 
     // House item details

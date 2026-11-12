@@ -74,6 +74,8 @@ export interface RentApprovalMoneyCounterProps {
   selectedRequests?: any[];
   /** Optional callback when a request is clicked in any breakdown modal */
   onRequestClick?: (request: any) => void;
+  /** Optional callback when the top "Rent Requests waiting to be Approved" card is clicked */
+  onJumpToFirstRequest?: () => void;
   className?: string;
 }
 
@@ -149,6 +151,7 @@ export function RentApprovalMoneyCounter({
   queueRequests = [],
   selectedRequests = [],
   onRequestClick,
+  onJumpToFirstRequest,
   className,
 }: RentApprovalMoneyCounterProps) {
   const { user } = useAuth();
@@ -533,12 +536,12 @@ export function RentApprovalMoneyCounter({
     <Card className={cn('border border-border/80 shadow-xs overflow-hidden', className)}>
       <CardContent className="p-3 sm:p-4 space-y-3">
         {/* Header Bar: Title, View Mode Switcher & Target Adjuster */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 shrink-0">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-2.5">
+            <div className="flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-xl sm:rounded-lg bg-emerald-500/10 text-emerald-600 shrink-0 mt-0.5 sm:mt-0">
               <Banknote className="h-4 w-4" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h3 className="text-xs sm:text-sm font-bold tracking-tight text-foreground uppercase">
                   {isTodayMode ? "Today's Approval Money Counter" : `${viewModeLabel} Approval Counter`}
@@ -553,15 +556,15 @@ export function RentApprovalMoneyCounter({
                   {isCurrentlyOverTarget ? 'Target Exceeded' : `${progressPct}% of target`}
                 </Badge>
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                Live Kampala-day approved rent tracking against your payout budget. Click the approved card to inspect requests.
+              <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                Live Kampala-day approved rent tracking against your payout budget. Tap any card to inspect requests.
               </p>
             </div>
           </div>
 
-          {/* Quick Date Switcher & Target Widget */}
-          <div className="flex items-center gap-1.5 flex-wrap justify-end">
-            <div className="flex items-center p-0.5 rounded-lg bg-muted/60 border border-border/60 text-xs">
+          {/* Quick Date Switcher & Target Widget — Mobile-first touch targets */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-1.5 lg:justify-end">
+            <div className="grid grid-cols-4 sm:flex items-center p-1 sm:p-0.5 rounded-xl sm:rounded-lg bg-muted/60 border border-border/60 text-xs">
               <button
                 type="button"
                 onClick={() => {
@@ -569,7 +572,7 @@ export function RentApprovalMoneyCounter({
                   setShowHistoryPanel(false);
                 }}
                 className={cn(
-                  'px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors',
+                  'px-2 py-1.5 sm:py-0.5 rounded-lg sm:rounded-md text-[11px] font-medium transition-colors text-center truncate',
                   viewMode === 'today'
                     ? 'bg-background text-foreground shadow-2xs font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
@@ -584,7 +587,7 @@ export function RentApprovalMoneyCounter({
                   setShowHistoryPanel(false);
                 }}
                 className={cn(
-                  'px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors',
+                  'px-2 py-1.5 sm:py-0.5 rounded-lg sm:rounded-md text-[11px] font-medium transition-colors text-center truncate',
                   viewMode === 'yesterday'
                     ? 'bg-background text-foreground shadow-2xs font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
@@ -599,13 +602,14 @@ export function RentApprovalMoneyCounter({
                   setShowHistoryPanel(false);
                 }}
                 className={cn(
-                  'px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors',
+                  'px-2 py-1.5 sm:py-0.5 rounded-lg sm:rounded-md text-[11px] font-medium transition-colors text-center truncate',
                   viewMode === '7days'
                     ? 'bg-background text-foreground shadow-2xs font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                7-Day Total
+                <span className="sm:hidden">7-Day</span>
+                <span className="hidden sm:inline">7-Day Total</span>
               </button>
               <button
                 type="button"
@@ -614,34 +618,34 @@ export function RentApprovalMoneyCounter({
                   if (!showHistoryPanel) setViewMode('custom');
                 }}
                 className={cn(
-                  'px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1',
+                  'px-2 py-1.5 sm:py-0.5 rounded-lg sm:rounded-md text-[11px] font-medium transition-colors flex items-center justify-center gap-1 truncate',
                   showHistoryPanel || viewMode === 'custom'
                     ? 'bg-background text-foreground shadow-2xs font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                <CalendarDays className="h-3 w-3" />
+                <CalendarDays className="h-3 w-3 shrink-0" />
                 <span>History</span>
               </button>
             </div>
 
             {/* Daily Target Setting */}
             {isEditingBudget ? (
-              <div className="flex items-center gap-1 bg-background p-1 rounded-md border shadow-xs">
-                <span className="text-[11px] font-medium text-muted-foreground pl-1">UGX</span>
+              <div className="flex items-center justify-between sm:justify-start gap-1 bg-background p-1 rounded-lg sm:rounded-md border shadow-xs">
+                <span className="text-[11px] font-medium text-muted-foreground pl-1.5">UGX</span>
                 <Input
                   type="number"
                   step={1_000_000}
                   min={100_000}
                   value={budgetDraft}
                   onChange={(e) => setBudgetDraft(e.target.value)}
-                  className="h-7 w-28 text-xs font-semibold px-1.5 py-0"
+                  className="h-8 sm:h-7 flex-1 sm:w-28 text-xs font-semibold px-2 py-0"
                   autoFocus
                 />
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                  className="h-7 w-7 sm:h-6 sm:w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                   onClick={() => saveBudget(Number(budgetDraft))}
                 >
                   <Check className="h-3.5 w-3.5" />
@@ -649,7 +653,7 @@ export function RentApprovalMoneyCounter({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted"
+                  className="h-7 w-7 sm:h-6 sm:w-6 p-0 text-muted-foreground hover:bg-muted"
                   onClick={() => setIsEditingBudget(false)}
                 >
                   <X className="h-3.5 w-3.5" />
@@ -662,16 +666,18 @@ export function RentApprovalMoneyCounter({
                 size="sm"
                 onClick={() => setIsEditingBudget(true)}
                 className={cn(
-                  'h-7 text-xs font-medium gap-1 px-2 border-border/80 bg-background/60',
+                  'h-9 sm:h-7 text-xs font-medium gap-1.5 px-3 sm:px-2 border-border/80 bg-background/60 justify-between sm:justify-start rounded-xl sm:rounded-md',
                   isCurrentlyOverTarget &&
                     'border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-300'
                 )}
                 title="Click to edit your daily approval target"
               >
-                <Target className="h-3 w-3 text-muted-foreground" />
-                <span>Target:</span>
-                <strong className="text-foreground">{formatUGX(dailyBudget)}</strong>
-                <Pencil className="h-2.5 w-2.5 text-muted-foreground ml-0.5" />
+                <span className="flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  <span>Target:</span>
+                  <strong className="text-foreground">{formatUGX(dailyBudget)}</strong>
+                </span>
+                <Pencil className="h-3 w-3 sm:h-2.5 sm:w-2.5 text-muted-foreground ml-0.5" />
               </Button>
             )}
           </div>
@@ -752,8 +758,8 @@ export function RentApprovalMoneyCounter({
           </div>
         )}
 
-        {/* Key Metrics Grid - CLICKABLE CARDS */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+        {/* Key Metrics Grid - 4 BALANCED CARDS */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-0.5 items-stretch">
           {/* Card 1: Total Approved in selected period */}
           <div
             role="button"
@@ -769,11 +775,11 @@ export function RentApprovalMoneyCounter({
                 setModalSearch('');
               }
             }}
-            className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-500/60 p-2.5 space-y-0.5 cursor-pointer transition-all duration-150 active:scale-[0.99] group shadow-2xs relative"
+            className="col-span-2 sm:col-span-1 rounded-xl border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-500/60 p-3 flex flex-col justify-between gap-1 cursor-pointer transition-all duration-150 active:scale-[0.99] group shadow-2xs relative"
             title="Click to view requests summing to this total"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 truncate">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 truncate">
                 {viewMode === 'today'
                   ? filterMyApprovals
                     ? 'My Approved Today'
@@ -784,51 +790,66 @@ export function RentApprovalMoneyCounter({
                   ? '7-Day Approved Total'
                   : 'Range Total'}
               </span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
                 <Badge
                   variant="outline"
-                  className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[9px] px-1 h-3.5 shrink-0"
+                  className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[9px] px-1.5 h-4 shrink-0"
                 >
                   {activeDisplayCount} req{activeDisplayCount === 1 ? '' : 's'}
                 </Badge>
                 <ExternalLink className="h-2.5 w-2.5 text-emerald-600 opacity-50 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
-            <p className="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400 tabular-nums tracking-tight truncate">
+            <p className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 tabular-nums tracking-tight truncate">
               {isLoadingApprovals ? '…' : formatUGX(activeDisplayAmount)}
             </p>
             <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
               {reviewerColumn && user?.id ? (
-                <button
-                  type="button"
+                <span
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => {
                     e.stopPropagation();
                     setFilterMyApprovals(!filterMyApprovals);
                   }}
-                  className="text-[10px] text-muted-foreground hover:text-foreground underline decoration-dotted block truncate"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setFilterMyApprovals(!filterMyApprovals);
+                    }
+                  }}
+                  className="text-[10px] text-muted-foreground hover:text-foreground underline decoration-dotted block truncate cursor-pointer"
                 >
                   {filterMyApprovals ? 'Show all team' : `Mine: ${formatUGX(stats.myAmount)}`}
-                </button>
+                </span>
               ) : (
-                <span className="truncate">Click to view list</span>
+                <span className="truncate">Tap to view list</span>
               )}
-              <span className="text-[9px] font-medium text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-[9px] font-medium text-emerald-600 opacity-75 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                 Inspect ↗
               </span>
             </div>
           </div>
 
-          {/* Card 2: Target / Remaining / Status (Static info) */}
-          <div className="rounded-xl border bg-muted/30 p-2.5 space-y-0.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
-                {isTargetMet ? 'Target Status' : 'Remaining To Target'}
+          {/* Card 2: Target / Remaining / Status */}
+          <div className="col-span-1 rounded-xl border bg-muted/30 p-3 flex flex-col justify-between gap-1">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
+                {isTargetMet ? (
+                  'Target Status'
+                ) : (
+                  <>
+                    <span className="sm:hidden">Remaining</span>
+                    <span className="hidden sm:inline">Remaining To Target</span>
+                  </>
+                )}
               </span>
-              <Target className="h-3 w-3 text-muted-foreground shrink-0" />
+              <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             </div>
             <p
               className={cn(
-                'text-sm sm:text-base font-bold tabular-nums tracking-tight truncate',
+                'text-sm sm:text-lg font-bold tabular-nums tracking-tight truncate',
                 isCurrentlyOverTarget
                   ? 'text-amber-600 dark:text-amber-400'
                   : isTargetMet
@@ -843,48 +864,63 @@ export function RentApprovalMoneyCounter({
                 : formatUGX(remaining)}
             </p>
             <p className="text-[10px] text-muted-foreground truncate">
-              {formatUGX(effectiveTarget)} {viewMode === '7days' ? '7-day target' : 'daily target'}
+              {formatUGX(effectiveTarget)} {viewMode === '7days' ? '7d target' : 'target'}
             </p>
           </div>
 
-          {/* Card 3: Selected to Approve (in Today mode) OR Daily Average (Static info) */}
+          {/* Card 3: Selected to Approve (in Today mode) OR Daily Average */}
           {isTodayMode ? (
             <div
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                if (selectedCount > 0) {
+                  setActiveModal('selected');
+                  setModalSearch('');
+                }
+              }}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && selectedCount > 0) {
+                  setActiveModal('selected');
+                  setModalSearch('');
+                }
+              }}
               className={cn(
-                'rounded-xl border p-2.5 space-y-0.5 transition-all',
+                'col-span-1 rounded-xl border p-3 flex flex-col justify-between gap-1 transition-all',
                 selectedCount > 0
-                  ? 'border-primary/40 bg-primary/10 shadow-xs'
-                  : 'border-border/60 bg-muted/20 opacity-75'
+                  ? 'border-primary/40 bg-primary/10 shadow-xs cursor-pointer hover:border-primary/60'
+                  : 'border-border/60 bg-muted/20 opacity-85'
               )}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-primary truncate">
-                  Selected To Approve
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-primary truncate">
+                  <span className="sm:hidden">Selected</span>
+                  <span className="hidden sm:inline">Selected To Approve</span>
                 </span>
                 {selectedCount > 0 && (
-                  <Badge variant="primary" className="text-[9px] px-1 h-3.5 font-bold shrink-0">
+                  <Badge variant="primary" className="text-[9px] px-1.5 h-4 font-bold shrink-0">
                     {selectedCount} sel.
                   </Badge>
                 )}
               </div>
-              <p className="text-sm sm:text-base font-bold text-primary tabular-nums tracking-tight truncate">
+              <p className="text-sm sm:text-lg font-bold text-primary tabular-nums tracking-tight truncate">
                 {selectedCount > 0 ? `+${formatUGX(selectedAmount)}` : 'UGX 0'}
               </p>
               <p className="text-[10px] text-muted-foreground truncate">
                 {selectedCount > 0
                   ? `Will total ${formatUGX(projectedAmount)}`
-                  : 'Tick checkboxes to add'}
+                  : 'Tick below to add'}
               </p>
             </div>
           ) : (
-            <div className="rounded-xl border bg-muted/30 p-2.5 space-y-0.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
+            <div className="col-span-1 rounded-xl border bg-muted/30 p-3 flex flex-col justify-between gap-1">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
                   Daily Average
                 </span>
-                <TrendingUp className="h-3 w-3 text-muted-foreground shrink-0" />
+                <TrendingUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               </div>
-              <p className="text-sm sm:text-base font-bold text-foreground tabular-nums tracking-tight truncate">
+              <p className="text-sm sm:text-lg font-bold text-foreground tabular-nums tracking-tight truncate">
                 {formatUGX(
                   Math.round(
                     activeDisplayAmount / (viewMode === '7days' ? 7 : Math.max(1, stats.dayMap.size))
@@ -892,20 +928,20 @@ export function RentApprovalMoneyCounter({
                 )}
               </p>
               <p className="text-[10px] text-muted-foreground truncate">
-                across {viewMode === '7days' ? 7 : Math.max(1, stats.dayMap.size)} recorded days
+                across {viewMode === '7days' ? 7 : Math.max(1, stats.dayMap.size)} days
               </p>
             </div>
           )}
 
-          {/* Card 4: In Queue Now / Live Queue (Static info) */}
-          <div className="rounded-xl border bg-muted/30 p-2.5 space-y-0.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
+          {/* Card 4: In Queue Now */}
+          <div className="col-span-2 sm:col-span-1 rounded-xl border bg-muted/30 p-3 flex flex-col justify-between gap-1">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
                 In Queue Now
               </span>
-              <Layers className="h-3 w-3 text-muted-foreground shrink-0" />
+              <Layers className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             </div>
-            <p className="text-sm sm:text-base font-bold text-foreground tabular-nums tracking-tight truncate">
+            <p className="text-sm sm:text-lg font-bold text-foreground tabular-nums tracking-tight truncate">
               {formatUGX(queueTotalAmount)}
             </p>
             <p className="text-[10px] text-muted-foreground truncate">
@@ -915,20 +951,20 @@ export function RentApprovalMoneyCounter({
         </div>
 
         {/* Visual Progress Bar to Target */}
-        <div className="space-y-1 pt-0.5">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-muted-foreground flex items-center gap-1 font-medium">
+        <div className="space-y-1.5 pt-0.5">
+          <div className="flex flex-col min-[460px]:flex-row min-[460px]:items-center justify-between gap-0.5 min-[460px]:gap-2 text-[11px]">
+            <span className="text-muted-foreground flex items-center gap-1 font-medium truncate">
               Progress to {formatUGX(effectiveTarget)} target
               {isTodayMode && selectedCount > 0 && (
                 <span className="text-primary font-semibold">(projected: {projectedProgressPct}%)</span>
               )}
             </span>
-            <span className="font-bold text-foreground tabular-nums">
+            <span className="font-bold text-foreground tabular-nums shrink-0">
               {formatUGX(activeDisplayAmount)} / {formatUGX(effectiveTarget)} ({progressPct}%)
             </span>
           </div>
 
-          <div className="relative w-full h-2 rounded-full bg-secondary/60 overflow-hidden">
+          <div className="relative w-full h-2.5 sm:h-2 rounded-full bg-secondary/60 overflow-hidden">
             {/* Projected bar with selection */}
             {isTodayMode && selectedCount > 0 && (
               <div
@@ -1162,10 +1198,18 @@ export function RentApprovalMoneyCounter({
                 </div>
                 <div className="min-w-0">
                   <DialogTitle className="text-base font-bold text-foreground truncate">
-                    Approved Requests — {viewModeLabel}
+                    {activeModal === 'queue'
+                      ? 'Rent Requests waiting for Approval'
+                      : activeModal === 'selected'
+                      ? `Selected to Approve (${selectedCount})`
+                      : `Approved Requests — ${viewModeLabel}`}
                   </DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground truncate">
-                    Individual approved rent requests summing to {formatUGX(activeDisplayAmount)}.
+                    {activeModal === 'queue'
+                      ? `${queueCount} pending rent request${queueCount === 1 ? '' : 's'} waiting for approval, summing to ${formatUGX(queueTotalAmount)}.`
+                      : activeModal === 'selected'
+                      ? `Selected rent requests summing to ${formatUGX(selectedAmount)}.`
+                      : `Individual approved rent requests summing to ${formatUGX(activeDisplayAmount)}.`}
                   </DialogDescription>
                 </div>
               </div>

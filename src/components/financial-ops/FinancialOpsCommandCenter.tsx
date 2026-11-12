@@ -280,6 +280,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSearchParams, useParams, useLocation, useNavigate } from 'react-router-dom';
 import { finopsPath, finopsIdFromSlug, isFinopsViewId, isOnFinopsRoute, FINOPS_MENU_SLUG } from '@/lib/financialOpsRoutes';
 import FinOpsMenuHome from './new-ui/FinOpsMenuHome';
+import { StaffLandlordPaymentsPanel } from '@/components/self-support/StaffLandlordPaymentsPanel';
 import FinOpsOverviewTiles from './new-ui/FinOpsOverviewTiles';
 import WalletBreakdownDonut from './new-ui/WalletBreakdownDonut';
 
@@ -644,6 +645,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
 
             {payoutsSubTab === 'landlord_payouts' && (
               <div className="space-y-6 w-full">
+                <StaffLandlordPaymentsPanel />
                 <LandlordPayoutsQueue />
               </div>
             )}

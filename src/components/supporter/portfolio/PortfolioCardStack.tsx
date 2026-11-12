@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { SELF_SUPPORT_PORTFOLIO_STATUS } from '@/lib/selfSupportDirect';
 import { Building2, Clock, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
@@ -42,6 +43,7 @@ const STATE_LABEL: Record<string, string> = {
   paused: 'Paused',
   locked: 'Locked',
   withdrawn: 'Withdrawn',
+  ...SELF_SUPPORT_PORTFOLIO_STATUS,
 };
 
 function usePrefersReducedMotion() {

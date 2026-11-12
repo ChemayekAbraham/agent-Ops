@@ -86,6 +86,11 @@ export type CoSupportBlockReason =
 export interface CoSupportPreview extends Partial<CoSupportInvite> {
   found: boolean;
   lead_first_name?: string | null;
+  /**
+   * The sharer's stored profile photo URL (avatars bucket, private): sign it with
+   * getSignedUrl from src/lib/storageUtils before showing it. Null when none.
+   */
+  lead_avatar_url?: string | null;
   /** The person who shared the link: funder-onboarding records them as the referrer. */
   referrer_id?: string;
   signed_in?: boolean;
@@ -95,9 +100,16 @@ export interface CoSupportPreview extends Partial<CoSupportInvite> {
   agreement_signed?: boolean;
   float_available?: number;
   float_needed?: number;
+  /** Signed-in invitee only (never the other partner's figures): operational float in the wallet. */
+  float_balance?: number;
+  /** Part of float_balance set aside for Rent Plans / houses this person is sharing themselves. */
+  float_held_for_your_shares?: number;
+  /** Part of float_balance set aside for anything else waiting (pending portfolios). */
+  float_held_other?: number;
+  your_open_shares?: Array<{ id: string; kind: CoSupportKind; title: string; held: number; expires_at: string }>;
 }
 
-const ugx = (n: number | null | undefined) => `UGX ${Math.round(Number(n ?? 0)).toLocaleString('en-US')}`;
+const ugx =(n: number | null | undefined) => `UGX ${Math.round(Number(n ?? 0)).toLocaleString('en-US')}`;
 
 /** The message the sharer sends with the link (WhatsApp, SMS, copy). */
 export function coSupportShareText(input: {
@@ -118,7 +130,7 @@ export function coSupportShareText(input: {
   const where = city ? ` in ${city}` : '';
   return (
     `I'm supporting ${home}${where} on Welile and I'd like to do it with you, 50/50. ` +
-    `Your half is ${ugx(input.partnerShare)} and you earn Rent Profit Share every month. ` +
+    `You join with ${ugx(input.partnerShare)} and earn Rent Profit Share every month. ` +
     `The invitation is open for 48 hours: ${input.url}`
   );
 }
@@ -234,8 +246,11 @@ export function coSupportErrorMessage(err: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
-/** Short reason text for a preview that cannot be accepted. */
-export function coSupportBlockMessage(p: Pick<CoSupportPreview, 'reason' | 'float_needed'>): string | null {
+/**
+ * Short reason text for a preview that cannot be accepted. For a shortfall it
+ * says what is free in the float and what is set aside: pass the whole preview. Prefer coSupportInviteCopy for the full page.
+ */
+export function coSupportBlockMessage(p: Partial<CoSupportPreview>): string | null {
   switch (p.reason) {
     case null:
     case undefined:
@@ -249,7 +264,7 @@ export function coSupportBlockMessage(p: Pick<CoSupportPreview, 'reason' | 'floa
     case 'rate_unavailable':
       return MESSAGES.PARTNER_RATE_UNAVAILABLE;
     case 'funds_short':
-      return `Add ${ugx(p.float_needed)} of float to your wallet to take your half.`;
+      return coSupportInviteCopy(p).blockDetail;
     case 'invite_expired':
       return MESSAGES.INVITE_EXPIRED;
     case 'invite_declined':
@@ -259,6 +274,404 @@ export function coSupportBlockMessage(p: Pick<CoSupportPreview, 'reason' | 'floa
     default:
       return MESSAGES.INVITE_CLOSED;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Personal wording for the invitation page (/co-support/:code)
+// ---------------------------------------------------------------------------
+
+export interface CoSupportTimelineStep {
+  /** "Today", "12 Dec 2026", "Every month after" */
+  when: string;
+  /** the sentence; `amount` (when set) is shown in bold mono right after it */
+  text: string;
+  amount: string | null;
+  /** 'now' = filled dot, 'next' = ring, 'later' = dashed ring */
+  tone: 'now' | 'next' | 'later';
+}
+
+export interface CoSupportNextStep {
+  /** green tick when done, a numbered ring when not */
+  done: boolean;
+  title: string;
+  detail: string;
+}
+
+export interface CoSupportFloatLine {
+  label: string;
+  amount: string;
+}
+
+export interface CoSupportInviteCopy {
+  // --- the person who shared the link -------------------------------------
+  /** "Benjamin" ("Your partner" when the name is unknown) */
+  leadName: string;
+  /** "Welile partner · invited you" */
+  leadTagline: string;
+  /** alt text for the sharer's photo: "Benjamin's profile photo" */
+  leadPhotoAlt: string;
+
+  // --- invitation ----------------------------------------------------------
+  /** e.g. "Benjamin invited you to support Nakasagga's home together" */
+  headline: string;
+  /** "Join Benjamin and support Nakasagga's home together. You both earn Rent Profit Share every month." */
+  intro: string;
+  /** alt text for the house photo */
+  photoAlt: string;
+  /** empty house only: "2-bedroom house" / city line; null for Rent Plans */
+  houseLine: string | null;
+  houseSubLine: string | null;
+  /** figure row, left: "UGX 1,530,000" / "to join" */
+  joinAmount: string;
+  joinAmountLabel: string;
+  /** figure row, right: "UGX 229,500" / "Rent Profit Share a month"; null when unknown */
+  earningAmount: string | null;
+  earningLabel: string;
+  /** figure row, right, when signed out (no rate yet) */
+  earningSignedOut: string;
+  /** @deprecated use joinAmount + joinAmountLabel. "To join: UGX 1,530,000" */
+  yourHalf: string;
+  /** "You'd earn UGX 229,500 a month in Rent Profit Share", or null when unknown */
+  yourEarning: string | null;
+  /** "Benjamin is holding this for you for 46h 34m", or null when closed */
+  holdLine: string | null;
+  /** the parts of holdLine, so the time can be bold: prefix + time */
+  holdPrefix: string | null;
+  holdTime: string | null;
+  /** "12 Dec 2026": the day the first Rent Profit Share is due if they join now */
+  firstRentProfitShareDate: string;
+  /**
+   * Ready to join (Rent Plan): what happens when they join, top to bottom.
+   * Empty for houses (they show the figure row instead).
+   */
+  timeline: CoSupportTimelineStep[];
+  acceptLabel: string;
+  declineLabel: string;
+  /** shown under the buttons when signed out */
+  signedOutHint: string;
+  signInLabel: string;
+  joinLabel: string;
+
+  // --- why they cannot join yet --------------------------------------------
+  /** why they cannot accept right now (null when they can) */
+  blockTitle: string | null;
+  /** one or two plain sentences (the float box uses floatLines/floatNotes instead) */
+  blockDetail: string | null;
+  /** label for the button that fixes it (add float, agreement, sign-up), or null */
+  blockAction: string | null;
+  /** funds_short only: the rows of the float box ("Free in your float" UGX 194,486) */
+  floatLines: CoSupportFloatLine[];
+  /** funds_short only: small lines under the rows ("UGX 357,000 more is held for Odenyo's Rent Plan") */
+  floatNotes: string[];
+
+  // --- add float without leaving the invitation ----------------------------
+  /** "Add UGX 1,335,514" */
+  depositTitle: string;
+  depositIntro: string;
+  waitingTitle: string;
+  /** pass the network the person paid with: "MTN" / "Airtel" */
+  waitingDetail: (network?: string | null) => string;
+  waitingNote: string;
+  /** row labels in the waiting sheet: "Amount" and "Transaction ID" */
+  waitingAmountLabel: string;
+  waitingTidLabel: string;
+  /** the white button that closes the waiting sheet */
+  closeLabel: string;
+  slowTitle: string;
+  slowDetail: string;
+  rejectedTitle: string;
+  rejectedDetail: string;
+  arrivedTitle: string;
+  /** pass the amount that arrived */
+  arrivedDetail: (amount: number) => string;
+  arrivedFreeLabel: string;
+  arrivedAction: string;
+
+  // --- after a successful accept -------------------------------------------
+  /** "Benjamin + you · 50/50" */
+  successPill: string;
+  successTitle: string;
+  successDetail: string;
+  successCard: {
+    eyebrow: string;
+    title: string;
+    putInLabel: string;
+    putIn: string;
+    earningLabel: string;
+    /** "UGX 229,500", shown with `earningSuffix` after it, or null when unknown */
+    earning: string | null;
+    /** " /mo", small, after `earning` */
+    earningSuffix: string;
+    firstLabel: string;
+    /** "12 Dec 2026", or "30 days after approval" for a house */
+    first: string;
+  };
+  nextStepsTitle: string;
+  nextSteps: CoSupportNextStep[];
+  seePortfolioLabel: string;
+  findAnotherLabel: string;
+}
+
+const firstName = (s: string | null | undefined, fallback: string) => {
+  const v = String(s ?? '').trim().split(/\s+/)[0];
+  return v ? v.charAt(0).toUpperCase() + v.slice(1) : fallback;
+};
+
+/** First Rent Profit Share falls due 30 days after the portfolio is approved (next_roi_date). */
+export const CO_SUPPORT_FIRST_PAYOUT_DAYS = 30;
+
+/** "12 Dec 2026" for `now` + 30 days, on the same (UTC) calendar the server uses. */
+export function coSupportFirstPayoutDate(now = Date.now()): string {
+  const d = new Date(now + CO_SUPPORT_FIRST_PAYOUT_DAYS * 24 * 60 * 60 * 1000);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+/**
+ * Every sentence of the invitation page, written to the person who opened the
+ * link, by name, from the server's figures. The sharer is named, never
+ * "he"/"she". No rate, no other person's figures, approved words only
+ * ("Rent Plan", "partner", "Rent Profit Share"), and never "half": the
+ * person joins with an amount.
+ */
+export function coSupportInviteCopy(p: Partial<CoSupportPreview>, now = Date.now()): CoSupportInviteCopy {
+  // "your partner" mid-sentence, "Your partner" at the start of one.
+  const lead = firstName(p.lead_first_name, 'your partner');
+  const Lead = lead.charAt(0).toUpperCase() + lead.slice(1);
+  const isHouse = p.kind === 'house';
+  const tenant = firstName(p.tenant_first_name, '');
+  const house = String(p.house_title ?? '').trim();
+  const city = String(p.city ?? '').trim();
+  const home = tenant ? `${tenant}'s home` : 'this home';
+  const joinAmount = ugx(p.your_share);
+  const earns = p.your_monthly_rent_profit_share != null && Number(p.your_monthly_rent_profit_share) > 0;
+  const earningAmount = earns ? ugx(p.your_monthly_rent_profit_share) : null;
+  const firstDate = coSupportFirstPayoutDate(now);
+
+  const headline = isHouse
+    ? `${Lead} invited you to support an empty house together`
+    : tenant
+      ? `${Lead} invited you to support ${tenant}'s home together`
+      : `${Lead} invited you to support a Rent Plan together`;
+
+  const intro = `Join ${lead === 'your partner' ? 'your partner' : Lead} and support ${isHouse ? 'this house' : home} together. ` +
+    'You both earn Rent Profit Share every month.';
+
+  const left = p.expires_at ? coSupportTimeLeft(p.expires_at, now) : null;
+  const holdOpen = p.status === 'open' && left && !left.expired;
+  const holdTime = holdOpen ? `${left.hours}h ${String(left.minutes).padStart(2, '0')}m` : null;
+  const holdPrefix = holdOpen ? `${Lead} is holding this for you for` : null;
+
+  const timeline: CoSupportTimelineStep[] = isHouse
+    ? []
+    : [
+        { when: 'Today', text: 'You join with', amount: joinAmount, tone: 'now' },
+        { when: 'Today', text: `${tenant ? `${tenant}'s` : 'The'} rent is paid to the landlord`, amount: null, tone: 'next' },
+        ...(earningAmount
+          ? [
+              { when: firstDate, text: 'Your first Rent Profit Share:', amount: earningAmount, tone: 'next' as const },
+              { when: 'Every month after', text: `${earningAmount} Rent Profit Share`, amount: null, tone: 'later' as const },
+            ]
+          : [{ when: firstDate, text: 'Your first Rent Profit Share', amount: null, tone: 'next' as const }]),
+      ];
+
+  // --- why they cannot join yet ----------------------------------------------
+  let blockTitle: string | null = null;
+  let blockDetail: string | null = null;
+  let blockAction: string | null = null;
+  const floatLines: CoSupportFloatLine[] = [];
+  const floatNotes: string[] = [];
+  const needed = Number(p.float_needed ?? 0);
+  switch (p.reason) {
+    case null:
+    case undefined:
+      break;
+    case 'funds_short': {
+      // float_balance comes from the server since 20261116120000; without it only the gap is known.
+      const known = p.float_balance != null;
+      const heldShares = Number(p.float_held_for_your_shares ?? 0);
+      const heldOther = Number(p.float_held_other ?? 0);
+      const free = Number(p.float_available ?? 0);
+      const shares = p.your_open_shares ?? [];
+      blockTitle = `Add ${ugx(needed)} to join`;
+      if (known) {
+        floatLines.push({ label: 'Free in your float', amount: ugx(free) });
+        if (heldShares > 0) {
+          const named = shares.length === 1 ? shares[0].title : `${shares.length} plans you're sharing`;
+          floatNotes.push(`${ugx(heldShares)} more is held for ${named}`);
+        }
+        if (heldOther > 0) floatNotes.push(`${ugx(heldOther)} more is waiting on another support`);
+      }
+      blockDetail = known
+        ? [`You have ${ugx(free)} free in your float.`, ...floatNotes.map((n) => `${n}.`)].join(' ')
+        : `Add ${ugx(needed)} of float to join ${lead}.`;
+      blockAction = `Add float to join ${lead === 'your partner' ? 'your partner' : Lead}`;
+      break;
+    }
+    case 'agreement_required':
+      blockTitle = 'One step first: your partnership agreement';
+      blockDetail = `Sign your partnership agreement, then open this link again to join ${lead}.`;
+      blockAction = 'Sign my agreement';
+      break;
+    case 'not_a_partner':
+      blockTitle = 'Finish becoming a Welile partner';
+      blockDetail = `Complete your partner sign-up, then open this link again to join ${lead}.`;
+      blockAction = 'Finish partner sign-up';
+      break;
+    case 'paused':
+      blockTitle = 'Sharing is paused for a moment';
+      blockDetail = `Supporting together is paused right now. ${Lead}'s invitation is still here; please try again later.`;
+      break;
+    case 'rate_unavailable':
+      blockTitle = 'We need to check your account';
+      blockDetail = 'Your Rent Profit Share could not be confirmed. Please contact Welile and we will sort it out.';
+      break;
+    case 'invite_expired':
+      blockTitle = 'This invitation has ended';
+      blockDetail = `The 48 hours ran out. Ask ${lead} to send you a new link.`;
+      break;
+    case 'invite_declined':
+      blockTitle = 'You said no to this invitation';
+      blockDetail = `If you change your mind, ask ${lead} to send it again.`;
+      break;
+    case 'invite_completed':
+      blockTitle = `${Lead} found a partner for this one`;
+      blockDetail = 'It is fully supported. Open Welile to find another Rent Plan or house to support.';
+      break;
+    default:
+      blockTitle = 'This invitation is closed';
+      blockDetail = `Ask ${lead} to send you a new link.`;
+  }
+
+  // --- after a successful accept -----------------------------------------------
+  const successTitle = isHouse
+    ? `You and ${lead} now share this house`
+    : `You and ${lead} now support ${home} together`;
+  const successDetail = isHouse
+    ? `Partner Ops will approve it soon. Your ${joinAmount} stays set aside for it until then. Thank you for joining.`
+    : `${tenant ? `${tenant}'s` : 'The'} full rent has gone to the agent to pay the landlord. Thank you for joining.`;
+  const nextSteps: CoSupportNextStep[] = isHouse
+    ? [
+        { done: true, title: "You're in", detail: `Today · ${joinAmount} set aside from your float` },
+        { done: false, title: 'Partner Ops approve the house', detail: 'Then the money moves and your portfolio starts' },
+        {
+          done: false,
+          title: 'Your first Rent Profit Share',
+          detail: `${CO_SUPPORT_FIRST_PAYOUT_DAYS} days after approval${earningAmount ? ` · ${earningAmount}` : ''}, then every month`,
+        },
+      ]
+    : [
+        { done: true, title: "You're in", detail: `Today · ${joinAmount} from your float` },
+        { done: true, title: 'Rent sent to the agent', detail: `Today · the agent pays ${tenant ? `${tenant}'s` : 'the'} landlord` },
+        {
+          done: false,
+          title: 'Your first Rent Profit Share',
+          detail: `${firstDate}${earningAmount ? ` · ${earningAmount}` : ''}, then every month`,
+        },
+      ];
+
+  const network = (n?: string | null) => {
+    const v = String(n ?? '').toLowerCase();
+    return v.includes('airtel') ? 'Airtel' : v.includes('mtn') ? 'MTN' : 'Mobile Money';
+  };
+  const LeadOrPartner = lead === 'your partner' ? 'your partner' : Lead;
+
+  return {
+    leadName: Lead,
+    leadTagline: 'Welile partner · invited you',
+    leadPhotoAlt: lead === 'your partner' ? "Your partner's profile photo" : `${Lead}'s profile photo`,
+
+    headline,
+    intro,
+    photoAlt: isHouse ? (house || 'The house') : tenant ? `${tenant}'s home` : 'The home',
+    houseLine: isHouse ? (house || 'Empty house') : null,
+    houseSubLine: isHouse ? [city, 'verified, waiting for a tenant'].filter(Boolean).join(' · ') : null,
+    joinAmount,
+    joinAmountLabel: 'to join',
+    earningAmount,
+    earningLabel: 'Rent Profit Share a month',
+    earningSignedOut: 'Sign in to see your Rent Profit Share',
+    yourHalf: `To join: ${joinAmount}`,
+    yourEarning: earningAmount ? `You'd earn ${earningAmount} a month in Rent Profit Share` : null,
+    holdLine: holdOpen ? `${holdPrefix} ${holdTime}` : null,
+    holdPrefix,
+    holdTime,
+    firstRentProfitShareDate: firstDate,
+    timeline,
+    acceptLabel: `Join ${LeadOrPartner}`,
+    declineLabel: 'Not this time',
+    signedOutHint: `Sign in to join ${lead}. New to Welile? Create your partner account first, it takes a few minutes, and this link will bring you back here.`,
+    signInLabel: 'I have a Welile account',
+    joinLabel: "I'm new to Welile",
+
+    blockTitle,
+    blockDetail,
+    blockAction,
+    floatLines,
+    floatNotes,
+
+    depositTitle: `Add ${ugx(needed)}`,
+    depositIntro: `Pay Welile with Mobile Money. It lands in your float, then you can join ${LeadOrPartner}.`,
+    waitingTitle: 'Waiting for your money',
+    waitingDetail: (n) => `We're matching your ${network(n)} payment. This usually takes a few seconds.`,
+    waitingNote: `You can close this and open the link again later. ${Lead} keeps holding your place.`,
+    waitingAmountLabel: 'Amount',
+    waitingTidLabel: 'Transaction ID',
+    closeLabel: 'Close',
+    slowTitle: 'Still checking your payment',
+    slowDetail: `Financial Ops will confirm it. You can close this and open the link again later. ${Lead} keeps holding your place.`,
+    rejectedTitle: "We couldn't confirm that payment",
+    rejectedDetail: 'Check the Transaction ID and try again, or contact Welile.',
+    arrivedTitle: 'Your money has arrived',
+    arrivedDetail: (amount) => `${ugx(amount)} is in your float. You can join ${LeadOrPartner} now.`,
+    arrivedFreeLabel: 'Free in your float',
+    arrivedAction: `Join ${LeadOrPartner} now`,
+
+    successPill: `${lead === 'your partner' ? 'Your partner' : Lead} + you · 50/50`,
+    successTitle,
+    successDetail,
+    successCard: {
+      eyebrow: 'Your new portfolio',
+      title: isHouse ? (house || 'Shared house') : tenant ? `${tenant}'s Rent Plan` : 'Shared Rent Plan',
+      putInLabel: 'You put in',
+      putIn: joinAmount,
+      earningLabel: 'Rent Profit Share',
+      earning: earningAmount,
+      earningSuffix: ' /mo',
+      firstLabel: 'First Rent Profit Share',
+      first: isHouse ? `${CO_SUPPORT_FIRST_PAYOUT_DAYS} days after approval` : firstDate,
+    },
+    nextStepsTitle: 'What happens next',
+    nextSteps,
+    seePortfolioLabel: 'See my portfolio',
+    findAnotherLabel: isHouse ? 'Find another house' : 'Find another Rent Plan',
+  };
+}
+
+/** Where the "Add float" sheet is, while the invitation waits for a deposit. */
+export type CoSupportFloatWatchState = 'idle' | 'waiting' | 'slow' | 'arrived' | 'rejected';
+
+/**
+ * Decide the sheet after "I've paid": the money has arrived once the server
+ * says the person can join (or is no longer short); a rejected deposit stops
+ * the wait; after `slowAfterMs` without either, say it is taking longer.
+ * Pure, so it is unit-tested; useCoSupportFloatWatch feeds it.
+ */
+export function coSupportFloatWatchState(input: {
+  submittedAt: number | null;
+  preview: Partial<CoSupportPreview> | null | undefined;
+  depositStatus?: string | null;
+  now?: number;
+  slowAfterMs?: number;
+}): CoSupportFloatWatchState {
+  const { submittedAt, preview, depositStatus } = input;
+  if (submittedAt == null) return 'idle';
+  if (preview && (preview.can_accept || (preview.reason !== 'funds_short' && Number(preview.float_needed ?? 1) <= 0))) {
+    return 'arrived';
+  }
+  const status = String(depositStatus ?? '').toLowerCase();
+  if (status === 'rejected' || status === 'failed') return 'rejected';
+  const now = input.now ?? Date.now();
+  return now - submittedAt >= (input.slowAfterMs ?? 120_000) ? 'slow' : 'waiting';
 }
 
 /** One row of co_support_staff_list (Partner Ops). */

@@ -22,8 +22,10 @@ describe('landlordOpsNav ↔ router', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it('exposes exactly one index (Today) destination', () => {
+  it('exposes exactly one index (Today) destination and places Rent Requests first', () => {
     expect(navPaths.filter((p) => p === '')).toHaveLength(1);
+    expect(LANDLORD_OPS_SECTIONS[0].items[0].path).toBe('pipeline/rent-requests');
+    expect(LANDLORD_OPS_SECTIONS[0].items[0].label).toBe('Rent Requests');
   });
 
   it('resolves a destination from a path, a key or a full URL', () => {

@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Banknote, Building2, Copy, Loader2, Phone, Smartphone, Wallet } from 'lucide-react';
+import { Banknote, Building2, Check, Copy, Loader2, Phone, Smartphone, Wallet } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
+import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -29,17 +32,43 @@ export interface FundChoiceTarget {
 
 type Step = 'choose' | 'momo' | 'cash' | 'saved';
 
-function ChoiceButton({ title, detail, onClick, icon }: { title: string; detail: string; onClick: () => void; icon: React.ReactNode }) {
+type Choice = 'welile' | 'momo' | 'cash' | 'support';
+
+/** Network logo tile, same style as the wallet hub's provider logos. */
+function ProviderLogo({ src }: { src: string }) {
+  return (
+    <span className="grid h-7 w-7 flex-none place-items-center overflow-hidden rounded-lg border border-border/60 bg-background">
+      <img src={src} alt="" aria-hidden className="h-full w-full object-contain p-0.5" loading="lazy" />
+    </span>
+  );
+}
+
+/** One option card with a checkbox; tapping ticks it, and Continue acts on the ticked one. */
+function ChoiceButton({ title, detail, checked, onClick, icon }: { title: string; detail: string; checked: boolean; onClick: () => void; icon: React.ReactNode }) {
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={checked}
       onClick={onClick}
-      className="flex w-full items-start gap-3 rounded-2xl border border-border/70 bg-card px-3 py-3 text-left active:scale-[0.99]"
+      className={cn(
+        'flex w-full items-start gap-3 rounded-2xl border bg-card px-3 py-3 text-left transition-colors active:scale-[0.99]',
+        checked ? 'border-primary ring-1 ring-primary' : 'border-border/70',
+      )}
     >
       <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">{icon}</span>
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">{title}</span>
         <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{detail}</span>
+      </span>
+      <span
+        aria-hidden
+        className={cn(
+          'mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-md border-2 transition-colors',
+          checked ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 bg-background',
+        )}
+      >
+        {checked ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}
       </span>
     </button>
   );
@@ -63,6 +92,7 @@ function ChooserBody({
   const contact = contactQuery.data?.state === 'ready' ? contactQuery.data.contact : null;
   const showDirect = Boolean(contact?.payoutMomoNumber || contact?.landlordPhone);
   const [step, setStep] = useState<Step>('choose');
+  const [choice, setChoice] = useState<Choice | null>(null);
   const [amount, setAmount] = useState('');
   const [provider, setProvider] = useState<'mtn' | 'airtel' | ''>('');
   const [reference, setReference] = useState('');
@@ -167,13 +197,20 @@ function ChooserBody({
     />
   );
 
+  const proceed = () => {
+    if (choice === 'welile') { onClose(); onThroughWelile(); }
+    else if (choice === 'momo') setStep('momo');
+    else if (choice === 'cash') setStep('cash');
+  };
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" role="radiogroup" aria-label="How to fund this house">
       <ChoiceButton
         icon={<Wallet className="h-5 w-5" />}
-        title="Fund this house through Welile"
+        title="Fund this house through Welile agent"
         detail="The rent goes straight to the agent's landlord float. The agent pays the landlord within 24 hours. You will see the rent and the 2% Welile Cover before your balance is used."
-        onClick={() => { onClose(); onThroughWelile(); }}
+        checked={choice === 'welile'}
+        onClick={() => setChoice('welile')}
       />
       {contactQuery.isLoading && (
         <p className="flex items-center gap-2 px-1 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking verification</p>
@@ -183,7 +220,8 @@ function ChooserBody({
           icon={<Smartphone className="h-5 w-5" />}
           title="Send directly to the landlord's mobile money"
           detail={planCover || 'You pay the landlord yourself. Welile records it as pending and does not charge your balance.'}
-          onClick={() => setStep('momo')}
+          checked={choice === 'momo'}
+          onClick={() => setChoice('momo')}
         />
       )}
       {showDirect && contact?.landlordPhone && (
@@ -191,7 +229,8 @@ function ChooserBody({
           icon={<Banknote className="h-5 w-5" />}
           title="Take cash to the landlord"
           detail={planCover || 'You hand the landlord the cash. Welile records it as pending and does not charge your balance.'}
-          onClick={() => setStep('cash')}
+          checked={choice === 'cash'}
+          onClick={() => setChoice('cash')}
         />
       )}
       {!contactQuery.isLoading && !showDirect && (
@@ -203,8 +242,15 @@ function ChooserBody({
         icon={<Building2 className="h-5 w-5" />}
         title="Contact Welile Tenant Partnership Support Team"
         detail="WhatsApp or call Welile Customer Care to fund this house through Welile."
-        onClick={() => window.open(supportWhatsAppUrl(target), '_blank', 'noopener,noreferrer')}
+        checked={choice === 'support'}
+        onClick={() => setChoice('support')}
       />
+      {/* The support card keeps its WhatsApp / Call pair; every other choice goes through Continue. */}
+      {choice !== 'support' ? (
+        <Button className="h-11 w-full rounded-xl" disabled={!choice} onClick={proceed}>
+          Continue
+        </Button>
+      ) : (
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Button asChild className="h-11 rounded-xl">
           <a href={supportWhatsAppUrl(target)} target="_blank" rel="noopener noreferrer">WhatsApp Welile</a>
@@ -213,6 +259,7 @@ function ChooserBody({
           <a href={SUPPORT_CALL_URL}><Phone className="h-4 w-4" /> Call Welile</a>
         </Button>
       </div>
+      )}
     </div>
   );
 }
@@ -239,7 +286,7 @@ function MomoForm(props: {
       <p className="text-sm">Mobile money: {props.contact.payoutMomoNumber || 'Not recorded'}</p>
       <p className="text-xs text-muted-foreground">Name on the account: {props.contact.payoutMomoName || 'Not recorded'}</p>
       {props.contact.payoutMomoNumber && (
-        <Button type="button" variant="outline" className="h-11 w-full rounded-xl" onClick={props.onCopy}>
+        <Button type="button" variant="outline" className="h-11 w-full rounded-xl text-green-600 hover:text-green-700 dark:text-green-400" onClick={props.onCopy}>
           <Copy className="h-4 w-4" /> Copy number
         </Button>
       )}
@@ -247,8 +294,12 @@ function MomoForm(props: {
       <p className="text-xs text-muted-foreground">Recorded as pending until Welile confirms it. The rent is not taken from your balance.</p>
       <Input inputMode="decimal" placeholder="Amount in UGX" value={props.amount} onChange={(e) => props.onAmount(e.target.value)} className="h-11" />
       <div className="grid grid-cols-2 gap-2">
-        <Button type="button" variant={props.provider === 'mtn' ? 'default' : 'outline'} className="h-11" onClick={() => props.onProvider('mtn')}>MTN</Button>
-        <Button type="button" variant={props.provider === 'airtel' ? 'default' : 'outline'} className="h-11" onClick={() => props.onProvider('airtel')}>Airtel</Button>
+        <Button type="button" variant={props.provider === 'mtn' ? 'default' : 'outline'} className="h-11" onClick={() => props.onProvider('mtn')}>
+          <ProviderLogo src={mtnLogoAsset.url} /> MTN
+        </Button>
+        <Button type="button" variant={props.provider === 'airtel' ? 'default' : 'outline'} className="h-11" onClick={() => props.onProvider('airtel')}>
+          <ProviderLogo src={airtelLogoAsset.url} /> Airtel
+        </Button>
       </div>
       <Input placeholder="TID or reference" value={props.reference} onChange={(e) => props.onReference(e.target.value)} className="h-11" />
       <Input type="datetime-local" value={props.when} onChange={(e) => props.onWhen(e.target.value)} className="h-11" aria-label="Time you sent the money" />

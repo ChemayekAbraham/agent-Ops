@@ -14,9 +14,11 @@ import {
   readyPlanPlace,
   readyPlanTitle,
   isUncheckedEmptyHouse,
+  requestRef,
 } from '@/components/funder-new/utils';
 import { STRAIGHT_LINE_EXPLANATION } from '@/components/funder-new/distance';
 import { FundersBoardTag, tagKindFor } from '@/components/funder-new/FundersBoardTag';
+import { FundersIncompleteChip } from '@/components/funder-new/FundersIncompleteChip';
 import type { BoardTag } from '@/lib/fundersBoard';
 
 /** Rendered photo box is 16:10; these are the intrinsic hints for the browser. */
@@ -50,6 +52,8 @@ export interface FunderV3HouseCardProps {
   demoteMode?: boolean;
   demoteChecked?: boolean;
   onDemoteToggle?: () => void;
+  /** COO/CEO only (null for funders): what this Verified request still lacks. */
+  incomplete?: string[] | null;
 }
 
 /**
@@ -75,6 +79,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   demoteMode = false,
   demoteChecked = false,
   onDemoteToggle,
+  incomplete = null,
 }: FunderV3HouseCardProps) {
   const isEmpty = category === 'empty';
   const title = isEmpty ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan);
@@ -86,6 +91,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   const photo = firstPhoto(category, item);
   const coords = itemCoordinates(item, category);
   const unchecked = isUncheckedEmptyHouse(category, item);
+  const ref = category === 'ready' ? requestRef((item as FunderNewReadyPlan).rent_request_id) : null;
 
   return (
     <article
@@ -162,6 +168,8 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
       </div>
 
       <div className="flex flex-col gap-3 p-3.5 @[420px]:p-4">
+        {/* COO/CEO: what is still missing, above the demote control. */}
+        {category === 'ready' ? <FundersIncompleteChip items={incomplete} /> : null}
         {demoteMode ? (
           <label
             data-testid="fv3-demote-check"
@@ -187,8 +195,12 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
           aria-label={`Open full details for ${title} in ${place}`}
           className="-m-1.5 flex flex-col gap-2 rounded-xl p-1.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="min-w-0 break-words fv3-t-base font-bold leading-snug text-foreground">
-            {title} <span className="font-medium text-muted-foreground">in</span> {place}
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="min-w-0 break-words fv3-t-base font-bold leading-snug text-foreground">
+              {title} <span className="font-medium text-muted-foreground">in</span> {place}
+            </span>
+            {/* Rent requests only: lets staff match the card to its desk row. */}
+            {ref ? <span data-testid="fv3-ref" className="fv3-t-2xs font-medium tabular-nums tracking-wide text-muted-foreground">{ref}</span> : null}
           </span>
 
           {distance ? (

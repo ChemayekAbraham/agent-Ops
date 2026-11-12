@@ -1,5 +1,6 @@
 import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
+import { batchedQuery } from '@/lib/supabaseBatchUtils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -42,6 +43,10 @@ interface TopUpRow {
 
 const APPLIED_STATUSES = new Set(['completed']);
 
+// PostgREST sends `.in(id)` in the URL. ~150 uuids stays near 6KB; a few hundred
+// overflows the API gateway (~30KB here) and the lookup 400s before Postgres.
+const ID_IN_CHUNK = 150;
+
 function groupOf(status: string): StatusGroup {
   return APPLIED_STATUSES.has(status) ? 'applied' : 'pending';
 }
@@ -71,10 +76,12 @@ async function fetchTopUpRows(): Promise<TopUpRow[]> {
 
   const portfolioMap: Record<string, { account_name: string | null; portfolio_code: string | null; investor_id: string | null; investment_amount: number }> = {};
   if (portfolioIds.length > 0) {
-    const { data: portfolios } = await withUuidIds(portfolioIds, (validIds) => withUserSession(() => supabase
-      .from('investor_portfolios')
-      .select('id, account_name, portfolio_code, investor_id, investment_amount')
-      .in('id', validIds)));
+    const { data: portfolios } = await withUuidIds(portfolioIds, (validIds) => withUserSession(async () => ({
+      data: await batchedQuery(validIds, (batch) => supabase
+        .from('investor_portfolios')
+        .select('id, account_name, portfolio_code, investor_id, investment_amount')
+        .in('id', batch), ID_IN_CHUNK),
+    })));
     (portfolios || []).forEach((p: any) => {
       portfolioMap[p.id] = {
         account_name: p.account_name,
@@ -91,10 +98,12 @@ async function fetchTopUpRows(): Promise<TopUpRow[]> {
   ].filter(Boolean) as string[]));
   const nameMap: Record<string, string> = {};
   if (investorIds.length > 0) {
-    const { data: profiles } = await withUuidIds(investorIds, (validIds) => supabase
-      .from('profiles')
-      .select('id, full_name')
-      .in('id', validIds));
+    const { data: profiles } = await withUuidIds(investorIds, async (validIds) => ({
+      data: await batchedQuery(validIds, (batch) => supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', batch), ID_IN_CHUNK),
+    }));
     (profiles || []).forEach((pr: any) => { nameMap[pr.id] = pr.full_name || ''; });
   }
 

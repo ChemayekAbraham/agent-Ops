@@ -45,17 +45,23 @@ export function CoSupportStartButton({
     });
 
   return (
-    <div className={cn('space-y-1.5', className)}>
-      <Button variant="outline" className="h-11 w-full rounded-lg font-semibold" onClick={start} disabled={create.isPending}>
-        {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Users className="h-4 w-4" aria-hidden />}
-        Support with a partner
+    <div className={cn('space-y-1.5 [container-type:inline-size]', className)}>
+      {/* The label scales with the button's own width (narrow cards, phones) and wraps rather than crossing the border. */}
+      <Button variant="outline"
+        className="h-auto min-h-11 w-full flex-col gap-0.5 whitespace-normal rounded-lg border-primary px-3 hover:border-primary py-2 text-center text-[length:clamp(11px,calc(8cqw_-_4px),15px)] font-semibold leading-tight"
+        onClick={start} disabled={create.isPending}>
+        <span className="inline-flex min-w-0 items-center justify-center gap-1.5">
+          {create.isPending ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden /> : <Users className="h-4 w-4 shrink-0" aria-hidden />}
+          <span className="min-w-0">Support with a partner</span>
+        </span>
+        {/* The explanation sits inside the button, under the label. */}
+        {showExplanation ? (
+          <span className="block text-xs font-normal leading-snug text-muted-foreground">
+            You pay half and a partner pays half. We hold your half for 48 hours while they decide.
+            {isHouse ? ' Partner Ops then approve the house.' : ''}
+          </span>
+        ) : null}
       </Button>
-      {showExplanation ? (
-        <p className="text-xs text-muted-foreground">
-          You pay half and a partner pays half. We hold your half for 48 hours while they decide.
-          {isHouse ? ' Partner Ops then approve the house.' : ''}
-        </p>
-      ) : null}
       <CoSupportShareSheet invite={invite} open={!!invite} onOpenChange={(o) => !o && setInvite(null)} />
     </div>
   );

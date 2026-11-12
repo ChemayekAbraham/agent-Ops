@@ -1,10 +1,18 @@
 import { useState } from 'react';
-import { Plus, Scale, Clock, Sparkles, Eye } from 'lucide-react';
+import { Plus, Scale, Clock, Sparkles, MoreHorizontal, Wallet, PlusCircle, RotateCcw } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import type { SpecialAdvanceSheetAction } from './SpecialAdvanceDetailSheet';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
+import { kampalaLabel } from '@/lib/kampalaDays';
 import {
   STATUS_LABEL,
   describeSpecialAdvanceError,
@@ -27,7 +35,9 @@ export function SpecialAdvancesPanel() {
   const [activeTab, setActiveTab] = useState<'agreements' | 'provisions' | 'reconciliation'>('agreements');
   const [status, setStatus] = useState<SpecialAdvanceStatus | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [openAction, setOpenAction] = useState<SpecialAdvanceSheetAction>(null);
   const [recording, setRecording] = useState(false);
+  const [historical, setHistorical] = useState(false);
 
   const list = useSpecialAdvanceList(status);
 
@@ -39,7 +49,10 @@ export function SpecialAdvancesPanel() {
       {/* Top Banner: New Advance button */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 text-xs">
 
-        <Button id="special-advance-new" size="sm" className="ml-auto" onClick={() => setRecording(true)}>
+        <Button variant="outline" size="sm" className="ml-auto text-primary" onClick={() => { setHistorical(true); setRecording(true); }}>
+          <Clock className="mr-1 h-4 w-4" /> Record already-issued advance
+        </Button>
+        <Button id="special-advance-new" size="sm" onClick={() => { setHistorical(false); setRecording(true); }}>
           <Plus className="mr-1 h-4 w-4" /> New Special Advance
         </Button>
       </div>
@@ -89,9 +102,12 @@ export function SpecialAdvancesPanel() {
                 <thead className="bg-muted/40 text-[11px] text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Reference</th>
-                    <th className="px-3 py-2 text-left font-medium">Borrower</th>
+                    <th className="px-3 py-2 text-left font-medium">Recipient</th>
                     <th className="px-3 py-2 text-right font-medium">Principal</th>
                     <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Total repayable</th>
+                    <th className="px-3 py-2 text-right font-medium">Outstanding</th>
+                    <th className="px-3 py-2 text-left font-medium">Date Issued</th>
+                    <th className="px-3 py-2 text-left font-medium">Period</th>
                     <th className="px-3 py-2 text-left font-medium">Status</th>
                     <th className="px-3 py-2 text-right font-medium">Actions</th>
                   </tr>
@@ -99,21 +115,21 @@ export function SpecialAdvancesPanel() {
                 <tbody className="divide-y divide-border/50">
                   {list.isLoading && (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={9} className="py-8 text-center text-muted-foreground">
                         Loading...
                       </td>
                     </tr>
                   )}
                   {list.isError && (
                     <tr>
-                      <td colSpan={6} role="alert" className="py-8 text-center text-destructive">
+                      <td colSpan={9} role="alert" className="py-8 text-center text-destructive">
                         {describeSpecialAdvanceError(list.error)}
                       </td>
                     </tr>
                   )}
                   {!list.isLoading && !list.isError && items.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={9} className="py-8 text-center text-muted-foreground">
                         No Special Advances recorded{status ? ' with this status' : ''}.
                       </td>
                     </tr>
@@ -139,6 +155,18 @@ export function SpecialAdvancesPanel() {
                       <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">
                         {formatUGX(a.total_repayable)}
                       </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {a.paid_out ? formatUGX(a.outstanding ?? 0) : '—'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {a.payout_date ? kampalaLabel(a.payout_date) : '—'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {a.term_days} days
+                        <span className="block text-[10px] text-muted-foreground">
+                          {a.instalments} {a.frequency} instalments
+                        </span>
+                      </td>
                       <td className="px-3 py-2">
                         <Badge
                           variant={
@@ -156,20 +184,31 @@ export function SpecialAdvancesPanel() {
                         </Badge>
                       </td>
                       <td className="px-3 py-2 text-right">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          aria-label={`Record repayment for ${a.reference}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenId(a.id);
-                          }}
-                        >
-                          <Eye className="mr-1 h-3.5 w-3.5" />
-                          Record Repayment
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              aria-label={`Actions for ${a.reference}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onSelect={() => { setOpenAction('repay'); setOpenId(a.id); }}>
+                              <Wallet className="mr-2 h-4 w-4" /> Record Repayment
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={a.status !== 'disbursed'} onSelect={() => { setOpenAction('topup'); setOpenId(a.id); }}>
+                              <PlusCircle className="mr-2 h-4 w-4" /> Top up
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={a.status !== 'disbursed'} onSelect={() => { setOpenAction('reverse'); setOpenId(a.id); }}>
+                              <RotateCcw className="mr-2 h-4 w-4" /> Reverse
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}
@@ -196,11 +235,12 @@ export function SpecialAdvancesPanel() {
       <SpecialAdvanceDetailSheet
         advanceId={openId}
         issuanceEnabled={issuanceEnabled}
+        initialAction={openAction}
         onOpenChange={(o) => {
-          if (!o) setOpenId(null);
+          if (!o) { setOpenId(null); setOpenAction(null); }
         }}
       />
-      <SpecialAdvanceModal open={recording} onOpenChange={setRecording} />
+      <SpecialAdvanceModal key={historical ? 'historical' : 'new'} open={recording} onOpenChange={setRecording} historical={historical} />
     </div>
   );
 }

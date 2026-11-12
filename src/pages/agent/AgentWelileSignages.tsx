@@ -1,6 +1,6 @@
 import { SignageEvidence } from '@/components/signages/SignageEvidence';
 import { useLoadSignageDetail } from '@/hooks/useWelileSignages';
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -46,8 +46,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import UgLocationPicker from '@/components/location/UgLocationPicker';
-import type { UgLocationSelection } from '@/hooks/useUgLocations';
+import { reverseGeocode } from '@/lib/reverseGeocode';
+import { signageGpsLocation, type SignageGpsLocation } from '@/lib/signageGpsLocation';
 import { hapticTap, hapticSuccess, hapticError } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { safeUUID } from '@/lib/safeUUID';
@@ -124,7 +124,9 @@ export default function AgentWelileSignages() {
   const [gpsError, setGpsError] = useState<string | null>(null);
 
   // Administrative Location
-  const [adminLocation, setAdminLocation] = useState<UgLocationSelection | null>(null);
+  const [adminLocation, setAdminLocation] = useState<SignageGpsLocation | null>(null);
+  const captureVersion = useRef(0);
+  useEffect(() => () => { captureVersion.current += 1; }, []);
   const [plotOrLandmark, setPlotOrLandmark] = useState('');
 
   // Suitability
@@ -143,6 +145,7 @@ export default function AgentWelileSignages() {
 
   // ── GPS Capture Handler ──
   const handleCaptureGps = () => {
+    const version = ++captureVersion.current;
     hapticTap();
     setIsCapturingGps(true);
     setGpsError(null);
@@ -151,6 +154,9 @@ export default function AgentWelileSignages() {
     setGpsLng(null);
     setGpsAccuracy(null);
     setGpsCapturedAt(null);
+    setAdminLocation(null);
+    setPlotOrLandmark('');
+    setNearbyLandmarks('');
     if (!navigator.geolocation) {
       setGpsError('Device GPS is unavailable. Use a GPS-enabled device and allow location access.');
       setIsCapturingGps(false);
@@ -159,17 +165,29 @@ export default function AgentWelileSignages() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
+        if (version !== captureVersion.current) return;
         const { latitude, longitude, accuracy } = position.coords;
         setGpsLat(latitude);
         setGpsLng(longitude);
         setGpsAccuracy(accuracy);
         setGpsCapturedAt(new Date().toISOString());
+        const location = signageGpsLocation(await reverseGeocode(latitude, longitude));
+        if (version !== captureVersion.current) return;
         setIsCapturingGps(false);
+        if (!location) {
+          setGpsError('The address could not be confirmed from GPS. Check your connection and capture the location again.');
+          hapticError();
+          return;
+        }
+        setAdminLocation(location);
+        setPlotOrLandmark(location.address);
+        setNearbyLandmarks(location.address);
         hapticSuccess();
         toast.success(`Live GPS captured: accuracy ±${Math.round(accuracy)}m`);
       },
       (error) => {
+        if (version !== captureVersion.current) return;
         setIsCapturingGps(false);
         hapticError();
         let message = 'Could not access device GPS.';
@@ -231,16 +249,19 @@ export default function AgentWelileSignages() {
     setPaymentNumber(record.owner_payment_number);
     setPaymentName(record.owner_payment_name);
     setGpsLat(null); setGpsLng(null); setGpsAccuracy(null); setGpsCapturedAt(null);
-    // Location must be re-picked from the official list so its IDs are real.
+    captureVersion.current += 1;
+    setIsCapturingGps(false);
+    setGpsError(null);
+    // Returned applications require a fresh device capture and address lookup.
     setAdminLocation(null);
-    toast.info('Capture live GPS again and re-select the District and Village before resubmitting.');
-    setPlotOrLandmark(record.plot_or_landmark || '');
+    toast.info('Capture live GPS again to fill the location before resubmitting.');
+    setPlotOrLandmark('');
     setFootTraffic(record.foot_traffic);
     setRoadVisibility(record.road_visibility || '');
     setOperatingHours(record.operating_hours || '');
     setProposedSurface(record.proposed_surface || '');
     setProposedDimensions(record.proposed_dimensions || '');
-    setNearbyLandmarks(record.nearby_landmarks || '');
+    setNearbyLandmarks('');
     setPhotos(record.photos || []);
     setActiveTab('new_spot');
   };
@@ -270,8 +291,8 @@ export default function AgentWelileSignages() {
       document.getElementById('section-gps')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
-    if (!adminLocation?.district || !adminLocation?.village) {
-      toast.error('Please select the administrative District and Village in Section 3.');
+    if (isCapturingGps || !adminLocation?.district || !adminLocation?.village) {
+      toast.error('Capture GPS again to confirm the District and Village in Section 3.');
       document.getElementById('section-location')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
@@ -333,7 +354,9 @@ export default function AgentWelileSignages() {
       setGpsLng(null);
       setGpsAccuracy(null);
       setGpsCapturedAt(null);
+      setAdminLocation(null);
       setPlotOrLandmark('');
+      setNearbyLandmarks('');
       setPhotos([]);
       setActiveTab('pipeline');
     } catch {
@@ -894,7 +917,7 @@ export default function AgentWelileSignages() {
                       />
                     </div>
                     <div>
-                      <Label className="text-xs font-medium">Phone Number (MoMo Payouts) *</Label>
+                      <Label className="text-xs font-medium">Shop owner's registered phone number *</Label>
                       <Input
                         placeholder="07XX XXX XXX or 256..."
                         value={ownerPhone}
@@ -936,6 +959,7 @@ export default function AgentWelileSignages() {
                       <span className="text-xs font-bold text-foreground">Monthly Rent Payout (UGX 10,000/mo)</span>
                       <Badge variant="outline" className="text-[10px] bg-background">Owner Direct</Badge>
                     </div>
+                    <p className="text-xs text-muted-foreground">No owner payout in the first 30 days after submission.</p>
                     <div className="grid grid-cols-3 gap-1.5">
                       {(['momo_mtn', 'momo_airtel', 'bank'] as const).map((method) => (
                         <button
@@ -1066,21 +1090,28 @@ export default function AgentWelileSignages() {
                     <CardTitle className="text-sm font-semibold">3. Administrative Location (Uganda)</CardTitle>
                   </div>
                   <CardDescription className="text-xs">
-                    Select official hierarchy: District &rarr; County &rarr; Sub-County &rarr; Parish &rarr; Village.
+                    Location captured from device GPS.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3 pt-0">
-                  <UgLocationPicker
-                    value={adminLocation}
-                    onChange={(loc) => setAdminLocation(loc)}
-                  />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {([
+                      ['district', 'District'], ['county', 'County'], ['subcounty', 'Sub-County'],
+                      ['parish', 'Parish'], ['village', 'Village / Locality'],
+                    ] as const).map(([key, label]) => <div key={key}>
+                      <Label htmlFor={`signage-${key}`} className="text-xs font-medium">{label}</Label>
+                      <Input id={`signage-${key}`} readOnly value={adminLocation?.[key] ?? ''}
+                        placeholder={isCapturingGps ? 'Capturing location…' : '—'} className="mt-1 h-10 rounded-xl bg-muted text-sm" />
+                    </div>)}
+                  </div>
 
                   <div>
-                    <Label className="text-xs font-medium">Plot / Street / Immediate Landmark</Label>
+                    <Label htmlFor="signage-address" className="text-xs font-medium">Plot / Street / Immediate Landmark</Label>
                     <Input
-                      placeholder="e.g. Opposite Shell Petrol Station, Jinja Road"
+                      id="signage-address"
+                      readOnly
+                      placeholder="—"
                       value={plotOrLandmark}
-                      onChange={(e) => setPlotOrLandmark(e.target.value)}
                       className="mt-1 h-10 text-sm rounded-xl"
                     />
                   </div>
@@ -1221,7 +1252,7 @@ export default function AgentWelileSignages() {
               <div className="pt-2">
                 <Button
                   type="submit"
-                  disabled={submitMutation.isPending || resubmitMutation.isPending || isUploadingPhoto || isCapturingGps}
+                  disabled={submitMutation.isPending || resubmitMutation.isPending || isUploadingPhoto || isCapturingGps || !adminLocation}
                   className="w-full h-12 rounded-2xl text-sm font-bold shadow-lg"
                 >
                   {submitMutation.isPending || resubmitMutation.isPending ? (

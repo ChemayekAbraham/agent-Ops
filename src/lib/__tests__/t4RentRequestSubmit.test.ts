@@ -22,7 +22,7 @@ vi.mock('@/lib/captureGps', () => ({
   isGpsRequiredError: (m: unknown) => /gps/i.test(String(m ?? '')),
 }));
 
-import { attachT4Documents, finishRenewalIntake, postRenewal, resubmitT4Request, saveProfileIdBack, uploadNewRequestDocs } from '@/lib/t4RentRequestSubmit';
+import { attachT4Documents, fetchAgentSideMissing, finishRenewalIntake, postRenewal, resubmitT4Request, saveProfileIdBack, SIDE_MISSING_LINES, sideMissingSteps, uploadNewRequestDocs } from '@/lib/t4RentRequestSubmit';
 
 const calls = () => mocks.rpc.mock.calls.map(([fn, args]) => [fn, args]);
 
@@ -35,7 +35,7 @@ beforeEach(() => {
 });
 
 describe('resubmitT4Request: a resubmit goes back to the Service Centre', () => {
-  it('sends the changed fields and the note through agent_resubmit_rent_request, then the intake', async () => {
+  it('saves family size and work first (E90), then sends the changed fields and the note', async () => {
     const res = await resubmitT4Request({
       agentId: 'agent-1',
       requestId: 'req-9',
@@ -49,9 +49,9 @@ describe('resubmitT4Request: a resubmit goes back to the Service Centre', () => 
     });
     expect(res).toMatchObject({ ok: true, requestId: 'req-9', intakeError: null, lc1NoteError: null });
     expect(calls()).toEqual([
+      ['agent_save_intake_details', { p_request_id: 'req-9', p_family_size: 5, p_work_business: 'Tailor', p_work_location: 'Owino' }],
       ['agent_resubmit_rent_request', { p_request_id: 'req-9', p_patch: { rent_amount: 350000 }, p_agent_note: 'Fixed the rent with the landlord' }],
       ['agent_note_lc1_missing', { p_request_id: 'req-9', p_reason: 'LC1 is away until Friday' }],
-      ['agent_save_intake_details', { p_request_id: 'req-9', p_family_size: 5, p_work_business: 'Tailor', p_work_location: 'Owino' }],
     ]);
     expect(mocks.upload).not.toHaveBeenCalled();
   });
@@ -77,15 +77,79 @@ describe('resubmitT4Request: a resubmit goes back to the Service Centre', () => 
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
   });
 
-  it('returns the server error as-is and does not save the intake', async () => {
-    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'RESUBMIT_CAP_REACHED: 5/5' } });
+  it('returns the RESUBMIT_INCOMPLETE refusal word for word', async () => {
+    const refusal = 'RESUBMIT_INCOMPLETE: add house photos, GPS before sending this request again';
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'agent_resubmit_rent_request'
+      ? { data: null, error: { message: refusal } }
+      : { data: { ok: true }, error: null }));
     const res = await resubmitT4Request({
       agentId: 'agent-1', requestId: 'req-9', patch: {}, note: 'Fixed the LC1 details',
       photos: [], extraPhotoUrls: [], lcLetter: null, noLc1Reason: null,
       details: { familySize: 3, workBusiness: 'Boda rider', workLocation: '' },
     });
-    expect(res).toEqual({ ok: false, message: 'RESUBMIT_CAP_REACHED: 5/5' });
+    expect(res).toEqual({ ok: false, message: refusal });
+    expect(calls().map(([fn]) => fn)).toEqual(['agent_save_intake_details', 'agent_resubmit_rent_request']);
+  });
+
+  it('does not resubmit when family size and work are refused, and shows that error as-is', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'FAMILY_SIZE_RANGE: 1-30' } });
+    const res = await resubmitT4Request({
+      agentId: 'agent-1', requestId: 'req-9', patch: {}, note: 'Added family size',
+      photos: [], extraPhotoUrls: [], lcLetter: null, noLc1Reason: null,
+      details: { familySize: 99, workBusiness: 'Tailor', workLocation: null },
+    });
+    expect(res).toEqual({ ok: false, message: 'FAMILY_SIZE_RANGE: 1-30' });
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('E90: what the agent still has to add', () => {
+  it('reads _agent_side_missing for the request', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: ['house photos', ' GPS ', ''], error: null });
+    await expect(fetchAgentSideMissing('req-9')).resolves.toEqual(['house photos', 'GPS']);
+    expect(mocks.rpc).toHaveBeenCalledWith('_agent_side_missing', { p_request_id: 'req-9' });
+  });
+
+  it('gives null when the list cannot be read', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'permission denied' } });
+    await expect(fetchAgentSideMissing('req-9')).resolves.toBeNull();
+    mocks.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
+    await expect(fetchAgentSideMissing('req-9')).resolves.toBeNull();
+  });
+
+  it.each([
+    ['Photos of the house', 'photos'],
+    ['Landlord details', 'landlord'],
+    ['Rent amount needed', 'rent'],
+    ['GPS of the house', 'gps'],
+    ['family size', 'familySize'],
+    ['work / business', 'work'],
+    ['ID photo (front)', 'idFront'],
+    ['ID photo (back)', 'idBack'],
+    ['LC1 letter (photo)', 'lcLetter'],
+  ] as const)('maps the server line "%s" to exactly one question: %s', (line, step) => {
+    expect(SIDE_MISSING_LINES[line]).toBe(step);
+    expect(sideMissingSteps(line)).toEqual([step]);
+    // Case and surrounding spaces do not matter.
+    expect(sideMissingSteps(`  ${line.toUpperCase()} `)).toEqual([step]);
+  });
+
+  it('covers every server line and nothing else', () => {
+    expect(Object.keys(SIDE_MISSING_LINES)).toHaveLength(9);
+  });
+
+  it('falls back to keywords for a line it does not know, ID and LC1 before any generic photo', () => {
+    expect(sideMissingSteps('house photos')).toEqual(['photos']);
+    expect(sideMissingSteps('National ID photo, front side')).toEqual(['idFront']);
+    expect(sideMissingSteps('Back of the ID photo')).toEqual(['idBack']);
+    expect(sideMissingSteps('ID photos')).toEqual(['idFront', 'idBack']);
+    expect(sideMissingSteps('Photo of the LC1 letter')).toEqual(['lcLetter']);
+    expect(sideMissingSteps('Landlord phone')).toEqual(['landlord']);
+    expect(sideMissingSteps('Monthly rent')).toEqual(['rent']);
+    expect(sideMissingSteps('House location')).toEqual(['gps']);
+    expect(sideMissingSteps('Household size')).toEqual(['familySize']);
+    expect(sideMissingSteps('Occupation')).toEqual(['work']);
+    expect(sideMissingSteps('something else')).toEqual([]);
   });
 });
 
@@ -131,12 +195,14 @@ describe('DOCS-1: attachT4Documents', () => {
     });
     expect(problems).toEqual([]);
     expect(mocks.upload).toHaveBeenCalledTimes(2);
-    expect(calls()).toEqual([
+    // All three go side by side, so the order of the calls does not matter.
+    expect(calls()).toHaveLength(3);
+    expect(calls()).toEqual(expect.arrayContaining([
       ['request_attach_document', { p_request_id: 'req-1', p_kind: 'id_front', p_bucket: 'tenant-ids', p_path: expect.stringMatching(/^agent-1\/req-1\/national_id_\d+\.jpg$/) }],
       // Already stored: attached as it is, no upload.
       ['request_attach_document', { p_request_id: 'req-1', p_kind: 'id_back', p_bucket: 'tenant-ids', p_path: 'tenant-1/old/national_id_back.jpg' }],
       ['request_attach_document', { p_request_id: 'req-1', p_kind: 'lc1_letter', p_bucket: 'lc-letters', p_path: expect.stringMatching(/^agent-1\/req-1\/lc_letter_\d+\.png$/) }],
-    ]);
+    ]));
   });
 
   it('returns each failure with the server’s message as-is and keeps going', async () => {

@@ -16,7 +16,8 @@
  *   unchecked=1        every third empty house has house_listings.verified = false
  *   tags=on|off|board  funders board tags (off = switch off and no preview row);
  *                      board = tags on with the E72b grouped list (fixture board items in all four tags)
- *   demote=1           E59 viewer may demote (funders_board_can_demote() true); fake submit
+ *   demote=1           E59 viewer may demote (funders_board_can_demote() true); fake submit;
+ *                      board items then carry `incomplete` (COO/CEO only)
  */
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -111,6 +112,7 @@ export default function FunderV3Harness() {
   const tagsParam = params.get('tags');
   const boardTagsOn = tagsParam === 'on' || tagsParam === 'board';
   const boardMode = tagsParam === 'board';
+  const canDemote = params.get('demote') === '1';
   const demote = useMemo<FunderV3DemoteApi | null>(
     () =>
       params.get('demote') === '1'
@@ -155,12 +157,14 @@ export default function FunderV3Harness() {
     const make = (id: string, tag: BoardItem['tag'], i: number, extra: Partial<BoardItem> = {}): BoardItem => ({
       id, tag, selectable: tag === 'verified', held: false, tenantFirstName: ['Grace', 'Moses', 'Ruth', 'Isaac'][i % 4],
       houseCategory: ['Single Room', 'Double Room', 'Self Contained', 'Two Bedroom House'][i % 4], city: ['Kira', 'Ntinda', 'Nansana', 'Mukono'][i % 4],
-      mainPhoto: null, photos: [], rentAmount: 250000 + i * 50000, durationDays: 30, dailyRepayment: null, lat: 0.33 + i * 0.012, lng: 32.55 + i * 0.015, sortAt: null, ...extra,
+      mainPhoto: null, photos: [], rentAmount: 250000 + i * 50000, durationDays: 30, dailyRepayment: null, lat: 0.33 + i * 0.012, lng: 32.55 + i * 0.015, sortAt: null, incomplete: null, ...extra,
     });
+    // Like the server: `incomplete` only for COO/CEO (demote=1), null for funders; an empty list means nothing missing.
+    const missing = (list: string[]) => (canDemote ? list : null);
     const items: BoardItem[] = [
-      make('plan-0', 'verified', 0),
-      make('plan-1', 'verified', 1),
-      make('rq-held', 'verified', 2, { selectable: false, held: true }),
+      make('plan-0', 'verified', 0, { incomplete: missing(['family size', 'LC1 (letter or phone confirmation)']) }),
+      make('plan-1', 'verified', 1, { incomplete: missing([]) }),
+      make('rq-held', 'verified', 2, { selectable: false, held: true, incomplete: missing(['photo review (3+ approved, main photo)']) }),
       // Selectable on the server but its page of fundable plans has not loaded: still a fundable card.
       make('rq-late', 'verified', 8),
       make('rq-b1', 'booked', 3), make('rq-b2', 'booked', 4),
@@ -171,7 +175,7 @@ export default function FunderV3Harness() {
       items,
       counts: { verified: 4, verified_ugx: 1550000, booked: 2, funded: 1, pending_verification: 2, pending_verification_ugx: 1050000, ready_total: 6, ready_total_ugx: 2600000 },
     };
-  }, [boardMode]);
+  }, [boardMode, canDemote]);
   const boardGroups = useMemo(() => {
     if (!board) return null;
     return buildBoardGroups<FeedEntry>({
