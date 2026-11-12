@@ -315,7 +315,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
               {/* Photos Gallery */}
               <div>
                 <Label className="text-xs font-semibold text-foreground mb-1.5 block">Photographic Evidence</Label>
-                {isReviewOpen && <SignageEvidence signageId={selectedSignage.id} />}
+                {isReviewOpen && <SignageEvidence signageId={selectedSignage.id} fullPhotoPreview={stage === 'agent_ops'} />}
               </div>
 
               {/* Location & Coordinates Audit */}

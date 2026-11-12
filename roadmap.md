@@ -1,3 +1,7 @@
+# Agent Ops signage evidence photos
+- [x] Fit complete photos inside their frames and open any clicked photo in a full-screen, closable preview; other signage desks and financial actions unchanged.
+- [x] Six photo/approval tests pass and automatic build OK; isolated desktop/phone checks confirm contained portrait/landscape images, full-screen sizing and Escape returns to review. Live authorized inspection remains unavailable with external unmanaged authentication.
+
 # Co-support invitation follow-ups
 - [x] Confirm pushed commit 447b8bdd02 and the supplied float-watch regression test; keep the hook and safety boundary unchanged.
 - [x] Use the supplied waiting-sheet and joined-card labels and suppress the global install prompt on invitation links only; storage untouched.
