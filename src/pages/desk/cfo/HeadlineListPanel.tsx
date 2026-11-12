@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { CALM, FOCUS, LABEL } from '../deskTheme';
 import { readableError } from '../reviewApi';
@@ -110,11 +110,30 @@ function SidePanel({ title, onClose, children }: { title: string; onClose: () =>
   );
 }
 
-export function HeadlineListPanel({ kind, period, onClose }: { kind: HeadlineKind; period: Period; onClose: () => void }) {
-  const q = useFundersHeadlineList(period, kind);
+export function HeadlineListPanel({
+  kind,
+  period,
+  onClose,
+  excludeIds,
+}: {
+  kind: HeadlineKind;
+  period: Period;
+  onClose: () => void;
+  /** Waiting: the requests released in the period, left out of the posted list. */
+  excludeIds?: readonly string[];
+}) {
+  // Waiting is posted minus released, so it reads the posted list and leaves the released out.
+  const source: HeadlineKind = kind === 'waiting' ? 'posted' : kind;
+  const q = useFundersHeadlineList(period, source);
   const md = atLeast(useBreakpoint(), 'md');
   const title = HEADLINE_KINDS.find((k) => k.kind === kind)?.title ?? kind;
-  const list = q.data;
+  const list = useMemo(() => {
+    const l = q.data;
+    if (!l || kind !== 'waiting') return l;
+    const out = new Set(excludeIds ?? []);
+    const rows = l.rows.filter((r) => !out.has(r.id));
+    return { ...l, kind, count: rows.length, ugx: rows.reduce((s, r) => s + (r.rent ?? 0), 0), rows };
+  }, [q.data, kind, excludeIds]);
 
   const body = (
     <>

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -89,18 +89,54 @@ describe('Funders Dashboard money lines', () => {
     answers(Promise.resolve({ data: FLOW, error: null }), Promise.resolve({ data: QUEUE, error: null }));
     const { container } = wrap(<FundersMoneyLines board />);
     await screen.findByText('Released to agents: 12 · UGX 8,400,000');
-    expect(container.querySelector('[data-funders-money-lines]')?.className).toContain('[&_span[data-flow-line]]:!text-xl');
+    expect(container.querySelector('[data-flow-line="released"]')?.className).toContain('text-xl');
+    expect(container.querySelector('[data-flow-line="live"]')?.className).toContain('text-xl');
     expect(screen.getByText('Incomplete requests: 4').className).toContain('text-xl');
   });
 
-  it('sits under the top tiles of the cfo desk and reuses Op 5’s component unchanged', () => {
+  it('"With agents, landlord not paid" lists those releases; one opens the plan drawer, where Recall shows', async () => {
+    const id = '5b3c1f0e-1111-4222-8333-444455556666';
+    const flow = {
+      ...FLOW,
+      items: [
+        { rent_request_id: id, tenant: 'Amina Nakato', agent: 'Paul Okello', landlord: 'Grace L', amount: 650000, paid_out: 0, stage: 'with_agent', hours_since_release: 30 },
+        { rent_request_id: '9d9d9d9d-1111-4222-8333-444455556666', tenant: 'Ben Live', agent: 'Ann', landlord: 'Leo', amount: 600000, paid_out: 600000, stage: 'live', hours_since_release: 50 },
+      ],
+    };
+    h.rpc.mockImplementation((fn: string) =>
+      Promise.resolve(
+        fn === 'funded_money_flow'
+          ? { data: flow, error: null }
+          : fn === 'pipeline_incomplete_queue'
+            ? { data: QUEUE, error: null }
+            : fn === 'funders_board_can_demote'
+              ? { data: true, error: null }
+              : { data: null, error: null },
+      ),
+    );
+    wrap(<FundersMoneyLines board />);
+    fireEvent.click(await screen.findByRole('button', { name: 'With agents, landlord not paid: 3 · UGX 2,100,000 · oldest 80 h' }));
+    const list = await screen.findByRole('dialog', { name: 'With agents, landlord not paid' });
+    expect(within(list).getByText('Amina Nakato')).toBeTruthy();
+    expect(within(list).queryByText('Ben Live')).toBeNull();
+    // 1 of the 3 the server counted came back in its latest-50 items.
+    expect(list.querySelector('[data-releases-note]')!.textContent).toBe('Last 30 days · latest 1 of 3 shown');
+    fireEvent.click(within(list).getByRole('button', { name: 'Open the plan for Amina Nakato' }));
+    const drawer = await screen.findByRole('dialog', { name: 'Rent Plan Ref 5B3C1F0E' });
+    expect(await within(drawer).findByRole('button', { name: 'Recall' })).toBeTruthy();
+    // Closing the drawer brings the list back.
+    fireEvent.click(within(drawer).getAllByRole('button', { name: 'Close' })[0]);
+    expect(await screen.findByRole('dialog', { name: 'With agents, landlord not paid' })).toBeTruthy();
+  });
+
+  it('sits under the top tiles of the cfo desk and reuses Op 5’s hook and words unchanged', () => {
     const page = readFileSync(resolve(__dirname, '../../DeskPage.tsx'), 'utf8');
     const tiles = page.indexOf("desk.id === 'cfo' && <FundersHeadline");
     const lines = page.indexOf("desk.id === 'cfo' && <FundersMoneyLines");
     expect(tiles).toBeGreaterThan(-1);
     expect(lines).toBeGreaterThan(tiles);
     const src = readFileSync(resolve(__dirname, '../FundersMoneyLines.tsx'), 'utf8');
-    expect(src).toContain("import { MoneyFlowLines } from '../moneyFlow'");
+    expect(src).toContain("import { MONEY_FLOW_DAYS, moneyFlowLines, useMoneyFlow } from '../moneyFlow'");
     expect(src).toContain("import { useIncompleteQueue } from '../incomplete'");
   });
 });
