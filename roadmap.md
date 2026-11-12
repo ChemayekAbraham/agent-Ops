@@ -1,6 +1,6 @@
 # Already-issued Special Advances
 - [x] Add separate CFO recording for outside-Welile advances with original date, proof, duplicate safeguards and platform-only accounting; never calls the fresh payout action.
-- [ ] Test the non-payout flow and existing Special Advances safeguards.
+- [x] Eighty form/table/accounting tests pass, all guards pass and automatic build OK; embedded Postgres confirms original-date schedules, platform-only accounting and replay/payout refusal. Signed-in CFO end-to-end verification is unavailable with external unmanaged authentication.
 
 # Agent Ops signage location filters
 - [x] Add a region filter and search across region, district, county, sub-county, parish, village and landmarks using authorized loaded signage rows and the shared official district-region reference.
