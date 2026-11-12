@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChevronLeft, ChevronRight, Home, MapPin, Phone, ShieldCheck, User, UserCheck, Wallet, X } from 'lucide-react';
 import tenantPhotoPlaceholder from '@/assets/tenant-photo-placeholder.jpg';
 import { cn } from '@/lib/utils';
@@ -276,6 +277,21 @@ export function SelfPortfolioPlanDetailSheet({
   const regionLabel = addressParts.length
     ? addressParts[addressParts.length - 1]
     : 'Uganda';
+  const rent = pay(Number(plan.funding_amount || 0));
+  const monthly = ownRatePct === null ? null : (rent * ownRatePct) / 100;
+  const daily = monthly === null ? null : monthly / 30;
+  // The partner earns across the whole contract, not for the plan's length.
+  const total = monthly === null ? null : monthly * CONTRACT_TERM_MONTHS;
+  const agentTel = (plan.agent_phone || plan.proxy_agent_phone || '').replace(/\s/g, '') || null;
+  // Opens the house in Google Maps: pinned coordinates when the request has them, otherwise the written address.
+  const openMap = () => {
+    const lat = Number(plan.request_latitude);
+    const lng = Number(plan.request_longitude);
+    const hasCoords = plan.request_latitude != null && plan.request_longitude != null
+      && Number.isFinite(lat) && Number.isFinite(lng);
+    const query = hasCoords ? `${lat},${lng}` : fullAddress;
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+  };
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       {/* No `relative` here: it would override the sheet's own `fixed`
@@ -356,7 +372,7 @@ export function SelfPortfolioPlanDetailSheet({
 
         {/* Content sheet overlapping the photo, rounded like a Material bottom sheet */}
         <div className="relative -mt-5 rounded-t-[28px] bg-background px-4 pt-6 pb-0">
-          <h2 className="text-xl font-bold capitalize leading-tight tracking-tight">
+          <h2 className="text-xl font-bold leading-tight tracking-tight first-letter:uppercase">
             {plan.house_category ? `${plan.house_category.replace(/-/g, ' ')} in ` : 'Rent plan in '}
             {regionLabel}
           </h2>
@@ -371,7 +387,7 @@ export function SelfPortfolioPlanDetailSheet({
               <div className="min-w-0">
                 <p className="text-xs font-medium text-muted-foreground">Rent</p>
                 <p className="mt-0.5 break-words text-xl font-bold tracking-tight">{formatDynamic(rent)}</p>
-                <p className="text-xs text-muted-foreground">{name.split(' ')[0]}'s Rent Plan</p>
+                <p className="text-xs text-muted-foreground">Paid once</p>
               </div>
               <div className="min-w-0 border-l border-border/60 pl-3">
                 <p className="text-xs font-medium text-muted-foreground">You earn monthly</p>
@@ -462,17 +478,7 @@ export function SelfPortfolioPlanDetailSheet({
           </div>
 
           {/* Key details: list tiles with a tonal leading icon */}
-          <ul className="mt-4 divide-y divide-border/60 rounded-3xl bg-muted/40 px-3">
-            <li className="flex items-center gap-3 py-3">
-              <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
-                <Home className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1 text-sm text-muted-foreground">Rent amount</span>
-              <span className="text-base font-bold text-primary truncate">
-                {formatDynamic(pay(Number(plan.funding_amount || 0)))}
-              </span>
-            </li>
-            <li className="py-3 empty:hidden"><AgentCareNote kind="tenant" rent={Number(plan.funding_amount || 0)} /></li>
+          <ul className="mt-3 divide-y divide-border/60 rounded-3xl bg-muted/40 px-3">
             <li className="flex items-center gap-3 py-3">
               <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
                 <User className="h-5 w-5" />
@@ -517,100 +523,51 @@ export function SelfPortfolioPlanDetailSheet({
             </li>
           </ul>
 
-          {/* Thumbnails */}
-          {photos.length > 1 && (
-            <div className="mt-5">
-              <p className="text-sm font-bold mb-2">More photos</p>
-              <div className="grid grid-cols-3 gap-2">
-                {photos.map((url, i) => (
-                  <button
-                    type="button"
-                    key={`thumb-${url}-${i}`}
-                    onClick={() => {
-                      setHeroIndex(i);
-                      setLightboxIndex(i);
-                    }}
-                    aria-label={`Expand house photo ${i + 1}`}
-                    className={cn(
-                      'rounded-xl overflow-hidden ring-2 ring-transparent transition',
-                      i === heroIndex && 'ring-primary',
-                    )}
-                  >
-                    <img
-                      src={url}
-                      alt={`House photo ${i + 1}`}
-                      loading="lazy"
-                      className="w-full h-24 object-cover bg-muted"
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Privacy note, as small print under the people it covers. */}
+          <p className="mt-3 flex items-start gap-1.5 px-1 text-xs text-muted-foreground">
+            <ShieldCheck className="mt-0.5 h-3.5 w-3.5 flex-none" aria-hidden />
+            {isFunded
+              ? 'You already support this tenant. The landlord and tenant have agreed to share this information through Welile.'
+              : 'Summary only. Photo and contact details stay hidden until you support this tenant.'}
+          </p>
+            </TabsContent>
 
-          {/* Earnings projection */}
-          {(() => {
-            const monthly = ownRatePct === null ? null : (pay(Number(plan.funding_amount || 0)) * ownRatePct) / 100;
-            const daily = monthly === null ? null : monthly / 30;
-            // The partner earns across the whole contract, not for the plan's length.
-            const months = CONTRACT_TERM_MONTHS;
-            const total = monthly === null ? null : monthly * months;
-            return (
-              <div className="mt-5 rounded-3xl bg-primary/10 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold">Your projected Rent profit share</p>
-                  {formatRatePct(ownRatePct) && (
-                    <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-bold text-primary">
-                      {formatRatePct(ownRatePct)} per month
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Based on {formatDynamic(pay(Number(plan.funding_amount || 0)))}.
-                </p>
-                <ul className="mt-3 divide-y divide-primary/20">
-                  {[
-                    { label: 'Per day', value: daily },
-                    { label: 'Per month', value: monthly },
-                  ].map((row) => (
-                    <li key={row.label} className="flex items-center justify-between gap-3 py-2.5">
-                      <span className="text-xs text-muted-foreground">{row.label}</span>
-                      <span className="text-sm font-black text-primary">
-                        {row.value === null ? '—' : formatDynamic(Math.round(row.value))}
-                      </span>
-                    </li>
-                  ))}
-                  <li className="flex items-center justify-between gap-3 py-2.5">
-                    <span className="text-xs text-muted-foreground">
-                      Over {months} months
-                    </span>
-                    <span className="text-base font-black text-primary">
-                      {total === null ? '—' : formatDynamic(Math.round(total))}
+            <TabsContent value="earnings" forceMount className="mt-3 space-y-3 data-[state=inactive]:hidden">
+              {/* Earnings projection at this partner's own rate. */}
+              <ul className="divide-y divide-border/60 rounded-3xl border border-border/70 bg-card px-4">
+                {[
+                  { label: 'Per day', value: daily },
+                  { label: 'Per month', value: monthly },
+                ].map((row) => (
+                  <li key={row.label} className="flex items-center justify-between gap-3 py-3">
+                    <span className="text-sm text-muted-foreground">{row.label}</span>
+                    <span className="text-sm font-bold text-success">
+                      {row.value === null ? '—' : formatDynamic(Math.round(row.value))}
                     </span>
                   </li>
-                </ul>
-              </div>
-            );
-          })()}
+                ))}
+                <li className="flex items-center justify-between gap-3 py-3">
+                  <span className="text-sm text-muted-foreground">Over {CONTRACT_TERM_MONTHS} months</span>
+                  <span className="text-base font-black text-success">
+                    {total === null ? '—' : formatDynamic(Math.round(total))}
+                  </span>
+                </li>
+              </ul>
+              <p className="px-1 text-xs text-muted-foreground">
+                Your projected Rent profit share, based on {formatDynamic(rent)}
+                {formatRatePct(ownRatePct) ? ` at ${formatRatePct(ownRatePct)} a month` : ''}.
+              </p>
+              <AgentCareNote kind="tenant" rent={Number(plan.funding_amount || 0)} />
+            </TabsContent>
 
-          {isFunded && (
-            <FunderVerifiedPlanPack rentRequestId={plan.rent_request_id} />
-          )}
-          {!isFunded && <div className="px-0"><OffplatformCoverStatus rentRequestId={plan.rent_request_id} /></div>}
-
-          <div className="mt-4">
-            <V360PlanCaptions rentRequestId={plan.rent_request_id} />
-          </div>
-
-          {/* Privacy notice band */}
-          <div className="mt-4 -mx-4 bg-muted/50 px-4 py-3 flex items-start gap-2">
-            <ShieldCheck className="h-4 w-4 text-muted-foreground flex-none mt-0.5" />
-            <p className="text-xs text-muted-foreground">
-              {isFunded
-                ? 'You already support this tenant. The landlord and tenant have agreed to share this information through Welile.'
-                : 'Summary only. Photo and contact details stay hidden until you support this tenant.'}
-            </p>
-          </div>
+            <TabsContent value="checks" forceMount className="mt-3 space-y-3 data-[state=inactive]:hidden">
+              {isFunded && (
+                <FunderVerifiedPlanPack rentRequestId={plan.rent_request_id} />
+              )}
+              {!isFunded && <OffplatformCoverStatus rentRequestId={plan.rent_request_id} />}
+              <V360PlanCaptions rentRequestId={plan.rent_request_id} />
+            </TabsContent>
+          </Tabs>
 
           {/* Bottom action bar: stays on screen while the details scroll */}
           {onFund && !isFunded && (
@@ -620,12 +577,12 @@ export function SelfPortfolioPlanDetailSheet({
                 onClick={() => onFund(plan)}
               >
                 <Wallet className="h-5 w-5" />
-                Fund this house, {formatDynamic(pay(Number(plan.funding_amount || 0)))}
+                Fund this house, {formatDynamic(rent)}
               </Button>
               <CoSupportStartButton
                 className="mt-2"
                 rentRequestId={plan.rent_request_id}
-                planAmount={pay(Number(plan.funding_amount || 0))}
+                planAmount={rent}
               />
             </div>
           )}
