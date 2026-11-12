@@ -171,6 +171,7 @@ describe('invitation page wording', () => {
     expect(c.waitingDetail('airtel')).toMatch(/your Airtel payment/);
     expect(c.arrivedDetail(1335514)).toBe('UGX 1,335,514 is in your float. You can join Benjamin now.');
     expect(c.arrivedAction).toBe('Join Benjamin now');
+    expect([c.waitingAmountLabel, c.waitingTidLabel, c.closeLabel]).toEqual(['Amount', 'Transaction ID', 'Close']);
   });
   it('words houses and success differently', () => {
     const h = coSupportInviteCopy({ ...pius, kind: 'house', tenant_first_name: null, house_title: '2-bedroom house', city: 'Wakiso', reason: null }, now);
@@ -186,7 +187,7 @@ describe('invitation page wording', () => {
     expect(r.successPill).toBe('Benjamin + you · 50/50');
     expect(r.successTitle).toBe("You and Benjamin now support Nakasagga's home together");
     expect(r.successDetail).toBe("Nakasagga's full rent has gone to the agent to pay the landlord. Thank you for joining.");
-    expect(r.successCard).toMatchObject({ title: "Nakasagga's Rent Plan", putIn: 'UGX 1,530,000', earning: 'UGX 229,500', first: '12 Dec 2026' });
+    expect(r.successCard).toMatchObject({ title: "Nakasagga's Rent Plan", putIn: 'UGX 1,530,000', earningLabel: 'Rent Profit Share', earning: 'UGX 229,500', earningSuffix: ' /mo', first: '12 Dec 2026' });
     expect(r.nextSteps.map((s) => [s.done, s.title])).toEqual([
       [true, "You're in"], [true, 'Rent sent to the agent'], [false, 'Your first Rent Profit Share'],
     ]);

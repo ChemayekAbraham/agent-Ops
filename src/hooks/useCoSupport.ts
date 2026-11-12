@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getSignedUrl } from '@/lib/storageUtils';
@@ -211,12 +211,19 @@ export function useCoSupportFloatWatch(
   const [now, setNow] = useState(() => Date.now());
   const active = !!deposit && !!code;
 
+  // Polling stops once the money has arrived or the deposit was rejected.
+  // Kept in a ref from the last render: each query's refetchInterval reads it,
+  // so neither query refers to the other (react-query may call refetchInterval
+  // while the hook is still running, before the second query exists).
+  const doneRef = useRef(false);
+  const poll = () => (doneRef.current ? false : 4_000);
+
   const preview = useQuery({
     // same key as useCoSupportPreview, so the page underneath updates too
     queryKey: [...coSupportKeys.preview(code ?? ''), signedInUserId ?? 'anon'],
     enabled: active,
     queryFn: () => call<CoSupportPreview>('co_support_preview', { p_code: code }),
-    refetchInterval: (q) => (stopped(q.state.data, depositStatus.data) ? false : 4_000),
+    refetchInterval: poll,
   });
   const depositStatus = useQuery({
     queryKey: ['co-support', 'float-deposit', deposit?.id ?? ''],
@@ -230,20 +237,8 @@ export function useCoSupportFloatWatch(
       if (error) throw error;
       return (data?.status as string | undefined) ?? null;
     },
-    refetchInterval: (q) => (stopped(preview.data, q.state.data) ? false : 4_000),
+    refetchInterval: poll,
   });
-
-  function stopped(p: CoSupportPreview | undefined, status: string | null | undefined) {
-    const s = coSupportFloatWatchState({ submittedAt: deposit?.submittedAt ?? null, preview: p, depositStatus: status, now: Date.now() });
-    return s === 'arrived' || s === 'rejected' || s === 'idle';
-  }
-
-  // tick so 'waiting' turns into 'slow' even when nothing else changes
-  useEffect(() => {
-    if (!active) return;
-    const t = setInterval(() => setNow(Date.now()), 5_000);
-    return () => clearInterval(t);
-  }, [active]);
 
   const state = coSupportFloatWatchState({
     submittedAt: deposit?.submittedAt ?? null,
@@ -251,5 +246,15 @@ export function useCoSupportFloatWatch(
     depositStatus: depositStatus.data,
     now,
   });
+  const done = state === 'arrived' || state === 'rejected' || state === 'idle';
+  doneRef.current = done;
+
+  // tick so 'waiting' turns into 'slow' even when nothing else changes
+  useEffect(() => {
+    if (!active || done) return;
+    const t = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(t);
+  }, [active, done]);
+
   return { state, preview: preview.data ?? null };
 }
