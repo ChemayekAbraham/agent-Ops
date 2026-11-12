@@ -1,3 +1,8 @@
+# Signage GPS-only locations
+- [x] Populate read-only location fields from captured GPS for new and returned applications; block failed/unresolved lookups without guessing missing optional levels.
+- [x] Test capture, recapture, lookup failures, locked fields and existing signage safeguards; 24 tests and all guards passed, build OK.
+- [ ] Verify signed-in registration; external unmanaged authentication prevents a real authorized browser check.
+
 # Co-support invitation redesign
 - [x] Confirm commit 604a836d18, eight owner boards and required hooks/deposit callback.
 - [x] Match invitation and joined views and connect existing DepositFlow to float-watch sheets; no financial writer changes.
