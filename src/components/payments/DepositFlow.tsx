@@ -81,6 +81,9 @@ const ALLOWED_DEPOSIT_PURPOSES: readonly DepositPurpose[] = SHARED_ALLOWED_DEPOS
 interface DepositFlowProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Optional presentation-only heading for an invitation's add-float sheet. */
+  heading?: string;
+  intro?: string;
   walletBalance?: number;
   /** Pre-select a deposit purpose (e.g. 'operational_float' for agents). */
   defaultPurpose?: DepositPurpose;
@@ -168,7 +171,7 @@ const QUICK_AMOUNTS = [50000, 100000, 250000, 500000];
 const MIN_DEPOSIT = 500;
 const MAX_DEPOSIT = 1_000_000_000;
 
-export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowedPurposes, lockPurpose, requirePurposeChoice, editRequestId, prefillFromMatch, defaultAmount, defaultChannel, defaultMomoProvider, onSubmitted }: DepositFlowProps) {
+export default function DepositFlow({ open, onOpenChange, heading, intro, defaultPurpose, allowedPurposes, lockPurpose, requirePurposeChoice, editRequestId, prefillFromMatch, defaultAmount, defaultChannel, defaultMomoProvider, onSubmitted }: DepositFlowProps) {
   const navigate = useNavigate();
   const { roles, user: authUser } = useAuth();
   /**
@@ -1469,19 +1472,19 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
         chase a button hidden below the fold.
       */}
       <DialogContent
-        className="p-0 gap-0 sm:max-w-md w-screen h-svh sm:h-auto sm:max-h-[90vh] sm:rounded-2xl rounded-none overflow-y-auto flex flex-col"
+        className={cn("p-0 gap-0 sm:max-w-md w-screen h-svh sm:h-auto sm:max-h-[90vh] sm:rounded-2xl rounded-none overflow-y-auto flex flex-col", heading && "co-support-sheet top-auto bottom-0 translate-y-0 h-auto max-h-[90svh] rounded-t-3xl sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2")}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* Hero illustration */}
-        <div className="flex justify-center pt-4 pb-2 bg-background">
+        {!heading && <div className="flex justify-center pt-4 pb-2 bg-background">
           <img
             src={savingsBroAsset.url}
             alt="Savings illustration"
             className="h-28 w-auto object-contain"
           />
-        </div>
+        </div>}
         {/* Header (scrolls with content) */}
         <DialogHeader className="px-4 py-3 border-b bg-background space-y-0">
           <div className="flex items-center gap-3">
@@ -1509,10 +1512,11 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
             )}
             <div className="min-w-0 flex-1">
               <DialogTitle className="text-base font-semibold leading-tight">
-                {isEditMode ? 'Edit deposit' : 'Deposit to wallet'}
+                {heading ?? (isEditMode ? 'Edit deposit' : 'Deposit to wallet')}
               </DialogTitle>
+              {intro ? <p className="mt-2 text-sm text-muted-foreground">{intro}</p> : null}
               {/* Tiny step caption — plain language, no jargon. */}
-              {!editLoading && step !== 'submitting' && step !== 'success' && (
+              {!heading && !editLoading && step !== 'submitting' && step !== 'success' && (
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {step === 'purpose'
                     ? 'Step 1 of 3 · What is this for?'

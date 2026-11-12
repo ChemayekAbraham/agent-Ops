@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 
 /**
  * E82: requirements re-checked at Tenant Ops, Landlord Ops and the COO push.
- * The "Missing: …" chip and blocked Pass, the "Send back to Agent Ops"
+ * The "Missing: …" chip and blocked Pass, the "Send back…"
  * shortcut, Agent Ops' "Complete missing items" and the count card.
  */
 
@@ -129,10 +129,11 @@ describe('desk rows: Tenant Ops and Landlord Ops', () => {
     // "Push all" leaves the incomplete row out.
     expect(screen.getByRole('button', { name: /Push all 1 ·/ })).toBeTruthy();
 
-    fireEvent.click(within(inc).getByRole('button', { name: 'Send back to Agent Ops' }));
-    const sheet = await screen.findByRole('dialog');
-    await waitFor(() => expect(sheet.querySelector('[data-office="agent_ops"]')?.getAttribute('aria-checked')).toBe('true'));
-    expect((within(sheet).getByRole('textbox') as HTMLTextAreaElement).value).toBe(MISSING_TEXT);
+    // E89: the shortcut opens the three-target send-back, Agent Ops picked.
+    fireEvent.click(within(inc).getByRole('button', { name: 'Send back…' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Send back Ivy Incomplete' });
+    expect(sheet.querySelector('[data-target="agent_ops"]')?.getAttribute('aria-checked')).toBe('true');
+    expect(sheet.querySelector('[data-confirm-line]')?.textContent).toBe(`Send back to Agent Ops? ${MISSING_TEXT}`);
   });
 
   it('Agent Ops itself: the chip, but no shortcut back to itself', async () => {
@@ -140,7 +141,7 @@ describe('desk rows: Tenant Ops and Landlord Ops', () => {
     wrap(<ReadyBoard stage="agent_ops" board={false} onOpen={() => {}} />);
     await screen.findByText('Ivy Incomplete');
     expect(screen.getByText(MISSING_TEXT, { selector: '[data-tone]' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Send back to Agent Ops' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send back…' })).toBeNull();
   });
 
   it('the drawer opened from the row says what is missing, and Pass waits', async () => {
@@ -205,9 +206,9 @@ describe('COO board', () => {
     expect(inc.querySelector('[data-tone="bad"]')?.textContent).toBe(MISSING_TEXT);
     expect(within(inc).queryByRole('button', { name: 'Push to funders' })).toBeNull();
     expect(within(document.querySelector('[data-row="ok"]') as HTMLElement).getByRole('button', { name: 'Push to funders' })).toBeTruthy();
-    fireEvent.click(within(inc).getByRole('button', { name: 'Send back to Agent Ops' }));
-    const sheet = await screen.findByRole('dialog');
-    await waitFor(() => expect(sheet.querySelector('[data-office="agent_ops"]')?.getAttribute('aria-checked')).toBe('true'));
+    fireEvent.click(within(inc).getByRole('button', { name: 'Send back…' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Send back Ivy Incomplete' });
+    expect(sheet.querySelector('[data-target="agent_ops"]')?.getAttribute('aria-checked')).toBe('true');
   });
 });
 
@@ -232,7 +233,7 @@ describe('Agent Ops: "Complete missing items"', () => {
     const item = document.querySelector('[data-incomplete="q1q1q1q1"]') as HTMLElement;
     expect(item.textContent).toContain('At Tenant Ops');
     expect(item.textContent).toContain(MISSING_TEXT);
-    fireEvent.click(within(item).getByRole('button'));
+    fireEvent.click(within(item).getAllByRole('button')[0]);
     const sheet = screen.getByRole('dialog', { name: 'Complete Ivy Incomplete · q1q1q1q1' });
     expect(sheet.textContent).toContain('It stays there and moves on once complete.');
     expect(sheet.querySelector('[data-intake-block]')).toBeTruthy();

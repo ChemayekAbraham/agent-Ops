@@ -89,6 +89,15 @@ export function useCreateSpecialAdvance() {
   });
 }
 
+/** Records an original outside-Welile payment; never calls the payout RPC. */
+export function useRecordHistoricalSpecialAdvance() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (request: Record<string, unknown>) => call<SpecialAdvanceStatement>('special_advance_record_historical', { p_request: request }),
+    onSuccess: invalidate,
+  });
+}
+
 type Versioned = { id: string; updated_at: string };
 
 export function useSpecialAdvanceDecision() {

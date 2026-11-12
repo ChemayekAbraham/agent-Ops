@@ -145,7 +145,7 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
     if (virtual) virtualizer.measure();
   }, [columns, virtual, virtualizer]);
 
-  const renderCard = (entry: FeedEntry, index: number) => {
+  const renderCard = (entry: FeedEntry, index: number, incomplete: string[] | null = null) => {
     const id = itemId(entry.category, entry.item);
     const cardId = cardIdOf(entry);
     return (
@@ -174,6 +174,7 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
         }}
         onDetail={() => api.openDetail(entry.category, entry.item)}
         priority={index === 0}
+        incomplete={incomplete}
         highlighted={highlightedId === cardId}
         onHoverChange={onHoverCard && entry.category === 'empty' ? (hovering) => onHoverCard(hovering ? cardId : null) : undefined}
         boardTagsOn={api.boardTagsOn}
@@ -244,7 +245,7 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
                 </h3>
                 <div className="grid grid-cols-1 gap-3 @[560px]:grid-cols-2 @[1100px]:grid-cols-3">
                   {group.rows.map((row, index) => {
-                    if (row.kind === 'feed') return renderCard(row.entry, group.tag === 'verified' ? index : index + 1);
+                    if (row.kind === 'feed') return renderCard(row.entry, group.tag === 'verified' ? index : index + 1, row.incomplete ?? null);
                     const item = row.item;
                     const distance = item.lat !== null && item.lng !== null ? straightLineDistance(api.location.coords ? { lat: api.location.coords.lat, lng: api.location.coords.lng } : null, { lat: item.lat, lng: item.lng }) : null;
                     return (

@@ -190,6 +190,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   wallet_deduction: "Wallet Deduction",
   wallet_transfer: "Wallet Transfer",
   agent_advance_credit: "Advance",
+  special_advance_credit: "Special Advance Received",
+  special_advance_wallet_repayment: "Special Advance Repayment",
   debt_recovery: "Advance Recovery",
   agent_commission_earned: "Commission",
   agent_commission_used_for_rent: "Commission Used For Rent",

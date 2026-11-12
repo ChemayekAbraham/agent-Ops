@@ -46,6 +46,7 @@ import { BillPaymentDialog } from './BillPaymentDialog';
 import { FoodMarketDialog } from './FoodMarketDialog';
 import { WalletDisclaimer } from './WalletDisclaimer';
 import { ShoppingAdvanceHistory } from './ShoppingAdvanceHistory';
+import { MySpecialAdvancesCard } from './MySpecialAdvancesCard';
 import { AgentRentRequestsWalletSection } from './AgentRentRequestsWalletSection';
 
 import { EmptyHousePlacementBonusBanner } from '@/components/agent/EmptyHousePlacementBonusBanner';
@@ -279,6 +280,9 @@ export function FullScreenWalletSheet({ open, onOpenChange, scrollTarget }: Full
 
               {/* Agent Rent Requests — verify inline */}
               <AgentRentRequestsWalletSection />
+
+              {/* Special Advances: balance owed and Pay from Wallet (renders nothing without one) */}
+              <MySpecialAdvancesCard onPaid={refreshTransactions} />
 
               {/* Shopping Advance access-limit history (informational) */}
               <ShoppingAdvanceHistory />

@@ -372,6 +372,11 @@ export interface CoSupportInviteCopy {
   /** pass the network the person paid with: "MTN" / "Airtel" */
   waitingDetail: (network?: string | null) => string;
   waitingNote: string;
+  /** row labels in the waiting sheet: "Amount" and "Transaction ID" */
+  waitingAmountLabel: string;
+  waitingTidLabel: string;
+  /** the white button that closes the waiting sheet */
+  closeLabel: string;
   slowTitle: string;
   slowDetail: string;
   rejectedTitle: string;
@@ -393,8 +398,10 @@ export interface CoSupportInviteCopy {
     putInLabel: string;
     putIn: string;
     earningLabel: string;
-    /** "UGX 229,500" (shown with a small " /mo"), or null when unknown */
+    /** "UGX 229,500", shown with `earningSuffix` after it, or null when unknown */
     earning: string | null;
+    /** " /mo", small, after `earning` */
+    earningSuffix: string;
     firstLabel: string;
     /** "12 Dec 2026", or "30 days after approval" for a house */
     first: string;
@@ -607,6 +614,9 @@ export function coSupportInviteCopy(p: Partial<CoSupportPreview>, now = Date.now
     waitingTitle: 'Waiting for your money',
     waitingDetail: (n) => `We're matching your ${network(n)} payment. This usually takes a few seconds.`,
     waitingNote: `You can close this and open the link again later. ${Lead} keeps holding your place.`,
+    waitingAmountLabel: 'Amount',
+    waitingTidLabel: 'Transaction ID',
+    closeLabel: 'Close',
     slowTitle: 'Still checking your payment',
     slowDetail: `Financial Ops will confirm it. You can close this and open the link again later. ${Lead} keeps holding your place.`,
     rejectedTitle: "We couldn't confirm that payment",
@@ -626,6 +636,7 @@ export function coSupportInviteCopy(p: Partial<CoSupportPreview>, now = Date.now
       putIn: joinAmount,
       earningLabel: 'Rent Profit Share',
       earning: earningAmount,
+      earningSuffix: ' /mo',
       firstLabel: 'First Rent Profit Share',
       first: isHouse ? `${CO_SUPPORT_FIRST_PAYOUT_DAYS} days after approval` : firstDate,
     },
