@@ -1,26 +1,16 @@
-# Record already-issued Special Advances
+# Signage shop-owner cross-check
 
-## What the CFO gets
-- A separate **Record already-issued advance** action beside the existing new-advance action.
-- Capture the borrower, agreed terms, original payment date, method, transaction reference and receipt evidence.
-- Confirm the money was paid outside Welile and has not previously been entered in Welile's accounts.
-- Save as already paid, with repayments scheduled from the original payment date. Show it in Agreements and existing repayment/reporting screens.
-- Never credit a wallet, initiate a transfer or disburse again. Existing new advances remain unchanged.
+## What to build
+- Add **Applications** and **Shop owners** tabs in Agent Ops signages; leave COO and existing review actions unchanged.
+- List attached owners with their phone, signage references and locations. Default to owners with existing company records, with an option to show all owners.
+- Flag matches as **Tenant**, **Landlord**, or **Registered user**, and show matched names, registered roles and associated Rent Plan references/statuses. Flag multiple account matches for review rather than assuming they are the same person.
+- Include search, loading, unavailable, empty and refresh states, plus paged results so owners are not silently omitted.
 
-## Safety
-- Enabled CFO access, existing borrower checks and append-only audit.
-- Reject future payment dates, missing proof and duplicate transaction references; repeated saves return the same record.
-- Record the original external payment in existing Special Advances accounting categories once, since it is not yet in Welile's accounts.
-- No merchandise storage or unrelated financial changes.
+## Technical approach
+- Add one read-only, staff-authorized RPC using the existing signage operations authorization and staff MFA checks. Match the stored owner phone using the existing Uganda phone normalizer against profiles and landlord records, then link their Rent Plans. Do not use payout or alternate phone numbers as proof of ownership.
+- Group applications by normalized owner phone; retain unmatchable numbers separately and mark them for review. Include historical Rent Plans and label their recorded status without changing any financial or approval definitions.
+- Keep matching and flags server-owned; fetch only when the Shop owners tab is open. No account merges, payments, approvals or account changes.
 
-## Technical details
-- Add a dedicated historical-recording RPC and quote support through the approved migration workflow after verifying live columns, triggers and helpers. Do not weaken existing create/disburse date checks.
-- Reuse server calculation, proof validation, ledger posting and statement helpers. Write agreement, schedule, original-payment accounting and audit atomically, without wallet legs or payout execution.
-- Reuse the Special Advance form and private proof-upload pattern in historical mode; read successful recording back through Agreements and the detail statement.
-- Test original-date scheduling, no wallet credit or payout call, CFO authorization, duplicate/replay prevention and unchanged new-advance behavior. Run focused tests, guards and confirm the automatic build.
-
-## Already completed
-Agent Ops signage region filtering and location search are saved in `18dca94cc1`; 12 tests pass and build is clean.
-
-## Existing hold
-Welile Schools fees plans remain shelved; its button and gate registration tool remain unchanged.
+## Verification
+- Test phone-format equivalence, tenant/landlord/other-user matches, multiple matches, unmatched owners, paging and staff-only access.
+- Run signage regression tests and all project guards, and check automatic compilation. Signed-in live checks depend on available authorized access.
