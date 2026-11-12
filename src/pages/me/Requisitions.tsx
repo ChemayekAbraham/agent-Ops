@@ -600,17 +600,6 @@ const MyRequisitions = () => {
                         placeholder="250000"
                       />
                     </div>
-                    {!isRefund && (
-                    <div className="space-y-2">
-                      <Label htmlFor="req-needed">Needed by (optional)</Label>
-                      <Input
-                        id="req-needed"
-                        type="date"
-                        value={form.needed_by}
-                        onChange={(e) => setForm((f) => ({ ...f, needed_by: e.target.value }))}
-                      />
-                    </div>
-                    )}
                   </div>
                   {kind === 'staff_loan' && (
                     <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
