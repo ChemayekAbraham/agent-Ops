@@ -230,20 +230,21 @@ export function FunderNewReviewDialog({
                   <p className="mt-0.5 break-words text-xl font-bold tracking-tight">{formatDynamic(total)}</p>
                 </div>
                 <div className="min-w-0 border-l border-border/60 pl-3">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    You earn monthly{ownRatePct ? ` · ${ownRatePct}` : ''}
-                  </p>
+                  <p className="text-xs font-medium text-muted-foreground">You earn monthly</p>
                   <p className="mt-0.5 break-words text-xl font-bold tracking-tight text-success">
                     {monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}
                   </p>
+                  {ownRatePct ? <p className="text-xs text-muted-foreground">at {ownRatePct} a month</p> : null}
                 </div>
               </div>
-              <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-muted/50 px-3 py-2.5">
-                <span className="flex min-w-0 items-center gap-2 text-sm">
-                  <Wallet className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-                  <span className="text-muted-foreground">Your float</span>
-                  <span className="truncate font-semibold">
-                    {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-muted/50 px-3 py-2.5">
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <Wallet className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+                  <span className="min-w-0">
+                    <span className="block text-xs text-muted-foreground">Your float</span>
+                    <span className="block whitespace-nowrap text-sm font-semibold">
+                      {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
+                    </span>
                   </span>
                 </span>
                 {shortfall !== null && (
