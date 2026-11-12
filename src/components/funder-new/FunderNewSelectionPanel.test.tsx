@@ -57,7 +57,7 @@ describe('FunderNewReviewDialog', () => {
     expect(screen.getByText(/Monthly Rent profit share \(15%\)/i)).toBeInTheDocument();
     expect(screen.getByText('UGX 67,500')).toBeInTheDocument();
 
-    expect(screen.getByText(/Available Balance/i)).toBeInTheDocument();
+    expect(screen.getByText(/Available operational float/i)).toBeInTheDocument();
     expect(screen.getByText('UGX 450,000 short')).toBeInTheDocument();
 
     // House item details

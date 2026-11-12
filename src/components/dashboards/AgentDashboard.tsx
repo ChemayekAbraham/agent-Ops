@@ -132,6 +132,7 @@ import { useAgentHasRepayingTenant } from '@/hooks/useAgentHasRepayingTenant';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
+import { LandlordPaymentStatusList } from '@/components/self-support/LandlordPaymentStatusList';
 import { useTrackSection } from '@/hooks/useTrackSection';
 import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { AgentConvertToFloatCard } from '@/components/agent/AgentConvertToFloatCard';
@@ -1589,6 +1590,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               onOpenOtpAudit={() => { hapticTap(); setOtpAuditOpen(true); }}
             />
             )}
+            {!isMerchant && <LandlordPaymentStatusList role="agent" title="Partner-funded Rent Plans to pay" />}
             {!isMerchant && isLandlordReceiptConfirmationEffective() && (
               <button
                 onClick={() => { hapticTap(); setReceiptCheckOpen(true); }}
