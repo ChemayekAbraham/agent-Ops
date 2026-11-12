@@ -186,13 +186,20 @@ function ChooserBody({
     />
   );
 
+  const proceed = () => {
+    if (choice === 'welile') { onClose(); onThroughWelile(); }
+    else if (choice === 'momo') setStep('momo');
+    else if (choice === 'cash') setStep('cash');
+  };
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" role="radiogroup" aria-label="How to fund this house">
       <ChoiceButton
         icon={<Wallet className="h-5 w-5" />}
         title="Fund this house through Welile"
         detail="The rent goes straight to the agent's landlord float. The agent pays the landlord within 24 hours. You will see the rent and the 2% Welile Cover before your balance is used."
-        onClick={() => { onClose(); onThroughWelile(); }}
+        checked={choice === 'welile'}
+        onClick={() => setChoice('welile')}
       />
       {contactQuery.isLoading && (
         <p className="flex items-center gap-2 px-1 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking verification</p>
@@ -202,7 +209,8 @@ function ChooserBody({
           icon={<Smartphone className="h-5 w-5" />}
           title="Send directly to the landlord's mobile money"
           detail={planCover || 'You pay the landlord yourself. Welile records it as pending and does not charge your balance.'}
-          onClick={() => setStep('momo')}
+          checked={choice === 'momo'}
+          onClick={() => setChoice('momo')}
         />
       )}
       {showDirect && contact?.landlordPhone && (
@@ -210,7 +218,8 @@ function ChooserBody({
           icon={<Banknote className="h-5 w-5" />}
           title="Take cash to the landlord"
           detail={planCover || 'You hand the landlord the cash. Welile records it as pending and does not charge your balance.'}
-          onClick={() => setStep('cash')}
+          checked={choice === 'cash'}
+          onClick={() => setChoice('cash')}
         />
       )}
       {!contactQuery.isLoading && !showDirect && (
@@ -222,8 +231,15 @@ function ChooserBody({
         icon={<Building2 className="h-5 w-5" />}
         title="Contact Welile Tenant Partnership Support Team"
         detail="WhatsApp or call Welile Customer Care to fund this house through Welile."
-        onClick={() => window.open(supportWhatsAppUrl(target), '_blank', 'noopener,noreferrer')}
+        checked={choice === 'support'}
+        onClick={() => setChoice('support')}
       />
+      {/* The support card keeps its WhatsApp / Call pair; every other choice goes through Continue. */}
+      {choice !== 'support' ? (
+        <Button className="h-11 w-full rounded-xl" disabled={!choice} onClick={proceed}>
+          Continue
+        </Button>
+      ) : (
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Button asChild className="h-11 rounded-xl">
           <a href={supportWhatsAppUrl(target)} target="_blank" rel="noopener noreferrer">WhatsApp Welile</a>
@@ -232,6 +248,7 @@ function ChooserBody({
           <a href={SUPPORT_CALL_URL}><Phone className="h-4 w-4" /> Call Welile</a>
         </Button>
       </div>
+      )}
     </div>
   );
 }
