@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   coSupportBlockMessage,
   coSupportErrorMessage,
+  coSupportFloatWatchState,
   coSupportInviteCopy,
   coSupportOnboardingPath,
   coSupportShareText,
@@ -114,47 +115,117 @@ describe('invitation page wording', () => {
     your_open_shares: [{ id: 'x', kind: 'rent_plan' as const, title: "Mary's Rent Plan", held: 357000, expires_at: '' }],
   };
   const c = coSupportInviteCopy(pius, now);
-  it('speaks to the person by the sharer\'s name', () => {
+  /** every string the page can show, functions called with sample values */
+  const text = (x: unknown): string =>
+    typeof x === 'string' ? x
+      : typeof x === 'function' ? `${(x as (a: unknown) => string)('MTN')} ${(x as (a: unknown) => string)(1000)}`
+        : Array.isArray(x) ? x.map(text).join(' ')
+          : x && typeof x === 'object' ? Object.values(x).map(text).join(' ')
+            : '';
+  it("speaks to the person by the sharer's name", () => {
+    expect(c.leadName).toBe('Benjamin');
+    expect(c.leadTagline).toBe('Welile partner · invited you');
+    expect(c.leadPhotoAlt).toBe("Benjamin's profile photo");
     expect(c.headline).toBe("Benjamin invited you to support Nakasagga's home together");
-    expect(c.intro).toMatch(/^Benjamin has already set aside one half\./);
+    expect(c.intro).toBe("Join Benjamin and support Nakasagga's home together. You both earn Rent Profit Share every month.");
     expect(c.holdLine).toBe('Benjamin is holding this for you for 46h 34m');
+    expect([c.holdPrefix, c.holdTime]).toEqual(['Benjamin is holding this for you for', '46h 34m']);
     expect(c.acceptLabel).toBe('Join Benjamin');
-    expect(c.yourHalf).toBe('Your half: UGX 1,530,000');
-    expect(c.yourEarning).toBe("You'd earn UGX 229,500 a month in Rent Profit Share");
+    expect(c.declineLabel).toBe('Not this time');
+    expect([c.joinAmount, c.joinAmountLabel]).toEqual(['UGX 1,530,000', 'to join']);
+    expect([c.earningAmount, c.earningLabel]).toEqual(['UGX 229,500', 'Rent Profit Share a month']);
   });
-  it('explains a shortfall with the float that is set aside', () => {
-    expect(c.blockTitle).toBe("You're UGX 1,335,514 short of your half");
-    expect(c.blockDetail).toBe(
-      "You have UGX 551,486 of float. UGX 357,000 is set aside for Mary's Rent Plan that you're sharing, so UGX 194,486 is free right now. " +
-        'Add UGX 1,335,514 to your wallet, then open this link again to join Benjamin.',
-    );
-    expect(c.blockAction).toBe('Add float to your wallet');
+  it('never says "half" to the person joining', () => {
+    for (const reason of [null, 'funds_short'] as const) {
+      expect(text(coSupportInviteCopy({ ...pius, reason }, now))).not.toMatch(/\bhalf\b/i);
+      expect(text(coSupportInviteCopy({ ...pius, reason, kind: 'house', house_title: 'x' }, now))).not.toMatch(/\bhalf\b/i);
+    }
   });
-  it('offers to free the own share only when that would be enough', () => {
-    const d = coSupportInviteCopy({ ...pius, your_share: 500000, float_needed: 305514 }, now);
-    expect(d.blockDetail).toMatch(/Or stop sharing your own plan to free UGX 357,000\./);
+  it('shows a shortfall as "add X to join" with what is free and what is held', () => {
+    expect(c.blockTitle).toBe('Add UGX 1,335,514 to join');
+    expect(c.floatLines).toEqual([{ label: 'Free in your float', amount: 'UGX 194,486' }]);
+    expect(c.floatNotes).toEqual(["UGX 357,000 more is held for Mary's Rent Plan"]);
+    expect(c.blockAction).toBe('Add float to join Benjamin');
+    expect(c.blockDetail).toBe("You have UGX 194,486 free in your float. UGX 357,000 more is held for Mary's Rent Plan.");
+    expect(c.depositTitle).toBe('Add UGX 1,335,514');
   });
-  it('says plainly when there is no float at all', () => {
-    expect(coSupportInviteCopy({ ...pius, float_balance: 0, float_available: 0, float_held_for_your_shares: 0 }, now).blockDetail)
-      .toMatch(/^You don't have any float in your wallet yet\./);
+  it('names money waiting on something else, and copes without the float breakdown', () => {
+    const d = coSupportInviteCopy({ ...pius, float_held_for_your_shares: 0, your_open_shares: [], float_held_other: 50000 }, now);
+    expect(d.floatNotes).toEqual(['UGX 50,000 more is waiting on another support']);
+    const old = coSupportInviteCopy({ ...pius, float_balance: undefined }, now);
+    expect(old.floatLines).toEqual([]);
+    expect(old.blockDetail).toBe('Add UGX 1,335,514 of float to join Benjamin.');
+  });
+  it('lays out what happens when they join, with the first Rent Profit Share 30 days out', () => {
+    expect(c.firstRentProfitShareDate).toBe('12 Dec 2026');
+    expect(c.timeline.map((s) => [s.when, s.text, s.amount, s.tone])).toEqual([
+      ['Today', 'You join with', 'UGX 1,530,000', 'now'],
+      ['Today', "Nakasagga's rent is paid to the landlord", null, 'next'],
+      ['12 Dec 2026', 'Your first Rent Profit Share:', 'UGX 229,500', 'next'],
+      ['Every month after', 'UGX 229,500 Rent Profit Share', null, 'later'],
+    ]);
+  });
+  it('words the add-float sheets', () => {
+    expect(c.depositIntro).toBe('Pay Welile with Mobile Money. It lands in your float, then you can join Benjamin.');
+    expect(c.waitingDetail('mtn')).toBe("We're matching your MTN payment. This usually takes a few seconds.");
+    expect(c.waitingDetail('airtel')).toMatch(/your Airtel payment/);
+    expect(c.arrivedDetail(1335514)).toBe('UGX 1,335,514 is in your float. You can join Benjamin now.');
+    expect(c.arrivedAction).toBe('Join Benjamin now');
   });
   it('words houses and success differently', () => {
-    const h = coSupportInviteCopy({ ...pius, kind: 'house', tenant_first_name: null, house_title: '2-bedroom house', reason: null }, now);
+    const h = coSupportInviteCopy({ ...pius, kind: 'house', tenant_first_name: null, house_title: '2-bedroom house', city: 'Wakiso', reason: null }, now);
     expect(h.headline).toBe('Benjamin invited you to support an empty house together');
-    expect(h.intro).toMatch(/Partner Ops approve shared houses before any money moves\./);
-    expect(h.successTitle).toBe('You and Benjamin have shared this house (2-bedroom house)');
+    expect(h.intro).toBe('Join Benjamin and support this house together. You both earn Rent Profit Share every month.');
+    expect([h.houseLine, h.houseSubLine]).toEqual(['2-bedroom house', 'Wakiso · verified, waiting for a tenant']);
+    expect(h.timeline).toEqual([]);
+    expect(h.successTitle).toBe('You and Benjamin now share this house');
+    expect(h.successCard.first).toBe('30 days after approval');
+    expect(h.findAnotherLabel).toBe('Find another house');
     expect(h.blockTitle).toBeNull();
-    expect(coSupportInviteCopy({ ...pius, reason: null }, now).successDetail).toBe(
-      'Your portfolio: UGX 1,530,000. You earn UGX 229,500 a month in Rent Profit Share.',
-    );
+    const r = coSupportInviteCopy({ ...pius, reason: null }, now);
+    expect(r.successPill).toBe('Benjamin + you · 50/50');
+    expect(r.successTitle).toBe("You and Benjamin now support Nakasagga's home together");
+    expect(r.successDetail).toBe("Nakasagga's full rent has gone to the agent to pay the landlord. Thank you for joining.");
+    expect(r.successCard).toMatchObject({ title: "Nakasagga's Rent Plan", putIn: 'UGX 1,530,000', earning: 'UGX 229,500', first: '12 Dec 2026' });
+    expect(r.nextSteps.map((s) => [s.done, s.title])).toEqual([
+      [true, "You're in"], [true, 'Rent sent to the agent'], [false, 'Your first Rent Profit Share'],
+    ]);
+  });
+  it('falls back to "your partner" when the sharer has no name', () => {
+    const n = coSupportInviteCopy({ ...pius, lead_first_name: null }, now);
+    expect(n.headline).toMatch(/^Your partner invited you/);
+    expect(n.acceptLabel).toBe('Join your partner');
+    expect(n.successPill).toBe('Your partner + you · 50/50');
   });
   it('never uses pronouns for the sharer, banned words or a rate', () => {
     for (const reason of [null, 'funds_short', 'agreement_required', 'not_a_partner', 'paused', 'invite_expired', 'invite_declined', 'invite_completed'] as const) {
-      const all = Object.values(coSupportInviteCopy({ ...pius, reason }, now)).filter(Boolean).join(' ');
-      expect(all).not.toMatch(BANNED);
-      expect(all).not.toMatch(/\b(he|she|his|her|him)\b/i);
-      expect(all).not.toMatch(/%/);
+      for (const kind of ['rent_plan', 'house'] as const) {
+        const all = text(coSupportInviteCopy({ ...pius, reason, kind }, now));
+        expect(all).not.toMatch(BANNED);
+        expect(all).not.toMatch(/\b(he|she|his|her|him)\b/i);
+        expect(all).not.toMatch(/%/);
+      }
     }
+  });
+});
+
+describe("waiting for float after \"I've paid\"", () => {
+  const t0 = Date.UTC(2026, 10, 12, 6);
+  it('is idle until a deposit is submitted', () => {
+    expect(coSupportFloatWatchState({ submittedAt: null, preview: { can_accept: true } })).toBe('idle');
+  });
+  it('waits, then says it is slow after two minutes', () => {
+    const short = { reason: 'funds_short' as const, float_needed: 10 };
+    expect(coSupportFloatWatchState({ submittedAt: t0, preview: short, depositStatus: 'pending', now: t0 + 5_000 })).toBe('waiting');
+    expect(coSupportFloatWatchState({ submittedAt: t0, preview: short, depositStatus: 'pending', now: t0 + 120_000 })).toBe('slow');
+  });
+  it('arrives once the server says they can join', () => {
+    expect(coSupportFloatWatchState({ submittedAt: t0, preview: { can_accept: true, reason: null }, depositStatus: 'approved', now: t0 })).toBe('arrived');
+  });
+  it('stops on a rejected deposit, but keeps waiting while still short after approval', () => {
+    const short = { reason: 'funds_short' as const, float_needed: 10 };
+    expect(coSupportFloatWatchState({ submittedAt: t0, preview: short, depositStatus: 'rejected', now: t0 })).toBe('rejected');
+    expect(coSupportFloatWatchState({ submittedAt: t0, preview: short, depositStatus: 'approved', now: t0 })).toBe('waiting');
   });
 });
 
@@ -185,7 +256,7 @@ describe('messages', () => {
   });
   it('explains why a preview cannot be accepted', () => {
     expect(coSupportBlockMessage({ reason: 'funds_short', float_needed: 27550 })).toBe(
-      'Add UGX 27,550 to your wallet, then open this link again to join your partner.',
+      'Add UGX 27,550 of float to join your partner.',
     );
     expect(coSupportBlockMessage({ reason: 'invite_completed' })).toMatch(/fully supported/);
     expect(coSupportBlockMessage({ reason: null })).toBeNull();

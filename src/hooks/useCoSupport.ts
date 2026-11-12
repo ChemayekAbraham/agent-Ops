@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getSignedUrl } from '@/lib/storageUtils';
 import {
+  coSupportFloatWatchState,
   normalizeCoSupportCode,
   type CoSupportInvite,
   type CoSupportPreview,
@@ -171,4 +174,82 @@ export function useFundCoSupportAlone() {
     mutationFn: (inviteId: string) => call<Record<string, unknown>>('co_support_fund_alone', { p_invite_id: inviteId }),
     onSuccess: invalidate,
   });
+}
+
+/**
+ * The sharer's profile photo, signed for display (the avatars bucket is
+ * private; any viewer may sign a URL in it). Null while loading, when there
+ * is no photo, or when signing fails: show the placeholder silhouette then.
+ */
+export function useCoSupportLeadPhoto(storedUrl: string | null | undefined) {
+  const url = String(storedUrl ?? '').trim();
+  const q = useQuery({
+    queryKey: ['co-support', 'lead-photo', url],
+    enabled: !!url,
+    staleTime: 50 * 60_000,
+    retry: false,
+    queryFn: async () => (await getSignedUrl(url)) || null,
+  });
+  return url ? (q.data ?? null) : null;
+}
+
+/**
+ * After "I've paid" on the invitation's Add float sheet: re-reads the
+ * invitation (the server's own float figures) and the deposit every few
+ * seconds until the money has arrived, the deposit is rejected, or the
+ * caller stops it. State comes from coSupportFloatWatchState.
+ *
+ * Pass the deposit from DepositFlow's onSubmitted; null when nothing is
+ * waiting. Polling stops by itself once the state is 'arrived' or 'rejected'.
+ */
+export function useCoSupportFloatWatch(
+  rawCode: string | null | undefined,
+  signedInUserId: string | null | undefined,
+  deposit: { id: string | null; submittedAt: number } | null,
+) {
+  const code = normalizeCoSupportCode(rawCode);
+  const [now, setNow] = useState(() => Date.now());
+  const active = !!deposit && !!code;
+
+  const preview = useQuery({
+    // same key as useCoSupportPreview, so the page underneath updates too
+    queryKey: [...coSupportKeys.preview(code ?? ''), signedInUserId ?? 'anon'],
+    enabled: active,
+    queryFn: () => call<CoSupportPreview>('co_support_preview', { p_code: code }),
+    refetchInterval: (q) => (stopped(q.state.data, depositStatus.data) ? false : 4_000),
+  });
+  const depositStatus = useQuery({
+    queryKey: ['co-support', 'float-deposit', deposit?.id ?? ''],
+    enabled: active && !!deposit?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('deposit_requests')
+        .select('status')
+        .eq('id', deposit!.id as string)
+        .maybeSingle();
+      if (error) throw error;
+      return (data?.status as string | undefined) ?? null;
+    },
+    refetchInterval: (q) => (stopped(preview.data, q.state.data) ? false : 4_000),
+  });
+
+  function stopped(p: CoSupportPreview | undefined, status: string | null | undefined) {
+    const s = coSupportFloatWatchState({ submittedAt: deposit?.submittedAt ?? null, preview: p, depositStatus: status, now: Date.now() });
+    return s === 'arrived' || s === 'rejected' || s === 'idle';
+  }
+
+  // tick so 'waiting' turns into 'slow' even when nothing else changes
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(t);
+  }, [active]);
+
+  const state = coSupportFloatWatchState({
+    submittedAt: deposit?.submittedAt ?? null,
+    preview: preview.data,
+    depositStatus: depositStatus.data,
+    now,
+  });
+  return { state, preview: preview.data ?? null };
 }

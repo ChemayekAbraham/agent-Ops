@@ -118,6 +118,23 @@ interface DepositFlowProps {
   defaultChannel?: DepositChannel;
   /** Pre-select the mobile money provider when `defaultChannel` is 'momo'. */
   defaultMomoProvider?: 'mtn' | 'airtel';
+  /**
+   * Called once a NEW deposit request is saved (not in edit mode), after the
+   * instant auto-verify attempt. `outcome` is 'linked' when it was matched and
+   * approved on the spot, 'duplicate_already_credited' when the same
+   * Transaction ID was credited before, otherwise 'no_match' (Financial Ops /
+   * the matcher will pick it up). Lets a caller such as the co-support
+   * invitation wait for the money instead of leaving the user on a toast.
+   */
+  onSubmitted?: (result: DepositSubmitResult) => void;
+}
+
+export interface DepositSubmitResult {
+  id: string | null;
+  amount: number;
+  transactionId: string;
+  provider: string;
+  outcome: 'linked' | 'duplicate_already_credited' | 'no_match';
 }
 
 const DEPOSIT_PURPOSES: { id: DepositPurpose; label: string; emoji: string; desc: string }[] = [
@@ -151,7 +168,7 @@ const QUICK_AMOUNTS = [50000, 100000, 250000, 500000];
 const MIN_DEPOSIT = 500;
 const MAX_DEPOSIT = 1_000_000_000;
 
-export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowedPurposes, lockPurpose, requirePurposeChoice, editRequestId, prefillFromMatch, defaultAmount, defaultChannel, defaultMomoProvider }: DepositFlowProps) {
+export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowedPurposes, lockPurpose, requirePurposeChoice, editRequestId, prefillFromMatch, defaultAmount, defaultChannel, defaultMomoProvider, onSubmitted }: DepositFlowProps) {
   const navigate = useNavigate();
   const { roles, user: authUser } = useAuth();
   /**
@@ -1266,6 +1283,19 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
           });
         } else {
           toast.success('Deposit submitted for verification');
+        }
+        try {
+          onSubmitted?.({
+            id: ((inserted as any)?.id as string | undefined) ?? null,
+            amount: parseFloat(amount),
+            transactionId: normalizedRef,
+            provider: String(providerValue ?? ''),
+            outcome:
+              outcome === 'linked' || outcome === 'duplicate_already_credited' ? outcome : 'no_match',
+          });
+        } catch (cbErr) {
+          // A caller's handler must never turn a saved deposit into an error screen.
+          console.warn('[deposit] onSubmitted handler failed', cbErr);
         }
       }
       // Draft fulfilled — wipe so the next deposit starts blank.
