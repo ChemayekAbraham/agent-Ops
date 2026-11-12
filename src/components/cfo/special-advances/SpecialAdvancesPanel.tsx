@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Plus, Scale, Clock, Sparkles, Eye } from 'lucide-react';
+import { Plus, Scale, Clock, Sparkles, MoreHorizontal, Wallet, PlusCircle, RotateCcw, Pencil } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import type { SpecialAdvanceSheetAction } from './SpecialAdvanceDetailSheet';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -10,6 +17,7 @@ import {
   STATUS_LABEL,
   describeSpecialAdvanceError,
   type SpecialAdvanceStatus,
+  RECORDED_ADVANCE_MARKER,
 } from '@/lib/specialAdvances';
 import { useSpecialAdvanceList } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceModal } from '@/components/cfo/SpecialAdvanceModal';
@@ -28,6 +36,7 @@ export function SpecialAdvancesPanel() {
   const [activeTab, setActiveTab] = useState<'agreements' | 'provisions' | 'reconciliation'>('agreements');
   const [status, setStatus] = useState<SpecialAdvanceStatus | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [openAction, setOpenAction] = useState<SpecialAdvanceSheetAction>(null);
   const [recording, setRecording] = useState(false);
   const [historical, setHistorical] = useState(false);
 
@@ -42,7 +51,7 @@ export function SpecialAdvancesPanel() {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 text-xs">
 
         <Button variant="outline" size="sm" className="ml-auto text-primary" onClick={() => { setHistorical(true); setRecording(true); }}>
-          <Clock className="mr-1 h-4 w-4" /> Record already-issued advance
+          <Clock className="mr-1 h-4 w-4" /> Record Special Advance
         </Button>
         <Button id="special-advance-new" size="sm" onClick={() => { setHistorical(false); setRecording(true); }}>
           <Plus className="mr-1 h-4 w-4" /> New Special Advance
@@ -176,20 +185,34 @@ export function SpecialAdvancesPanel() {
                         </Badge>
                       </td>
                       <td className="px-3 py-2 text-right">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          aria-label={`Record repayment for ${a.reference}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenId(a.id);
-                          }}
-                        >
-                          <Eye className="mr-1 h-3.5 w-3.5" />
-                          Record Repayment
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              aria-label={`Actions for ${a.reference}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem disabled={a.decision_reason !== RECORDED_ADVANCE_MARKER} onSelect={() => { setOpenAction('edit'); setOpenId(a.id); }}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => { setOpenAction('repay'); setOpenId(a.id); }}>
+                              <Wallet className="mr-2 h-4 w-4" /> Record Repayment
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={a.status !== 'disbursed'} onSelect={() => { setOpenAction('topup'); setOpenId(a.id); }}>
+                              <PlusCircle className="mr-2 h-4 w-4" /> Top up
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={a.status !== 'disbursed'} onSelect={() => { setOpenAction('reverse'); setOpenId(a.id); }}>
+                              <RotateCcw className="mr-2 h-4 w-4" /> Reverse
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}
@@ -216,8 +239,9 @@ export function SpecialAdvancesPanel() {
       <SpecialAdvanceDetailSheet
         advanceId={openId}
         issuanceEnabled={issuanceEnabled}
+        initialAction={openAction}
         onOpenChange={(o) => {
-          if (!o) setOpenId(null);
+          if (!o) { setOpenId(null); setOpenAction(null); }
         }}
       />
       <SpecialAdvanceModal key={historical ? 'historical' : 'new'} open={recording} onOpenChange={setRecording} historical={historical} />

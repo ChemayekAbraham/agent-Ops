@@ -9,7 +9,8 @@ import { KindChip } from '../KindChip';
 import { IdentityBanner, IdentityPanel } from '../identityPhotos';
 import { DeskHistory, when } from '../deskHistory';
 import { missingText } from '../incomplete';
-import { STAGE_WORDS, useMoneyFlow, type MoneyFlowItem } from '../moneyFlow';
+import { useMoneyFlow, type MoneyFlowItem } from '../moneyFlow';
+import { stageOf } from './releasesApi';
 import { lcLetterUrl, readableError } from '../reviewApi';
 import { Chip, DecisionButton, ErrorLine, atLeast, moneyFull, stackLayout, useBreakpoint } from '../ui';
 import type { FundersRow } from './cfoApi';
@@ -118,7 +119,7 @@ function MoneyStage({ q, item }: { q: ReturnType<typeof useMoneyFlow>; item: Mon
       </p>
     );
   }
-  const st = STAGE_WORDS[item.stage] ?? { text: String(item.stage).replace(/_/g, ' '), tone: 'idle' as Status };
+  const st = stageOf(item.stage);
   const paid = Number(item.paid_out ?? 0);
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm" data-money-stage={item.stage}>

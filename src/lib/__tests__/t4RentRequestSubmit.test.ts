@@ -22,7 +22,7 @@ vi.mock('@/lib/captureGps', () => ({
   isGpsRequiredError: (m: unknown) => /gps/i.test(String(m ?? '')),
 }));
 
-import { attachT4Documents, fetchAgentSideMissing, finishRenewalIntake, postRenewal, resubmitT4Request, saveProfileIdBack, sideMissingSteps, uploadNewRequestDocs } from '@/lib/t4RentRequestSubmit';
+import { attachT4Documents, fetchAgentSideMissing, finishRenewalIntake, postRenewal, resubmitT4Request, saveProfileIdBack, SIDE_MISSING_LINES, sideMissingSteps, uploadNewRequestDocs } from '@/lib/t4RentRequestSubmit';
 
 const calls = () => mocks.rpc.mock.calls.map(([fn, args]) => [fn, args]);
 
@@ -117,17 +117,38 @@ describe('E90: what the agent still has to add', () => {
     await expect(fetchAgentSideMissing('req-9')).resolves.toBeNull();
   });
 
-  it('maps each line to the question that fixes it', () => {
+  it.each([
+    ['Photos of the house', 'photos'],
+    ['Landlord details', 'landlord'],
+    ['Rent amount needed', 'rent'],
+    ['GPS of the house', 'gps'],
+    ['family size', 'familySize'],
+    ['work / business', 'work'],
+    ['ID photo (front)', 'idFront'],
+    ['ID photo (back)', 'idBack'],
+    ['LC1 letter (photo)', 'lcLetter'],
+  ] as const)('maps the server line "%s" to exactly one question: %s', (line, step) => {
+    expect(SIDE_MISSING_LINES[line]).toBe(step);
+    expect(sideMissingSteps(line)).toEqual([step]);
+    // Case and surrounding spaces do not matter.
+    expect(sideMissingSteps(`  ${line.toUpperCase()} `)).toEqual([step]);
+  });
+
+  it('covers every server line and nothing else', () => {
+    expect(Object.keys(SIDE_MISSING_LINES)).toHaveLength(9);
+  });
+
+  it('falls back to keywords for a line it does not know, ID and LC1 before any generic photo', () => {
     expect(sideMissingSteps('house photos')).toEqual(['photos']);
-    expect(sideMissingSteps('landlord')).toEqual(['landlord']);
-    expect(sideMissingSteps('rent')).toEqual(['rent']);
-    expect(sideMissingSteps('GPS')).toEqual(['gps']);
-    expect(sideMissingSteps('family size')).toEqual(['familySize']);
-    expect(sideMissingSteps('work / business')).toEqual(['work']);
-    expect(sideMissingSteps('ID front')).toEqual(['idFront']);
-    expect(sideMissingSteps('ID back')).toEqual(['idBack']);
-    expect(sideMissingSteps('ID front + back')).toEqual(['idFront', 'idBack']);
-    expect(sideMissingSteps('LC1 letter')).toEqual(['lcLetter']);
+    expect(sideMissingSteps('National ID photo, front side')).toEqual(['idFront']);
+    expect(sideMissingSteps('Back of the ID photo')).toEqual(['idBack']);
+    expect(sideMissingSteps('ID photos')).toEqual(['idFront', 'idBack']);
+    expect(sideMissingSteps('Photo of the LC1 letter')).toEqual(['lcLetter']);
+    expect(sideMissingSteps('Landlord phone')).toEqual(['landlord']);
+    expect(sideMissingSteps('Monthly rent')).toEqual(['rent']);
+    expect(sideMissingSteps('House location')).toEqual(['gps']);
+    expect(sideMissingSteps('Household size')).toEqual(['familySize']);
+    expect(sideMissingSteps('Occupation')).toEqual(['work']);
     expect(sideMissingSteps('something else')).toEqual([]);
   });
 });
@@ -174,12 +195,14 @@ describe('DOCS-1: attachT4Documents', () => {
     });
     expect(problems).toEqual([]);
     expect(mocks.upload).toHaveBeenCalledTimes(2);
-    expect(calls()).toEqual([
+    // All three go side by side, so the order of the calls does not matter.
+    expect(calls()).toHaveLength(3);
+    expect(calls()).toEqual(expect.arrayContaining([
       ['request_attach_document', { p_request_id: 'req-1', p_kind: 'id_front', p_bucket: 'tenant-ids', p_path: expect.stringMatching(/^agent-1\/req-1\/national_id_\d+\.jpg$/) }],
       // Already stored: attached as it is, no upload.
       ['request_attach_document', { p_request_id: 'req-1', p_kind: 'id_back', p_bucket: 'tenant-ids', p_path: 'tenant-1/old/national_id_back.jpg' }],
       ['request_attach_document', { p_request_id: 'req-1', p_kind: 'lc1_letter', p_bucket: 'lc-letters', p_path: expect.stringMatching(/^agent-1\/req-1\/lc_letter_\d+\.png$/) }],
-    ]);
+    ]));
   });
 
   it('returns each failure with the server’s message as-is and keeps going', async () => {

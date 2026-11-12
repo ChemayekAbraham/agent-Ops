@@ -728,6 +728,426 @@ describe('20261118090100: SMS after a wallet repayment', () => {
   });
 });
 
+describe('20261119120000: top-ups', () => {
+  const TOPUP = MIG('20261119120000_special_advance_topups.sql');
+  const TOPUP_RB = read('supabase/rollbacks/20261119120000_special_advance_topups.rollback.sql');
+  const coo = uuid();
+  type Stmt = Adv & { updated_at: string; topups: Array<Record<string, unknown>>; schedule: Array<{ number: number; due_date: string; amount: number; topup_id: string | null }>;
+    events: Array<{ event_type: string; actor_id: string; details: Record<string, unknown> }>; position: Adv['position'] & { total_repayable: number } };
+  const statement = async (id: string) => (await db.call<Stmt>(cfo, `select public.special_advance_statement($1) r`, [id])).out!;
+  const quote = (id: string, principal: number, user = cfo) =>
+    db.call<{ term_days: number; end_date: string; outstanding_now: number; outstanding_after: number; schedule: { access_fee: number; total_repayable: number; schedule: Array<{ due_date: string; amount: number }> } }>(
+      user, `select public.special_advance_topup_quote($1, $2::bigint) r`, [id, principal]);
+  const addTopup = async (id: string, req: Record<string, unknown>, opts: { user?: string; version?: string } = {}) => {
+    const st = await statement(id);
+    return db.call<Stmt & { topup: Record<string, unknown> & { id: string; reference: string; ledger_group_id: string; total_repayable: number }; replayed: boolean }>(
+      opts.user ?? cfo, `select public.special_advance_add_topup($1, $2::text::timestamptz, $3::text::jsonb) r`,
+      [id, opts.version ?? st.updated_at, JSON.stringify({ idempotency_key: uuid(), reason: 'Borrower needs more stock for the season', ...req })]);
+  };
+  const totalFor = async (id: string, principal: number) => (await quote(id, principal)).out!.schedule.total_repayable;
+  const originalRows = (id: string) => db.q(`select number, due_date::text, amount::int, access_fee::int, principal::int from public.special_advance_instalments
+    where advance_id = $1 and topup_id is null order by number`, [id]);
+  const daysAgo = (n: number) => new Date(Date.now() + 3 * 3_600_000 - n * 86_400_000).toISOString().slice(0, 10);
+  const historical = async (user: string, payoutDaysAgo: number) => {
+    const id = uuid();
+    const q0 = (await db.call<{ schedule: { total_repayable: number } }>(cfo, `select public.special_advance_quote($1::text::jsonb) r`, [JSON.stringify({ terms: TERMS })])).out!;
+    const r = await db.call<Adv>(cfo, `select public.special_advance_record_historical($1::text::jsonb) r`, [JSON.stringify({
+      advance_id: id, borrower: { kind: 'welile_user', user_id: user }, terms: TERMS, purpose: 'Original outside-Welile supplier stock payment',
+      original_payout_date: daysAgo(payoutDaysAgo), method: 'cash', reference: `RCPT-${uuid().slice(0, 8)}`, proof_path: await h.proof(id),
+      expected_total_repayable: q0.schedule.total_repayable, idempotency_key: uuid(), confirm_not_recorded: true })]);
+    if (r.err) throw new Error(r.err.message);
+    return r.out!;
+  };
+
+  beforeAll(async () => {
+    await db.q(`insert into auth.users values ($1)`, [coo]);
+    await db.q(`insert into public.profiles (id, full_name) values ($1, 'COO')`, [coo]);
+    await db.q(`insert into public.user_roles (user_id, role) values ($1, 'coo')`, [coo]);
+  });
+
+  it('applies over production\'s definitions only, once; adds nothing to the ledger', async () => {
+    const before = await h.counts();
+    expect(await run(db, TOPUP)).toBeUndefined();
+    expect(await h.counts()).toEqual(before);
+    expect((await run(db, TOPUP))?.message).toMatch(/precondition failed/);
+    const [g] = await db.q<Record<string, boolean>>(`select
+      has_function_privilege('authenticated', 'public.special_advance_add_topup(uuid,timestamptz,jsonb)', 'EXECUTE') add_auth,
+      has_function_privilege('anon', 'public.special_advance_add_topup(uuid,timestamptz,jsonb)', 'EXECUTE') add_anon,
+      has_function_privilege('authenticated', 'public._special_advance_topup_schedule(public.special_advances,bigint,date)', 'EXECUTE') helper_auth,
+      has_table_privilege('authenticated', 'public.special_advance_topups', 'SELECT') t_sel,
+      has_table_privilege('authenticated', 'public.special_advance_topups', 'INSERT') t_ins,
+      has_table_privilege('anon', 'public.special_advance_topups', 'SELECT') t_anon`);
+    expect(g).toEqual({ add_auth: true, add_anon: false, helper_auth: false, t_sel: true, t_ins: false, t_anon: false });
+    expect(await db.q(`select count(*)::int n from pg_policy where polrelid = 'public.special_advance_topups'::regclass and polname = 'mfa_required_for_staff'`)).toEqual([{ n: 1 }]);
+  });
+
+  it('wallet borrower: the top-up is credited to the wallet at once; DR A24 / CR L1 / CR R1; original schedule and repayments untouched', async () => {
+    const { user, adv } = await h.paidOut();
+    await h.cfoRepay(adv.id, { amount: 50_000 });
+    const rowsBefore = await originalRows(adv.id);
+    const repsBefore = JSON.stringify(await db.q(`select * from public.special_advance_repayments where advance_id = $1 order by id`, [adv.id]));
+    const allocBefore = JSON.stringify(await db.q(`select * from public.special_advance_repayment_allocations where advance_id = $1 order by repayment_id, instalment_number`, [adv.id]));
+    const out0 = await h.outstanding(adv.id);
+    const w0 = await h.wallet(user);
+    const q = (await quote(adv.id, 200_000)).out!;
+    expect(q.term_days).toBe(90);                                  // paid out today: to the original end, 90 days
+    expect(q.outstanding_after).toBe(out0 + q.schedule.total_repayable);
+    const r = await addTopup(adv.id, { principal: 200_000, expected_total_repayable: q.schedule.total_repayable });
+    expect(r.err).toBeUndefined();
+    const t = r.out!.topup;
+    expect(t).toMatchObject({ principal: 200_000, payout_method: 'wallet', payout_reference: null, payout_proof_path: null, recorded_by: cfo });
+    expect(t.reference).toMatch(/^SAT-\d{6}$/);
+    const fee = q.schedule.total_repayable - 200_000;
+    expect(fee).toBeGreaterThan(0);
+    expect(await h.wallet(user)).toBe(w0 + 200_000);               // money moved immediately
+    expect(await h.mapped(t.ledger_group_id)).toEqual([
+      { account: 'A24', dr: 200_000 + fee, cr: 0 }, { account: 'L1', dr: 0, cr: 200_000 }, { account: 'R1', dr: 0, cr: fee }]);
+    expect(await h.resolved(t.ledger_group_id)).toEqual(await h.mapped(t.ledger_group_id));
+    expect(await h.outstanding(adv.id)).toBe(out0 + q.schedule.total_repayable);
+    // history preserved
+    expect(await originalRows(adv.id)).toEqual(rowsBefore);
+    expect(JSON.stringify(await db.q(`select * from public.special_advance_repayments where advance_id = $1 order by id`, [adv.id]))).toBe(repsBefore);
+    expect(JSON.stringify(await db.q(`select * from public.special_advance_repayment_allocations where advance_id = $1 order by repayment_id, instalment_number`, [adv.id]))).toBe(allocBefore);
+    expect(await db.q(`select principal::int, total_repayable::int from public.special_advances where id = $1`, [adv.id]))
+      .toEqual([{ principal: 500_000, total_repayable: adv.total_repayable }]);   // the agreement itself is unchanged
+    // the top-up's instalments: engine figures, ending on the original final due date
+    const st = await statement(adv.id);
+    const topRows = st.schedule.filter((x) => x.topup_id === t.id);
+    expect(topRows.map((x) => [x.due_date, x.amount])).toEqual(q.schedule.schedule.map((x) => [x.due_date, x.amount]));
+    expect(topRows[topRows.length - 1].due_date).toBe(q.end_date);
+    expect(st.position.total_repayable).toBe(adv.total_repayable + q.schedule.total_repayable);
+    // audit
+    const ev = st.events.filter((e) => e.event_type === 'topup_posted');
+    expect(ev).toHaveLength(1);
+    expect(ev[0]).toMatchObject({ actor_id: cfo, details: expect.objectContaining({ reference: t.reference, principal: 200_000, ledger_group_id: t.ledger_group_id }) });
+    expect((await h.recon()).balanced).toBe(true);
+  });
+
+  it('no duplicates: a retry replays, a reused key with other figures is refused, a stale screen is refused', async () => {
+    const { adv } = await h.paidOut();
+    const total = await totalFor(adv.id, 100_000);
+    const st0 = await statement(adv.id);
+    const key = uuid();
+    const req = { idempotency_key: key, principal: 100_000, expected_total_repayable: total, reason: 'Second stock purchase approved' };
+    const first = await addTopup(adv.id, req, { version: st0.updated_at });
+    expect(first.err).toBeUndefined();
+    const groups = await h.counts();
+    const again = await addTopup(adv.id, req, { version: st0.updated_at });      // same key: the same top-up comes back
+    expect(again.out).toMatchObject({ replayed: true, topup: expect.objectContaining({ id: first.out!.topup.id }) });
+    expect(await h.counts()).toEqual(groups);
+    expect((await addTopup(adv.id, { ...req, principal: 120_000 }, { version: st0.updated_at })).err?.message).toBe('IDEMPOTENCY_CONFLICT');
+    // a new key from the screen opened before the first top-up
+    expect((await addTopup(adv.id, { principal: 100_000, expected_total_repayable: total }, { version: st0.updated_at })).err?.message).toBe('STALE_VERSION');
+    expect(await db.q(`select count(*)::int n from public.special_advance_topups where advance_id = $1`, [adv.id])).toEqual([{ n: 1 }]);
+  });
+
+  it('CFO only; figures must be the ones the CFO confirmed; refusals write nothing', async () => {
+    const { user, adv } = await h.paidOut();
+    const total = await totalFor(adv.id, 100_000);
+    const before = await h.counts();
+    const ok = { principal: 100_000, expected_total_repayable: total };
+    expect((await addTopup(adv.id, ok, { user: coo })).err?.message).toBe('NOT_AUTHORIZED');
+    expect((await addTopup(adv.id, ok, { user })).err?.message).toBe('NOT_AUTHORIZED');
+    expect((await quote(adv.id, 100_000, coo)).err?.message).toBe('NOT_AUTHORIZED');
+    expect((await db.call(null, `select public.special_advance_add_topup($1, now(), '{}'::jsonb) r`, [adv.id], 'anon')).err?.message).toMatch(/permission denied/);
+    expect((await addTopup(adv.id, { ...ok, expected_total_repayable: total - 1 })).err?.message).toBe('QUOTE_CHANGED');
+    expect((await addTopup(adv.id, { ...ok, reason: 'too short' })).err?.detail).toMatch(/reason/);
+    expect((await addTopup(adv.id, { principal: 9_999, expected_total_repayable: 1 })).err?.message).toBe('SPECIAL_ADVANCE_INVALID_TERMS');
+    expect((await addTopup(adv.id, { ...ok, method: 'mobile_money', reference: 'MM123', proof_path: await h.proof(adv.id) })).err?.detail).toMatch(/method/);
+    expect(await h.counts()).toEqual(before);
+    expect(await db.q(`select count(*)::int n from public.special_advance_topups where advance_id = $1`, [adv.id])).toEqual([{ n: 0 }]);
+  });
+
+  it('refused after the original final due date, on a settled advance, and before payout', async () => {
+    const late = await historical(await h.newUser(), 95);      // 90-day term, paid out 95 days ago
+    expect((await quote(late.id, 100_000)).err?.message).toBe('TOPUP_AFTER_END');
+    const { user, adv } = await h.paidOut();
+    await h.deposit(user, 1_000_000);
+    const due = await h.outstanding(adv.id);
+    await h.pay(user, adv.id, due, due);
+    expect((await quote(adv.id, 100_000)).err?.message).toBe('SPECIAL_ADVANCE_NOT_TOPUPABLE');
+    const pending = await h.approved({ kind: 'welile_user', user_id: await h.newUser() });
+    expect((await quote(pending.id, 100_000)).err?.message).toBe('SPECIAL_ADVANCE_NOT_TOPUPABLE');
+  });
+
+  it('a failure part-way rolls everything back: no wallet credit, no ledger row, no top-up', async () => {
+    const { user, adv } = await h.paidOut();
+    const total = await totalFor(adv.id, 100_000);
+    const w0 = await h.wallet(user);
+    const before = await h.counts();
+    await db.exec(`create function public.test_fail() returns trigger language plpgsql as $$ begin raise exception 'TEST_FAILURE'; end $$;
+      create trigger test_fail before insert on public.special_advance_events for each row execute function public.test_fail();`);
+    const r = await addTopup(adv.id, { principal: 100_000, expected_total_repayable: total });
+    await db.exec(`drop trigger test_fail on public.special_advance_events; drop function public.test_fail();`);
+    expect(r.err?.message).toBe('TEST_FAILURE');
+    expect(await h.wallet(user)).toBe(w0);
+    expect(await h.counts()).toEqual(before);
+    expect(await db.q(`select count(*)::int n from public.special_advance_topups where advance_id = $1`, [adv.id])).toEqual([{ n: 0 }]);
+  });
+
+  it('the schedule cannot be edited around the function: top-up instalments cannot be inserted or changed directly', async () => {
+    const { adv } = await h.paidOut();
+    await addTopup(adv.id, { principal: 100_000, expected_total_repayable: await totalFor(adv.id, 100_000) });
+    const [{ tid }] = await db.q<{ tid: string }>(`select id tid from public.special_advance_topups where advance_id = $1`, [adv.id]);
+    const ins = await db.exec(`insert into public.special_advance_instalments (advance_id, number, due_offset_days, due_date, amount, access_fee, registration_fee, principal, topup_id)
+      values ('${adv.id}', 99, 10, current_date + 10, 1000, 0, 0, 1000, '${tid}')`).then(() => null, (e: Err) => e);
+    expect(ins?.message).toBe('SPECIAL_ADVANCE_SCHEDULE_FIXED');
+    const upd = await db.exec(`update public.special_advance_instalments set topup_id = null where topup_id = '${tid}'`).then(() => null, (e: Err) => e);
+    expect(upd?.message).toBe('SPECIAL_ADVANCE_SCHEDULE_FIXED');
+    const del = await db.exec(`delete from public.special_advance_topups where id = '${tid}'`).then(() => null, (e: Err) => e);
+    expect(del?.message).toMatch(/cannot be deleted/);
+  });
+
+  it('after a top-up, Merchant Line and wallet repayments work, oldest due date first, to full settlement', async () => {
+    const user = await h.newUser();
+    const adv = await historical(user, 40);                    // instalments due 10 days ago, in 20 days, in 50 days
+    const total = await totalFor(adv.id, 150_000);
+    const r = await addTopup(adv.id, { principal: 150_000, expected_total_repayable: total });
+    expect(r.err).toBeUndefined();
+    expect(await h.wallet(user)).toBe(150_000);
+    const st = await statement(adv.id);
+    const byDue = [...st.schedule].sort((x, y) => x.due_date.localeCompare(y.due_date) || x.number - y.number);
+    // a large Merchant Line payment fills instalments strictly in due-date order, top-up rows included
+    const firstThree = byDue.slice(0, 3).reduce((n, x) => n + x.amount, 0);
+    expect((await h.cfoRepay(adv.id, { amount: firstThree })).err).toBeUndefined();
+    const paid = (await db.q<{ n: number }>(`select instalment_number n from public.special_advance_repayment_allocations where advance_id = $1 order by instalment_number`, [adv.id])).map((x) => x.n);
+    expect(paid.sort()).toEqual(byDue.slice(0, 3).map((x) => x.number).sort());
+    expect(byDue.slice(0, 3).some((x) => x.topup_id)).toBe(true);  // a top-up instalment fell between original ones
+    // the borrower clears the rest from the wallet (top-up money plus a deposit)
+    await h.deposit(user, 2_000_000);
+    const due = await h.outstanding(adv.id);
+    const p = await h.pay(user, adv.id, due, due);
+    expect(p.out).toMatchObject({ status: 'settled', outstanding: 0 });
+    const a24 = Number((await db.q<{ v: string }>(`select coalesce(sum(case when gl.direction = m.debit_when then gl.amount else -gl.amount end), 0)::text v
+      from public.general_ledger gl join public.ledger_account_map m on m.ledger_scope = gl.ledger_scope and m.category = gl.category and m.account_code = 'A24'
+     where (gl.source_table = 'special_advances' and gl.source_id = $1)
+        or (gl.source_table = 'special_advance_topups' and gl.source_id in (select id from public.special_advance_topups where advance_id = $1))
+        or (gl.source_table = 'special_advance_repayments' and gl.source_id in (select id from public.special_advance_repayments where advance_id = $1))`, [adv.id]))[0].v);
+    expect(a24).toBe(0);
+    expect((await h.recon()).balanced).toBe(true);
+    // the borrower's view lists the top-up and the larger total
+    const mine = (await db.call<{ advances: Array<{ id: string; total_repayable: number; topups: unknown[] }> }>(user, `select public.special_advance_my_advances() r`)).out!;
+    const m = mine.advances.find((x) => x.id === adv.id)!;
+    expect(m.topups).toHaveLength(1);
+    expect(m.total_repayable).toBe(adv.total_repayable + total);
+  });
+
+  it('external borrower: paid by mobile money with reference and proof (CR A1); a reference cannot be used twice; payout reversal is then refused', async () => {
+    const ext = await (async () => {
+      const id = uuid();
+      const q0 = (await db.call<{ schedule: { total_repayable: number } }>(cfo, `select public.special_advance_quote($1::text::jsonb) r`, [JSON.stringify({ terms: TERMS })])).out!;
+      const r = await db.call<Adv>(cfo, `select public.special_advance_record_historical($1::text::jsonb) r`, [JSON.stringify({
+        advance_id: id, borrower: { kind: 'external', borrower_type: 'individual', full_name: 'Outside Borrower Two', phone: '+256701234567', national_id: 'CM12345678901ABCD' },
+        terms: TERMS, purpose: 'Original outside-Welile supplier stock payment', original_payout_date: daysAgo(5), method: 'mobile_money',
+        reference: `MM-${uuid().slice(0, 8)}`, proof_path: await h.proof(id), expected_total_repayable: q0.schedule.total_repayable,
+        idempotency_key: uuid(), confirm_not_recorded: true })]);
+      if (r.err) throw new Error(r.err.message + ' ' + r.err.detail);
+      return r.out!;
+    })();
+    const total = await totalFor(ext.id, 100_000);
+    expect((await addTopup(ext.id, { principal: 100_000, expected_total_repayable: total })).err?.detail).toMatch(/method/);
+    const ref = `TOPUP-${uuid().slice(0, 8)}`;
+    const r = await addTopup(ext.id, { principal: 100_000, expected_total_repayable: total, method: 'mobile_money', reference: ref, proof_path: await h.proof(ext.id) });
+    expect(r.err).toBeUndefined();
+    const fee = total - 100_000;
+    expect(await h.mapped(r.out!.topup.ledger_group_id)).toEqual([
+      { account: 'A1', dr: 0, cr: 100_000 }, { account: 'A24', dr: 100_000 + fee, cr: 0 }, { account: 'R1', dr: 0, cr: fee }]);
+    expect(await db.q(`select count(*)::int n from public.general_ledger where transaction_group_id = $1 and ledger_scope = 'wallet'`, [r.out!.topup.ledger_group_id])).toEqual([{ n: 0 }]);
+    const dup = await addTopup(ext.id, { principal: 100_000, expected_total_repayable: await totalFor(ext.id, 100_000), method: 'mobile_money', reference: ref, proof_path: await h.proof(ext.id) });
+    expect(dup.err?.message).toBe('TOPUP_REFERENCE_ALREADY_RECORDED');
+    const rev = await db.call(cfo, `select public.special_advance_record_correction($1, $2::text::jsonb) r`, [ext.id, JSON.stringify({
+      idempotency_key: uuid(), kind: 'payout_reversal', reason: 'Payout recorded twice; the provider shows one transfer only', proof_path: await h.proof(ext.id) })]);
+    expect(rev.err?.message).toBe('PAYOUT_REVERSAL_HAS_TOPUP');
+    expect((await h.recon()).balanced).toBe(true);
+  });
+
+  it('rollback: refused while top-ups exist; on a database without top-ups it restores production exactly', async () => {
+    expect((await run(db, TOPUP_RB))?.message).toMatch(/rollback refused/);
+    const fresh = pglite();
+    await buildStack(fresh, cfo);
+    expect(await run(fresh, WALLET_PAY)).toBeUndefined();
+    const sigs = ['public._special_advance_position(uuid)', 'public._special_advance_json(uuid)', 'public._special_advance_verify_agreement()',
+      'public._special_advance_guard_instalment()', 'public.special_advance_reconciliation()', 'public._special_advance_apply_repayment(uuid,uuid,bigint)',
+      'public.special_advance_record_correction(uuid,jsonb)', 'public.special_advance_my_advances()'];
+    const state = async () => Promise.all(sigs.map((s) => md5Of(fresh, s)));
+    const prod = await state();
+    expect(await run(fresh, TOPUP)).toBeUndefined();
+    expect(await run(fresh, TOPUP_RB)).toBeUndefined();
+    expect(await state()).toEqual(prod);
+    expect(await fresh.q(`select to_regclass('public.special_advance_topups') is null t,
+      not exists (select 1 from pg_attribute where attrelid = 'public.special_advance_instalments'::regclass and attname = 'topup_id' and not attisdropped) c`))
+      .toEqual([{ t: true, c: true }]);
+    await fresh.close();
+  });
+});
+
+describe('20261119140000: reverse a top-up', () => {
+  const REV = MIG('20261119140000_special_advance_topup_reversal.sql');
+  const REV_RB = read('supabase/rollbacks/20261119140000_special_advance_topup_reversal.rollback.sql');
+  const reason = 'Top-up entered against the wrong advance by mistake';
+  const stmt = async (id: string) => (await db.call<{ updated_at: string; topups: Array<{ id: string; reversed_by_correction: string | null }>;
+    position: { total_repayable: number; outstanding: number }; status: string }>(cfo, `select public.special_advance_statement($1) r`, [id])).out!;
+  const topUp = async (id: string, principal: number, extra: Record<string, unknown> = {}) => {
+    const q = (await db.call<{ schedule: { total_repayable: number } }>(cfo, `select public.special_advance_topup_quote($1, $2::bigint) r`, [id, principal])).out!;
+    const r = await db.call<{ topup: { id: string; total_repayable: number; access_fee: number; reference: string } }>(cfo,
+      `select public.special_advance_add_topup($1, $2::text::timestamptz, $3::text::jsonb) r`,
+      [id, (await stmt(id)).updated_at, JSON.stringify({ idempotency_key: uuid(), principal, expected_total_repayable: q.schedule.total_repayable,
+        reason: 'Seasonal stock top-up approved', ...extra })]);
+    if (r.err) throw new Error(r.err.message + ' ' + r.err.detail);
+    return r.out!.topup;
+  };
+  const reverse = async (id: string, topupId: string, over: Record<string, unknown> = {}, user = cfo) =>
+    db.call<{ id: string; reference: string; ledger_group_id: string; amount: number; kind: string; topup: { id: string } | null; replayed: boolean }>(
+      user, `select public.special_advance_record_correction($1, $2::text::jsonb) r`, [id, JSON.stringify({
+        idempotency_key: uuid(), kind: 'topup_reversal', topup_id: topupId, reason, proof_path: await h.proof(id), ...over })]);
+  const extAdvance = async () => {
+    const id = uuid();
+    const q0 = (await db.call<{ schedule: { total_repayable: number } }>(cfo, `select public.special_advance_quote($1::text::jsonb) r`, [JSON.stringify({ terms: TERMS })])).out!;
+    const r = await db.call<Adv>(cfo, `select public.special_advance_record_historical($1::text::jsonb) r`, [JSON.stringify({
+      advance_id: id, borrower: { kind: 'external', borrower_type: 'individual', full_name: 'Outside Borrower Three', phone: '+256709876543', national_id: 'CM99887766554ABCD' },
+      terms: TERMS, purpose: 'Original outside-Welile supplier stock payment', original_payout_date: today(), method: 'mobile_money',
+      reference: `MM-${uuid().slice(0, 8)}`, proof_path: await h.proof(id), expected_total_repayable: q0.schedule.total_repayable,
+      idempotency_key: uuid(), confirm_not_recorded: true })]);
+    if (r.err) throw new Error(r.err.message + ' ' + r.err.detail);
+    return r.out!;
+  };
+
+  it('applies once, after the top-up migration', async () => {
+    const before = await h.counts();
+    expect(await run(db, REV)).toBeUndefined();
+    expect(await h.counts()).toEqual(before);
+    expect((await run(db, REV))?.message).toMatch(/precondition failed/);
+  });
+
+  it('wallet top-up: the money is taken back from the wallet; CR A24 / DR L1 / DR R1; the top-up stays on record, reversed', async () => {
+    const { user, adv } = await h.paidOut();
+    const out0 = await h.outstanding(adv.id);
+    const t = await topUp(adv.id, 200_000);
+    expect(await h.wallet(user)).toBe(700_000);
+    const instBefore = await db.q(`select count(*)::int n from public.special_advance_instalments where topup_id = $1`, [t.id]);
+    const r = await reverse(adv.id, t.id);
+    expect(r.err).toBeUndefined();
+    expect(r.out).toMatchObject({ kind: 'topup_reversal', amount: t.total_repayable, topup: expect.objectContaining({ id: t.id, reference: t.reference }) });
+    expect(await h.mapped(r.out!.ledger_group_id)).toEqual([
+      { account: 'A24', dr: 0, cr: t.total_repayable }, { account: 'L1', dr: 200_000, cr: 0 }, { account: 'R1', dr: t.access_fee, cr: 0 }]);
+    expect(await h.resolved(r.out!.ledger_group_id)).toEqual(await h.mapped(r.out!.ledger_group_id));
+    expect(await h.wallet(user)).toBe(500_000);
+    expect(await h.outstanding(adv.id)).toBe(out0);
+    const st = await stmt(adv.id);
+    expect(st.position.total_repayable).toBe(adv.total_repayable);
+    expect(st.topups.map((x) => x.reversed_by_correction)).toEqual([r.out!.id]);
+    expect(await db.q(`select count(*)::int n from public.special_advance_instalments where topup_id = $1`, [t.id])).toEqual(instBefore); // kept
+    const mine = (await db.call<{ advances: Array<{ id: string; topups: unknown[]; total_repayable: number }> }>(user, `select public.special_advance_my_advances() r`)).out!;
+    expect(mine.advances.find((x) => x.id === adv.id)).toMatchObject({ topups: [], total_repayable: adv.total_repayable });
+    expect((await h.recon()).balanced).toBe(true);
+    // posted once: the same request replays, a second reversal is refused
+    expect((await reverse(adv.id, t.id)).err?.message).toBe('TOPUP_ALREADY_REVERSED');
+  });
+
+  it('refusals write nothing: wallet already spent, repayment on the top-up, not CFO, no reason, wrong advance', async () => {
+    const { user, adv } = await h.paidOut();
+    const t = await topUp(adv.id, 200_000);
+    const other = await h.paidOut();
+    const before = await h.counts();
+    // the borrower spent the top-up: it cannot be taken back, and no overdraft is created
+    await db.q(`select public.create_ledger_transaction($1::text::jsonb, $2, false)`, [JSON.stringify([
+      { ledger_scope: 'wallet', direction: 'cash_out', amount: 650_000, category: 'wallet_withdrawal', user_id: user, wallet_bucket: 'withdrawable', recipient_type: 'user' },
+      { ledger_scope: 'platform', direction: 'cash_in', amount: 650_000, category: 'wallet_withdrawal' }]), `test-wd:${uuid()}`]);
+    const spent = await reverse(adv.id, t.id);
+    expect(spent.err?.message).toBe('TOPUP_FUNDS_NOT_IN_WALLET');
+    expect(JSON.parse(spent.err!.detail!)).toEqual({ available: 50_000, needed: 200_000 });
+    expect((await reverse(adv.id, t.id, {}, user)).err?.message).toBe('NOT_AUTHORIZED');
+    expect((await reverse(adv.id, t.id, { reason: 'too short' })).err?.message).toBe('REASON_REQUIRED');
+    expect((await reverse(other.adv.id, t.id)).err?.message).toBe('TOPUP_NOT_FOUND');
+    expect((await h.counts()).gl).toBe(before.gl + 2);   // only the test withdrawal
+    expect(await db.q(`select reversed_by_correction from public.special_advance_topups where id = $1`, [t.id])).toEqual([{ reversed_by_correction: null }]);
+  });
+
+  it('a repayment applied to the top-up must be reversed first; after that the top-up reverses', async () => {
+    const { adv } = await h.paidOut();
+    const t = await topUp(adv.id, 200_000);
+    const inst1 = (await db.q<{ a: number }>(`select amount::int a from public.special_advance_instalments where advance_id = $1 and topup_id is null order by number limit 1`, [adv.id]))[0].a;
+    await h.cfoRepay(adv.id, { amount: inst1 + 1_000 });                   // spills into the top-up's first instalment
+    expect((await reverse(adv.id, t.id)).err?.message).toBe('TOPUP_HAS_REPAYMENTS');
+    const [{ id: repId }] = await db.q<{ id: string }>(`select id from public.special_advance_repayments where advance_id = $1`, [adv.id]);
+    const rr = await db.call(cfo, `select public.special_advance_record_correction($1, $2::text::jsonb) r`, [adv.id, JSON.stringify({
+      idempotency_key: uuid(), kind: 'repayment_reversal', repayment_id: repId, reason: 'Repayment to be re-entered after the top-up fix', proof_path: await h.proof(adv.id) })]);
+    expect(rr.err).toBeUndefined();
+    expect((await reverse(adv.id, t.id)).err).toBeUndefined();
+    // new repayments now go to the original instalments only
+    await h.cfoRepay(adv.id, { amount: inst1 + 1_000 });
+    const hit = await db.q<{ n: number }>(`select count(*)::int n from public.special_advance_repayment_allocations x join public.special_advance_repayments r on r.id = x.repayment_id
+      join public.special_advance_instalments i on i.advance_id = x.advance_id and i.number = x.instalment_number
+      where x.advance_id = $1 and r.reversed_by_correction is null and i.topup_id is not null`, [adv.id]);
+    expect(hit).toEqual([{ n: 0 }]);
+    expect((await h.recon()).balanced).toBe(true);
+  });
+
+  it('settles the advance when the top-up was all that was left', async () => {
+    // paid out 70 days ago on a 90-day monthly agreement: instalments due 40 and 10 days ago and in 20 days;
+    // a top-up now has one instalment, due with the last original one (and after it in the order)
+    const id = uuid();
+    const q0 = (await db.call<{ schedule: { total_repayable: number } }>(cfo, `select public.special_advance_quote($1::text::jsonb) r`, [JSON.stringify({ terms: TERMS })])).out!;
+    const daysAgo = (n: number) => new Date(Date.now() + 3 * 3_600_000 - n * 86_400_000).toISOString().slice(0, 10);
+    const hist = await db.call<Adv>(cfo, `select public.special_advance_record_historical($1::text::jsonb) r`, [JSON.stringify({
+      advance_id: id, borrower: { kind: 'welile_user', user_id: await h.newUser() }, terms: TERMS, purpose: 'Original outside-Welile supplier stock payment',
+      original_payout_date: daysAgo(70), method: 'cash', reference: `RCPT-${uuid().slice(0, 8)}`, proof_path: await h.proof(id),
+      expected_total_repayable: q0.schedule.total_repayable, idempotency_key: uuid(), confirm_not_recorded: true })]);
+    expect(hist.err).toBeUndefined();
+    const t = await topUp(id, 100_000);
+    expect(await db.q(`select count(*)::int n from public.special_advance_instalments where topup_id = $1`, [t.id])).toEqual([{ n: 1 }]);
+    await h.cfoRepay(id, { amount: q0.schedule.total_repayable });          // the original agreement, in full
+    expect(await h.outstanding(id)).toBe(t.total_repayable);                // only the top-up is left
+    expect((await stmt(id)).status).toBe('disbursed');
+    expect((await reverse(id, t.id)).err).toBeUndefined();
+    expect(await h.outstanding(id)).toBe(0);
+    expect((await stmt(id)).status).toBe('settled');
+    expect((await h.recon()).balanced).toBe(true);
+  });
+
+  it('external top-up: company cash restored (DR A1); afterwards the original payout can be reversed again', async () => {
+    const ext = await extAdvance();
+    const t = await topUp(ext.id, 100_000, { method: 'bank_transfer', reference: `BANK-${uuid().slice(0, 8)}`, proof_path: await h.proof(ext.id) });
+    const r = await reverse(ext.id, t.id);
+    expect(r.err).toBeUndefined();
+    expect(await h.mapped(r.out!.ledger_group_id)).toEqual([
+      { account: 'A1', dr: 100_000, cr: 0 }, { account: 'A24', dr: 0, cr: t.total_repayable }, { account: 'R1', dr: t.access_fee, cr: 0 }]);
+    const pr = await db.call(cfo, `select public.special_advance_record_correction($1, $2::text::jsonb) r`, [ext.id, JSON.stringify({
+      idempotency_key: uuid(), kind: 'payout_reversal', reason: 'Payout recorded twice; the provider shows one transfer only', proof_path: await h.proof(ext.id) })]);
+    expect(pr.err).toBeUndefined();
+    expect((await h.recon()).balanced).toBe(true);
+  });
+
+  it('the top-up record can only be marked reversed by a posted reversal, never edited or deleted', async () => {
+    const { adv } = await h.paidOut();
+    const t = await topUp(adv.id, 100_000);
+    const e1 = await db.exec(`update public.special_advance_topups set principal = 1 where id = '${t.id}'`).then(() => null, (e: Err) => e);
+    expect(e1?.message).toMatch(/cannot be updated/);
+    const [{ c }] = await db.q<{ c: string }>(`select id c from public.special_advance_corrections where kind = 'repayment_reversal' limit 1`);
+    const e2 = await db.exec(`update public.special_advance_topups set reversed_by_correction = '${c}' where id = '${t.id}'`).then(() => null, (e: Err) => e);
+    expect(e2?.message).toMatch(/cannot be updated/);
+    const e3 = await db.exec(`delete from public.special_advance_topups where id = '${t.id}'`).then(() => null, (e: Err) => e);
+    expect(e3?.message).toMatch(/cannot be deleted/);
+  });
+
+  it('rollback: refused while reversals exist; on a database without them it restores production exactly', async () => {
+    expect((await run(db, REV_RB))?.message).toMatch(/rollback refused/);
+    const fresh = pglite();
+    await buildStack(fresh, cfo);
+    expect(await run(fresh, WALLET_PAY)).toBeUndefined();
+    expect(await run(fresh, MIG('20261119120000_special_advance_topups.sql'))).toBeUndefined();
+    const sigs = ['public.special_advance_record_correction(uuid,jsonb)', 'public._special_advance_position(uuid)',
+      'public._special_advance_apply_repayment(uuid,uuid,bigint)', 'public.special_advance_my_advances()', 'public._special_advance_correction_json(uuid)'];
+    const state = async () => Promise.all(sigs.map((s) => md5Of(fresh, s)));
+    const prod = await state();
+    expect(await run(fresh, REV)).toBeUndefined();
+    expect(await run(fresh, REV_RB)).toBeUndefined();
+    expect(await state()).toEqual(prod);
+    expect(await fresh.q(`select tgfoid::regproc::text f from pg_trigger where tgname = 'special_advance_topups_guard'`)).toEqual([{ f: '_special_advance_guard_posted' }]);
+    await fresh.close();
+  });
+});
+
 describe('rollback', () => {
   it('is refused while wallet repayments exist (they are real money movements)', async () => {
     expect((await run(db, WALLET_PAY_RB))?.message).toMatch(/rollback refused/);
@@ -762,6 +1182,7 @@ const PARALLEL = 8;
     if (n !== 0) throw new Error('SA_PG_URL must be an EMPTY, disposable database');
     await buildStack(pg, cfo);
     await pg.exec(`BEGIN;\n${WALLET_PAY}\nCOMMIT;`);
+    await pg.exec(`BEGIN;\n${MIG('20261119120000_special_advance_topups.sql')}\nCOMMIT;`);
     ph = helpers(pg, cfo);
   }, 600_000);
   afterAll(async () => { await pg?.close(); });
@@ -804,6 +1225,20 @@ const PARALLEL = 8;
     expect(JSON.parse(r.err!.detail!)).toEqual({ available: 100_000 });
     expect(await ph.wallet(user)).toBe(100_000);
     expect(await ph.outstanding(adv.id)).toBe(due);
+  });
+
+  it(`${PARALLEL} top-ups sent at once from one screen (different keys): exactly one is recorded and paid`, async () => {
+    const { user, adv } = await ph.paidOut();
+    const st = (await pg.call<{ updated_at: string }>(cfo, `select public.special_advance_statement($1) r`, [adv.id])).out!;
+    const q = (await pg.call<{ schedule: { total_repayable: number } }>(cfo, `select public.special_advance_topup_quote($1, 100000::bigint) r`, [adv.id])).out!;
+    const rs = await Promise.all(Array.from({ length: PARALLEL }, () => pg.call(cfo,
+      `select public.special_advance_add_topup($1, $2::text::timestamptz, $3::text::jsonb) r`, [adv.id, st.updated_at, JSON.stringify({
+        idempotency_key: uuid(), principal: 100000, expected_total_repayable: q.schedule.total_repayable, reason: 'Seasonal stock top-up approved' })])));
+    expect(rs.filter((r) => !r.err)).toHaveLength(1);
+    for (const r of rs.filter((x) => x.err)) expect(r.err!.message).toBe('STALE_VERSION');
+    expect(await pg.q(`select count(*)::int n from public.special_advance_topups where advance_id = $1`, [adv.id])).toEqual([{ n: 1 }]);
+    expect(await ph.wallet(user)).toBe(600_000);
+    expect((await ph.recon()).balanced).toBe(true);
   });
 
   it(`the same payment sent ${PARALLEL} times at once (double taps) is charged once`, async () => {

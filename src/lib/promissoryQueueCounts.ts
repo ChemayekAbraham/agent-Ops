@@ -5,15 +5,20 @@
  * and the pending summary tile is this function applied to the same notes
  * the list is showing (already passed through applyCameInFulfilment).
  *
- * Pending: status is still `pending`.
- * Approved: status is still `activated` (the approval is current).
- * A note the partner has already covered in full is `fulfilled` and is in
- * neither of those counts. `kpis.approved_notes` (approved_at is set) is a
- * wider server figure and is not shown as "Approved".
+ * Pending (awaiting review): Partner Ops have not approved the note yet
+ * (`approval_bonus_paid` is false). That includes a note the partner already
+ * opened from its link (stored as `activated`) or already paid in full (shown
+ * as `fulfilled`): approval is what pays the agent's bonus and lets the
+ * partner commission pay, so those notes must stay in front of reviewers.
+ * Approved: status is `activated` and the note was approved.
+ * Fulfilled: an approved note the partner has covered in full.
+ * `kpis.approved_notes` (approved_at is set) is a wider server figure and is
+ * not shown as "Approved".
  */
 
 export interface PromissoryCountableNote {
   status?: string | null;
+  approval_bonus_paid?: boolean | null;
   fulfilment_due_on?: string | null;
   outstanding?: number | null;
   amount?: number | null;
@@ -34,15 +39,31 @@ export interface PromissoryQueueCounts {
 export const PROMISSORY_COUNT_HELP = {
   all: 'Every promissory note in the selected date range. The All filter uses this same count.',
   pending:
-    'Notes still awaiting review in the selected date range. A note the partner has already covered in full is counted as fulfilled. The Pending filter uses this same count.',
+    'Notes not approved yet in the selected date range, including notes the partner has already opened from the link or paid in full. The agent is not paid until the note is approved. The Pending filter uses this same count.',
   approved:
     'Notes whose approval is current in the selected date range. The Approved filter uses this same count.',
   rejected: 'Notes stored as rejected (cancelled) in the selected date range.',
-  fulfilled: 'Notes the partner has covered in full, or that are stored as fulfilled, in the selected date range.',
+  fulfilled: 'Approved notes the partner has covered in full, or that are stored as fulfilled, in the selected date range.',
   defaulted: 'Notes stored as defaulted in the selected date range.',
   overdue: 'Notes with a Fulfils by date before today that still have money outstanding.',
   missingFulfilment: 'Notes in the selected date range with no Fulfils by date, in any status.',
 } as const;
+
+/**
+ * True while Partner Ops still have to approve the note. A note becomes `activated` when the partner (or anyone
+ * signed in) opens its link, and shows as `fulfilled` once the partner has paid in full; neither is an approval.
+ * Only an explicit `approval_bonus_paid: false` counts for those two, so rows without the field keep their status.
+ */
+export function isAwaitingPromissoryReview(note: PromissoryCountableNote): boolean {
+  const status = String(note.status || '');
+  if (status === 'pending') return true;
+  return (status === 'activated' || status === 'fulfilled') && note.approval_bonus_paid === false;
+}
+
+/** The status Partner Ops should see: `pending` for any note not approved yet, otherwise the note's own status. */
+export function promissoryReviewStatus(note: PromissoryCountableNote): string {
+  return isAwaitingPromissoryReview(note) ? 'pending' : String(note.status || '');
+}
 
 export function isPromissoryOverdue(note: PromissoryCountableNote, now = new Date()): boolean {
   if (!note.fulfilment_due_on) return false;
@@ -66,7 +87,7 @@ export function countPromissoryQueue(notes: PromissoryCountableNote[], now = new
     missingFulfilment: 0,
   };
   for (const note of notes) {
-    const status = String(note.status || '');
+    const status = promissoryReviewStatus(note);
     if (status === 'pending') counts.pending += 1;
     else if (status === 'activated') counts.approved += 1;
     else if (status === 'cancelled') counts.rejected += 1;

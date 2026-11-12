@@ -219,7 +219,7 @@ describe('E90: ask only for what _agent_side_missing lists', () => {
 
   it('a listed document is asked again even when one is on file, then attached before the resubmit', async () => {
     mocks.tables.pipeline_intake_details = ready;
-    const side = sideMissing(['ID front']);
+    const side = sideMissing(['ID photo (front)']);
     mocks.rpc.mockImplementation(async (fn: string) => ({ data: side(fn) ?? { ok: true }, error: null }));
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
     await waitFor(() => expect(listed('gate')).toEqual(['National ID photo — front']));
@@ -239,8 +239,8 @@ describe('E90: ask only for what _agent_side_missing lists', () => {
 
   it('shows RESUBMIT_INCOMPLETE word for word and reads the list again', async () => {
     mocks.tables.pipeline_intake_details = ready;
-    const refusal = 'RESUBMIT_INCOMPLETE: add house photos before sending this request again';
-    const side = sideMissing([], ['house photos']);
+    const refusal = 'RESUBMIT_INCOMPLETE: add Photos of the house before sending this request again';
+    const side = sideMissing([], ['Photos of the house']);
     mocks.rpc.mockImplementation(async (fn: string) => {
       if (fn === 'agent_resubmit_rent_request') return { data: null, error: { message: refusal } };
       return { data: side(fn) ?? { ok: true }, error: null };
@@ -254,7 +254,28 @@ describe('E90: ask only for what _agent_side_missing lists', () => {
     expect(await screen.findByText(refusal)).toBeInTheDocument();
     expect(screen.queryByText('Sent to the Service Centre')).toBeNull();
     const list = await screen.findByTestId('resubmit-side-missing');
-    expect(within(list).getByRole('button', { name: 'house photos' })).toBeInTheDocument();
+    expect(within(list).getByRole('button', { name: 'Photos of the house' })).toBeInTheDocument();
+  });
+});
+
+describe('send progress on the button', () => {
+  it('says Saving… while the request is being saved, then shows it sent', async () => {
+    mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+    let release: (v: unknown) => void = () => {};
+    mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === '_agent_side_missing') return { data: [], error: null };
+      if (fn === 'agent_resubmit_rent_request') return new Promise((r) => { release = r; });
+      return { data: { ok: true }, error: null };
+    });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ rejected_reason: null }) }} />);
+    await waitFor(() => expect(group('gate')).toBeNull());
+    fix(/What you changed/);
+    answer('Fixed the landlord details');
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findByTestId('send-button')).toHaveTextContent('Saving…');
+    release({ data: { ok: true }, error: null });
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
   });
 });
 

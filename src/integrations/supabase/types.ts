@@ -56755,6 +56755,7 @@ export type Database = {
           recorded_by: string
           reference: string
           repayment_id: string | null
+          topup_id: string | null
         }
         Insert: {
           advance_id: string
@@ -56769,6 +56770,7 @@ export type Database = {
           recorded_by: string
           reference: string
           repayment_id?: string | null
+          topup_id?: string | null
         }
         Update: {
           advance_id?: string
@@ -56783,6 +56785,7 @@ export type Database = {
           recorded_by?: string
           reference?: string
           repayment_id?: string | null
+          topup_id?: string | null
         }
         Relationships: [
           {
@@ -56797,6 +56800,13 @@ export type Database = {
             columns: ["repayment_id"]
             isOneToOne: false
             referencedRelation: "special_advance_repayments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_corrections_topup_id_fkey"
+            columns: ["topup_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_topups"
             referencedColumns: ["id"]
           },
         ]
@@ -56895,6 +56905,7 @@ export type Database = {
           number: number
           principal: number
           registration_fee: number
+          topup_id: string | null
         }
         Insert: {
           access_fee: number
@@ -56906,6 +56917,7 @@ export type Database = {
           number: number
           principal: number
           registration_fee: number
+          topup_id?: string | null
         }
         Update: {
           access_fee?: number
@@ -56917,10 +56929,56 @@ export type Database = {
           number?: number
           principal?: number
           registration_fee?: number
+          topup_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "special_advance_instalments_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_instalments_topup_id_fkey"
+            columns: ["topup_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_topups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_name_edits: {
+        Row: {
+          advance_id: string
+          created_at: string
+          edited_by: string
+          id: string
+          new_name: string
+          old_name: string | null
+          reason: string
+        }
+        Insert: {
+          advance_id: string
+          created_at?: string
+          edited_by: string
+          id?: string
+          new_name: string
+          old_name?: string | null
+          reason: string
+        }
+        Update: {
+          advance_id?: string
+          created_at?: string
+          edited_by?: string
+          id?: string
+          new_name?: string
+          old_name?: string | null
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_name_edits_advance_id_fkey"
             columns: ["advance_id"]
             isOneToOne: false
             referencedRelation: "special_advances"
@@ -57202,6 +57260,84 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      special_advance_topups: {
+        Row: {
+          access_fee: number
+          advance_id: string
+          calc_version: string
+          id: string
+          idempotency_key: string
+          ledger_group_id: string
+          payout_method: string
+          payout_proof_path: string | null
+          payout_reference: string | null
+          principal: number
+          reason: string
+          recorded_at: string
+          recorded_by: string
+          reference: string
+          reversed_by_correction: string | null
+          term_days: number
+          topup_date: string
+          total_repayable: number
+        }
+        Insert: {
+          access_fee: number
+          advance_id: string
+          calc_version: string
+          id?: string
+          idempotency_key: string
+          ledger_group_id: string
+          payout_method: string
+          payout_proof_path?: string | null
+          payout_reference?: string | null
+          principal: number
+          reason: string
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+          reversed_by_correction?: string | null
+          term_days: number
+          topup_date: string
+          total_repayable: number
+        }
+        Update: {
+          access_fee?: number
+          advance_id?: string
+          calc_version?: string
+          id?: string
+          idempotency_key?: string
+          ledger_group_id?: string
+          payout_method?: string
+          payout_proof_path?: string | null
+          payout_reference?: string | null
+          principal?: number
+          reason?: string
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+          reversed_by_correction?: string | null
+          term_days?: number
+          topup_date?: string
+          total_repayable?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_topups_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_topups_reversed_by_correction_fkey"
+            columns: ["reversed_by_correction"]
+            isOneToOne: false
+            referencedRelation: "special_advance_corrections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       special_advance_write_offs: {
         Row: {
@@ -69919,6 +70055,109 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_school_fee_requests: {
+        Row: {
+          class_grade: string | null
+          created_at: string
+          daily_rate: number
+          guarantor_name: string | null
+          guarantor_phone: string | null
+          guardian_name: string
+          guardian_phone: string
+          id: string
+          note: string | null
+          plan_days: number
+          plan_due_date: string
+          profile_id: string
+          requested_by: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          student_name: string
+          term_end: string
+          term_fee: number
+          term_id: string | null
+          total_on_schedule: number
+          updated_at: string
+        }
+        Insert: {
+          class_grade?: string | null
+          created_at?: string
+          daily_rate: number
+          guarantor_name?: string | null
+          guarantor_phone?: string | null
+          guardian_name: string
+          guardian_phone: string
+          id?: string
+          note?: string | null
+          plan_days: number
+          plan_due_date: string
+          profile_id: string
+          requested_by: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school_id: string
+          status?: string
+          student_name: string
+          term_end: string
+          term_fee: number
+          term_id?: string | null
+          total_on_schedule: number
+          updated_at?: string
+        }
+        Update: {
+          class_grade?: string | null
+          created_at?: string
+          daily_rate?: number
+          guarantor_name?: string | null
+          guarantor_phone?: string | null
+          guardian_name?: string
+          guardian_phone?: string
+          id?: string
+          note?: string | null
+          plan_days?: number
+          plan_due_date?: string
+          profile_id?: string
+          requested_by?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school_id?: string
+          status?: string
+          student_name?: string
+          term_end?: string
+          term_fee?: number
+          term_id?: string | null
+          total_on_schedule?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_fee_requests_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "welile_school_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_school_fee_requests_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "welile_schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_school_fee_requests_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "welile_school_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_school_fee_structures: {
         Row: {
           amount: number
@@ -79340,6 +79579,14 @@ export type Database = {
           p_term_days: number
         }
         Returns: string[]
+      }
+      _special_advance_topup_schedule: {
+        Args: {
+          a: Database["public"]["Tables"]["special_advances"]["Row"]
+          p_principal: number
+          p_today: string
+        }
+        Returns: Json
       }
       _special_advance_wallet_receipt: {
         Args: { p_repayment_id: string }
@@ -99877,6 +100124,14 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      special_advance_add_note: {
+        Args: { p_id: string; p_note: string }
+        Returns: Json
+      }
+      special_advance_add_topup: {
+        Args: { p_expected_updated_at: string; p_id: string; p_request: Json }
+        Returns: Json
+      }
       special_advance_approve: {
         Args: { p_expected_updated_at: string; p_id: string; p_reason?: string }
         Returns: Json
@@ -99889,6 +100144,35 @@ export type Database = {
       special_advance_create: { Args: { p_request: Json }; Returns: Json }
       special_advance_disburse: {
         Args: { p_expected_updated_at: string; p_id: string; p_payout: Json }
+        Returns: Json
+      }
+      special_advance_edit_name: {
+        Args: {
+          p_expected_updated_at: string
+          p_id: string
+          p_name: string
+          p_reason: string
+        }
+        Returns: Json
+      }
+      special_advance_edit_principal: {
+        Args: {
+          p_expected_updated_at: string
+          p_id: string
+          p_principal: number
+          p_reason: string
+        }
+        Returns: Json
+      }
+      special_advance_edit_terms: {
+        Args: {
+          p_expected_updated_at: string
+          p_id: string
+          p_payout_date: string
+          p_principal: number
+          p_reason: string
+          p_term_days: number
+        }
         Returns: Json
       }
       special_advance_get: { Args: { p_id: string }; Returns: Json }
@@ -99937,6 +100221,10 @@ export type Database = {
         Returns: Json
       }
       special_advance_statement: { Args: { p_id: string }; Returns: Json }
+      special_advance_topup_quote: {
+        Args: { p_id: string; p_principal: number }
+        Returns: Json
+      }
       special_advance_write_off: {
         Args: { p_id: string; p_request: Json }
         Returns: Json
@@ -103769,6 +104057,51 @@ export type Database = {
           src: string
           unit_id: string
         }[]
+      }
+      welile_school_fee_request_submit: {
+        Args: {
+          p_guarantor_name: string
+          p_guarantor_phone: string
+          p_guardian_name: string
+          p_guardian_phone: string
+          p_note: string
+          p_profile_id: string
+          p_term_end: string
+          p_term_fee: number
+          p_term_id: string
+        }
+        Returns: {
+          class_grade: string | null
+          created_at: string
+          daily_rate: number
+          guarantor_name: string | null
+          guarantor_phone: string | null
+          guardian_name: string
+          guardian_phone: string
+          id: string
+          note: string | null
+          plan_days: number
+          plan_due_date: string
+          profile_id: string
+          requested_by: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          student_name: string
+          term_end: string
+          term_fee: number
+          term_id: string | null
+          total_on_schedule: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_fee_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       welile_school_partnership_editable: {
         Args: { p_school_id: string }

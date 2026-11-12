@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ReceiptNumberCheckDialog } from "@/components/agent/ReceiptNumberCheckDialog";
 import { isLandlordReceiptConfirmationEffective } from "@/hooks/usePendingLandlordReceipts";
 import { formatUGX } from "@/lib/rentCalculations";
+import { LandlordSelfPayReceiptForm } from "@/components/agent/LandlordSelfPayReceiptForm";
 import { cn } from "@/lib/utils";
 
 interface PayoutRow {
@@ -17,6 +18,7 @@ interface PayoutRow {
   last_error: string | null;
   external_reference: string | null;
   disbursed_at: string | null;
+  finops_disbursed_at?: string | null;
   escalated_reason: string | null;
   otp_verified_at: string;
   sla_deadline: string;
@@ -51,7 +53,7 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
     (async () => {
       const { data } = await supabase
         .from("landlord_payouts")
-        .select("id, status, amount, attempts, last_error, external_reference, disbursed_at, escalated_reason, otp_verified_at, sla_deadline")
+        .select("id, status, amount, attempts, last_error, external_reference, disbursed_at, finops_disbursed_at, escalated_reason, otp_verified_at, sla_deadline")
         .eq("id", payoutId)
         .maybeSingle();
       if (active && data) setPayout(data as PayoutRow);
@@ -131,6 +133,8 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
     payout.status === "awaiting_agent_receipt";
   const isEscalated = payout.status === "escalated" || payout.status === "failed";
   const inFlight = payout.status === "otp_verified" || payout.status === "disbursing";
+  // Self-pay: debited from the Landlord Float with no merchant/FinOps stamp.
+  const isSelfPay = payout.status === "awaiting_agent_receipt" && !payout.finops_disbursed_at;
 
   return (
     <div className="py-6 space-y-5">
@@ -174,7 +178,7 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
             {isDone
               ? "Payment Sent ✓"
               : isPendingFinops
-                ? (payout.status === "pending_merchant_payout"
+                ? (isSelfPay ? "Pay the landlord now" : payout.status === "pending_merchant_payout"
                     ? "Sent to Merchant Payout Queue ✓"
                     : "Payment in Progress ✓")
                 : isEscalated
@@ -186,7 +190,7 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
           <p className="text-sm text-muted-foreground mt-1">
             {formatUGX(payout.amount)} → <span className="font-medium text-foreground">{landlordName}</span>
           </p>
-          {isPendingFinops && (
+          {isPendingFinops && !isSelfPay && (
             <p className="text-xs text-muted-foreground mt-2 max-w-xs mx-auto">
               {payout.status === "pending_merchant_payout"
                 ? "Your float is held for this payment — it has not been spent twice. A merchant agent will pay the landlord from the Cash, Mobile Money & Bank payout queue, and you'll be notified. Do not send it again."
@@ -199,6 +203,13 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
             </p>
           )}
         </div>
+
+        {isSelfPay && (
+          <LandlordSelfPayReceiptForm
+            payoutId={payout.id}
+            onSubmitted={() => setPayout((p) => (p ? { ...p, status: "completed" } : p))}
+          />
+        )}
 
         {payout.external_reference && (
           <Badge variant="outline" className="font-mono text-[10px]">

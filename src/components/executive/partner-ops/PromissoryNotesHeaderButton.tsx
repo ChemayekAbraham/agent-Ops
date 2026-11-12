@@ -49,7 +49,9 @@ export function PromissoryNotesHeaderButton({
       const { count } = await supabase
         .from('promissory_notes')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending');
+        // Not approved yet, including notes the partner already opened from the link (stored as activated).
+        .in('status', ['pending', 'activated'])
+        .eq('approval_bonus_paid', false);
       return count || 0;
     },
     staleTime: 30000,
