@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ lookup: vi.fn(), submit: vi.fn(), gps: vi.fn() }));
+const mocks = vi.hoisted(() => ({ lookup: vi.fn(), submit: vi.fn(), gps: vi.fn(), saveDraft: vi.fn() }));
 vi.mock('@/lib/signageGpsLocation', async (orig) => {
   const real = await orig<typeof import('@/lib/signageGpsLocation')>();
   return { ...real, lookupSignageGpsLocation: async (lat: number, lng: number) => {
@@ -17,6 +17,7 @@ vi.mock('@/hooks/useWelileSignages', () => ({
   useDeleteSignage: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useResubmitSignage: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useLoadSignageDetail: () => vi.fn(),
+  useSaveSignageDraft: () => ({ mutateAsync: mocks.saveDraft, isPending: false }),
 }));
 vi.mock('@/components/signages/SignageEvidence', () => ({ SignageEvidence: () => null }));
 import AgentWelileSignages from '@/pages/agent/AgentWelileSignages';
@@ -99,5 +100,18 @@ describe('GPS-only signage registration', () => {
     await act(async () => finish?.(null));
     expect(screen.getByLabelText('District')).toHaveValue('');
     expect(mocks.submit).not.toHaveBeenCalled();
+  });
+  it('saves an incomplete application as a draft without submitting it', async () => {
+    mocks.saveDraft.mockResolvedValue('draft-1');
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Capture Live Location' }));
+    await waitFor(() => expect(screen.getByLabelText('District')).toHaveValue('Kampala'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save as Draft' }));
+    await waitFor(() => expect(mocks.saveDraft).toHaveBeenCalledTimes(1));
+    const arg = mocks.saveDraft.mock.calls[0][0];
+    expect(arg.draftId).toBeUndefined();
+    expect(arg.payload).toMatchObject({ gps_latitude: 0.35, gps_longitude: 32.6, district_name: 'Kampala' });
+    expect(mocks.submit).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Update Draft' })).toBeInTheDocument());
   });
 });

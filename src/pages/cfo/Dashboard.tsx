@@ -2,6 +2,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { ArrowLeft, ArrowRight, ClipboardCheck, ShieldCheck, Sparkles, CalendarClock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
 const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
 const ReceivedByCategory = lazy(() => import('@/components/cfo/ReceivedByCategory'));
@@ -352,13 +353,25 @@ export default function CFODashboardPage() {
         );
       case 'rent-payouts':
         return (
-          <div className="space-y-4">
-            <h1 className="text-xl font-bold">💰 Rent Payout Authorization</h1>
-            <p className="text-sm text-muted-foreground">
-              Approve rent payouts to landlords. Enter the transaction reference to confirm disbursement.
-              For landlords without a Rent Money wallet, select "Cash Payout" as the method.
-            </p>
-            <RentPipelineQueue stage="coo_approved" />
+          <div className="space-y-5">
+            <div className="rounded-xl border border-border/70 bg-card p-4 sm:p-5 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[11px] font-semibold tracking-wide uppercase px-2 py-0.5 border-primary/30 text-primary bg-primary/5">
+                      CFO Office · Treasury &amp; Disbursements
+                    </Badge>
+                  </div>
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                    Rent Payout Authorization
+                  </h1>
+                  <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
+                    Final desk authorization for COO-approved Rent Plans. Verify funder matching, review landlord payout details, or return requests for operational corrections before disbursement.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <RentPipelineQueue stage="coo_approved" initialViewMode="table" />
             <RejectedRequestsQueue stageFilter="coo_approved" title="Rejected at CFO" />
           </div>
         );

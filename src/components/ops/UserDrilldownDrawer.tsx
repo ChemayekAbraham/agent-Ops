@@ -155,6 +155,10 @@ export function UserDrilldownDrawer({
     });
   };
 
+  // True when the tenant being viewed was reached from an agent pane, so the
+  // tenant pane can offer a "back to agent" jump.
+  const cameFromAgent = navHistory.some((h) => h.tab === 'agent');
+
   const handleSelectTenant = (id: string, name: string) => {
     pushHistory(tab === 'agent' ? 'Agent' : tab === 'landlord' ? 'Landlord' : 'Tenant');
     setPickedUser({ id, full_name: name, phone: null });
@@ -198,90 +202,98 @@ export function UserDrilldownDrawer({
       <SheetContent
         ref={scrollRef as any}
         side="right"
-        className="w-screen h-screen max-w-none sm:max-w-none overflow-y-auto p-0"
+        className="w-full sm:max-w-4xl lg:max-w-5xl xl:max-w-6xl h-screen overflow-y-auto p-0 border-l shadow-2xl bg-background"
       >
-        <SheetHeader className="px-4 sm:px-6 pt-5 pb-3 border-b">
-          <div className="flex items-center justify-between gap-2 pr-8">
-            <SheetTitle className="text-lg">User drill-down</SheetTitle>
-            {navHistory.length > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleStepBack}
-                className="h-7 gap-1 px-2.5 text-xs font-semibold"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Back to {navHistory[navHistory.length - 1]?.label} ({navHistory.length})
-              </Button>
-            )}
-          </div>
-          <SheetDescription className="text-xs">
-            Dig continuously across Agents, Tenants and Landlords. Tap any name to inspect their profile, wallet, performances, tenants or landlords.
-          </SheetDescription>
-        </SheetHeader>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
+          <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-xs border-b">
+            <SheetHeader className="px-4 sm:px-6 pt-4 pb-2.5">
+              <div className="flex items-center justify-between gap-2 pr-8">
+                <SheetTitle className="text-lg font-bold flex items-center gap-2">
+                  <UserCheck className="h-5 w-5 text-primary" /> User 360° Profile
+                </SheetTitle>
+                {navHistory.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleStepBack}
+                    className="h-7 gap-1 px-2.5 text-xs font-semibold"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Back to {navHistory[navHistory.length - 1]?.label} ({navHistory.length})
+                  </Button>
+                )}
+              </div>
+              <SheetDescription className="text-xs text-muted-foreground">
+                Identity, location, balances, linkages, and operational audit trail.
+              </SheetDescription>
+            </SheetHeader>
 
-        {isOps && (
-          <div className="px-4 sm:px-6 pt-3 pb-1 border-b bg-muted/20">
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-1">
-              <Search className="h-3 w-3" /> Find any user — tenant, agent, landlord, funder, anyone
+            {isOps && (
+              <div className="px-4 sm:px-6 py-2 border-t bg-muted/20">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
+                  <Search className="h-3 w-3" /> Find any user (tenant, agent, landlord, funder)
+                </div>
+                <UserSearchPicker
+                  label=""
+                  placeholder="Search by name or phone (any country, any agent, any town)"
+                  selectedUser={pickedUser as any}
+                  onSelect={(u) => { setPickedUser(u as any); if (u) setTab('tenant'); }}
+                />
+              </div>
+            )}
+
+            <div className="px-4 sm:px-6 pt-2 pb-2.5">
+              <TabsList className="grid grid-cols-3 w-full sm:w-80 h-9">
+                <TabsTrigger value="tenant" disabled={!effectiveTenantId} className="text-xs font-semibold">
+                  <User className="h-3.5 w-3.5 mr-1.5" /> Tenant
+                </TabsTrigger>
+                <TabsTrigger value="agent" disabled={!agentId} className="text-xs font-semibold">
+                  <UserCheck className="h-3.5 w-3.5 mr-1.5" /> Agent
+                </TabsTrigger>
+                <TabsTrigger value="landlord" disabled={!effectiveLandlordId} className="text-xs font-semibold">
+                  <Home className="h-3.5 w-3.5 mr-1.5" /> Landlord
+                </TabsTrigger>
+              </TabsList>
             </div>
-            <UserSearchPicker
-              label=""
-              placeholder="Search by name or phone (any country, any agent, any town)"
-              selectedUser={pickedUser as any}
-              onSelect={(u) => { setPickedUser(u as any); if (u) setTab('tenant'); }}
-            />
           </div>
-        )}
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="px-4 sm:px-6 pt-3">
-          <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="tenant" disabled={!effectiveTenantId}>
-              <User className="h-3.5 w-3.5 mr-1" /> Tenant
-            </TabsTrigger>
-            <TabsTrigger value="agent" disabled={!effectiveAgentId}>
-              <UserCheck className="h-3.5 w-3.5 mr-1" /> Agent
-            </TabsTrigger>
-            <TabsTrigger value="landlord" disabled={!effectiveLandlordId}>
-              <Home className="h-3.5 w-3.5 mr-1" /> Landlord
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="tenant" className="py-4">
-            {effectiveTenantId && (
-              <TenantPane
-                tenantId={effectiveTenantId}
-                isOps={isOps}
-                onBackToAgent={navHistory.length > 0 ? handleStepBack : undefined}
-                onSelectLandlord={handleSelectLandlord}
-                onSelectAgent={handleSelectAgent}
-                onSelectUser={handleSelectUser}
-              />
-            )}
-          </TabsContent>
-          <TabsContent value="agent" className="py-4">
-            {effectiveAgentId && (
-              <AgentPane
-                agentId={effectiveAgentId}
-                isOps={isOps}
-                onSelectTenant={handleSelectTenant}
-                onSelectLandlord={handleSelectLandlord}
-                onSelectAgent={handleSelectAgent}
-                onSelectUser={handleSelectUser}
-              />
-            )}
-          </TabsContent>
-          <TabsContent value="landlord" className="py-4">
-            {effectiveLandlordId && (
-              <LandlordPane
-                landlordId={effectiveLandlordId}
-                isOps={isOps}
-                onSelectTenant={handleSelectTenant}
-                onSelectAgent={handleSelectAgent}
-              />
-            )}
-          </TabsContent>
+          <div className="px-4 sm:px-6 py-4">
+            <TabsContent value="tenant" className="mt-0 focus-visible:outline-none">
+              {effectiveTenantId && (
+                <TenantPane
+                  tenantId={effectiveTenantId}
+                  isOps={isOps}
+                  onBackToAgent={cameFromAgent && agentId ? () => { setTab('agent'); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); } : undefined}
+                  onSelectLandlord={handleSelectLandlord}
+                  onSelectAgent={handleSelectAgent}
+                  onSelectUser={handleSelectUser}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="agent" className="mt-0 focus-visible:outline-none">
+              {agentId && (
+                <AgentPane
+                  agentId={agentId}
+                  isOps={isOps}
+                  onSelectTenant={handleSelectTenant}
+                  onSelectLandlord={handleSelectLandlord}
+                  onSelectAgent={handleSelectAgent}
+                  onSelectUser={handleSelectUser}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="landlord" className="mt-0 focus-visible:outline-none">
+              {effectiveLandlordId && (
+                <LandlordPane
+                  landlordId={effectiveLandlordId}
+                  isOps={isOps}
+                  onSelectTenant={handleSelectTenant}
+                  onSelectAgent={handleSelectAgent}
+                />
+              )}
+            </TabsContent>
+          </div>
         </Tabs>
       </SheetContent>
     </Sheet>
@@ -359,51 +371,62 @@ function ProfileHeader({
   });
 
   return (
-    <div className="space-y-2">
+    <div className="rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs space-y-3">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex items-start gap-3">
-          <Avatar className="h-12 w-12 ring-2 ring-primary/20 shrink-0">
+        <div className="min-w-0 flex items-start gap-3.5">
+          <Avatar className="h-12 w-12 ring-2 ring-primary/20 shrink-0 shadow-xs">
             <AvatarImage src={profile?.avatar_url ?? undefined} alt={profile?.full_name ?? 'User'} />
-            <AvatarFallback className="text-sm font-semibold">
+            <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
               {(profile?.full_name ?? 'U').slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-base font-semibold truncate">
-              {profile?.full_name ?? 'Unnamed user'}
-            </span>
-            {canEdit && !editing && (
-              <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setEditing(true)}>
-                <Pencil className="h-3 w-3 mr-1" /> Edit
-              </Button>
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-base sm:text-lg font-bold text-foreground truncate">
+                {profile?.full_name ?? 'Unnamed user'}
+              </span>
+              {canEdit && !editing && (
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground" onClick={() => setEditing(true)}>
+                  <Pencil className="h-3 w-3 mr-1" /> Edit
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-mono bg-muted/60 px-2 py-0.5 rounded border border-border/40">
+                {profile?.phone ?? '— no phone —'}
+              </span>
+              <ContactActions
+                phone={profile?.phone}
+                size="xs"
+                message={`Hello ${profile?.full_name ?? ''}, this is Welile Ops.`}
+              />
+            </div>
+            {profile?.ops_note && !editing && (
+              <p className="text-[11px] mt-1 text-amber-700 bg-amber-50 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-900 rounded-md px-2 py-1 flex items-center gap-1.5">
+                <StickyNote className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>{profile.ops_note}</span>
+              </p>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap mt-0.5">
-            <span className="text-xs text-muted-foreground font-mono">
-              {profile?.phone ?? '— no phone —'}
-            </span>
-            <ContactActions
-              phone={profile?.phone}
-              size="xs"
-              message={`Hello ${profile?.full_name ?? ''}, this is Welile Ops.`}
-            />
-          </div>
-          {profile?.ops_note && !editing && (
-            <p className="text-[11px] mt-1 text-amber-700 bg-amber-50 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-900 rounded px-1.5 py-0.5">
-              <StickyNote className="h-3 w-3 inline mr-1" />{profile.ops_note}
-            </p>
-          )}
-          </div>
         </div>
-        <div className="flex flex-wrap gap-1 justify-end">
-          {roles.length === 0 && <Badge variant="outline" className="text-[10px]">no role</Badge>}
-          {roles.map((r) => (
-            <Badge key={r} variant="outline" className="text-[10px] capitalize">{r}</Badge>
-          ))}
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <div className="flex flex-wrap gap-1 justify-end">
+            {roles.length === 0 && <Badge variant="outline" className="text-[10px]">no role</Badge>}
+            {roles.map((r) => (
+              <Badge key={r} variant="secondary" className="text-[10px] font-semibold capitalize tracking-wide border border-border/50">
+                {r.replace('_', ' ')}
+              </Badge>
+            ))}
+          </div>
+          {profile?.district && (
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <MapPin className="h-3 w-3 text-muted-foreground/70" />
+              {profile.district}{profile.region ? `, ${profile.region}` : ''}
+            </span>
+          )}
         </div>
       </div>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
         Dashboards accessible: <span className="font-medium text-foreground">
           {roles.length ? roles.map((r) => r.replace('_', ' ')).join(', ') : 'none'}
         </span>
@@ -1901,7 +1924,7 @@ function AgentPane({
   const qc = useQueryClient();
   const { data: profile, isLoading } = useProfile(agentId);
   const { data: roles = [] } = useUserRoles(agentId);
-  const [viewMode, setViewMode] = useState<'tenants' | 'landlords' | 'performance' | 'listings'>('tenants');
+
   // Listings filters
   const [listingsSearch, setListingsSearch] = useState('');
   const [listingsStatusFilter, setListingsStatusFilter] = useState<string>('all');
@@ -2124,482 +2147,446 @@ function AgentPane({
   const cap = stats?.capacity as any;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 max-w-5xl mx-auto py-1">
+      {/* Top Profile Card */}
       <ProfileHeader profile={profile} roles={roles} userId={agentId} canEdit={isOps} />
-      <LocationEditor userId={agentId} profile={profile} canEdit={isOps} />
 
-      {/* Wallet — 3-bucket model */}
-      <Card className="p-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Wallet className="h-4 w-4 text-primary" /> Wallet
+      {/* Quick KPI Stats Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wider text-[10px]">Tenants Managed</span>
+            <Users className="h-4 w-4 text-primary" />
           </div>
-          {w?.currency && (
-            <Badge variant="outline" className="text-[10px]">{w.currency}</Badge>
-          )}
+          <p className="text-xl sm:text-2xl font-black tracking-tight text-foreground">{stats?.tenantCount ?? 0}</p>
+          <p className="text-[11px] text-muted-foreground">Active under management</p>
         </div>
-        <div className="grid grid-cols-3 gap-2 text-[11px]">
-          <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 p-2">
-            <p className="text-muted-foreground text-[10px] uppercase">Withdrawable</p>
-            <p className="font-semibold text-emerald-700 dark:text-emerald-300">
-              {fmtUGX(stats?.strictWithdrawable ?? 0)}
-            </p>
-            {w && Number(w.withdrawable_balance ?? 0) !== (stats?.strictWithdrawable ?? 0) && (
-              <p className="text-[9px] text-muted-foreground">cache {fmtUGX(w.withdrawable_balance ?? 0)}</p>
-            )}
+        <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wider text-[10px]">Rent Under Mgmt</span>
+            <ReceiptText className="h-4 w-4 text-primary" />
           </div>
-          <div className="rounded-md bg-sky-50 dark:bg-sky-950/30 p-2">
-            <p className="text-muted-foreground text-[10px] uppercase">Float</p>
-            <p className="font-semibold text-sky-700 dark:text-sky-300">
-              {fmtUGX(w?.float_balance ?? 0)}
-            </p>
-          </div>
-          <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-2">
-            <p className="text-muted-foreground text-[10px] uppercase">Advance</p>
-            <p className="font-semibold text-amber-700 dark:text-amber-300">
-              {fmtUGX(w?.advance_balance ?? 0)}
-            </p>
-          </div>
+          <p className="text-xl sm:text-2xl font-black tracking-tight text-foreground tabular-nums">{fmtUGX(stats?.totalRent ?? 0)}</p>
+          <p className="text-[11px] text-muted-foreground">Monthly portfolio volume</p>
         </div>
-        {Number(w?.locked_balance ?? 0) > 0 && (
-          <p className="text-[10px] text-muted-foreground">
-            Locked / pending holds: {fmtUGX(w.locked_balance)}
+        <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wider text-[10px]">Linked Landlords</span>
+            <Building2 className="h-4 w-4 text-primary" />
+          </div>
+          <p className="text-xl sm:text-2xl font-black tracking-tight text-foreground">{stats?.landlords?.length ?? 0}</p>
+          <p className="text-[11px] text-muted-foreground">{listings.length} houses listed</p>
+        </div>
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-950/20 p-3.5 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-400">
+            <span className="font-semibold uppercase tracking-wider text-[10px]">Withdrawable</span>
+            <Wallet className="h-4 w-4 text-emerald-600" />
+          </div>
+          <p className="text-xl sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">
+            {fmtUGX(stats?.strictWithdrawable ?? 0)}
           </p>
-        )}
-        {Number(stats?.outstandingAdvance ?? 0) > 0 && (
-          <p className="text-[10px] text-amber-700">
-            Outstanding advances on file: {fmtUGX(stats?.outstandingAdvance ?? 0)}
-          </p>
-        )}
-      </Card>
-
-      {/* Recent wallet statements (last 25 entries, user-facing filter) */}
-      <AgentWalletStatements agentId={agentId} />
-
-      {/* Per-advance detail — principal, outstanding, status, daily, days left */}
-      <AgentAdvancesDetail agentId={agentId} />
-
-      {/* User-to-user transfers — who sent/received money */}
-      <UserTransfersList userId={agentId} onSelectUser={onSelectUser} />
-
-      {/* Capacity / credit access */}
-      {cap && (
-        <Card className="p-3 space-y-2">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <TrendingUp className="h-4 w-4 text-primary" /> Rent-allocation capacity
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <span className="text-muted-foreground">Daily cap</span>
-              <p className="font-semibold">{fmtUGX(cap.daily_cap ?? cap.max_daily ?? 0)}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Used today</span>
-              <p className="font-semibold">{fmtUGX(cap.used_today ?? cap.allocated_today ?? 0)}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Remaining</span>
-              <p className="font-semibold text-primary">{fmtUGX(cap.remaining ?? 0)}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Active rent plans</span>
-              <p className="font-semibold">{cap.active_requests ?? cap.open_requests ?? 0}</p>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      <Card className="p-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <ReceiptText className="h-4 w-4 text-primary" /> Portfolio &amp; Performances
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant={viewMode === 'performance' ? 'default' : 'outline'}
-            className="h-7 px-2.5 text-[11px] gap-1"
-            onClick={() => setViewMode(viewMode === 'performance' ? 'tenants' : 'performance')}
-          >
-            <TrendingUp className="h-3 w-3" />
-            {viewMode === 'performance' ? 'Showing Performances' : 'View Performances'}
-          </Button>
+          <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80">Available in wallet</p>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => setViewMode('tenants')}
-            className="text-left rounded-md p-1.5 hover:bg-muted/50 transition-colors"
-          >
-            <span className="text-muted-foreground">Tenants managed</span>
-            <p className="font-semibold text-primary">{stats?.tenantCount ?? 0}</p>
-          </button>
-          <div className="p-1.5"><span className="text-muted-foreground">Rent under mgmt</span><p className="font-semibold">{fmtUGX(stats?.totalRent ?? 0)}</p></div>
-          <button
-            type="button"
-            onClick={() => setViewMode('landlords')}
-            className="text-left rounded-md p-1.5 hover:bg-muted/50 transition-colors"
-          >
-            <span className="text-muted-foreground">Landlords in system</span>
-            <p className="font-semibold text-primary">{stats?.landlords?.length ?? 0}</p>
-          </button>
-          <div className="p-1.5"><span className="text-muted-foreground">Proxy landlords</span><p className="font-semibold">{stats?.proxyLandlords ?? 0}</p></div>
-        </div>
-      </Card>
-
-      {/* Toggle between tenants, landlords, performances, and houses listed */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 rounded-md bg-muted/30 p-1.5 border border-border/40">
-        <button
-          type="button"
-          onClick={() => setViewMode('tenants')}
-          className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-            viewMode === 'tenants'
-              ? 'bg-background text-foreground shadow-sm border border-border/60'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Users className="h-3.5 w-3.5 shrink-0" /> Tenants
-          <Badge variant="outline" className="text-[9px] ml-0.5">{stats?.tenantCount ?? 0}</Badge>
-        </button>
-        <button
-          type="button"
-          onClick={() => setViewMode('landlords')}
-          className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-            viewMode === 'landlords'
-              ? 'bg-background text-foreground shadow-sm border border-border/60'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Building2 className="h-3.5 w-3.5 shrink-0" /> Landlords
-          <Badge variant="outline" className="text-[9px] ml-0.5">{stats?.landlords?.length ?? 0}</Badge>
-        </button>
-        <button
-          type="button"
-          onClick={() => setViewMode('performance')}
-          className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-            viewMode === 'performance'
-              ? 'bg-background text-foreground shadow-sm border border-border/60'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <TrendingUp className="h-3.5 w-3.5 shrink-0" /> Performances
-        </button>
-        <button
-          type="button"
-          onClick={() => setViewMode('listings')}
-          className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-            viewMode === 'listings'
-              ? 'bg-background text-foreground shadow-sm border border-border/60'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Building2 className="h-3.5 w-3.5 shrink-0" /> Houses listed
-          <Badge variant="outline" className="text-[9px] ml-0.5">{listings.length}</Badge>
-        </button>
       </div>
 
-      {viewMode === 'tenants' && (
-        <AgentTenantsList
-          agentId={agentId}
-          onSelectTenant={onSelectTenant}
-          onSelectLandlord={onSelectLandlord}
-        />
-      )}
+      {/* Tabbed Agent Workspace */}
+      <Tabs defaultValue="tenants" className="w-full space-y-4">
+        <div className="border-b border-border/60 pb-2">
+          <TabsList className="bg-muted/60 p-1 h-9 flex flex-wrap sm:inline-flex w-full sm:w-auto">
+            <TabsTrigger value="tenants" className="text-xs font-semibold gap-1.5 px-3">
+              <Users className="h-3.5 w-3.5" />
+              <span>Tenants ({stats?.tenantCount ?? 0})</span>
+            </TabsTrigger>
+            <TabsTrigger value="landlords" className="text-xs font-semibold gap-1.5 px-3">
+              <Building2 className="h-3.5 w-3.5" />
+              <span>Landlords ({stats?.landlords?.length ?? 0})</span>
+            </TabsTrigger>
+            <TabsTrigger value="listings" className="text-xs font-semibold gap-1.5 px-3">
+              <Home className="h-3.5 w-3.5" />
+              <span>Houses ({listings.length})</span>
+            </TabsTrigger>
+            <TabsTrigger value="performance" className="text-xs font-semibold gap-1.5 px-3">
+              <TrendingUp className="h-3.5 w-3.5" />
+              <span>Performances</span>
+            </TabsTrigger>
+            <TabsTrigger value="wallet" className="text-xs font-semibold gap-1.5 px-3">
+              <Wallet className="h-3.5 w-3.5" />
+              <span>Wallet & Ledger</span>
+            </TabsTrigger>
+            <TabsTrigger value="advances" className="text-xs font-semibold gap-1.5 px-3">
+              <TrendingUp className="h-3.5 w-3.5" />
+              <span>Advances & Limits</span>
+            </TabsTrigger>
+            <TabsTrigger value="transfers" className="text-xs font-semibold gap-1.5 px-3">
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+              <span>Transfers</span>
+            </TabsTrigger>
+            <TabsTrigger value="location" className="text-xs font-semibold gap-1.5 px-3">
+              <MapPin className="h-3.5 w-3.5" />
+              <span>Location</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-      {viewMode === 'performance' && (
-        <Card className="p-3 space-y-2">
-          <div className="flex items-center justify-between border-b border-border/40 pb-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <TrendingUp className="h-4 w-4 text-primary" /> Agent Performances &amp; 360 Analytics
-            </div>
-            <Badge variant="secondary" className="text-[10px]">Live 360</Badge>
-          </div>
-          <AgentProfile360Sheet
-            agentId={agentId}
-            agentName={profile?.full_name ?? undefined}
-            onOpenChange={() => {}}
-            inline
-          />
-        </Card>
-      )}
-
-      {viewMode === 'landlords' && (
-        <Card className="p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Building2 className="h-4 w-4 text-primary" /> Landlords associated with this agent
-            </div>
-            <Badge variant="outline" className="text-[10px]">{stats?.landlords?.length ?? 0}</Badge>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Tap any landlord to inspect their profile and see all their tenants in the system.
-          </p>
-          {(stats?.landlords ?? []).length === 0 ? (
-            <p className="text-xs text-muted-foreground">No landlords linked or registered under this agent yet.</p>
-          ) : (
-            <ul className="space-y-1.5 text-xs">
-              {(stats?.landlords ?? []).map((a: any) => (
-                <li
-                  key={a.landlord_id}
-                  className="flex items-center justify-between rounded-md border border-border/40 p-2 gap-2 hover:bg-muted/30 transition-colors"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => onSelectLandlord?.(a.landlord_id)}
-                        className="inline-flex items-center gap-1 font-medium truncate text-left text-primary hover:underline disabled:no-underline disabled:text-foreground"
-                        disabled={!onSelectLandlord}
-                      >
-                        <span>{a.landlords?.name ?? a.landlord_id}</span>
-                        {onSelectLandlord && <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
-                      </button>
-                      {a.source && (
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0">{a.source}</Badge>
-                      )}
-                    </div>
-                    {(a.landlords?.property_address || a.landlords?.village || a.landlords?.district) && (
-                      <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                        {[a.landlords?.property_address, a.landlords?.village, a.landlords?.district].filter(Boolean).join(' · ')}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-muted-foreground font-mono">{a.landlords?.phone ?? '—'}</span>
-                    <ContactActions phone={a.landlords?.phone} size="xs" message={`Hello ${a.landlords?.name ?? ''}, this is Welile Ops.`} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {isOps && (
-            <div className="pt-2 border-t border-border/40 space-y-2">
-              <UserSearchPicker
-                label="+ Link landlord"
-                selectedUser={linkLandlord as any}
-                onSelect={(u) => setLinkLandlord(u as any)}
-                roleFilter="landlord"
-              />
-              <Input
-                placeholder="Reason (min 10 chars)"
-                value={linkReason}
-                onChange={(e) => setLinkReason(e.target.value)}
-                className="h-8 text-sm"
-              />
-              <Button
-                size="sm" className="w-full"
-                disabled={!linkLandlord || link.isPending}
-                onClick={() => link.mutate()}
-              >
-                {link.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
-                Link landlord
-              </Button>
+        {/* Tab 1: Tenants */}
+        <TabsContent value="tenants" className="space-y-3 mt-0 focus-visible:outline-none">
+          {(Boolean(stats?.partnersOnboarded) || Boolean(stats?.managedAccounts) || Boolean(stats?.referralCount)) && (
+            <div className="flex items-center gap-4 text-xs bg-muted/40 px-3.5 py-2 rounded-lg border border-border/50 text-muted-foreground flex-wrap">
+              <span className="font-semibold text-foreground flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-primary" /> Agent Network:
+              </span>
+              <span>Partners Onboarded: <strong className="text-foreground">{stats?.partnersOnboarded ?? 0}</strong></span>
+              <span>Managed Accounts: <strong className="text-foreground">{stats?.managedAccounts ?? 0}</strong></span>
+              <span className="flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-amber-500" /> Referrals: <strong className="text-foreground">{stats?.referralCount ?? 0}</strong>
+              </span>
             </div>
           )}
-        </Card>
-      )}
+          <AgentTenantsList agentId={agentId} onSelectTenant={onSelectTenant} />
+        </TabsContent>
 
-      {viewMode === 'listings' && (
-        <Card className="p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Building2 className="h-4 w-4 text-primary" /> Houses listed
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-[10px]">
-                {filteredListings.length}{listings.length !== filteredListings.length ? ` / ${listings.length}` : ''}
-              </Badge>
-              <button
-                type="button"
-                onClick={() => refetchListings()}
-                disabled={listingsFetching}
-                className="p-1 rounded-md hover:bg-muted transition-colors disabled:opacity-50"
-                title="Refresh listings"
-              >
-                {listingsFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Search & Filters */}
-          <div className="space-y-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search title, village, district, landlord..."
-                value={listingsSearch}
-                onChange={(e) => setListingsSearch(e.target.value)}
-                className="h-8 pl-8 text-xs"
-              />
-              {listingsSearch && (
-                <button
-                  type="button"
-                  onClick={() => setListingsSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted"
-                >
-                  <X className="h-3 w-3 text-muted-foreground" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <Select value={listingsStatusFilter} onValueChange={setListingsStatusFilter}>
-                <SelectTrigger className="h-7 text-[11px] w-auto min-w-[90px] px-2">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">All statuses</SelectItem>
-                  {statusOptions.map((s) => (
-                    <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={listingsLocationFilter} onValueChange={setListingsLocationFilter}>
-                <SelectTrigger className="h-7 text-[11px] w-auto min-w-[100px] px-2">
-                  <SelectValue placeholder="Location" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">All locations</SelectItem>
-                  {locationOptions.map((loc) => (
-                    <SelectItem key={loc} value={loc} className="text-xs">{loc}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <div className="flex-1 min-w-[180px]">
-                <StatementDateFilter value={listingsDateRange} onChange={setListingsDateRange} />
+        {/* Tab: Performance */}
+        <TabsContent value="performance" className="space-y-4 mt-0 focus-visible:outline-none">
+          <Card className="p-4 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between border-b border-border/60 pb-2">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <TrendingUp className="h-4 w-4 text-primary" /> Agent Performances &amp; 360 Analytics
               </div>
+              <Badge variant="secondary" className="text-[10px]">Live 360</Badge>
+            </div>
+            <AgentProfile360Sheet
+              agentId={agentId}
+              onOpenChange={() => {}}
+              inline
+            />
+          </Card>
+        </TabsContent>
 
-              {(listingsSearch || listingsStatusFilter !== 'all' || listingsLocationFilter !== 'all' || listingsDateRange.preset !== 'this_month') && (
+        {/* Tab 2: Landlords */}
+        <TabsContent value="landlords" className="space-y-4 mt-0 focus-visible:outline-none">
+          <Card className="p-4 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between border-b border-border/60 pb-2">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Building2 className="h-4 w-4 text-primary" /> Linked Landlords
+              </div>
+              <Badge variant="outline" className="text-xs font-medium">{stats?.landlords?.length ?? 0}</Badge>
+            </div>
+            {(stats?.landlords ?? []).length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">No landlords linked to this agent yet.</p>
+            ) : (
+              <ul className="divide-y divide-border/40 text-xs">
+                {(stats?.landlords ?? []).map((a: any) => (
+                  <li key={a.landlord_id} className="flex justify-between items-center py-2.5 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onSelectLandlord?.(a.landlord_id)}
+                      className="truncate text-left font-semibold text-primary hover:underline disabled:no-underline disabled:text-foreground"
+                      disabled={!onSelectLandlord}
+                    >
+                      {a.landlords?.name ?? a.landlord_id}
+                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-muted-foreground font-mono text-xs">{a.landlords?.phone ?? '—'}</span>
+                      <ContactActions phone={a.landlords?.phone} size="xs" message={`Hello ${a.landlords?.name ?? ''}, this is Welile Ops.`} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {isOps && (
+              <div className="pt-3 border-t border-border/60 space-y-2">
+                <UserSearchPicker
+                  label="+ Link landlord"
+                  selectedUser={linkLandlord as any}
+                  onSelect={(u) => setLinkLandlord(u as any)}
+                  roleFilter="landlord"
+                />
+                <Input
+                  placeholder="Reason for linking (min 10 chars)"
+                  value={linkReason}
+                  onChange={(e) => setLinkReason(e.target.value)}
+                  className="h-8 text-xs"
+                />
                 <Button
                   size="sm"
-                  variant="ghost"
-                  className="h-7 text-[11px] px-2"
-                  onClick={() => {
-                    setListingsSearch('');
-                    setListingsStatusFilter('all');
-                    setListingsLocationFilter('all');
-                    setListingsDateRange({ preset: 'this_month' });
-                  }}
+                  className="w-full text-xs font-semibold"
+                  disabled={!linkLandlord || link.isPending}
+                  onClick={() => link.mutate()}
                 >
-                  <X className="h-3 w-3 mr-1" /> Clear
+                  {link.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Plus className="h-3 w-3 mr-1.5" />}
+                  Link Landlord
                 </Button>
-              )}
-            </div>
-          </div>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
 
-          {filteredListings.length === 0 ? (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">
-                {listings.length === 0
-                  ? 'No house listings found for this agent.'
-                  : `No listings match your filters (${listings.length} total).`}
-              </p>
-              <div className="rounded-md bg-muted/40 p-2.5 space-y-1 text-[11px] text-muted-foreground">
-                <p className="font-medium text-foreground text-xs">What we looked for:</p>
-                <ul className="list-disc list-inside space-y-0.5">
-                  <li>Records in <span className="font-mono text-[10px] bg-muted px-1 rounded">house_listings</span> where <span className="font-mono text-[10px] bg-muted px-1 rounded">agent_id</span> matches this agent.</li>
-                  <li>If this agent has multiple profile IDs (same phone), those are included too.</li>
-                </ul>
-                <p className="pt-1">If houses were recently added, tap the refresh button above.</p>
+        {/* Tab 3: House Listings */}
+        <TabsContent value="listings" className="space-y-4 mt-0 focus-visible:outline-none">
+          <Card className="p-4 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between border-b border-border/60 pb-2">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Home className="h-4 w-4 text-primary" /> Houses Listed
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs font-medium">
+                  {filteredListings.length}{listings.length !== filteredListings.length ? ` / ${listings.length}` : ''}
+                </Badge>
+                <button
+                  type="button"
+                  onClick={() => refetchListings()}
+                  disabled={listingsFetching}
+                  className="p-1 rounded-md hover:bg-muted transition-colors disabled:opacity-50"
+                  title="Refresh listings"
+                >
+                  {listingsFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />}
+                </button>
               </div>
             </div>
-          ) : (
-            <ul className="space-y-2 text-xs">
-              {filteredListings.map((l: any) => (
-              <li key={l.id} className="border border-border/40 rounded-md p-2 space-y-1">
-                  {Array.isArray(l.image_urls) && l.image_urls.length > 0 && (
-                    <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
-                      {l.image_urls.slice(0, 6).map((src: string, i: number) => (
-                        <a
-                          key={i}
-                          href={src}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="shrink-0"
-                        >
-                          <img
-                            src={src}
-                            alt={`${l.title} photo ${i + 1}`}
-                            loading="lazy"
-                            className="h-16 w-20 object-cover rounded border border-border/40"
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex justify-between gap-2">
-                    <span className="truncate font-medium">{l.title}</span>
-                    <span className="font-semibold whitespace-nowrap">{fmtUGX(l.monthly_rent)}</span>
-                  </div>
-                  <div className="flex justify-between items-center gap-2">
-                    <span className="text-muted-foreground truncate">{l.village ?? l.district ?? '—'}</span>
-                    <Badge variant="outline" className="text-[9px]">{l.status}</Badge>
-                  </div>
-                  <div className="flex justify-between items-center gap-2 pt-1 border-t border-border/30">
-                    <span className="text-muted-foreground">Landlord:</span>
-                    {l.landlord_id ? (
-                      <button
-                        type="button"
-                        onClick={() => onSelectLandlord?.(l.landlord_id)}
-                        className="text-primary hover:underline truncate text-right disabled:no-underline disabled:text-foreground"
-                        disabled={!onSelectLandlord}
-                      >
-                        {l.landlord?.name ?? l.landlord_id}
-                      </button>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </div>
-                  {l.landlord?.phone && (
-                    <div className="flex items-center gap-2 flex-wrap pl-1">
-                      <span className="text-muted-foreground text-[10px] font-mono">{l.landlord.phone}</span>
-                      <ContactActions phone={l.landlord.phone} size="xs" message={`Hello ${l.landlord?.name ?? ''}, this is Welile Ops about ${l.title ?? 'your listing'}.`} />
-                    </div>
-                  )}
-                  <div className="pt-1">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[11px] w-full"
-                      onClick={() => setPhotoUploadFor(l)}
-                    >
-                      <ImagePlus className="h-3 w-3 mr-1" />
-                      Add photos ({Array.isArray(l.image_urls) ? l.image_urls.length : 0})
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      )}
 
-      {/* Network — partners onboarded & referrals */}
-      <Card className="p-3 space-y-2">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Users className="h-4 w-4 text-primary" /> Network
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div>
-            <span className="text-muted-foreground">Partners onboarded</span>
-            <p className="font-semibold">{stats?.partnersOnboarded ?? 0}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Managed accounts</span>
-            <p className="font-semibold">{stats?.managedAccounts ?? 0}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground flex items-center gap-1">
-              <Sparkles className="h-3 w-3" /> Referrals
-            </span>
-            <p className="font-semibold">{stats?.referralCount ?? 0}</p>
-          </div>
-        </div>
-      </Card>
+            {/* Search & Filters */}
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search title, village, district, landlord..."
+                  value={listingsSearch}
+                  onChange={(e) => setListingsSearch(e.target.value)}
+                  className="h-8 pl-8 text-xs"
+                />
+                {listingsSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setListingsSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted"
+                  >
+                    <X className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Select value={listingsStatusFilter} onValueChange={setListingsStatusFilter}>
+                  <SelectTrigger className="h-7 text-[11px] w-auto min-w-[90px] px-2">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">All statuses</SelectItem>
+                    {statusOptions.map((s) => (
+                      <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={listingsLocationFilter} onValueChange={setListingsLocationFilter}>
+                  <SelectTrigger className="h-7 text-[11px] w-auto min-w-[100px] px-2">
+                    <SelectValue placeholder="Location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">All locations</SelectItem>
+                    {locationOptions.map((loc) => (
+                      <SelectItem key={loc} value={loc} className="text-xs">{loc}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex-1 min-w-[180px]">
+                  <StatementDateFilter value={listingsDateRange} onChange={setListingsDateRange} />
+                </div>
+
+                {(listingsSearch || listingsStatusFilter !== 'all' || listingsLocationFilter !== 'all' || listingsDateRange.preset !== 'this_month') && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-[11px] px-2"
+                    onClick={() => {
+                      setListingsSearch('');
+                      setListingsStatusFilter('all');
+                      setListingsLocationFilter('all');
+                      setListingsDateRange({ preset: 'this_month' });
+                    }}
+                  >
+                    <X className="h-3 w-3 mr-1" /> Clear
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {filteredListings.length === 0 ? (
+              <div className="space-y-2 py-4 text-center">
+                <p className="text-xs text-muted-foreground">
+                  {listings.length === 0
+                    ? 'No house listings found for this agent.'
+                    : `No listings match your filters (${listings.length} total).`}
+                </p>
+              </div>
+            ) : (
+              <ul className="space-y-2.5 text-xs">
+                {filteredListings.map((l: any) => (
+                  <li key={l.id} className="border border-border/60 rounded-xl p-3 space-y-2 bg-card">
+                    {Array.isArray(l.image_urls) && l.image_urls.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {l.image_urls.slice(0, 6).map((src: string, i: number) => (
+                          <a
+                            key={i}
+                            href={src}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="shrink-0"
+                          >
+                            <img
+                              src={src}
+                              alt={`${l.title} photo ${i + 1}`}
+                              loading="lazy"
+                              className="h-20 w-24 object-cover rounded-lg border border-border/40 hover:ring-2 hover:ring-primary/40 transition-all"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="font-bold text-sm text-foreground">{l.title}</span>
+                      <span className="font-bold text-sm text-primary whitespace-nowrap tabular-nums">{fmtUGX(l.monthly_rent)}</span>
+                    </div>
+                    <div className="flex justify-between items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">{l.village ?? l.district ?? '—'}</span>
+                      <Badge variant="outline" className="text-[10px] capitalize">{l.status}</Badge>
+                    </div>
+                    <div className="flex justify-between items-center gap-2 pt-2 border-t border-border/40 text-xs">
+                      <span className="text-muted-foreground">Landlord:</span>
+                      {l.landlord_id ? (
+                        <button
+                          type="button"
+                          onClick={() => onSelectLandlord?.(l.landlord_id)}
+                          className="text-primary hover:underline font-semibold truncate text-right disabled:no-underline disabled:text-foreground"
+                          disabled={!onSelectLandlord}
+                        >
+                          {l.landlord?.name ?? l.landlord_id}
+                        </button>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
+                    {l.landlord?.phone && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-muted-foreground text-xs font-mono">{l.landlord.phone}</span>
+                        <ContactActions phone={l.landlord.phone} size="xs" message={`Hello ${l.landlord?.name ?? ''}, this is Welile Ops about ${l.title ?? 'your listing'}.`} />
+                      </div>
+                    )}
+                    <div className="pt-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs w-full font-medium"
+                        onClick={() => setPhotoUploadFor(l)}
+                      >
+                        <ImagePlus className="h-3.5 w-3.5 mr-1.5" />
+                        Add photos ({Array.isArray(l.image_urls) ? l.image_urls.length : 0})
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </TabsContent>
+
+        {/* Tab 4: Wallet & Ledger */}
+        <TabsContent value="wallet" className="space-y-4 mt-0 focus-visible:outline-none">
+          {/* Wallet — 3-bucket model */}
+          <Card className="p-4 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between border-b border-border/60 pb-2">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Wallet className="h-4 w-4 text-primary" /> Wallet Balances
+              </div>
+              {w?.currency && (
+                <Badge variant="outline" className="text-xs">{w.currency}</Badge>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-1">
+                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">Withdrawable</p>
+                <p className="font-bold text-lg text-emerald-700 dark:text-emerald-300 tabular-nums">
+                  {fmtUGX(stats?.strictWithdrawable ?? 0)}
+                </p>
+                {w && Number(w.withdrawable_balance ?? 0) !== (stats?.strictWithdrawable ?? 0) && (
+                  <p className="text-[10px] text-muted-foreground">Cached balance: {fmtUGX(w.withdrawable_balance ?? 0)}</p>
+                )}
+              </div>
+              <div className="rounded-xl border border-sky-500/30 bg-sky-500/5 p-3 space-y-1">
+                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">Float</p>
+                <p className="font-bold text-lg text-sky-700 dark:text-sky-300 tabular-nums">
+                  {fmtUGX(w?.float_balance ?? 0)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
+                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">Advance</p>
+                <p className="font-bold text-lg text-amber-700 dark:text-amber-300 tabular-nums">
+                  {fmtUGX(w?.advance_balance ?? 0)}
+                </p>
+              </div>
+            </div>
+            {Number(w?.locked_balance ?? 0) > 0 && (
+              <p className="text-xs text-muted-foreground bg-muted/40 p-2 rounded-lg border border-border/50">
+                🔒 Locked / pending holds: <strong className="text-foreground">{fmtUGX(w.locked_balance)}</strong>
+              </p>
+            )}
+            {Number(stats?.outstandingAdvance ?? 0) > 0 && (
+              <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                ⚠️ Outstanding advances on file: <strong className="font-bold">{fmtUGX(stats?.outstandingAdvance ?? 0)}</strong>
+              </p>
+            )}
+          </Card>
+
+          {/* Recent wallet statements */}
+          <AgentWalletStatements agentId={agentId} />
+        </TabsContent>
+
+        {/* Tab 5: Advances & Capacity */}
+        <TabsContent value="advances" className="space-y-4 mt-0 focus-visible:outline-none">
+          {/* Capacity / credit access */}
+          {cap && (
+            <Card className="p-4 space-y-3 shadow-xs">
+              <div className="flex items-center gap-2 text-sm font-semibold border-b border-border/60 pb-2">
+                <TrendingUp className="h-4 w-4 text-primary" /> Rent-Allocation Capacity
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="p-2.5 rounded-lg bg-muted/20 border border-border/50">
+                  <span className="text-muted-foreground block text-[11px]">Daily Cap</span>
+                  <p className="font-bold text-sm text-foreground mt-0.5">{fmtUGX(cap.daily_cap ?? cap.max_daily ?? 0)}</p>
+                </div>
+                <div className="p-2.5 rounded-lg bg-muted/20 border border-border/50">
+                  <span className="text-muted-foreground block text-[11px]">Used Today</span>
+                  <p className="font-bold text-sm text-foreground mt-0.5">{fmtUGX(cap.used_today ?? cap.allocated_today ?? 0)}</p>
+                </div>
+                <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/20">
+                  <span className="text-muted-foreground block text-[11px]">Remaining</span>
+                  <p className="font-bold text-sm text-primary mt-0.5">{fmtUGX(cap.remaining ?? 0)}</p>
+                </div>
+                <div className="p-2.5 rounded-lg bg-muted/20 border border-border/50">
+                  <span className="text-muted-foreground block text-[11px]">Active Rent Plans</span>
+                  <p className="font-bold text-sm text-foreground mt-0.5">{cap.active_requests ?? cap.open_requests ?? 0}</p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Per-advance detail */}
+          <AgentAdvancesDetail agentId={agentId} />
+        </TabsContent>
+
+        {/* Tab 6: Transfers */}
+        <TabsContent value="transfers" className="space-y-4 mt-0 focus-visible:outline-none">
+          <UserTransfersList userId={agentId} onSelectUser={onSelectUser} />
+        </TabsContent>
+
+        {/* Tab 7: Location & Details */}
+        <TabsContent value="location" className="space-y-4 mt-0 focus-visible:outline-none">
+          <LocationEditor userId={agentId} profile={profile} canEdit={isOps} />
+        </TabsContent>
+      </Tabs>
       {photoUploadFor && (
         <ListingPhotoUploadDialog
           open={!!photoUploadFor}

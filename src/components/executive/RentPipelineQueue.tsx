@@ -31,11 +31,27 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye, CalendarClock, Repeat, Sparkles } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye, CalendarClock, Repeat, Sparkles, LayoutList, LayoutGrid, Users, FileText, ExternalLink, MoreHorizontal, MoreVertical, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
@@ -70,7 +86,7 @@ import { AgentWeekPct } from '@/components/rent-desk/AgentWeekPct';
 import { useAgentWeekPct } from '@/hooks/useAgentWeekPct';
 import { orderByAgentWeek } from '@/lib/agentWeekPct';
 import { agentChainLines } from '@/lib/rentAgentChain';
-import { TIMING_BATCH_LIMIT } from '@/lib/rentTiming';
+import { TIMING_BATCH_LIMIT, formatElapsed } from '@/lib/rentTiming';
 import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
 import { RentApprovalMoneyCounter } from './RentApprovalMoneyCounter';
 import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus, type CooApprovalDecision } from '@/hooks/useLandlordFloatBudget';
@@ -213,16 +229,85 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  agent_ops_approved: 'bg-cyan-100 text-cyan-700',
-  tenant_ops_approved: 'bg-blue-100 text-blue-700',
-  landlord_ops_approved: 'bg-indigo-100 text-indigo-700',
-  partner_ops_approved: 'bg-violet-100 text-violet-700',
-  coo_approved: 'bg-emerald-100 text-emerald-700',
-  funded: 'bg-green-100 text-green-700',
-  disbursed: 'bg-teal-100 text-teal-700',
-  rejected: 'bg-destructive/10 text-destructive',
+  pending: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+  agent_ops_approved: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800',
+  tenant_ops_approved: 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-300 dark:border-blue-800',
+  landlord_ops_approved: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800',
+  partner_ops_approved: 'bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300 border-violet-300 dark:border-violet-800',
+  coo_approved: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
+  funded: 'bg-green-100 text-green-800 dark:bg-green-950/60 dark:text-green-300 border-green-300 dark:border-green-800',
+  disbursed: 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border-teal-300 dark:border-teal-800',
+  rejected: 'bg-destructive/10 text-destructive border-destructive/30',
 };
+
+const STATUS_DOTS: Record<string, string> = {
+  pending: 'bg-amber-500',
+  agent_ops_approved: 'bg-cyan-500',
+  tenant_ops_approved: 'bg-blue-500',
+  landlord_ops_approved: 'bg-indigo-500',
+  partner_ops_approved: 'bg-violet-500',
+  coo_approved: 'bg-emerald-500',
+  funded: 'bg-green-500',
+  disbursed: 'bg-teal-500',
+  rejected: 'bg-rose-500',
+};
+
+const PIPELINE_STATUS_CONFIG: Record<string, { label: string; badge: string; dot: string }> = {
+  pending: {
+    label: 'Pending Review',
+    badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25',
+    dot: 'bg-amber-500',
+  },
+  agent_ops_approved: {
+    label: 'Agent Ops Approved',
+    badge: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/25',
+    dot: 'bg-cyan-500',
+  },
+  tenant_ops_approved: {
+    label: 'Tenant Ops Approved',
+    badge: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/25',
+    dot: 'bg-blue-500',
+  },
+  landlord_ops_approved: {
+    label: 'Landlord Ops Approved',
+    badge: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/25',
+    dot: 'bg-indigo-500',
+  },
+  partner_ops_approved: {
+    label: 'Partner Ops Approved',
+    badge: 'bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/25',
+    dot: 'bg-violet-500',
+  },
+  coo_approved: {
+    label: 'COO Approved',
+    badge: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25',
+    dot: 'bg-emerald-500',
+  },
+  funded: {
+    label: 'Funded',
+    badge: 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/25',
+    dot: 'bg-teal-500',
+  },
+  disbursed: {
+    label: 'Disbursed',
+    badge: 'bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/25',
+    dot: 'bg-green-500',
+  },
+  rejected: {
+    label: 'Rejected',
+    badge: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/25',
+    dot: 'bg-rose-500',
+  },
+};
+
+function getPipelineStatusConfig(status?: string | null) {
+  const key = (status || '').toLowerCase();
+  return PIPELINE_STATUS_CONFIG[key] || {
+    label: (status || 'Unknown').replace(/_/g, ' '),
+    badge: 'bg-muted text-muted-foreground border-border/60',
+    dot: 'bg-muted-foreground',
+  };
+}
 
 // Which dashboard is doing the rejecting at each stage. Used in the
 // auto-WhatsApp message sent to the originating Agent on rejection.
@@ -254,7 +339,7 @@ const WhatsAppButton = ({ phone, name, label }: { phone: string; name: string; l
       onClick={e => e.stopPropagation()}
       className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 transition-colors"
     >
-      <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.352 0-4.55-.764-6.326-2.057a.5.5 0 00-.395-.088l-3.088 1.035 1.035-3.088a.5.5 0 00-.088-.395A9.953 9.953 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" /><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.352 0-4.55-.764-6.326-2.057a.5.5 0 00-.395-.088l-3.088 1.035 1.035-3.088a.5.5 0 00-.088-.395A9.953 9.953 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z" /></svg>
       <span className="hidden sm:inline">{label}</span>
     </a>
   );
@@ -268,6 +353,7 @@ interface RentPipelineQueueProps {
    * statuses (e.g. `agent_verified`) that pre-date the unified pipeline naming.
    */
   additionalStatuses?: string[];
+  initialViewMode?: 'table' | 'cards';
   /**
    * 'full' (default): renders the top lead card + approval money counter + review queue.
    * 'lead-only': renders ONLY the standalone "Rent Requests waiting to be Approved" card.
@@ -283,6 +369,7 @@ interface RentPipelineQueueProps {
 export function RentPipelineQueue({
   stage,
   additionalStatuses = [],
+  initialViewMode,
   viewMode = 'full',
   onLeadClick,
   focusFirstOnMount = false,
@@ -441,6 +528,14 @@ export function RentPipelineQueue({
     });
   };
 
+  const [layoutMode, setLayoutMode] = useState<'table' | 'cards'>(() => initialViewMode ?? (isCfoStage ? 'table' : 'cards'));
+
+  useEffect(() => {
+    if (initialViewMode) {
+      setLayoutMode(initialViewMode);
+    }
+  }, [initialViewMode]);
+
   // Open the detail sheet AND seed the sheet's landlord checklist from the ticks
   // the operator already made on the card (otherwise the sheet's checkboxes start
   // empty and the Approve button silently refuses with "Complete the checklist").
@@ -456,6 +551,7 @@ export function RentPipelineQueue({
   const [bulkRejectReason, setBulkRejectReason] = useState('');
   // Landlord Ops: the card's Reject asks for the reason straight away instead of opening the full review.
   const [directReject, setDirectReject] = useState<{ id: string; name: string; reason: string } | null>(null);
+
   // Unified Tenant / Agent / Landlord continuous drilldown drawer
   const [drilldownContext, setDrilldownContext] = useState<{
     open: boolean;
@@ -484,6 +580,9 @@ export function RentPipelineQueue({
       landlordId: overrides?.landlordId !== undefined ? overrides.landlordId : (req?.landlord_id ?? null),
     });
   };
+
+  const [geoOpen, setGeoOpen] = useState(false);
+  const [geoPath, setGeoPath] = useState<RentRequestGeoPath>({});
   // Tenant selector — CFO picks which tenant's landlord to fund before approving.
   // localStorage acts as an offline mirror; the durable cross-device source of
   // truth is the per-user `user_ui_preferences` row keyed by TENANT_FILTER_PREF_KEY.
@@ -500,14 +599,12 @@ export function RentPipelineQueue({
   // persisted filter value is.
   const [tenantSyncAt, setTenantSyncAt] = useState<Date | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [geoOpen, setGeoOpen] = useState(false);
-  const [geoPath, setGeoPath] = useState<RentRequestGeoPath>({});
   // A Review Rent Request sheet with text typed into it, or a bulk reject reason being written, is unsent work: nothing
   // may interrupt it (the "new version" prompt, the install nag). This only registers the work; it changes no decision.
   useCriticalFlow(
     'review-request-sheet',
     (!!selectedRequest && [comment, payoutRef, landlordCallNotes].some((t) => t.trim().length > 0))
-      || (bulkRejectOpen && bulkRejectReason.trim().length > 0),
+    || (bulkRejectOpen && bulkRejectReason.trim().length > 0),
   );
 
   // Hydrate the selected tenant from the server so the filter follows the
@@ -560,16 +657,16 @@ export function RentPipelineQueue({
       try {
         const { error } = selectedTenantId === 'all'
           ? await supabase
-              .from('user_ui_preferences')
-              .delete()
-              .eq('user_id', user.id)
-              .eq('key', TENANT_FILTER_PREF_KEY)
+            .from('user_ui_preferences')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('key', TENANT_FILTER_PREF_KEY)
           : await supabase
-              .from('user_ui_preferences')
-              .upsert(
-                { user_id: user.id, key: TENANT_FILTER_PREF_KEY, value: selectedTenantId },
-                { onConflict: 'user_id,key' },
-              );
+            .from('user_ui_preferences')
+            .upsert(
+              { user_id: user.id, key: TENANT_FILTER_PREF_KEY, value: selectedTenantId },
+              { onConflict: 'user_id,key' },
+            );
         if (error) {
           setTenantSyncStatus('local');
           console.warn('[RentPipelineQueue] tenant pref cloud write failed, using localStorage', error);
@@ -941,15 +1038,15 @@ export function RentPipelineQueue({
       const [profilesRes, landlordsRes, lc1Res] = await Promise.all([
         ids.size > 0
           ? withUuidIds([...ids], (validIds) => supabase
-              .from('profiles')
-              .select('id, full_name, phone, email, region, district, sub_county, parish, village, city, town, landmark')
-              .in('id', validIds))
+            .from('profiles')
+            .select('id, full_name, phone, email, region, district, sub_county, parish, village, city, town, landmark')
+            .in('id', validIds))
           : { data: [] },
         landlordIds.length > 0
           ? supabase
-              .from('landlords')
-              .select('id, name, phone, mobile_money_number, property_address, region, district, sub_county, village, verified, verification_status, verification_reason, registered_by')
-              .in('id', landlordIds)
+            .from('landlords')
+            .select('id, name, phone, mobile_money_number, property_address, region, district, sub_county, village, verified, verification_status, verification_reason, registered_by')
+            .in('id', landlordIds)
           : { data: [] },
         lc1Ids.length > 0
           ? supabase.from('lc1_chairpersons').select('id, name, phone, village, parish, district, region, verified, registered_by').in('id', lc1Ids)
@@ -965,10 +1062,10 @@ export function RentPipelineQueue({
       const requestIds = data.map(r => r.id);
       const { data: returnReqs } = requestIds.length > 0
         ? await supabase
-            .from('agent_allocation_return_requests' as any)
-            .select('rent_request_id')
-            .eq('status', 'approved')
-            .in('rent_request_id', requestIds)
+          .from('agent_allocation_return_requests' as any)
+          .select('rent_request_id')
+          .eq('status', 'approved')
+          .in('rent_request_id', requestIds)
         : { data: [] as any[] };
       const resubmittedSet = new Set(
         ((returnReqs as any[]) || []).map(r => r.rent_request_id).filter(Boolean),
@@ -1005,11 +1102,7 @@ export function RentPipelineQueue({
           is_resubmitted: resubmittedSet.has(r.id),
           tenant_name: tenantProfile?.full_name || 'Unknown',
           tenant_phone: tenantProfile?.phone || '',
-          tenant_region: tenantProfile?.region || '',
           tenant_district: tenantProfile?.district || '',
-          tenant_sub_county: tenantProfile?.sub_county || tenantProfile?.city || tenantProfile?.town || '',
-          tenant_parish: tenantProfile?.parish || '',
-          tenant_village: tenantProfile?.village || tenantProfile?.landmark || '',
           tenant_address: tenantAddress,
           agent_name: r.agent_id ? (profileMap.get(r.agent_id)?.full_name || 'Unassigned') : 'Unassigned',
           agent_phone: agentProfile?.phone || '',
@@ -1028,15 +1121,10 @@ export function RentPipelineQueue({
           lc1_is_new: !!lc1?.registered_by && !lc1?.verified,
           landlord_phone: landlord?.phone || '',
           landlord_momo: landlord?.mobile_money_number || landlord?.phone || '',
-          landlord_region: landlord?.region || '',
           landlord_district: landlord?.district || '',
-          landlord_sub_county: landlord?.sub_county || '',
-          landlord_village: landlord?.village || landlord?.property_address || '',
           landlord_address: landlordAddress,
           lc1_name: lc1?.name || '',
           lc1_phone: lc1?.phone || '',
-          lc1_region: lc1?.region || '',
-          lc1_parish: lc1?.parish || '',
           lc1_village: lc1?.village || '',
           lc1_district: lc1?.district || '',
           lc1_address: lc1Address,
@@ -1117,45 +1205,45 @@ export function RentPipelineQueue({
   };
   const expiredCount = rows.filter(r => isRequestExpired(r.created_at, r.status, r.agent_verified, r.pending_window_reset_at)).length;
 
-/**
- * Multi-token search matcher:
- * - Splits search query into words so order does not matter (e.g., "Ruth Nanteze" matches "Nanteze Ruth").
- * - Trims whitespace and ignores extra spaces.
- * - Handles phone numbers with or without leading zero or country code (+256).
- */
-function matchesSearch(query: string, ...haystacks: (string | null | undefined)[]): boolean {
-  if (!query || !query.trim()) return true;
-  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return true;
+  /**
+   * Multi-token search matcher:
+   * - Splits search query into words so order does not matter (e.g., "Ruth Nanteze" matches "Nanteze Ruth").
+   * - Trims whitespace and ignores extra spaces.
+   * - Handles phone numbers with or without leading zero or country code (+256).
+   */
+  function matchesSearch(query: string, ...haystacks: (string | null | undefined)[]): boolean {
+    if (!query || !query.trim()) return true;
+    const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return true;
 
-  const validHaystacks = haystacks.filter((h): h is string => Boolean(h && h.trim()));
-  if (validHaystacks.length === 0) return false;
+    const validHaystacks = haystacks.filter((h): h is string => Boolean(h && h.trim()));
+    if (validHaystacks.length === 0) return false;
 
-  const combined = validHaystacks.join(' ').toLowerCase();
-  const digitsCombined = combined.replace(/\D+/g, '');
+    const combined = validHaystacks.join(' ').toLowerCase();
+    const digitsCombined = combined.replace(/\D+/g, '');
 
-  return tokens.every(token => {
-    if (combined.includes(token)) return true;
+    return tokens.every(token => {
+      if (combined.includes(token)) return true;
 
-    const tokenDigits = token.replace(/\D+/g, '');
-    if (tokenDigits.length >= 3) {
-      const normalizedTokenDigits = tokenDigits.startsWith('256')
-        ? tokenDigits.slice(3)
-        : tokenDigits.startsWith('0')
-          ? tokenDigits.slice(1)
-          : tokenDigits;
+      const tokenDigits = token.replace(/\D+/g, '');
+      if (tokenDigits.length >= 3) {
+        const normalizedTokenDigits = tokenDigits.startsWith('256')
+          ? tokenDigits.slice(3)
+          : tokenDigits.startsWith('0')
+            ? tokenDigits.slice(1)
+            : tokenDigits;
 
-      if (normalizedTokenDigits.length >= 3 && digitsCombined.includes(normalizedTokenDigits)) {
-        return true;
+        if (normalizedTokenDigits.length >= 3 && digitsCombined.includes(normalizedTokenDigits)) {
+          return true;
+        }
+        if (digitsCombined.includes(tokenDigits)) {
+          return true;
+        }
       }
-      if (digitsCombined.includes(tokenDigits)) {
-        return true;
-      }
-    }
 
-    return false;
-  });
-}
+      return false;
+    });
+  }
 
   // The server says which requests match the paying-label and arrival filters; the rest of the filters below are this desk's own.
   const matching = filterByRentDesk(rows, deskOrder.data)
@@ -1741,119 +1829,76 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       {/* Subtle decorative ambient glow circles for the large hero */}
       <div
         aria-hidden="true"
-        style={{ backgroundColor: 'rgba(255, 255, 255, 0.07)' }}
-        className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 sm:h-96 sm:w-96 rounded-full blur-2xl"
+        className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-white/10 blur-3xl"
       />
       <div
         aria-hidden="true"
-        style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
-        className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 sm:h-96 sm:w-96 rounded-full blur-2xl"
+        className="pointer-events-none absolute -bottom-24 -left-24 h-96 w-96 rounded-full bg-black/15 blur-3xl"
       />
 
-      <div
+      <CardContent
         className={cn(
-          'relative z-10 flex flex-1 flex-col justify-between',
+          'relative z-10 p-6 sm:p-8 flex flex-col justify-between gap-5 text-white',
           isStandaloneHero
-            ? 'p-7 sm:p-12 lg:p-16 min-h-[68vh] sm:min-h-[75vh] lg:min-h-[80vh] gap-8 sm:gap-12'
-            : 'p-6 sm:p-8 min-h-[220px] sm:min-h-[240px] gap-5',
+            ? 'min-h-[68vh] sm:min-h-[75vh] lg:min-h-[80vh] py-8 sm:py-12'
+            : 'min-h-[220px] sm:min-h-[240px]',
         )}
       >
         {/* Top Row: Icon on Left, Pending Count Pill on Right */}
-        <div className="flex items-center justify-between gap-4">
-          <div
-            style={{ backgroundColor: 'rgba(255, 255, 255, 0.18)', color: '#ffffff' }}
-            className={cn(
-              'flex items-center justify-center rounded-3xl bg-white/20 text-white shrink-0 shadow-inner ring-1 ring-white/25',
-              isStandaloneHero ? 'h-16 w-16 sm:h-24 sm:w-24 lg:h-28 lg:w-28' : 'h-14 w-14 sm:h-16 sm:w-16',
-            )}
-          >
-            <config.icon
-              className={cn(
-                isStandaloneHero ? 'h-8 w-8 sm:h-12 sm:w-12 lg:h-14 lg:w-14' : 'h-7 w-7 sm:h-8 sm:w-8',
-              )}
-            />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-white/15 text-white shrink-0 shadow-inner ring-1 ring-white/25">
+            <config.icon className="h-7 w-7 sm:h-8 sm:w-8" />
           </div>
 
-          <span
-            style={{ backgroundColor: '#ffffff', color: '#7616d0' }}
-            className={cn(
-              'inline-flex items-center justify-center rounded-full bg-white text-primary font-black tabular-nums shadow-md shrink-0',
-              isStandaloneHero
-                ? 'px-5 py-2 sm:px-8 sm:py-3.5 text-base sm:text-xl lg:text-2xl'
-                : 'px-4 py-1.5 sm:px-5 sm:py-2 text-sm sm:text-base',
-            )}
-          >
+          <span className="inline-flex items-center justify-center rounded-full bg-white text-[#7616d0] px-4 py-1.5 sm:px-5 sm:py-2 text-sm sm:text-base font-black tabular-nums shadow-sm shrink-0">
             {rows.length} pending
           </span>
         </div>
 
-        {/* Middle Row: Full-Width Bold Heading + Helpful Subtitle when Standalone */}
-        <div className="space-y-3 sm:space-y-4 my-auto">
+        {/* Middle Row: Full-Width Bold Heading — never squished between icon and pill */}
+        <div className="space-y-2">
           <h2
-            style={{ color: '#ffffff' }}
             className={cn(
-              'w-full font-extrabold tracking-tight text-white text-left',
-              isStandaloneHero
-                ? 'text-3xl sm:text-5xl lg:text-6xl leading-[1.12]'
-                : 'text-2xl sm:text-3xl lg:text-4xl leading-snug',
+              'w-full font-extrabold tracking-tight leading-snug text-white text-left',
+              isStandaloneHero ? 'text-3xl sm:text-5xl lg:text-6xl' : 'text-2xl sm:text-3xl lg:text-4xl',
             )}
           >
             Rent Requests waiting to be Approved
           </h2>
           {isStandaloneHero && (
-            <p
-              style={{ color: 'rgba(255, 255, 255, 0.86)' }}
-              className="text-sm sm:text-lg lg:text-xl font-medium max-w-3xl leading-relaxed"
-            >
-              Tap anywhere on this card to drill down by Continent, Country, Region, District, County, Parish &amp; Village.
+            <p className="text-white/80 text-sm sm:text-base max-w-2xl text-left">
+              Tap anywhere on this card to explore requests geographically across Uganda — drill down from Region to District, Sub-county, Parish and Village.
             </p>
           )}
         </div>
 
         {/* Bottom Row: Total UGX Value on Left, Action Arrow on Right */}
-        <div
-          style={{ borderColor: 'rgba(255, 255, 255, 0.24)' }}
-          className={cn(
-            'flex items-center justify-between gap-4 border-t border-white/20',
-            isStandaloneHero ? 'pt-6 sm:pt-8 lg:pt-10' : 'pt-4 sm:pt-5',
-          )}
-        >
-          <div className="space-y-1">
-            {isStandaloneHero && (
-              <span
-                style={{ color: 'rgba(255, 255, 255, 0.78)' }}
-                className="block text-xs sm:text-sm uppercase tracking-widest font-bold"
-              >
-                Total Value Waiting Approval
-              </span>
-            )}
+        <div className="flex items-center justify-between gap-4 pt-4 sm:pt-5 border-t border-white/20">
+          <div>
+            <span className="block text-xs uppercase tracking-wider text-white/70 font-semibold mb-1">
+              Total pipeline value
+            </span>
             <p
-              style={{ color: '#ffffff' }}
               className={cn(
                 'font-black text-white tracking-tight tabular-nums leading-none',
-                isStandaloneHero
-                  ? 'text-4xl sm:text-6xl lg:text-7xl'
-                  : 'text-3xl sm:text-4xl lg:text-5xl',
+                isStandaloneHero ? 'text-4xl sm:text-6xl lg:text-7xl' : 'text-3xl sm:text-4xl lg:text-5xl',
               )}
             >
               {formatUGX(queueTotalAmount)}
             </p>
           </div>
-          <div
-            style={{ backgroundColor: '#ffffff', color: '#7616d0' }}
-            className={cn(
-              'flex items-center justify-center rounded-full bg-white text-primary shadow-lg group-hover:translate-x-1.5 transition-transform shrink-0',
-              isStandaloneHero ? 'h-14 w-14 sm:h-20 sm:w-20 lg:h-24 lg:w-24' : 'h-12 w-12 sm:h-14 sm:w-14',
+          <div className="flex items-center gap-3">
+            {isStandaloneHero && (
+              <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider text-white/90">
+                Explore Uganda
+              </span>
             )}
-          >
-            <ArrowRight
-              className={cn(
-                isStandaloneHero ? 'h-7 w-7 sm:h-10 sm:w-10 lg:h-12 lg:w-12' : 'h-6 w-6 sm:h-7 sm:w-7',
-              )}
-            />
+            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-white text-[#7616d0] shadow-md group-hover:translate-x-1 transition-transform shrink-0">
+              <ArrowRight className="h-6 w-6 sm:h-7 sm:w-7" />
+            </div>
           </div>
         </div>
-      </div>
+      </CardContent>
     </div>
   );
 
@@ -1904,1524 +1949,2029 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       )}
 
       {(showFullQueueChrome || showGeoFilteredQueue) && (
-      <Card data-rent-requests-queue="true" className="border border-border scroll-mt-4">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base font-bold flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
-              <config.icon className="h-4 w-4" />
-            </span>
-            <span>
-              {viewMode === 'lead-only'
-                ? [
-                    geoPath.country,
-                    geoPath.region,
-                    geoPath.district ? `${geoPath.district} District` : undefined,
-                    geoPath.subcounty,
-                    geoPath.parish,
-                    geoPath.village,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ') || config.title
-                : config.title}
-            </span>
-          </CardTitle>
-          <Badge variant="secondary" className="text-xs font-bold">
-            {viewMode === 'lead-only' ? `${filtered.length} pending` : `${rows.length} pending`}
-          </Badge>
-        </div>
-        {/* Bulk review controls for Agent Ops and COO */}
-        {allowBulkActions && filtered.length > 0 && (
-          selectedIds.size > 0 ? (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1.5 p-2 rounded-lg bg-primary/5 border border-primary/20">
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold select-none">
-                <Checkbox
-                  checked={isCooStage
-                    ? cooSelectAllFits.fits.length > 0 && cooSelectAllFits.fits.every(r => selectedIds.has(r.id)) && selectedIds.size === cooSelectAllFits.fits.length
-                    : selectedIds.size === filtered.length && filtered.length > 0}
-                  onCheckedChange={toggleSelectAll}
-                />
-                <span className="flex flex-col">
-                  <span>Selected ({selectedIds.size} of {filtered.length})</span>
-                  {isCooStage && landlordFloatBudget.data && (
-                    <span className="font-normal text-muted-foreground">
-                      {formatUGX(cooBulkSplit.selectedTotal)} of {formatUGX(Number(landlordFloatBudget.data.room))} left selected
-                    </span>
-                  )}
-                </span>
-              </label>
-              <div className="flex items-center gap-2">
+        <Card data-rent-requests-queue="true" className="border border-border scroll-mt-4">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <CardTitle className="text-base font-bold flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                <config.icon className="h-4 w-4" />
+              </span>
+              <span>
+                {viewMode === 'lead-only'
+                  ? [
+                      geoPath.country,
+                      geoPath.region,
+                      geoPath.district ? `${geoPath.district} District` : undefined,
+                      geoPath.subcounty,
+                      geoPath.parish,
+                      geoPath.village,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || config.title
+                  : config.title}
+              </span>
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50">
                 <Button
+                  type="button"
+                  variant={layoutMode === 'table' ? 'default' : 'ghost'}
                   size="sm"
-                  variant="outline"
-                  className="h-7 text-xs gap-1"
-                  disabled={processing}
-                  onClick={() => setBulkRejectOpen(true)}
+                  className={cn(
+                    "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
+                    layoutMode === 'table' ? "bg-background text-foreground shadow-xs hover:bg-background" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setLayoutMode('table')}
+                  title="Table view"
                 >
-                  <XCircle className="h-3 w-3" />
-                  Return selected ({selectedIds.size})
+                  <LayoutList className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Table</span>
                 </Button>
-                {!isCfoStage && !isLandlordOpsDesk && <Button
+                <Button
+                  type="button"
+                  variant={layoutMode === 'cards' ? 'default' : 'ghost'}
                   size="sm"
-                  className="h-7 text-xs gap-1"
-                  disabled={processing || (isCooStage && cooBulkSplit.fits.length === 0)}
-                  title={isCooStage && cooBulkSplit.fits.length === 0 ? 'Over the landlord float budget left today' : undefined}
-                  onClick={handleBulkApprove}
+                  className={cn(
+                    "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
+                    layoutMode === 'cards' ? "bg-background text-foreground shadow-xs hover:bg-background" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setLayoutMode('cards')}
+                  title="Card view"
                 >
-                  {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                  {isCooStage
-                    ? `Approve ${cooBulkSplit.fits.length} that fit (${formatUGX(cooBulkSplit.fitsTotal)})`
-                    : `Approve selected (${selectedIds.size})`}
-                </Button>}
-                {isCooStage && cooBulkSplit.overCap.length > 0 && (
-                  <span className="text-xs text-muted-foreground">{cooBulkSplit.overCap.length} over budget stay at the COO step</span>
-                )}
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Cards</span>
+                </Button>
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center mt-1">
-              <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground py-0.5 select-none">
-                <Checkbox
-                  checked={false}
-                  disabled={isCooStage && cooSelectAllFits.fits.length === 0}
-                  onCheckedChange={toggleSelectAll}
-                />
-                <span>
-                  {isCooStage
-                    ? `Select all that fit (${cooSelectAllFits.fits.length} · ${formatUGX(cooSelectAllFits.total)})`
-                    : `Select all (${filtered.length})`}
-                </span>
-              </label>
-            </div>
-          )
-        )}
-        <Dialog open={!!directReject} onOpenChange={(o) => { if (!o && !processing) setDirectReject(null); }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Reject and return for correction</DialogTitle>
-              <DialogDescription>The Rent Plan for {directReject?.name} goes back to the agent with your reason.</DialogDescription>
-            </DialogHeader>
-            <Textarea
-              autoFocus
-              value={directReject?.reason ?? ''}
-              onChange={e => setDirectReject(d => (d ? { ...d, reason: e.target.value } : d))}
-              placeholder="Explain what the agent must correct (at least 10 characters)"
-              rows={4}
-              disabled={processing}
-            />
-            <DialogFooter>
-              <Button variant="ghost" disabled={processing} onClick={() => setDirectReject(null)}>Cancel</Button>
-              <Button
-                variant="destructive"
-                disabled={processing || (directReject?.reason.trim().length ?? 0) < 10}
-                onClick={() => directReject && handleBulkReject({ ids: [directReject.id], reason: directReject.reason })}
-              >
-                {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
-                Reject
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        {bulkRejectOpen && (
-          <div className="mt-2 space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-            <p className="text-sm font-semibold">Return {selectedIds.size} selected request{selectedIds.size === 1 ? '' : 's'} for correction</p>
-            <Textarea
-              value={bulkRejectReason}
-              onChange={e => setBulkRejectReason(e.target.value)}
-              placeholder="Explain what the agent must correct (at least 10 characters)"
-              rows={3}
-              disabled={processing}
-            />
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={processing}
-                onClick={() => { setBulkRejectOpen(false); setBulkRejectReason(''); }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                disabled={processing || bulkRejectReason.trim().length < 10}
-                onClick={() => handleBulkReject()}
-              >
-                {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
-                Return selected
-              </Button>
+              <Badge variant="secondary" className="text-xs font-bold">
+                {rows.length} pending
+              </Badge>
             </div>
           </div>
-        )}
-        {showFullQueueChrome && (
-        <>
-        {/* Desktop Filter Toolbar */}
-        <div className="hidden sm:flex sm:flex-row gap-2 mt-2 items-start">
-          <div className="flex items-center gap-2 w-auto">
-            <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
-              <SelectTrigger className="h-9 text-sm w-[260px]">
-                <User className="h-3.5 w-3.5 mr-1 text-muted-foreground shrink-0" />
-                <SelectValue placeholder="Choose a tenant to fund" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[320px]">
-                <SelectItem value="all">All tenants ({tenantOptions.length})</SelectItem>
-                {tenantOptions.map(t => (
-                  <SelectItem key={t.id} value={t.id}>
-                    <span className="truncate">{t.name} → {t.landlord_name}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                {tenantSyncStatus === 'synced' ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground cursor-help">
-                    <Cloud className="h-3 w-3" />
-                    Synced to account
-                    {tenantSyncAt && (
-                      <span className="text-[9px] opacity-70">· {formatTenantSync(tenantSyncAt)}</span>
-                    )}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground cursor-help">
-                    <HardDrive className="h-3 w-3" />
-                    Saved locally
-                    {tenantSyncAt && (
-                      <span className="text-[9px] opacity-70">· {formatTenantSync(tenantSyncAt)}</span>
-                    )}
-                  </span>
-                )}
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[240px] text-xs">
-                {tenantSyncStatus === 'synced'
-                  ? `This tenant filter was saved to your account settings${tenantSyncAt ? ` at ${formatTenantSync(tenantSyncAt)}` : ''}. It will follow you across devices and browsers.`
-                  : `This tenant filter is stored only in this browser's localStorage${tenantSyncAt ? ` at ${formatTenantSync(tenantSyncAt)}` : ''}. It will not sync to other devices until you sign in.`}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search tenant, landlord, agent, district or address..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-9 h-9 text-sm"
-            />
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setSortMode(nextRentDeskSort(sortMode))}
-            className="h-9 gap-1.5 text-xs shrink-0 border-border"
-            title={`Sorted: ${RENT_DESK_SORT_LABELS[sortMode]}`}
-          >
-            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>{RENT_DESK_SORT_LABELS[sortMode]}</span>
-          </Button>
-          {stage === 'pending' && expiredCount > 0 && (
-            <Button
-              type="button"
-              variant={hideExpired ? 'outline' : 'secondary'}
-              size="sm"
-              onClick={() => setHideExpired(prev => !prev)}
-              className="h-9 gap-1.5 text-xs shrink-0 border-border"
-              title={hideExpired ? 'Click to show expired requests (> 30 days without verification)' : 'Click to hide expired requests'}
-            >
-              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-              <span>{hideExpired ? `Hide Expired (${expiredCount})` : `Show Expired (${expiredCount})`}</span>
-            </Button>
-          )}
-        </div>
-
-        {/* Agent / Landlord quick filters */}
-        <div className="hidden sm:flex sm:flex-row gap-2 mt-2 items-start">
-          <div className="relative flex-1 min-w-0">
-            <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Filter by agent name"
-              value={agentSearch}
-              onChange={e => setAgentSearch(e.target.value)}
-              className="pl-9 h-9 text-sm"
-            />
-          </div>
-          <div className="relative flex-1 min-w-0">
-            <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Filter by landlord name"
-              value={landlordSearch}
-              onChange={e => setLandlordSearch(e.target.value)}
-              className="pl-9 h-9 text-sm"
-            />
-          </div>
-        </div>
-
-        <RentDeskControls
-          className="mt-2"
-          filters={deskFilters}
-          onFiltersChange={setDeskFilters}
-          onClear={clearDeskFilters}
-          matchCount={deskOrder.data?.matchCount}
-          totalCount={deskOrder.data?.totalCount}
-          error={deskOrder.isError}
-        />
-        <AboveSuggestionToggle
-          className="mt-2"
-          on={aboveOnly}
-          onChange={setAboveOnly}
-          count={rows.filter((r) => (r as any).renewal_above_suggestion).length}
-        />
-
-        {/* Mobile Collapsed Filter Bar */}
-        <div className="sm:hidden mt-2">
-          {(() => {
-            const activeFiltersCount = (selectedTenantId !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0) + (agentSearch.trim() ? 1 : 0) + (landlordSearch.trim() ? 1 : 0) + (hideExpired ? 1 : 0) + (!isDefaultSort ? 1 : 0) + (deskFiltered ? 1 : 0);
-            return (
-              <Collapsible open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full flex items-center justify-between h-9 px-3 text-xs bg-muted/20 border-border hover:bg-muted/40 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-3.5 w-3.5 text-primary" />
-                      <span className="font-medium">Filter & Search</span>
-                      {activeFiltersCount > 0 && (
-                        <Badge variant="secondary" className="h-4 px-1.5 text-[10px] bg-primary/15 text-primary font-semibold">
-                          {activeFiltersCount} active
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <span className="text-[11px]">{mobileFiltersOpen ? 'Hide' : 'Show'}</span>
-                      <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", mobileFiltersOpen && "rotate-180")} />
-                    </div>
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-2 space-y-2">
-                  <div className="p-2.5 rounded-lg border border-border/70 bg-card/60 space-y-2.5 shadow-xs">
-                    {/* Search */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search tenant, landlord, agent..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="pl-9 h-9 text-sm bg-background"
-                      />
-                    </div>
-
-                    {/* Agent / Landlord quick filters */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="relative">
-                        <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Agent name"
-                          value={agentSearch}
-                          onChange={e => setAgentSearch(e.target.value)}
-                          className="pl-9 h-9 text-sm bg-background"
-                        />
-                      </div>
-                      <div className="relative">
-                        <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Landlord name"
-                          value={landlordSearch}
-                          onChange={e => setLandlordSearch(e.target.value)}
-                          className="pl-9 h-9 text-sm bg-background"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Tenant Select */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between px-0.5">
-                        <span className="text-[11px] text-muted-foreground font-medium">Tenant</span>
-                        {tenantSyncStatus === 'synced' ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <Cloud className="h-3 w-3" /> Synced
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <HardDrive className="h-3 w-3" /> Saved locally
-                          </span>
-                        )}
-                      </div>
-                      <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
-                        <SelectTrigger className="h-9 text-sm w-full bg-background">
-                          <User className="h-3.5 w-3.5 mr-1 text-muted-foreground shrink-0" />
-                          <SelectValue placeholder="Choose a tenant to fund" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[320px]">
-                          <SelectItem value="all">All tenants ({tenantOptions.length})</SelectItem>
-                          {tenantOptions.map(t => (
-                            <SelectItem key={t.id} value={t.id}>
-                              <span className="truncate">{t.name} → {t.landlord_name}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Action buttons: Sort & Expired */}
-                    <div className="flex items-center gap-2 pt-0.5">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSortMode(nextRentDeskSort(sortMode))}
-                        className="flex-1 h-8 gap-1.5 text-xs bg-background"
-                      >
-                        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{RENT_DESK_SORT_LABELS[sortMode]}</span>
-                      </Button>
-
-                      {callStatus.loaded && (
-                        <Button
-                          type="button"
-                          variant={noCallOnly ? 'secondary' : 'outline'}
-                          size="sm"
-                          aria-pressed={noCallOnly}
-                          onClick={() => setNoCallOnly(prev => !prev)}
-                          className="flex-1 h-8 gap-1.5 text-xs bg-background"
-                        >
-                          <span>No call yet ({noCallCount})</span>
-                        </Button>
-                      )}
-
-                      {stage === 'pending' && expiredCount > 0 && (
-                        <Button
-                          type="button"
-                          variant={hideExpired ? 'outline' : 'secondary'}
-                          size="sm"
-                          onClick={() => setHideExpired(prev => !prev)}
-                          className="flex-1 h-8 gap-1.5 text-xs bg-background"
-                        >
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>{hideExpired ? `Hide Exp (${expiredCount})` : `Show Exp (${expiredCount})`}</span>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            );
-          })()}
-        </div>
-        </>
-        )}
-      </CardHeader>
-      <CardContent className="p-0">
-        {showFullQueueChrome && (stage === 'pending' || stage === 'agent_ops_approved' || stage === 'tenant_ops_approved') && (
-          <div className="px-3 pb-3">
-            <MyAwarenessCallsCard />
-          </div>
-        )}
-        {showFullQueueChrome && (
-          <div className="px-3 pb-3">
-            <TenantOpsReportToolbar
-              tool="review_requests"
-              status="all"
-              search={search}
-              visibleCount={filtered.length}
-              fileSlug="tenant-requests-review-queue"
-            />
-          </div>
-        )}
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-8 text-sm text-muted-foreground">
-            {deskFiltered && !deskOrder.isError ? 'No requests match these filters' : 'No requests at this stage'}
-          </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {deskTiming.omitted > 0 && (
-              <p className="px-3.5 py-2 text-xs text-muted-foreground" data-testid="timing-limit-note">
-                Desk time and agent details are loaded for the first {TIMING_BATCH_LIMIT} requests in this list. Narrow the filters to see the rest.
-              </p>
-            )}
-            {filtered.map((req, index) => {
-              const isLandlordStage = config.showLandlordChecklist && req.registration_type !== 'outstanding_balance';
-              const cl = getCardChecklist(req.id);
-              const checklistDone = (cl.called ? 1 : 0) + (cl.acknowledged ? 1 : 0);
-              const checklistComplete = checklistDone === 2;
-              const isExpanded = expandedCardIds.has(req.id);
-              const isCardCollapsed = collapsedCardIds.has(req.id);
-
-              return (
-              <div
-                key={req.id}
-                data-first-rent-request={index === 0 ? 'true' : undefined}
-                className="w-full text-left px-3.5 py-3 hover:bg-muted/30 transition-all"
-              >
-                {/* Top Header Row: Checkbox + Tenant Name on Left, Amount (when expanded) + Collapse Arrow on Right */}
-                <div
-                  onClick={() => isCardCollapsed ? toggleCardCollapsed(req.id) : openRequestDetail(req)}
-                  className="flex items-center justify-between gap-2 cursor-pointer group/header select-none"
-                  title={isCardCollapsed ? "Click to expand application" : "Click to view full rent request details"}
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {/* Bulk review selection checkbox */}
-                    {allowBulkActions && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="shrink-0"
-                        title={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : undefined}
-                      >
-                        <Checkbox
-                          checked={selectedIds.has(req.id)}
-                          disabled={cooSelectBlocked(req)}
-                          aria-label={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : `Select request ${req.id}`}
-                          data-request-id={req.id}
-                          onCheckedChange={() => toggleSelect(req.id)}
-                        />
-                      </div>
-                    )}
-                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="font-bold text-sm sm:text-base text-foreground truncate group-hover/header:text-primary group-hover/header:underline transition-colors">
-                      {req.tenant_name}
-                    </span>
-                  </div>
-
-                  {/* Right side: Amount (hidden when collapsed so only the name is visible) + Collapse/Expand Chevron */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {!isCardCollapsed && (
-                      <span className="font-extrabold text-sm sm:text-base text-primary tabular-nums group-hover/header:text-primary transition-colors">
-                        UGX {fmt(req.rent_amount)}
+          {/* Bulk review controls for Agent Ops and COO */}
+          {allowBulkActions && filtered.length > 0 && (
+            selectedIds.size > 0 ? (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1.5 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold select-none">
+                  <Checkbox
+                    checked={isCooStage
+                      ? cooSelectAllFits.fits.length > 0 && cooSelectAllFits.fits.every(r => selectedIds.has(r.id)) && selectedIds.size === cooSelectAllFits.fits.length
+                      : selectedIds.size === filtered.length && filtered.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                  <span className="flex flex-col">
+                    <span>Selected ({selectedIds.size} of {filtered.length})</span>
+                    {isCooStage && landlordFloatBudget.data && (
+                      <span className="font-normal text-muted-foreground">
+                        {formatUGX(cooBulkSplit.selectedTotal)} of {formatUGX(Number(landlordFloatBudget.data.room))} left selected
                       </span>
                     )}
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => toggleCardCollapsed(req.id, e)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          toggleCardCollapsed(req.id, e as unknown as React.MouseEvent);
-                        }
-                      }}
-                      aria-expanded={!isCardCollapsed}
-                      aria-label={isCardCollapsed ? `Expand ${req.tenant_name}` : `Collapse ${req.tenant_name}`}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 cursor-pointer"
-                      title={isCardCollapsed ? "Expand application" : "Collapse application"}
-                    >
-                      <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", !isCardCollapsed && "rotate-180")} />
-                    </span>
-                  </div>
-                </div>
-
-                {/* Full-Width Application Body — Hidden completely when collapsed so only the name is visible */}
-                {!isCardCollapsed && (
-                  <div className="mt-2 space-y-2">
-                    {/* Row 1: Status & Cycle Badges spanning full width */}
-                    <div
-                      onClick={() => openRequestDetail(req)}
-                      className="flex items-center gap-1.5 flex-wrap cursor-pointer"
-                    >
-                      {(() => {
-                        const cyc = getRentCycleLabel(req.repayment_frequency, req.duration_days);
-                        return (
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border shrink-0',
-                              RENT_CYCLE_BADGE_CLASSES[cyc.tone],
-                            )}
-                            title={`Repayment cycle: ${cyc.full}`}
-                          >
-                            <CalendarClock className="h-2.5 w-2.5" />
-                            {cyc.full}
-                          </span>
-                        );
-                      })()}
-                      {(() => {
-                        const approved = approvedCycleMap?.get(req.tenant_id) ?? 0;
-                        const isRenewal = approved > 0;
-                        return (
-                          <>
-                            <span
-                              className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30 shrink-0"
-                              title={`Approved rent plans for this tenant: ${approved}`}
-                            >
-                              <Repeat className="h-2.5 w-2.5" />
-                              Cycle {approved}
-                            </span>
-                            <span
-                              className={cn(
-                                'inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border shrink-0',
-                                isRenewal
-                                  ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30'
-                                  : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
-                              )}
-                              title={
-                                isRenewal
-                                  ? 'Renewal — this tenant has had a rent plan approved before'
-                                  : 'New — no approved rent plan for this tenant yet'
-                              }
-                            >
-                              <Sparkles className="h-2.5 w-2.5" />
-                              {isRenewal ? 'Renewal' : 'New'}
-                            </span>
-                          </>
-                        );
-                      })()}
-                      {req.registration_type === 'outstanding_balance' && (
-                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 shrink-0">
-                          <AlertCircle className="h-2.5 w-2.5" />
-                          Outstanding
-                        </span>
-                      )}
-                      {isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at) && (
-                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
-                          <Clock className="h-2.5 w-2.5" />
-                          Expired (&gt;30d)
-                        </span>
-                      )}
-                      {req.is_resubmitted && (
-                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-700 border border-violet-500/30 shrink-0">
-                          <RotateCcw className="h-2.5 w-2.5" />
-                          Resubmitted
-                        </span>
-                      )}
-                      <RenewalListTags request={req as any} />
-                      <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
-                      <PaymentLabelChip label={req.payment_label} score={req.payment_score} reason={req.payment_reason} showReason={false} />
-                      {req.funder_visible === false && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
-                              <AlertCircle className="h-2.5 w-2.5" />
-                              No proxy attached
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs text-xs">
-                            Not published to the Funder dashboard. Tenant Ops reason:{' '}
-                            {req.funder_visibility_reason || 'not provided'}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-
-                    {/* Row 2: Payment Reason spanning full width */}
-                    {req.payment_reason && (
-                      <p className="text-xs leading-snug text-muted-foreground" data-testid="payment-label-reason">
-                        {req.payment_reason}
-                      </p>
-                    )}
-
-                    {/* Row 3: Smartly Aligned Agent / Sub-agent Chain & Landlord Info */}
-                    <div className="space-y-1.5 text-xs text-muted-foreground">
-                      <RentAgentChain
-                        lines={chainFor(req)}
-                        onOpenAgent={(id) => openDrilldownForRequest(req, 'agent', { agentId: id })}
-                        afterName={(l) =>
-                          l.role === 'Agent' || l.role === 'Sub-agent' ? (
-                            <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} />
-                          ) : null
-                        }
-                        className="space-y-1.5"
-                      />
-                      {req.landlord_id && (
-                        <div className="flex items-center justify-between gap-2 rounded-lg border border-border/50 bg-muted/20 px-2.5 py-1.5">
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); } }}
-                            className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary hover:underline cursor-pointer min-w-0"
-                            title="Open landlord profile & see all their tenants in the system"
-                          >
-                            <Home className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-muted-foreground text-xs shrink-0">Landlord:</span>
-                            <span className="font-semibold truncate">{req.landlord_name || 'Unknown'}</span>
-                          </span>
-                          {(req.request_city || req.landlord_district || req.tenant_district) && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
-                              <MapPin className="h-3 w-3 shrink-0" />
-                              <span className="truncate max-w-[120px]">{req.request_city || req.landlord_district || req.tenant_district}</span>
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                {req.pricing_version === 'v360' && (
-                  <div className="mt-2">
-                    <V360PlanCaptions rentRequestId={req.id} expectV360 />
-                  </div>
-                )}
-
-                {stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked && (
-                  <div role="alert" className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
-                    <p className="font-semibold">{landlordRejectedGate(req).title}</p>
-                    <p>{landlordRejectedGate(req).description}</p>
-                  </div>
-                )}
-
-                {/* Desk time: on your desk / before / total in system (server answer, one call for the desk). Tap the clock for the journey. */}
-                <RentTimingRow
-                  requestId={req.id}
-                  timing={deskTiming.byId.get(req.id)}
-                  loading={deskTiming.isLoading}
-                  error={deskTiming.error}
-                  onRetry={deskTiming.refetch}
-                  ownDesk
-                />
-
-                {/* Foldable details section (unfolds on toggle) */}
-                {isExpanded && (
-                  <div className="mt-2.5 pt-2 border-t border-dashed border-border/60 space-y-2 text-xs animate-in fade-in-50 duration-150">
-                    <div className="flex items-center gap-2 sm:gap-3 text-muted-foreground flex-wrap min-w-0">
-                      {req.landlord_id ? (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); }}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); } }}
-                          className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
-                          title="Open landlord profile & tenants"
-                        >
-                          <Home className="h-3 w-3" />
-                          {req.landlord_name}
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1">
-                          <Home className="h-3 w-3" />
-                          {req.landlord_name}
-                        </span>
-                      )}
-                      {req.landlord_is_new && (
-                        <Badge variant="outline" className="border-amber-500/50 px-1 py-0 text-[9px] text-amber-600 dark:text-amber-400">
-                          new landlord
-                        </Badge>
-                      )}
-                      {req.lc1_is_new && (
-                        <Badge variant="outline" className="border-amber-500/50 px-1 py-0 text-[9px] text-amber-600 dark:text-amber-400">
-                          new LC1
-                        </Badge>
-                      )}
-                      {(req.request_city || req.landlord_district || req.tenant_district) && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {req.request_city || req.landlord_district || req.tenant_district}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* WhatsApp quick contacts */}
-                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap min-w-0">
-                      <WhatsAppButton phone={req.tenant_phone} name={req.tenant_name} label="Tenant" />
-                      <WhatsAppButton phone={req.landlord_phone} name={req.landlord_name} label="Landlord" />
-                    </div>
-
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono pt-1">
-                      <span>Submitted: {format(new Date(req.created_at), 'dd MMM yyyy, HH:mm')}</span>
-                      {stage === 'pending' && (() => {
-                        const expiryDate = new Date(new Date(req.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
-                        const isPastExpiry = Date.now() > expiryDate.getTime();
-                        return (
-                          <span className={`font-mono flex items-center gap-1 ${isPastExpiry ? 'text-destructive font-semibold' : 'text-amber-600 dark:text-amber-400'}`}>
-                            <Clock className="h-2.5 w-2.5 shrink-0" />
-                            Expires: {format(expiryDate, 'dd MMM yyyy')}
-                          </span>
-                        );
-                      })()}
-                    </div>
-
-                    {/* View full sheet button from unfolded card */}
-                    <div className="pt-1 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                      >
-                        <span>Open Full Review Drawer</span>
-                        <ArrowRight className="h-3 w-3" />
-                      </button>
-                    </div>
-
-                    {/* Inline landlord verification checklist */}
-                    {isLandlordStage && (
-                      <div className="mt-2 space-y-2 pt-2 border-t border-border/40">
-                        {checklistSyncStatus !== 'idle' && (
-                          <div className="flex items-center gap-1.5">
-                            {checklistSyncStatus === 'saving' && (
-                              <>
-                                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                                <span className="text-[10px] font-medium text-muted-foreground">Saving…</span>
-                              </>
-                            )}
-                            {checklistSyncStatus === 'saved' && (
-                              <>
-                                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                                <span className="text-[10px] font-medium text-emerald-600">
-                                  {checklistSavedAt && Date.now() - checklistSavedAt.getTime() < 5000
-                                    ? 'Saved'
-                                    : `Saved${checklistSavedAt ? ` · ${format(checklistSavedAt, 'h:mm a')}` : ''}`}
-                                </span>
-                              </>
-                            )}
-                            {checklistSyncStatus === 'failed' && (
-                              <>
-                                <AlertCircle className="h-3 w-3 text-destructive" />
-                                <span className="text-[10px] font-medium text-destructive">
-                                  Not saved to server — saved on this phone only
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        )}
-
-                        <div className={`flex items-center gap-2 rounded-lg px-3 py-2 border ${checklistComplete ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
-                          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${checklistComplete ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
-                            {checklistComplete ? '✓' : `${checklistDone}`}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-bold ${checklistComplete ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'}`}>
-                              {checklistComplete
-                                ? 'All done — tap Approve now'
-                                : `${checklistDone} of 2 done — finish the steps below`}
-                            </p>
-                            <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-300 ${checklistComplete ? 'bg-emerald-500 w-full' : checklistDone === 1 ? 'bg-amber-500 w-1/2' : 'bg-amber-500 w-0'}`}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-3 space-y-2.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
-                              <ShieldCheck className="h-4 w-4" />
-                              Do these 2 steps first
-                            </span>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); toggleCardCheck(req.id, 'called', !cl.called); }}
-                            className={`w-full flex items-center gap-3 rounded-xl border-2 p-2.5 text-left transition-colors ${cl.called ? 'border-emerald-500 bg-emerald-500/10' : 'border-border bg-background active:bg-muted'}`}
-                          >
-                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${cl.called ? 'bg-emerald-500 text-white' : 'bg-muted text-foreground'}`}>
-                              {cl.called ? '✓' : '1'}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-xs font-semibold">I called the landlord</span>
-                              <span className="block text-[11px] text-muted-foreground">
-                                {req.landlord_phone ? `Call ${req.landlord_phone}, then tap here` : 'Call the landlord, then tap here'}
-                              </span>
-                            </span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); toggleCardCheck(req.id, 'acknowledged', !cl.acknowledged); }}
-                            className={`w-full flex items-center gap-3 rounded-xl border-2 p-2.5 text-left transition-colors ${cl.acknowledged ? 'border-emerald-500 bg-emerald-500/10' : 'border-border bg-background active:bg-muted'}`}
-                          >
-                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${cl.acknowledged ? 'bg-emerald-500 text-white' : 'bg-muted text-foreground'}`}>
-                              {cl.acknowledged ? '✓' : '2'}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-xs font-semibold">Landlord said Welile will pay</span>
-                              <span className="block text-[11px] text-muted-foreground">They understand Welile sends the rent, not the tenant</span>
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Bottom Action Row: Reject on far left, Details in center, Approve on far right */}
-                <div className="flex items-center justify-between gap-2 w-full pt-2.5 mt-2 border-t border-border/40">
+                  </span>
+                </label>
+                <div className="flex items-center gap-2">
                   <Button
-                    type="button"
                     size="sm"
                     variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isLandlordOpsDesk) setDirectReject({ id: req.id, name: req.tenant_name || 'this tenant', reason: '' });
-                      else openRequestDetail(req);
-                    }}
-                    disabled={quickProcessingId === req.id}
-                    className="h-8 px-3 text-xs font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive active:scale-95 transition-all gap-1.5"
-                    title={isCfoStage ? 'Return to COO' : 'Reject request'}
+                    className="h-7 text-xs gap-1"
+                    disabled={processing}
+                    onClick={() => setBulkRejectOpen(true)}
                   >
-                    <XCircle className="h-3.5 w-3.5" />
-                    <span>{isCfoStage ? 'Return to COO' : 'Reject'}</span>
+                    <XCircle className="h-3 w-3" />
+                    Return selected ({selectedIds.size})
                   </Button>
-
-                  <Button
-                    type="button"
+                  {!isCfoStage && !isLandlordOpsDesk && <Button
                     size="sm"
-                    variant="ghost"
-                    onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
-                    className="h-8 px-2.5 text-xs text-primary hover:bg-primary/10 gap-1.5 font-semibold"
-                    title="Open full rent request review details"
+                    className="h-7 text-xs gap-1"
+                    disabled={processing || (isCooStage && cooBulkSplit.fits.length === 0)}
+                    title={isCooStage && cooBulkSplit.fits.length === 0 ? 'Over the landlord float budget left today' : undefined}
+                    onClick={handleBulkApprove}
                   >
-                    <Eye className="h-3.5 w-3.5" />
-                    <span>Details</span>
-                  </Button>
-
-                  {isCfoStage ? (
-                    <span className="text-[11px] font-medium text-muted-foreground text-right max-w-[13rem]" data-needs-pick={funderPicked(req) ? undefined : req.id}>
-                      {cfoNote(req)}
-                    </span>
-                  ) : <Button
-                    type="button"
-                    size="sm"
-                    onClick={(e) => handleQuickApprove(req, e)}
-                    disabled={quickProcessingId === req.id || (isCooStage && !requestFitsLandlordFloatBudget(req)) || (isLandlordStage && !checklistComplete) || (stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
-                    title={
-                      stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked ? landlordRejectedGate(req).title :
-                      isCooStage && !requestFitsLandlordFloatBudget(req) ? 'Over the landlord float budget left today' : isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)
-                        ? "This rent request expired after 30 days without verification"
-                        : isLandlordStage && !checklistComplete
-                        ? `Complete the landlord verification checklist (${checklistDone}/2)`
-                        : undefined
-                    }
-                    className="h-8 px-4 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 shadow-xs active:scale-95 transition-all"
-                  >
-                    {quickProcessingId === req.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    )}
-                    <span>Approve</span>
+                    {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                    {isCooStage
+                      ? `Approve ${cooBulkSplit.fits.length} that fit (${formatUGX(cooBulkSplit.fitsTotal)})`
+                      : `Approve selected (${selectedIds.size})`}
                   </Button>}
+                  {isCooStage && cooBulkSplit.overCap.length > 0 && (
+                    <span className="text-xs text-muted-foreground">{cooBulkSplit.overCap.length} over budget stay at the COO step</span>
+                  )}
                 </div>
-                {isCooStage && landlordFloatBudget.data && (landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id) || (!landlordFloatBudget.data.blocked && !requestFitsLandlordFloatBudget(req))) && <div className="pt-2"><LandlordFloatMiscAction requestId={req.id} tenantName={req.tenant_name} pending={landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id)} requestMisc={requestLandlordFloatMisc} /></div>}
-                  </div>
-                )}
               </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-
-      {/* Tenant Detail Sheet */}
-      <Sheet open={!!selectedRequest} onOpenChange={(open) => { if (!open) { setSelectedRequest(null); setComment(''); setAssignedAgentId(null); setPayoutRef(''); setLandlordCalled(false); setLandlordAcknowledged(false); setLandlordVerificationMethod(''); setLandlordCallNotes(''); } }}>
-        <SheetContent side="bottom" className="h-[85vh] rounded-t-2xl">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <User className="h-4 w-4 text-primary" />
-              Review Rent Request
-            </SheetTitle>
-          </SheetHeader>
-          {selectedRequest && (
-            <div className="space-y-4 mt-4 overflow-y-auto max-h-[calc(85vh-80px)] pb-6">
-              {/* Tenant status first: renewal vs new tenant, with existing payment history */}
-              <TenantPaymentHistoryCard
-                tenantId={selectedRequest.tenant_id}
-                currentRequestId={selectedRequest.id}
-              />
-              <RenewalReviewPanel request={selectedRequest as any} />
-              {selectedRequest.registration_type === 'outstanding_balance' && (
-
-                <div className="rounded-xl border-2 border-amber-500/30 bg-amber-500/5 p-3 flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                  <div className="text-xs">
-                    <p className="font-bold text-amber-800">Outstanding balance — short approval</p>
-                    <p className="text-muted-foreground mt-0.5">
-                      Existing tenant. Two-stage approval (Tenant Ops → Agent verify).
-                      No landlord verification, no disbursement, no agent bonus.
-                    </p>
-                  </div>
-                </div>
-              )}
-              {/* Request Details */}
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="space-y-0.5">
-                  <p className="text-xs text-muted-foreground">Tenant</p>
-                  {selectedRequest.tenant_id ? (
-                    <button
-                      type="button"
-                      onClick={() => openDrilldownForRequest(selectedRequest, 'tenant')}
-                      className="font-semibold text-primary hover:underline text-left"
-                      title="Open full tenant profile, wallet & history"
-                    >
-                      {selectedRequest.tenant_name}
-                    </button>
-                  ) : (
-                    <p className="font-semibold">{selectedRequest.tenant_name}</p>
-                  )}
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className="text-xs text-muted-foreground">{selectedRequest.tenant_phone}</span>
-                    <WhatsAppButton phone={selectedRequest.tenant_phone} name={selectedRequest.tenant_name} label="WhatsApp" />
-                  </div>
-                </div>
-                <div className="space-y-0.5">
-                  <p className="text-xs text-muted-foreground">Landlord</p>
-                  {selectedRequest.landlord_id ? (
-                    <button
-                      type="button"
-                      onClick={() => openDrilldownForRequest(selectedRequest, 'landlord')}
-                      className="font-semibold text-primary hover:underline text-left"
-                      title="Open full landlord profile & all their tenants in the system"
-                    >
-                      {selectedRequest.landlord_name}
-                    </button>
-                  ) : (
-                    <p className="font-semibold">{selectedRequest.landlord_name}</p>
-                  )}
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className="text-xs text-muted-foreground">{selectedRequest.landlord_phone}</span>
-                    <WhatsAppButton phone={selectedRequest.landlord_phone} name={selectedRequest.landlord_name} label="WhatsApp" />
-                  </div>
-                </div>
-                <div className="col-span-2">
-                  <RentTimingRow requestId={selectedRequest.id} timing={deskTiming.byId.get(selectedRequest.id)} loading={deskTiming.isLoading} error={deskTiming.error} onRetry={deskTiming.refetch} ownDesk />
-                </div>
-                <div className="space-y-1 col-span-2">
-                  <RentAgentChain
-                    lines={chainFor(selectedRequest)}
-                    onOpenAgent={(id) => openDrilldownForRequest(selectedRequest, 'agent', { agentId: id })}
-                    afterName={(l) => (l.role === 'Agent' || l.role === 'Sub-agent') ? <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} /> : null}
+            ) : (
+              <div className="flex items-center mt-1">
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground py-0.5 select-none">
+                  <Checkbox
+                    checked={false}
+                    disabled={isCooStage && cooSelectAllFits.fits.length === 0}
+                    onCheckedChange={toggleSelectAll}
                   />
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {(selectedRequest.assigned_agent_id || selectedRequest.agent_id) && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="h-7 px-2.5 text-xs gap-1 font-semibold"
-                        onClick={() => openDrilldownForRequest(selectedRequest, 'agent')}
-                      >
-                        <UserCheck className="h-3 w-3" />
-                        Agent Profile, Wallet, Performances, Tenants &amp; Landlords
-                      </Button>
-                    )}
-                    {selectedRequest.landlord_id && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="h-7 px-2.5 text-xs gap-1 font-semibold"
-                        onClick={() => openDrilldownForRequest(selectedRequest, 'landlord')}
-                      >
-                        <Home className="h-3 w-3" />
-                        Landlord &amp; Tenants in System
-                      </Button>
-                    )}
+                  <span>
+                    {isCooStage
+                      ? `Select all that fit (${cooSelectAllFits.fits.length} · ${formatUGX(cooSelectAllFits.total)})`
+                      : `Select all (${filtered.length})`}
+                  </span>
+                </label>
+              </div>
+            )
+          )}
+          <Dialog open={!!directReject} onOpenChange={(o) => { if (!o && !processing) setDirectReject(null); }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Reject and return for correction</DialogTitle>
+                <DialogDescription>The Rent Plan for {directReject?.name} goes back to the agent with your reason.</DialogDescription>
+              </DialogHeader>
+              <Textarea
+                autoFocus
+                value={directReject?.reason ?? ''}
+                onChange={e => setDirectReject(d => (d ? { ...d, reason: e.target.value } : d))}
+                placeholder="Explain what the agent must correct (at least 10 characters)"
+                rows={4}
+                disabled={processing}
+              />
+              <DialogFooter>
+                <Button variant="ghost" disabled={processing} onClick={() => setDirectReject(null)}>Cancel</Button>
+                <Button
+                  variant="destructive"
+                  disabled={processing || (directReject?.reason.trim().length ?? 0) < 10}
+                  onClick={() => directReject && handleBulkReject({ ids: [directReject.id], reason: directReject.reason })}
+                >
+                  {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                  Reject
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {bulkRejectOpen && (
+            <div className="mt-2 space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <p className="text-sm font-semibold">Return {selectedIds.size} selected request{selectedIds.size === 1 ? '' : 's'} for correction</p>
+              <Textarea
+                value={bulkRejectReason}
+                onChange={e => setBulkRejectReason(e.target.value)}
+                placeholder="Explain what the agent must correct (at least 10 characters)"
+                rows={3}
+                disabled={processing}
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={processing}
+                  onClick={() => { setBulkRejectOpen(false); setBulkRejectReason(''); }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={processing || bulkRejectReason.trim().length < 10}
+                  onClick={() => handleBulkReject()}
+                >
+                  {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                  Return selected
+                </Button>
+              </div>
+            </div>
+          )}
+          {showFullQueueChrome && (
+          <>
+          {/* Desktop Filter Toolbar */}
+          <div className="hidden sm:flex sm:flex-row gap-2 mt-2 items-start">
+            <div className="flex items-center gap-2 w-auto">
+              <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+                <SelectTrigger className="h-9 text-sm w-[260px]">
+                  <User className="h-3.5 w-3.5 mr-1 text-muted-foreground shrink-0" />
+                  <SelectValue placeholder="Choose a tenant to fund" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[320px]">
+                  <SelectItem value="all">All tenants ({tenantOptions.length})</SelectItem>
+                  {tenantOptions.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      <span className="truncate">{t.name} → {t.landlord_name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {tenantSyncStatus === 'synced' ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground cursor-help">
+                      <Cloud className="h-3 w-3" />
+                      Synced to account
+                      {tenantSyncAt && (
+                        <span className="text-[9px] opacity-70">· {formatTenantSync(tenantSyncAt)}</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground cursor-help">
+                      <HardDrive className="h-3 w-3" />
+                      Saved locally
+                      {tenantSyncAt && (
+                        <span className="text-[9px] opacity-70">· {formatTenantSync(tenantSyncAt)}</span>
+                      )}
+                    </span>
+                  )}
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[240px] text-xs">
+                  {tenantSyncStatus === 'synced'
+                    ? `This tenant filter was saved to your account settings${tenantSyncAt ? ` at ${formatTenantSync(tenantSyncAt)}` : ''}. It will follow you across devices and browsers.`
+                    : `This tenant filter is stored only in this browser's localStorage${tenantSyncAt ? ` at ${formatTenantSync(tenantSyncAt)}` : ''}. It will not sync to other devices until you sign in.`}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tenant, landlord, agent, district or address..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSortMode(nextRentDeskSort(sortMode))}
+              className="h-9 gap-1.5 text-xs shrink-0 border-border"
+              title={`Sorted: ${RENT_DESK_SORT_LABELS[sortMode]}`}
+            >
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>{RENT_DESK_SORT_LABELS[sortMode]}</span>
+            </Button>
+            {stage === 'pending' && expiredCount > 0 && (
+              <Button
+                type="button"
+                variant={hideExpired ? 'outline' : 'secondary'}
+                size="sm"
+                onClick={() => setHideExpired(prev => !prev)}
+                className="h-9 gap-1.5 text-xs shrink-0 border-border"
+                title={hideExpired ? 'Click to show expired requests (> 30 days without verification)' : 'Click to hide expired requests'}
+              >
+                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{hideExpired ? `Hide Expired (${expiredCount})` : `Show Expired (${expiredCount})`}</span>
+              </Button>
+            )}
+          </div>
+
+          {/* Agent / Landlord quick filters */}
+          <div className="hidden sm:flex sm:flex-row gap-2 mt-2 items-start">
+            <div className="relative flex-1 min-w-0">
+              <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Filter by agent name"
+                value={agentSearch}
+                onChange={e => setAgentSearch(e.target.value)}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+            <div className="relative flex-1 min-w-0">
+              <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Filter by landlord name"
+                value={landlordSearch}
+                onChange={e => setLandlordSearch(e.target.value)}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+          </div>
+
+          <RentDeskControls
+            className="mt-2"
+            filters={deskFilters}
+            onFiltersChange={setDeskFilters}
+            onClear={clearDeskFilters}
+            matchCount={deskOrder.data?.matchCount}
+            totalCount={deskOrder.data?.totalCount}
+            error={deskOrder.isError}
+          />
+          <AboveSuggestionToggle
+            className="mt-2"
+            on={aboveOnly}
+            onChange={setAboveOnly}
+            count={rows.filter((r) => (r as any).renewal_above_suggestion).length}
+          />
+
+          {/* Mobile Collapsed Filter Bar */}
+          <div className="sm:hidden mt-2">
+            {(() => {
+              const activeFiltersCount = (selectedTenantId !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0) + (agentSearch.trim() ? 1 : 0) + (landlordSearch.trim() ? 1 : 0) + (hideExpired ? 1 : 0) + (!isDefaultSort ? 1 : 0) + (deskFiltered ? 1 : 0);
+              return (
+                <Collapsible open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+                  <CollapsibleTrigger asChild>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 px-2 text-xs gap-1"
-                      onClick={() => setTransferOpen(true)}
+                      className="w-full flex items-center justify-between h-9 px-3 text-xs bg-muted/20 border-border hover:bg-muted/40 transition-colors"
                     >
-                      <ArrowRightLeft className="h-3 w-3" />
-                      Transfer Agent
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-3.5 w-3.5 text-primary" />
+                        <span className="font-medium">Filter & Search</span>
+                        {activeFiltersCount > 0 && (
+                          <Badge variant="secondary" className="h-4 px-1.5 text-[10px] bg-primary/15 text-primary font-semibold">
+                            {activeFiltersCount} active
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <span className="text-[11px]">{mobileFiltersOpen ? 'Hide' : 'Show'}</span>
+                        <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", mobileFiltersOpen && "rotate-180")} />
+                      </div>
                     </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-2 space-y-2">
+                    <div className="p-2.5 rounded-lg border border-border/70 bg-card/60 space-y-2.5 shadow-xs">
+                      {/* Search */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search tenant, landlord, agent..."
+                          value={search}
+                          onChange={e => setSearch(e.target.value)}
+                          className="pl-9 h-9 text-sm bg-background"
+                        />
+                      </div>
+
+                      {/* Agent / Landlord quick filters */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="relative">
+                          <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Agent name"
+                            value={agentSearch}
+                            onChange={e => setAgentSearch(e.target.value)}
+                            className="pl-9 h-9 text-sm bg-background"
+                          />
+                        </div>
+                        <div className="relative">
+                          <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Landlord name"
+                            value={landlordSearch}
+                            onChange={e => setLandlordSearch(e.target.value)}
+                            className="pl-9 h-9 text-sm bg-background"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Tenant Select */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between px-0.5">
+                          <span className="text-[11px] text-muted-foreground font-medium">Tenant</span>
+                          {tenantSyncStatus === 'synced' ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <Cloud className="h-3 w-3" /> Synced
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <HardDrive className="h-3 w-3" /> Saved locally
+                            </span>
+                          )}
+                        </div>
+                        <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+                          <SelectTrigger className="h-9 text-sm w-full bg-background">
+                            <User className="h-3.5 w-3.5 mr-1 text-muted-foreground shrink-0" />
+                            <SelectValue placeholder="Choose a tenant to fund" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[320px]">
+                            <SelectItem value="all">All tenants ({tenantOptions.length})</SelectItem>
+                            {tenantOptions.map(t => (
+                              <SelectItem key={t.id} value={t.id}>
+                                <span className="truncate">{t.name} → {t.landlord_name}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Action buttons: Sort & Expired */}
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSortMode(nextRentDeskSort(sortMode))}
+                          className="flex-1 h-8 gap-1.5 text-xs bg-background"
+                        >
+                          <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>{RENT_DESK_SORT_LABELS[sortMode]}</span>
+                        </Button>
+
+                        {callStatus.loaded && (
+                          <Button
+                            type="button"
+                            variant={noCallOnly ? 'secondary' : 'outline'}
+                            size="sm"
+                            aria-pressed={noCallOnly}
+                            onClick={() => setNoCallOnly(prev => !prev)}
+                            className="flex-1 h-8 gap-1.5 text-xs bg-background"
+                          >
+                            <span>No call yet ({noCallCount})</span>
+                          </Button>
+                        )}
+
+                        {stage === 'pending' && expiredCount > 0 && (
+                          <Button
+                            type="button"
+                            variant={hideExpired ? 'outline' : 'secondary'}
+                            size="sm"
+                            onClick={() => setHideExpired(prev => !prev)}
+                            className="flex-1 h-8 gap-1.5 text-xs bg-background"
+                          >
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{hideExpired ? `Hide Exp (${expiredCount})` : `Show Exp (${expiredCount})`}</span>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            })()}
+          </div>
+          </>
+          )}
+        </CardHeader>
+        <CardContent className="p-0">
+          {showFullQueueChrome && (stage === 'pending' || stage === 'agent_ops_approved' || stage === 'tenant_ops_approved') && (
+            <div className="px-3 pb-3">
+              <MyAwarenessCallsCard />
+            </div>
+          )}
+          {showFullQueueChrome && (
+            <div className="px-3 pb-3">
+              <TenantOpsReportToolbar
+                tool="review_requests"
+                status="all"
+                search={search}
+                visibleCount={filtered.length}
+                fileSlug="tenant-requests-review-queue"
+              />
+            </div>
+          )}
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">
+              {deskFiltered && !deskOrder.isError ? 'No requests match these filters' : 'No requests at this stage'}
+            </div>
+          ) : layoutMode === 'table' ? (
+            <div className="overflow-x-auto">
+              {deskTiming.omitted > 0 && (
+                <p className="px-3.5 py-2 text-xs text-muted-foreground border-b border-border/50" data-testid="timing-limit-note">
+                  Desk time and agent details are loaded for the first {TIMING_BATCH_LIMIT} requests in this list. Narrow the filters to see the rest.
+                </p>
+              )}
+              <div className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-xs">
+                <Table>
+                  <TableHeader className="bg-muted/50 dark:bg-muted/30 border-b border-border/80">
+                    <TableRow className="hover:bg-transparent">
+                      {allowBulkActions && (
+                        <TableHead className="w-10 px-3 text-center">
+                          <Checkbox
+                            checked={isCooStage
+                              ? cooSelectAllFits.fits.length > 0 && cooSelectAllFits.fits.every(r => selectedIds.has(r.id)) && selectedIds.size === cooSelectAllFits.fits.length
+                              : selectedIds.size === filtered.length && filtered.length > 0}
+                            onCheckedChange={toggleSelectAll}
+                            aria-label="Select all"
+                          />
+                        </TableHead>
+                      )}
+                      <TableHead className="min-w-[210px] font-bold text-[11px] uppercase tracking-wider text-muted-foreground py-3 pl-4">Tenant &amp; Rent Plan</TableHead>
+                      <TableHead className="min-w-[190px] font-bold text-[11px] uppercase tracking-wider text-muted-foreground py-3">Landlord &amp; Property</TableHead>
+                      <TableHead className="min-w-[130px] font-bold text-[11px] uppercase tracking-wider text-muted-foreground py-3 text-right">Rent Amount</TableHead>
+                      <TableHead className="min-w-[150px] font-bold text-[11px] uppercase tracking-wider text-muted-foreground py-3">Originating Agent</TableHead>
+                      <TableHead className="min-w-[140px] font-bold text-[11px] uppercase tracking-wider text-muted-foreground py-3">Desk Timing</TableHead>
+                      <TableHead className="min-w-[130px] font-bold text-[11px] uppercase tracking-wider text-muted-foreground py-3">Status</TableHead>
+                      {isCfoStage && (
+                        <TableHead className="min-w-[150px] font-bold text-[11px] uppercase tracking-wider text-muted-foreground py-3">Funder Match</TableHead>
+                      )}
+                      <TableHead className="w-16 font-bold text-[11px] uppercase tracking-wider text-muted-foreground py-3 text-center pr-4">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((req, index) => {
+                      const approved = approvedCycleMap?.get(req.tenant_id) ?? 0;
+                      const isRenewal = approved > 0;
+                      const cyc = getRentCycleLabel(req.repayment_frequency, req.duration_days);
+                      const isLandlordStage = config.showLandlordChecklist && req.registration_type !== 'outstanding_balance';
+                      const cl = getCardChecklist(req.id);
+                      const checklistDone = (cl.called ? 1 : 0) + (cl.acknowledged ? 1 : 0);
+                      const checklistComplete = checklistDone === 2;
+                      const timing = deskTiming.byId.get(req.id);
+                      const elapsedAtDesk = timing?.current ? formatElapsed(timing.current.seconds) : null;
+
+                      return (
+                        <TableRow
+                          key={req.id}
+                          data-first-rent-request={index === 0 ? 'true' : undefined}
+                          className={cn(
+                            "hover:bg-muted/40 transition-colors group cursor-pointer border-b border-border/40",
+                            selectedIds.has(req.id) && "bg-primary/5"
+                          )}
+                          onClick={() => openRequestDetail(req)}
+                        >
+                          {allowBulkActions && (
+                            <TableCell className="w-10 px-3 py-2.5 text-center align-middle" onClick={(e) => e.stopPropagation()}>
+                              <div title={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : undefined}>
+                                <Checkbox
+                                  checked={selectedIds.has(req.id)}
+                                  disabled={cooSelectBlocked(req)}
+                                  aria-label={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : `Select request ${req.id}`}
+                                  data-request-id={req.id}
+                                  onCheckedChange={() => toggleSelect(req.id)}
+                                />
+                              </div>
+                            </TableCell>
+                          )}
+                          <TableCell className="align-middle py-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                                {req.tenant_id ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'tenant'); }}
+                                    className="font-bold text-sm text-foreground hover:text-primary transition-colors text-left truncate inline-flex items-center gap-1 group/tenant"
+                                    title="Open Tenant 360° Profile & Payment History"
+                                  >
+                                    <span className="truncate group-hover/tenant:underline">{req.tenant_name}</span>
+                                    <ExternalLink className="h-3 w-3 opacity-0 group-hover/tenant:opacity-100 transition-opacity text-primary shrink-0" />
+                                  </button>
+                                ) : (
+                                  <span className="font-bold text-sm text-foreground truncate">
+                                    {req.tenant_name}
+                                  </span>
+                                )}
+                                {isRenewal ? (
+                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20 shrink-0">
+                                    C{approved}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 shrink-0">
+                                    New
+                                  </span>
+                                )}
+                                {req.registration_type === 'outstanding_balance' && (
+                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 border border-amber-500/20 shrink-0">
+                                    Bal
+                                  </span>
+                                )}
+                                {isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at) && (
+                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-destructive/10 text-destructive border border-destructive/20 shrink-0">
+                                    Expired
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+                                <PaymentLabelChip label={req.payment_label} score={req.payment_score} reason={req.payment_reason} showReason={false} />
+                                <span className="font-mono">{req.tenant_phone}</span>
+                                <span className="opacity-40">·</span>
+                                <span className="capitalize">{cyc.full}</span>
+                                {req.payment_reason && (
+                                  <span className="sr-only" data-testid="payment-label-reason">
+                                    {req.payment_reason}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="align-middle py-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                {req.landlord_id ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); }}
+                                    className="font-semibold text-sm text-foreground hover:text-primary transition-colors text-left truncate inline-flex items-center gap-1 group/landlord"
+                                    title="Open Landlord 360° Profile & Agreements"
+                                  >
+                                    <span className="truncate group-hover/landlord:underline">{req.landlord_name || 'Unknown'}</span>
+                                    <ExternalLink className="h-3 w-3 opacity-0 group-hover/landlord:opacity-100 transition-opacity text-primary shrink-0" />
+                                  </button>
+                                ) : (
+                                  <span className="font-semibold text-sm text-foreground truncate">{req.landlord_name || 'Unknown'}</span>
+                                )}
+                                <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
+                              </div>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+                                <MapPin className="h-3 w-3 shrink-0 text-muted-foreground/60" />
+                                <span className="truncate max-w-[180px]">
+                                  {req.request_city || req.landlord_district || req.tenant_district || req.landlord_address || req.landlord_phone || 'Uganda'}
+                                </span>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="align-middle py-3 text-right">
+                            <div className="space-y-0.5">
+                              <div className="font-bold text-sm text-foreground tabular-nums">
+                                UGX {fmt(req.rent_amount)}
+                              </div>
+                              <div className="text-xs text-muted-foreground capitalize">
+                                {req.repayment_frequency || 'monthly'}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="align-middle py-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 min-w-0">
+                                {req.agent_id ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'agent'); }}
+                                    className="font-semibold text-xs text-foreground hover:text-primary transition-colors text-left truncate inline-flex items-center gap-1 group/agent"
+                                    title="Open Agent Profile & Performance"
+                                  >
+                                    <span className="truncate group-hover/agent:underline">{req.agent_name || 'Unknown'}</span>
+                                    <ExternalLink className="h-2.5 w-2.5 opacity-0 group-hover/agent:opacity-100 transition-opacity text-primary shrink-0" />
+                                  </button>
+                                ) : (
+                                  <span className="font-semibold text-xs text-foreground truncate">{req.agent_name || 'Unknown'}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <span className="font-mono">{req.agent_phone}</span>
+                                {req.proxy_agent_id && (
+                                  <span className="inline-flex items-center text-[10px] text-muted-foreground/80 px-1 py-0.2 rounded bg-muted/60">
+                                    Proxy
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="align-middle py-3">
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-foreground whitespace-nowrap">
+                              <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <span>{elapsedAtDesk ? `${elapsedAtDesk} on desk` : format(new Date(req.created_at), 'dd MMM yyyy')}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="align-middle py-3.5">
+                            <div className="space-y-1">
+                              {(() => {
+                                const cfg = getPipelineStatusConfig(req.status);
+                                return (
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border shadow-2xs whitespace-nowrap tracking-tight",
+                                      cfg.badge
+                                    )}
+                                  >
+                                    <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", cfg.dot)} />
+                                    <span>{cfg.label}</span>
+                                  </span>
+                                );
+                              })()}
+                              {isLandlordStage ? (
+                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground pl-0.5">
+                                  <span className={cn("h-1.5 w-1.5 rounded-full", checklistComplete ? "bg-emerald-500" : "bg-amber-500")} />
+                                  <span>Checklist: {checklistDone}/2</span>
+                                </div>
+                              ) : isCfoStage ? (
+                                <div className="text-[11px] font-medium text-muted-foreground pl-1">
+                                  Payout Queue
+                                </div>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          {isCfoStage && (
+                            <TableCell className="align-middle py-3.5">
+                              <div className="space-y-1">
+                                {funderPicked(req) ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 whitespace-nowrap tracking-tight shadow-2xs">
+                                    <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Funder Matched</span>
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/25 whitespace-nowrap tracking-tight shadow-2xs"
+                                    data-needs-pick={req.id}
+                                  >
+                                    <Clock className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Awaiting Pick</span>
+                                  </span>
+                                )}
+                                <div className="text-[11px] text-muted-foreground truncate max-w-[170px] pl-1" title={cfoNote(req)} data-needs-pick={funderPicked(req) ? undefined : req.id}>
+                                  {funderPicked(req) ? 'Ready to disburse' : "Needs funder's pick"}
+                                </div>
+                              </div>
+                            </TableCell>
+                          )}
+                          <TableCell className="align-middle py-3.5 text-center pr-4" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1.5">
+                              {!isCfoStage && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={(e) => handleQuickApprove(req, e)}
+                                  disabled={quickProcessingId === req.id || (isCooStage && !requestFitsLandlordFloatBudget(req)) || (isLandlordStage && !checklistComplete) || (stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
+                                  className="h-8 px-3 text-xs font-bold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 shadow-xs"
+                                >
+                                  {quickProcessingId === req.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                  )}
+                                  <span>Approve</span>
+                                </Button>
+                              )}
+
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 border border-transparent hover:border-border/60 transition-all flex items-center justify-center"
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="More options"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                    <span className="sr-only">Actions</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-64 rounded-xl border border-border/80 shadow-lg p-1.5" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuItem
+                                    onClick={() => openRequestDetail(req)}
+                                    className="gap-2.5 cursor-pointer font-medium py-2 text-xs"
+                                  >
+                                    <Eye className="h-4 w-4 text-muted-foreground" />
+                                    <span>View</span>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuItem
+                                    onClick={() => setDirectReject({ id: req.id, name: req.tenant_name, reason: '' })}
+                                    className="gap-2.5 cursor-pointer font-medium py-2 text-xs text-rose-600 dark:text-rose-400 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/40"
+                                  >
+                                    <RotateCcw className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                                    <span>Return</span>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuSeparator />
+
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      if (req.landlord_id) openDrilldownForRequest(req, 'landlord');
+                                    }}
+                                    disabled={!req.landlord_id}
+                                    className="gap-2.5 cursor-pointer font-medium py-2 text-xs"
+                                  >
+                                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                                    <span>Landlord Profile and Agreement</span>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      if (req.agent_id) openDrilldownForRequest(req, 'agent');
+                                    }}
+                                    disabled={!req.agent_id}
+                                    className="gap-2.5 cursor-pointer font-medium py-2 text-xs"
+                                  >
+                                    <UserCheck className="h-4 w-4 text-muted-foreground" />
+                                    <span>Agent Profile and Performance</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {deskTiming.omitted > 0 && (
+                <p className="px-3.5 py-2 text-xs text-muted-foreground" data-testid="timing-limit-note">
+                  Desk time and agent details are loaded for the first {TIMING_BATCH_LIMIT} requests in this list. Narrow the filters to see the rest.
+                </p>
+              )}
+              {filtered.map((req, index) => {
+                const isLandlordStage = config.showLandlordChecklist && req.registration_type !== 'outstanding_balance';
+                const cl = getCardChecklist(req.id);
+                const checklistDone = (cl.called ? 1 : 0) + (cl.acknowledged ? 1 : 0);
+                const checklistComplete = checklistDone === 2;
+                const isExpanded = expandedCardIds.has(req.id);
+                const isCardCollapsed = collapsedCardIds.has(req.id);
+
+                return (
+                  <div
+                    key={req.id}
+                    data-first-rent-request={index === 0 ? 'true' : undefined}
+                    className="w-full text-left px-3.5 py-3 hover:bg-muted/30 transition-all"
+                  >
+                    {/* Top Header Row: Checkbox + Tenant Name on Left, Amount (when expanded) + Collapse Arrow on Right */}
+                    <div
+                      onClick={() => isCardCollapsed ? toggleCardCollapsed(req.id) : openRequestDetail(req)}
+                      className="flex items-center justify-between gap-2 cursor-pointer group/header select-none"
+                      title={isCardCollapsed ? "Click to expand application" : "Click to view full rent request details"}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {/* Bulk review selection checkbox */}
+                        {allowBulkActions && (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="shrink-0"
+                            title={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : undefined}
+                          >
+                            <Checkbox
+                              checked={selectedIds.has(req.id)}
+                              disabled={cooSelectBlocked(req)}
+                              aria-label={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : `Select request ${req.id}`}
+                              data-request-id={req.id}
+                              onCheckedChange={() => toggleSelect(req.id)}
+                            />
+                          </div>
+                        )}
+                        <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="font-bold text-sm sm:text-base text-foreground truncate group-hover/header:text-primary group-hover/header:underline transition-colors">
+                          {req.tenant_name}
+                        </span>
+                      </div>
+
+                      {/* Right side: Amount (hidden when collapsed so only the name is visible) + Collapse/Expand Chevron */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {!isCardCollapsed && (
+                          <span className="font-extrabold text-sm sm:text-base text-primary tabular-nums group-hover/header:text-primary transition-colors">
+                            UGX {fmt(req.rent_amount)}
+                          </span>
+                        )}
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => toggleCardCollapsed(req.id, e)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleCardCollapsed(req.id, e as unknown as React.MouseEvent);
+                            }
+                          }}
+                          aria-expanded={!isCardCollapsed}
+                          aria-label={isCardCollapsed ? `Expand ${req.tenant_name}` : `Collapse ${req.tenant_name}`}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 cursor-pointer"
+                          title={isCardCollapsed ? "Expand application" : "Collapse application"}
+                        >
+                          <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", !isCardCollapsed && "rotate-180")} />
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Full-Width Application Body — Hidden completely when collapsed so only the name is visible */}
+                    {!isCardCollapsed && (
+                      <div className="mt-2 space-y-2">
+                        {/* Row 1: Status & Cycle Badges spanning full width */}
+                        <div
+                          onClick={() => openRequestDetail(req)}
+                          className="flex items-center gap-1.5 flex-wrap cursor-pointer"
+                        >
+                          {(() => {
+                            const cyc = getRentCycleLabel(req.repayment_frequency, req.duration_days);
+                            return (
+                              <span
+                                className={cn(
+                                  'inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border shrink-0',
+                                  RENT_CYCLE_BADGE_CLASSES[cyc.tone],
+                                )}
+                                title={`Repayment cycle: ${cyc.full}`}
+                              >
+                                <CalendarClock className="h-2.5 w-2.5" />
+                                {cyc.full}
+                              </span>
+                            );
+                          })()}
+                          {(() => {
+                            const approved = approvedCycleMap?.get(req.tenant_id) ?? 0;
+                            const isRenewal = approved > 0;
+                            return (
+                              <>
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30 shrink-0"
+                                  title={`Approved rent plans for this tenant: ${approved}`}
+                                >
+                                  <Repeat className="h-2.5 w-2.5" />
+                                  Cycle {approved}
+                                </span>
+                                <span
+                                  className={cn(
+                                    'inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border shrink-0',
+                                    isRenewal
+                                      ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30'
+                                      : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
+                                  )}
+                                  title={
+                                    isRenewal
+                                      ? 'Renewal — this tenant has had a rent plan approved before'
+                                      : 'New — no approved rent plan for this tenant yet'
+                                  }
+                                >
+                                  <Sparkles className="h-2.5 w-2.5" />
+                                  {isRenewal ? 'Renewal' : 'New'}
+                                </span>
+                              </>
+                            );
+                          })()}
+                          {req.registration_type === 'outstanding_balance' && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 shrink-0">
+                              <AlertCircle className="h-2.5 w-2.5" />
+                              Outstanding
+                            </span>
+                          )}
+                          {isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at) && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
+                              <Clock className="h-2.5 w-2.5" />
+                              Expired (&gt;30d)
+                            </span>
+                          )}
+                          {req.is_resubmitted && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-700 border border-violet-500/30 shrink-0">
+                              <RotateCcw className="h-2.5 w-2.5" />
+                              Resubmitted
+                            </span>
+                          )}
+                          <RenewalListTags request={req as any} />
+                          <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
+                          <PaymentLabelChip label={req.payment_label} score={req.payment_score} reason={req.payment_reason} showReason={false} />
+                          {req.funder_visible === false && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
+                                  <AlertCircle className="h-2.5 w-2.5" />
+                                  No proxy attached
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs text-xs">
+                                Not published to the Funder dashboard. Tenant Ops reason:{' '}
+                                {req.funder_visibility_reason || 'not provided'}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+
+                        {/* Row 2: Payment Reason spanning full width */}
+                        {req.payment_reason && (
+                          <p className="text-xs leading-snug text-muted-foreground" data-testid="payment-label-reason">
+                            {req.payment_reason}
+                          </p>
+                        )}
+
+                        {/* Row 3: Smartly Aligned Agent / Sub-agent Chain & Landlord Info */}
+                        <div className="space-y-1.5 text-xs text-muted-foreground">
+                          <RentAgentChain
+                            lines={chainFor(req)}
+                            onOpenAgent={(id) => openDrilldownForRequest(req, 'agent', { agentId: id })}
+                            afterName={(l) =>
+                              l.role === 'Agent' || l.role === 'Sub-agent' ? (
+                                <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} />
+                              ) : null
+                            }
+                            className="space-y-1.5"
+                          />
+                          {req.landlord_id && (
+                            <div className="flex items-center justify-between gap-2 rounded-lg border border-border/50 bg-muted/20 px-2.5 py-1.5">
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); } }}
+                                className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary hover:underline cursor-pointer min-w-0"
+                                title="Open landlord profile"
+                              >
+                                <Home className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                <span className="text-muted-foreground text-xs shrink-0">Landlord:</span>
+                                <span className="font-semibold truncate">{req.landlord_name || 'Unknown'}</span>
+                              </span>
+                              {(req.request_city || req.landlord_district || req.tenant_district) && (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+                                  <MapPin className="h-3 w-3 shrink-0" />
+                                  <span className="truncate max-w-[120px]">{req.request_city || req.landlord_district || req.tenant_district}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {req.pricing_version === 'v360' && (
+                          <div className="mt-2">
+                            <V360PlanCaptions rentRequestId={req.id} expectV360 />
+                          </div>
+                        )}
+
+                        {stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked && (
+                          <div role="alert" className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+                            <p className="font-semibold">{landlordRejectedGate(req).title}</p>
+                            <p>{landlordRejectedGate(req).description}</p>
+                          </div>
+                        )}
+
+                        {/* Desk time: on your desk / before / total in system (server answer, one call for the desk). Tap the clock for the journey. */}
+                        <RentTimingRow
+                          requestId={req.id}
+                          timing={deskTiming.byId.get(req.id)}
+                          loading={deskTiming.isLoading}
+                          error={deskTiming.error}
+                          onRetry={deskTiming.refetch}
+                          ownDesk
+                        />
+
+                        {/* Foldable details section (unfolds on toggle) */}
+                        {isExpanded && (
+                          <div className="mt-2.5 pt-2 border-t border-dashed border-border/60 space-y-2 text-xs animate-in fade-in-50 duration-150">
+                            <div className="flex items-center gap-2 sm:gap-3 text-muted-foreground flex-wrap min-w-0">
+                              {req.landlord_id ? (
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); }}
+                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); } }}
+                                  className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
+                                  title="Open landlord profile"
+                                >
+                                  <Home className="h-3 w-3" />
+                                  {req.landlord_name}
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1">
+                                  <Home className="h-3 w-3" />
+                                  {req.landlord_name}
+                                </span>
+                              )}
+                              {req.landlord_is_new && (
+                                <Badge variant="outline" className="border-amber-500/50 px-1 py-0 text-[9px] text-amber-600 dark:text-amber-400">
+                                  new landlord
+                                </Badge>
+                              )}
+                              {req.lc1_is_new && (
+                                <Badge variant="outline" className="border-amber-500/50 px-1 py-0 text-[9px] text-amber-600 dark:text-amber-400">
+                                  new LC1
+                                </Badge>
+                              )}
+                              {(req.request_city || req.landlord_district || req.tenant_district) && (
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {req.request_city || req.landlord_district || req.tenant_district}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* WhatsApp quick contacts */}
+                            <div className="flex items-center gap-1 sm:gap-2 flex-wrap min-w-0">
+                              <WhatsAppButton phone={req.tenant_phone} name={req.tenant_name} label="Tenant" />
+                              <WhatsAppButton phone={req.landlord_phone} name={req.landlord_name} label="Landlord" />
+                            </div>
+
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono pt-1">
+                              <span>Submitted: {format(new Date(req.created_at), 'dd MMM yyyy, HH:mm')}</span>
+                              {stage === 'pending' && (() => {
+                                const expiryDate = new Date(new Date(req.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
+                                const isPastExpiry = Date.now() > expiryDate.getTime();
+                                return (
+                                  <span className={`font-mono flex items-center gap-1 ${isPastExpiry ? 'text-destructive font-semibold' : 'text-amber-600 dark:text-amber-400'}`}>
+                                    <Clock className="h-2.5 w-2.5 shrink-0" />
+                                    Expires: {format(expiryDate, 'dd MMM yyyy')}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+
+                            {/* View full sheet button from unfolded card */}
+                            <div className="pt-1 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                              >
+                                <span>Open Full Review Drawer</span>
+                                <ArrowRight className="h-3 w-3" />
+                              </button>
+                            </div>
+
+                            {/* Inline landlord verification checklist */}
+                            {isLandlordStage && (
+                              <div className="mt-2 space-y-2 pt-2 border-t border-border/40">
+                                {checklistSyncStatus !== 'idle' && (
+                                  <div className="flex items-center gap-1.5">
+                                    {checklistSyncStatus === 'saving' && (
+                                      <>
+                                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                        <span className="text-[10px] font-medium text-muted-foreground">Saving…</span>
+                                      </>
+                                    )}
+                                    {checklistSyncStatus === 'saved' && (
+                                      <>
+                                        <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                                        <span className="text-[10px] font-medium text-emerald-600">
+                                          {checklistSavedAt && Date.now() - checklistSavedAt.getTime() < 5000
+                                            ? 'Saved'
+                                            : `Saved${checklistSavedAt ? ` · ${format(checklistSavedAt, 'h:mm a')}` : ''}`}
+                                        </span>
+                                      </>
+                                    )}
+                                    {checklistSyncStatus === 'failed' && (
+                                      <>
+                                        <AlertCircle className="h-3 w-3 text-destructive" />
+                                        <span className="text-[10px] font-medium text-destructive">
+                                          Not saved to server — saved on this phone only
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+
+                                <div className={`flex items-center gap-2 rounded-lg px-3 py-2 border ${checklistComplete ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${checklistComplete ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
+                                    {checklistComplete ? '✓' : `${checklistDone}`}
+                                  </span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-xs font-bold ${checklistComplete ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'}`}>
+                                      {checklistComplete
+                                        ? 'All done — tap Approve now'
+                                        : `${checklistDone} of 2 done — finish the steps below`}
+                                    </p>
+                                    <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full transition-all duration-300 ${checklistComplete ? 'bg-emerald-500 w-full' : checklistDone === 1 ? 'bg-amber-500 w-1/2' : 'bg-amber-500 w-0'}`}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-3 space-y-2.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-bold flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
+                                      <ShieldCheck className="h-4 w-4" />
+                                      Do these 2 steps first
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); toggleCardCheck(req.id, 'called', !cl.called); }}
+                                    className={`w-full flex items-center gap-3 rounded-xl border-2 p-2.5 text-left transition-colors ${cl.called ? 'border-emerald-500 bg-emerald-500/10' : 'border-border bg-background active:bg-muted'}`}
+                                  >
+                                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${cl.called ? 'bg-emerald-500 text-white' : 'bg-muted text-foreground'}`}>
+                                      {cl.called ? '✓' : '1'}
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block text-xs font-semibold">I called the landlord</span>
+                                      <span className="block text-[11px] text-muted-foreground">
+                                        {req.landlord_phone ? `Call ${req.landlord_phone}, then tap here` : 'Call the landlord, then tap here'}
+                                      </span>
+                                    </span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); toggleCardCheck(req.id, 'acknowledged', !cl.acknowledged); }}
+                                    className={`w-full flex items-center gap-3 rounded-xl border-2 p-2.5 text-left transition-colors ${cl.acknowledged ? 'border-emerald-500 bg-emerald-500/10' : 'border-border bg-background active:bg-muted'}`}
+                                  >
+                                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${cl.acknowledged ? 'bg-emerald-500 text-white' : 'bg-muted text-foreground'}`}>
+                                      {cl.acknowledged ? '✓' : '2'}
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block text-xs font-semibold">Landlord said Welile will pay</span>
+                                      <span className="block text-[11px] text-muted-foreground">They understand Welile sends the rent, not the tenant</span>
+                                    </span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Bottom Action Row: Reject on far left, Details in center, Approve on far right */}
+                        <div className="flex items-center justify-between gap-2 w-full pt-2.5 mt-2 border-t border-border/40">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isLandlordOpsDesk) setDirectReject({ id: req.id, name: req.tenant_name || 'this tenant', reason: '' });
+                              else openRequestDetail(req);
+                            }}
+                            disabled={quickProcessingId === req.id}
+                            className="h-8 px-3 text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 active:scale-95 transition-all gap-1.5 shadow-xs"
+                            title={isCfoStage ? 'Return to COO' : 'Reject request'}
+                          >
+                            <XCircle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                            <span>{isCfoStage ? 'Return to COO' : 'Reject'}</span>
+                          </Button>
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
+                            className="h-8 px-2.5 text-xs text-primary hover:bg-primary/10 gap-1.5 font-semibold"
+                            title="Open full rent request review details"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Details</span>
+                          </Button>
+
+                          {isCfoStage ? (
+                            <span className="text-[11px] font-medium text-muted-foreground text-right max-w-[13rem]" data-needs-pick={funderPicked(req) ? undefined : req.id}>
+                              {cfoNote(req)}
+                            </span>
+                          ) : <Button
+                            type="button"
+                            size="sm"
+                            onClick={(e) => handleQuickApprove(req, e)}
+                            disabled={quickProcessingId === req.id || (isCooStage && !requestFitsLandlordFloatBudget(req)) || (isLandlordStage && !checklistComplete) || (stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
+                            title={
+                              stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked ? landlordRejectedGate(req).title :
+                                isCooStage && !requestFitsLandlordFloatBudget(req) ? 'Over the landlord float budget left today' : isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)
+                                  ? "This rent request expired after 30 days without verification"
+                                  : isLandlordStage && !checklistComplete
+                                    ? `Complete the landlord verification checklist (${checklistDone}/2)`
+                                    : undefined
+                            }
+                            className="h-8 px-4 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 shadow-xs active:scale-95 transition-all"
+                          >
+                            {quickProcessingId === req.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            )}
+                            <span>Approve</span>
+                          </Button>}
+                        </div>
+                        {isCooStage && landlordFloatBudget.data && (landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id) || (!landlordFloatBudget.data.blocked && !requestFitsLandlordFloatBudget(req))) && <div className="pt-2"><LandlordFloatMiscAction requestId={req.id} tenantName={req.tenant_name} pending={landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id)} requestMisc={requestLandlordFloatMisc} /></div>}
+                      </div>
+                    )}
                   </div>
-                  {selectedRequest.agent_email && (
-                    <p className="text-xs text-muted-foreground mt-0.5">✉️ {selectedRequest.agent_email}</p>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+
+        {/* Tenant Detail Sheet */}
+        <Sheet open={!!selectedRequest} onOpenChange={(open) => { if (!open) { setSelectedRequest(null); setComment(''); setAssignedAgentId(null); setPayoutRef(''); setLandlordCalled(false); setLandlordAcknowledged(false); setLandlordVerificationMethod(''); setLandlordCallNotes(''); } }}>
+          <SheetContent side="bottom" className="h-[92vh] md:h-[88vh] rounded-t-2xl p-0 flex flex-col overflow-hidden border-t border-border shadow-2xl bg-background max-w-5xl mx-auto w-full">
+            {/* Executive Header */}
+            <SheetHeader className="px-5 sm:px-6 py-3 border-b border-border/70 bg-muted/20 shrink-0 text-left">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <SheetTitle className="flex items-center gap-2 text-base font-bold">
+                    <User className="h-4 w-4 text-primary" />
+                    Review Rent Request
+                  </SheetTitle>
+                  {selectedRequest && (
+                    <>
+                      <span className="text-muted-foreground/60 text-xs hidden sm:inline">·</span>
+                      <span className="text-xs font-mono font-bold text-muted-foreground hidden sm:inline">
+                        #{selectedRequest.id.slice(0, 8).toUpperCase()}
+                      </span>
+                      <Badge variant="outline" className={cn("text-[11px] font-semibold", STATUS_COLORS[selectedRequest.status] || "")}>
+                        {selectedRequest.status.replace(/_/g, ' ')}
+                      </Badge>
+                      {selectedRequest.repayment_frequency && (
+                        <Badge variant="outline" className={cn("text-[11px] font-semibold", RENT_CYCLE_BADGE_CLASSES[getRentCycleLabel(selectedRequest.repayment_frequency, selectedRequest.duration_days).cycle] || "bg-muted text-muted-foreground")}>
+                          {getRentCycleLabel(selectedRequest.repayment_frequency, selectedRequest.duration_days).full}
+                        </Badge>
+                      )}
+                      {selectedRequest.registration_type === 'outstanding_balance' && (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300 dark:border-amber-700 text-[11px] font-semibold">
+                          Outstanding Balance
+                        </Badge>
+                      )}
+                      {isCfoStage && (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[11px] font-semibold gap-1",
+                            funderPicked(selectedRequest)
+                              ? "bg-emerald-500/10 text-emerald-700 border-emerald-300"
+                              : "bg-amber-500/10 text-amber-700 border-amber-300"
+                          )}
+                        >
+                          {funderPicked(selectedRequest) ? (
+                            <><ShieldCheck className="h-3 w-3 text-emerald-600" /> Funder Matched</>
+                          ) : (
+                            <><Clock className="h-3 w-3 text-amber-600" /> Awaiting Funder Pick</>
+                          )}
+                        </Badge>
+                      )}
+                    </>
                   )}
                 </div>
-                {stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked && (
-                  <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-                    <p className="font-semibold">{landlordRejectedGate(selectedRequest).title}</p>
-                    <p className="mt-0.5">{landlordRejectedGate(selectedRequest).description}</p>
-                  </div>
-                )}
-
-                {/* Awareness call: phone the tenant / landlord / agent and record what they heard. Storage only; approve and reject below are unchanged.
-                    The COO and CFO stages see it read-only. The agent name, phone and id all belong to the registering agent. */}
-                <div className="col-span-2">
-                  <AwarenessCallPanel
-                    key={selectedRequest.id}
-                    request={{
-                      ...selectedRequest,
-                      agent_id: selectedRequest.agent_id,
-                    }}
-                    defaultSubject={defaultAwarenessSubjectForStage(stage)}
-                    readOnly={isAwarenessReadOnlyStage(stage)}
-                    landlordChecklistNote={stage === 'tenant_ops_approved'}
-                  />
-                </div>
-                <InlineEditableField field="rent_amount" label="Rent Amount" value={selectedRequest.rent_amount} prefix="UGX " className="font-bold text-base" />
-                <InlineEditableField field="duration_days" label="Duration" value={selectedRequest.duration_days} suffix=" days" />
-                <div className="flex items-center justify-between gap-2 py-1">
-                  <span className="text-xs text-muted-foreground">Repayment cycle</span>
-                  <span className="text-xs font-semibold">
-                    {getRentCycleLabel(selectedRequest.repayment_frequency, selectedRequest.duration_days).full}
-                  </span>
-                </div>
-                <InlineEditableField field="access_fee" label="Access Fee" value={selectedRequest.access_fee} prefix="UGX " />
-                <InlineEditableField field="daily_repayment" label="Daily Repayment" value={selectedRequest.daily_repayment} prefix="UGX " className="font-bold text-base text-primary" />
-                {selectedRequest.pricing_version === 'v360' && (
-                  <div className="col-span-2">
-                    <V360PlanCaptions rentRequestId={selectedRequest.id} expectV360 />
-                  </div>
-                )}
-                <InlineEditableField field="total_repayment" label="Total Repayment" value={selectedRequest.total_repayment} prefix="UGX " />
-                <div className="space-y-0.5">
-                  <p className="text-xs text-muted-foreground">Submitted Date</p>
-                  <p className="font-semibold text-xs font-mono">{format(new Date(selectedRequest.created_at), 'dd MMM yyyy, HH:mm')}</p>
-                </div>
-                <div className="space-y-0.5">
-                  <p className="text-xs text-muted-foreground">Expiry Date</p>
-                  <p className="font-semibold text-xs font-mono text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {format(new Date(new Date(selectedRequest.created_at).getTime() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy, HH:mm')}
-                  </p>
-                </div>
-                {selectedRequest.house_category && (
-                  <InlineEditableField field="house_category" label="House Category" value={selectedRequest.house_category} />
-                )}
-                {selectedRequest.request_city && (
-                  <div className="space-y-0.5">
-                    <p className="text-xs text-muted-foreground">Location</p>
-                    <p className="font-semibold">{selectedRequest.request_city}</p>
-                  </div>
-                )}
-                {selectedRequest.tenant_address && (
-                  <div className="space-y-0.5 col-span-2">
-                    <p className="text-xs text-muted-foreground">Tenant Residence (as captured)</p>
-                    <p className="font-semibold">{selectedRequest.tenant_address}</p>
-                  </div>
-                )}
-                {selectedRequest.landlord_address && (
-                  <div className="space-y-0.5 col-span-2">
-                    <p className="text-xs text-muted-foreground">Landlord / Property Address</p>
-                    <p className="font-semibold">{selectedRequest.landlord_address}</p>
+                {selectedRequest && (
+                  <div className="hidden sm:flex items-center gap-2 text-right">
+                    <div>
+                      <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Rent Amount</div>
+                      <div className="text-lg font-black text-primary tabular-nums">UGX {fmt(selectedRequest.rent_amount)}</div>
+                    </div>
                   </div>
                 )}
               </div>
+            </SheetHeader>
 
-              {selectedRequest.landlord_id && (
-                <div className="rounded-xl border border-border bg-card p-3">
-                  <LandlordTenantsSection
-                    landlordId={selectedRequest.landlord_id}
-                    onSelectTenant={(tid) => openDrilldownForRequest(selectedRequest, 'tenant', { tenantId: tid })}
-                    onSelectAgent={(aid) => openDrilldownForRequest(selectedRequest, 'agent', { agentId: aid })}
-                  />
-                </div>
-              )}
+            {selectedRequest && (
+              <Tabs defaultValue="terms" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                {/* Tab Navigation Strip */}
+                <div className="px-5 sm:px-6 py-2.5 border-b border-border/60 bg-muted/10 shrink-0 flex items-center justify-between gap-4">
+                  <TabsList className="grid w-full sm:w-auto grid-cols-3 h-9 bg-muted/60 p-1">
+                    <TabsTrigger value="terms" className="text-xs font-semibold gap-1.5 px-3">
+                      <Banknote className="h-3.5 w-3.5" />
+                      <span>Terms & Parties</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="evidence" className="text-xs font-semibold gap-1.5 px-3">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      <span>Evidence & Media</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="pipeline" className="text-xs font-semibold gap-1.5 px-3">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>Pipeline & Notes</span>
+                    </TabsTrigger>
+                  </TabsList>
 
-              {selectedRequest.landlord_id && (
-                <LandlordAgreementHistory
-                  landlordId={selectedRequest.landlord_id}
-                  landlordName={selectedRequest.landlord_name || 'Landlord'}
-                  landlordPhone={selectedRequest.landlord_phone || ''}
-                  propertyAddress={selectedRequest.landlord_address}
-                  canAdd={false}
-                />
-              )}
-
-
-
-
-
-              {/* Latest rent receipt from landlord — highlighted for operator review */}
-              {selectedRequest.latest_rent_receipt_url && (
-                <div className="rounded-xl border-2 border-amber-400/60 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-semibold flex items-center gap-1.5 text-amber-900 dark:text-amber-200">
-                      <Camera className="h-4 w-4" />
-                      Tenant's Latest Rent Receipt (from Landlord)
-                    </h4>
-                    {selectedRequest.latest_rent_receipt_uploaded_at && (
-                      <span className="text-[10px] text-amber-800/70 dark:text-amber-300/70">
-                        {new Date(selectedRequest.latest_rent_receipt_uploaded_at).toLocaleString()}
-                      </span>
-                    )}
+                  <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>Tenant: <strong className="text-foreground">{selectedRequest.tenant_name}</strong></span>
+                    <span>·</span>
+                    <span>Landlord: <strong className="text-foreground">{selectedRequest.landlord_name}</strong></span>
                   </div>
-                  <a
-                    href={selectedRequest.latest_rent_receipt_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
-                  >
-                    <img
-                      src={selectedRequest.latest_rent_receipt_url}
-                      alt="Tenant's latest rent receipt"
-                      className="w-full max-h-96 rounded-lg object-contain border-2 border-amber-300 bg-card hover:ring-2 hover:ring-amber-500 transition-all cursor-zoom-in"
-                      loading="lazy"
-                    />
-                  </a>
-                  <p className="text-[10px] text-amber-800/80 dark:text-amber-300/80">
-                    Most recent receipt the landlord issued to this tenant. Click to enlarge.
-                  </p>
                 </div>
-              )}
 
-              {/* Tenant passport + house photos — visible verification evidence */}
-              {(selectedRequest.tenant_photo_url || (selectedRequest.house_image_urls && selectedRequest.house_image_urls.length > 0)) && (
-                <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
-                  <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                    <Camera className="h-4 w-4 text-primary" />
-                    Verification Photos
-                  </h4>
-                  <div className="flex flex-wrap gap-3">
-                    {selectedRequest.tenant_photo_url && (
-                      <div className="space-y-1">
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Tenant Passport</p>
-                        <a href={selectedRequest.tenant_photo_url} target="_blank" rel="noopener noreferrer" className="block">
-                          <img
-                            src={selectedRequest.tenant_photo_url}
-                            alt={`Tenant ${selectedRequest.tenant_name}`}
-                            className="h-32 w-24 rounded-lg object-cover border-2 border-primary/30 hover:ring-2 hover:ring-primary transition-all bg-background"
-                            loading="lazy"
-                          />
-                        </a>
+                {/* Tab 1: Terms & Counterparties */}
+                <TabsContent value="terms" className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 mt-0 space-y-5 focus-visible:outline-none">
+                  {/* Financial & Lease Terms Card */}
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-sm">
+                    <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                      <h3 className="text-sm font-bold flex items-center gap-2 text-foreground">
+                        <Banknote className="h-4 w-4 text-primary" />
+                        Financial & Lease Terms
+                      </h3>
+                      <span className="text-[11px] text-muted-foreground">Click values with pencil to edit inline</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="rounded-lg border border-border/70 bg-muted/20 p-3 transition-colors hover:border-primary/40">
+                        <InlineEditableField field="rent_amount" label="Rent Amount" value={selectedRequest.rent_amount} prefix="UGX " className="font-bold text-base" />
+                      </div>
+                      <div className="rounded-lg border border-border/70 bg-muted/20 p-3 transition-colors hover:border-primary/40">
+                        <InlineEditableField field="daily_repayment" label="Daily Repayment" value={selectedRequest.daily_repayment} prefix="UGX " className="font-bold text-base text-primary" />
+                      </div>
+                      <div className="rounded-lg border border-border/70 bg-muted/20 p-3 transition-colors hover:border-primary/40">
+                        <InlineEditableField field="access_fee" label="Access Fee" value={selectedRequest.access_fee} prefix="UGX " />
+                      </div>
+                      <div className="rounded-lg border border-border/70 bg-muted/20 p-3 transition-colors hover:border-primary/40">
+                        <InlineEditableField field="total_repayment" label="Total Repayment" value={selectedRequest.total_repayment} prefix="UGX " />
+                      </div>
+                      <div className="rounded-lg border border-border/70 bg-muted/20 p-3 transition-colors hover:border-primary/40">
+                        <InlineEditableField field="duration_days" label="Duration" value={selectedRequest.duration_days} suffix=" days" />
+                      </div>
+                      <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                        <p className="text-xs text-muted-foreground">Repayment Cycle</p>
+                        <p className="font-semibold text-xs mt-1">
+                          {getRentCycleLabel(selectedRequest.repayment_frequency, selectedRequest.duration_days).full}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                        <p className="text-xs text-muted-foreground">Submitted Date</p>
+                        <p className="font-semibold text-xs font-mono mt-1">{format(new Date(selectedRequest.created_at), 'dd MMM yyyy, HH:mm')}</p>
+                      </div>
+                      <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                        <p className="text-xs text-muted-foreground">Expiry Date</p>
+                        <p className="font-semibold text-xs font-mono text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1">
+                          <Clock className="h-3 w-3" />
+                          {format(new Date(new Date(selectedRequest.created_at).getTime() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy, HH:mm')}
+                        </p>
+                      </div>
+                      {selectedRequest.house_category && (
+                        <div className="col-span-2 rounded-lg border border-border/70 bg-muted/20 p-3 transition-colors hover:border-primary/40">
+                          <InlineEditableField field="house_category" label="House Category" value={selectedRequest.house_category} />
+                        </div>
+                      )}
+                      {selectedRequest.request_city && (
+                        <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                          <p className="text-xs text-muted-foreground">City / Region</p>
+                          <p className="font-semibold text-xs mt-1">{selectedRequest.request_city}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedRequest.pricing_version === 'v360' && (
+                      <div className="pt-1">
+                        <V360PlanCaptions rentRequestId={selectedRequest.id} expectV360 />
                       </div>
                     )}
-                    {selectedRequest.house_image_urls && selectedRequest.house_image_urls.length > 0 && (
-                      <div className="space-y-1 flex-1 min-w-0">
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold flex items-center gap-1">
-                          <ImageIcon className="h-3 w-3" />
-                          House Photos ({selectedRequest.house_image_urls.length})
-                        </p>
-                        <div className="flex gap-2 overflow-x-auto pb-1">
-                          {selectedRequest.house_image_urls.map((url: string, i: number) => (
-                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                              <img
-                                src={url}
-                                alt={`House ${i + 1}`}
-                                className="h-32 w-32 rounded-lg object-cover border border-border hover:ring-2 hover:ring-primary/50 transition-all"
-                                loading="lazy"
-                              />
-                            </a>
-                          ))}
+                  </div>
+
+                  {/* Counterparties Profiles */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Tenant Profile */}
+                    <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                      <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          <User className="h-3.5 w-3.5 text-primary" />
+                          Tenant Profile
+                        </span>
+                        {selectedRequest.tenant_id && (
+                          <button
+                            type="button"
+                            onClick={() => openDrilldownForRequest(selectedRequest, 'tenant')}
+                            className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                            title="Open full tenant 360° profile"
+                          >
+                            <span>View 360° Profile</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-foreground">{selectedRequest.tenant_name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-muted-foreground font-mono">{selectedRequest.tenant_phone}</span>
+                          <WhatsAppButton phone={selectedRequest.tenant_phone} name={selectedRequest.tenant_name} label="WhatsApp" />
+                        </div>
+                      </div>
+                      {selectedRequest.tenant_address && (
+                        <div className="pt-2 border-t border-border/50 text-xs">
+                          <span className="text-muted-foreground">Residence (as captured):</span>
+                          <p className="font-medium text-foreground mt-0.5">{selectedRequest.tenant_address}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Landlord Profile */}
+                    <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                      <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          <Home className="h-3.5 w-3.5 text-primary" />
+                          Landlord Profile
+                        </span>
+                        {selectedRequest.landlord_id && (
+                          <button
+                            type="button"
+                            onClick={() => openDrilldownForRequest(selectedRequest, 'landlord')}
+                            className="text-[11px] font-semibold text-primary hover:underline"
+                            title="Open full landlord profile"
+                          >
+                            View 360° Profile
+                          </button>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-foreground">{selectedRequest.landlord_name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-muted-foreground font-mono">{selectedRequest.landlord_phone}</span>
+                          <WhatsAppButton phone={selectedRequest.landlord_phone} name={selectedRequest.landlord_name} label="WhatsApp" />
+                        </div>
+                      </div>
+                      {selectedRequest.landlord_address && (
+                        <div className="pt-2 border-t border-border/50 text-xs">
+                          <span className="text-muted-foreground">Property Address:</span>
+                          <p className="font-medium text-foreground mt-0.5">{selectedRequest.landlord_address}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedRequest.landlord_id && (
+                    <div className="rounded-xl border border-border bg-card p-3">
+                      <LandlordTenantsSection
+                        landlordId={selectedRequest.landlord_id}
+                        onSelectTenant={(tid) => openDrilldownForRequest(selectedRequest, 'tenant', { tenantId: tid })}
+                        onSelectAgent={(aid) => openDrilldownForRequest(selectedRequest, 'agent', { agentId: aid })}
+                      />
+                    </div>
+                  )}
+
+                  {/* Landlord Agreement History */}
+                  {selectedRequest.landlord_id && (
+                    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                      <LandlordAgreementHistory
+                        landlordId={selectedRequest.landlord_id}
+                        landlordName={selectedRequest.landlord_name || 'Landlord'}
+                        landlordPhone={selectedRequest.landlord_phone || ''}
+                        propertyAddress={selectedRequest.landlord_address}
+                        canAdd={false}
+                      />
+                    </div>
+                  )}
+
+                  {/* Location & LC1 Details */}
+                  {selectedRequest.registration_type !== 'outstanding_balance' && (
+                    <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3 shadow-sm">
+                      <h3 className="text-sm font-bold flex items-center gap-2 text-foreground">
+                        <MapPin className="h-4 w-4 text-primary" />
+                        Property Location & Local Council (LC1)
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        {selectedRequest.lc1_name && (
+                          <div className="p-3 rounded-lg bg-muted/20 border border-border/60 space-y-1">
+                            <p className="text-xs text-muted-foreground">LC1 Chairperson</p>
+                            <p className="font-semibold text-foreground">{selectedRequest.lc1_name}</p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="text-xs text-muted-foreground font-mono">{selectedRequest.lc1_phone}</span>
+                              <WhatsAppButton phone={selectedRequest.lc1_phone} name={selectedRequest.lc1_name} label="WhatsApp" />
+                            </div>
+                          </div>
+                        )}
+                        {selectedRequest.lc1_village && (
+                          <div className="p-3 rounded-lg bg-muted/20 border border-border/60 space-y-1">
+                            <p className="text-xs text-muted-foreground">Village</p>
+                            <p className="font-semibold text-foreground">{selectedRequest.lc1_village}</p>
+                          </div>
+                        )}
+                        {selectedRequest.lc1_address && (
+                          <div className="p-3 rounded-lg bg-muted/20 border border-border/60 space-y-1">
+                            <p className="text-xs text-muted-foreground">LC1 Area</p>
+                            <p className="font-semibold text-foreground">{selectedRequest.lc1_address}</p>
+                          </div>
+                        )}
+                        {(selectedRequest.request_latitude && selectedRequest.request_longitude) && (
+                          <div className="p-3 rounded-lg bg-muted/20 border border-border/60 space-y-1 sm:col-span-2">
+                            <p className="text-xs text-muted-foreground">GPS Coordinates</p>
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <p className="font-mono text-xs font-semibold">{Number(selectedRequest.request_latitude).toFixed(6)}, {Number(selectedRequest.request_longitude).toFixed(6)}</p>
+                              <a
+                                href={`https://www.google.com/maps?q=${selectedRequest.request_latitude},${selectedRequest.request_longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                              >
+                                <MapPin className="h-3 w-3" />
+                                Open in Google Maps
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                        {!selectedRequest.lc1_name && !selectedRequest.request_latitude && (
+                          <p className="text-xs text-muted-foreground col-span-2 py-2 text-center">No LC1 or GPS coordinates captured for this request</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Tab 2: Verification Evidence & Media */}
+                <TabsContent value="evidence" className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 mt-0 space-y-5 focus-visible:outline-none">
+                  {/* Tenant Payment History Card & Renewal Review */}
+                  <div className="space-y-3">
+                    <TenantPaymentHistoryCard
+                      tenantId={selectedRequest.tenant_id}
+                      currentRequestId={selectedRequest.id}
+                    />
+                    <RenewalReviewPanel request={selectedRequest as any} />
+                    {selectedRequest.registration_type === 'outstanding_balance' && (
+                      <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                        <div className="text-xs space-y-1">
+                          <p className="font-bold text-amber-900 dark:text-amber-200">Outstanding balance — short approval</p>
+                          <p className="text-muted-foreground">
+                            Existing tenant. Two-stage approval (Tenant Ops → Agent verify).
+                            No landlord verification, no disbursement, no agent bonus.
+                          </p>
                         </div>
                       </div>
                     )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Captured by the agent at registration. Click any photo to enlarge.
-                  </p>
 
-                  {/* Face recognition + image fingerprint behind the passport photo. */}
-                  {selectedRequest.tenant_photo_url && (
-                    <TenantPhotoChecksPanel rentRequestId={selectedRequest.id} />
-                  )}
-                </div>
-              )}
-
-              {/* LC1 & GPS Details — hidden for outstanding-balance (no fresh property to verify) */}
-              {selectedRequest.registration_type !== 'outstanding_balance' && (
-              <div className="rounded-xl border border-border p-3 bg-muted/30 space-y-2">
-                <h4 className="text-sm font-semibold">📍 Property Location & LC1</h4>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  {selectedRequest.lc1_name && (
-                    <div className="space-y-0.5">
-                      <p className="text-xs text-muted-foreground">LC1 Chairperson</p>
-                      <p className="font-semibold">{selectedRequest.lc1_name}</p>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-xs text-muted-foreground">{selectedRequest.lc1_phone}</span>
-                        <WhatsAppButton phone={selectedRequest.lc1_phone} name={selectedRequest.lc1_name} label="WhatsApp" />
+                  {/* Latest Rent Receipt */}
+                  {selectedRequest.latest_rent_receipt_url && (
+                    <div className="rounded-xl border-2 border-amber-400/60 bg-amber-500/5 p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <h4 className="text-sm font-semibold flex items-center gap-1.5 text-amber-900 dark:text-amber-200">
+                          <FileText className="h-4 w-4 text-amber-600" />
+                          Tenant's Latest Rent Receipt (from Landlord)
+                        </h4>
+                        {selectedRequest.latest_rent_receipt_uploaded_at && (
+                          <span className="text-[11px] text-amber-800/80 dark:text-amber-300/80 font-mono">
+                            Uploaded: {new Date(selectedRequest.latest_rent_receipt_uploaded_at).toLocaleString()}
+                          </span>
+                        )}
                       </div>
+                      <a
+                        href={selectedRequest.latest_rent_receipt_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block group relative overflow-hidden rounded-lg border-2 border-amber-300/80 dark:border-amber-800 bg-background"
+                      >
+                        <img
+                          src={selectedRequest.latest_rent_receipt_url}
+                          alt="Tenant's latest rent receipt"
+                          className="w-full max-h-96 object-contain group-hover:scale-[1.01] transition-transform cursor-zoom-in"
+                          loading="lazy"
+                        />
+                        <div className="absolute bottom-2 right-2 px-2.5 py-1 rounded bg-black/75 text-white text-[10px] font-medium flex items-center gap-1.5 backdrop-blur-sm">
+                          <ExternalLink className="h-3 w-3" />
+                          Click to open full receipt
+                        </div>
+                      </a>
+                      <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                        Most recent receipt issued by the landlord to this tenant. Inspect date, name, and rent amount.
+                      </p>
                     </div>
                   )}
-                  {selectedRequest.lc1_village && (
-                    <div className="space-y-0.5">
-                      <p className="text-xs text-muted-foreground">Village</p>
-                      <p className="font-semibold">{selectedRequest.lc1_village}</p>
-                    </div>
-                  )}
-                  {selectedRequest.lc1_address && (
-                    <div className="space-y-0.5">
-                      <p className="text-xs text-muted-foreground">LC1 Area</p>
-                      <p className="font-semibold">{selectedRequest.lc1_address}</p>
-                    </div>
-                  )}
-                  {(selectedRequest.request_latitude && selectedRequest.request_longitude) && (
-                    <div className="space-y-0.5 col-span-2">
-                      <p className="text-xs text-muted-foreground">GPS Coordinates</p>
-                      <div className="flex items-center gap-2">
-                        <p className="font-mono text-xs">{Number(selectedRequest.request_latitude).toFixed(6)}, {Number(selectedRequest.request_longitude).toFixed(6)}</p>
-                        <a
-                          href={`https://www.google.com/maps?q=${selectedRequest.request_latitude},${selectedRequest.request_longitude}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                        >
-                          <MapPin className="h-3 w-3" />
-                          Open Map
-                        </a>
+
+                  {/* Inspection Photos & Passport */}
+                  {(selectedRequest.tenant_photo_url || (selectedRequest.house_image_urls && selectedRequest.house_image_urls.length > 0)) && (
+                    <div className="rounded-xl border border-border bg-card p-4 space-y-4 shadow-sm">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <ImageIcon className="h-3.5 w-3.5 text-primary" />
+                        Inspection Photos & Passport
+                      </h4>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        {selectedRequest.tenant_photo_url && (
+                          <div className="space-y-1.5 shrink-0">
+                            <p className="text-[11px] font-semibold text-muted-foreground">Tenant Passport</p>
+                            <a href={selectedRequest.tenant_photo_url} target="_blank" rel="noopener noreferrer" className="block">
+                              <img
+                                src={selectedRequest.tenant_photo_url}
+                                alt={`Tenant ${selectedRequest.tenant_name}`}
+                                className="h-36 w-28 rounded-lg object-cover border-2 border-primary/30 hover:ring-2 hover:ring-primary transition-all bg-background shadow-sm"
+                                loading="lazy"
+                              />
+                            </a>
+                          </div>
+                        )}
+                        {selectedRequest.house_image_urls && selectedRequest.house_image_urls.length > 0 && (
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <p className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                              House Photos ({selectedRequest.house_image_urls.length})
+                            </p>
+                            <div className="flex gap-2.5 overflow-x-auto pb-2">
+                              {selectedRequest.house_image_urls.map((url: string, i: number) => (
+                                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="shrink-0 group">
+                                  <img
+                                    src={url}
+                                    alt={`House ${i + 1}`}
+                                    className="h-36 w-36 rounded-lg object-cover border border-border/80 group-hover:ring-2 group-hover:ring-primary/50 transition-all bg-background shadow-sm"
+                                    loading="lazy"
+                                  />
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
+
+                      {selectedRequest.tenant_photo_url && (
+                        <TenantPhotoChecksPanel rentRequestId={selectedRequest.id} />
+                      )}
                     </div>
                   )}
-                  {!selectedRequest.lc1_name && !selectedRequest.request_latitude && (
-                    <p className="text-xs text-muted-foreground col-span-2">No LC1 or GPS data captured for this request</p>
-                  )}
-                </div>
-              </div>
-              )}
 
-              {/* Pipeline Status + Agent Benefits */}
-              <RentPipelineTracker
-                currentStatus={selectedRequest.status}
-                rentAmount={selectedRequest.rent_amount}
-                showAgentBenefits={true}
-                registrationType={selectedRequest.registration_type}
-              />
-
-              {/* Agent Proximity Selector - only for Tenant Ops on normal requests */}
-              {config.showAgentSelector && selectedRequest.registration_type !== 'outstanding_balance' && (
-                <AgentProximitySelector
-                  latitude={selectedRequest.request_latitude}
-                  longitude={selectedRequest.request_longitude}
-                  currentAgentId={selectedRequest.agent_id}
-                  onSelect={setAssignedAgentId}
-                  selectedAgentId={assignedAgentId}
-                />
-              )}
-
-              {/* Previous-stage comments (read-only context) */}
-              {config.previousCommentColumns && config.previousCommentColumns.some(c => selectedRequest[c.column]) && (
-                <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                    <MessageCircle className="h-3 w-3" />
-                    Notes from previous stages
-                  </h4>
-                  <div className="space-y-1.5">
-                    {config.previousCommentColumns.map(c => selectedRequest[c.column] ? (
-                      <div key={c.column} className="text-xs">
-                        <span className="font-semibold text-foreground">{c.label}:</span>{' '}
-                        <span className="text-muted-foreground">{selectedRequest[c.column]}</span>
-                      </div>
-                    ) : null)}
+                  {/* Awareness Call Panel */}
+                  <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                    <AwarenessCallPanel
+                      key={selectedRequest.id}
+                      request={{
+                        ...selectedRequest,
+                        agent_id: selectedRequest.agent_id,
+                      }}
+                      defaultSubject={defaultAwarenessSubjectForStage(stage)}
+                      readOnly={isAwarenessReadOnlyStage(stage)}
+                      landlordChecklistNote={stage === 'tenant_ops_approved'}
+                    />
                   </div>
-                </div>
-              )}
+                </TabsContent>
 
-              {/* Landlord Verification Checklist - only for Landlord Ops on normal requests
-                  (outstanding-balance requests never reach this stage) */}
-              {config.showLandlordChecklist && selectedRequest.registration_type !== 'outstanding_balance' && (
-                <div className="space-y-3 rounded-xl border-2 border-purple-500/30 p-3 bg-purple-500/5">
-                  <h4 className="text-sm font-bold flex items-center gap-2">
-                    <PhoneCall className="h-4 w-4 text-purple-600" />
-                    Landlord Verification Checklist
-                  </h4>
-                  <p className="text-[10px] text-muted-foreground">
-                    Call the landlord at <span className="font-mono font-bold">{selectedRequest.landlord_phone || selectedRequest.landlord_momo}</span> and complete this checklist before approving.
-                  </p>
-
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={landlordCalled}
-                        onCheckedChange={(v) => {
-                          setLandlordCalled(!!v);
-                          if (selectedRequest) toggleCardCheck(selectedRequest.id, 'called', !!v);
-                        }}
-                      />
-                      <span className="text-sm">I have called the landlord</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={landlordAcknowledged}
-                        onCheckedChange={(v) => {
-                          setLandlordAcknowledged(!!v);
-                          if (selectedRequest) toggleCardCheck(selectedRequest.id, 'acknowledged', !!v);
-                        }}
-                      />
-                      <span className="text-sm">Landlord acknowledges Welile as the payer</span>
-                    </label>
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Verification Method</label>
-                    <select
-                      value={landlordVerificationMethod}
-                      onChange={(e) => setLandlordVerificationMethod(e.target.value)}
-                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      <option value="" disabled>How was the landlord verified?</option>
-                      <option value="phone_call">Phone Call</option>
-                      <option value="physical_visit">Physical Visit</option>
-                      <option value="lc1_confirmation">LC1 Confirmation</option>
-                      <option value="video_call">Video Call</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Call Notes</label>
-                    <Textarea
-                      placeholder="Notes from the landlord call..."
-                      value={landlordCallNotes}
-                      onChange={e => setLandlordCallNotes(e.target.value)}
-                      rows={2}
+                {/* Tab 3: Pipeline & History */}
+                <TabsContent value="pipeline" className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 mt-0 space-y-5 focus-visible:outline-none">
+                  {/* Rent Pipeline Progress */}
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-sm">
+                    <h3 className="text-sm font-bold flex items-center gap-2 text-foreground">
+                      <Clock className="h-4 w-4 text-primary" />
+                      Rent Pipeline Progress & Benefits
+                    </h3>
+                    <RentPipelineTracker
+                      currentStatus={selectedRequest.status}
+                      rentAmount={selectedRequest.rent_amount}
+                      showAgentBenefits={true}
+                      registrationType={selectedRequest.registration_type}
                     />
                   </div>
 
-                  {(!landlordCalled || !landlordAcknowledged) && (
-                    <p className="text-[10px] text-destructive flex items-center gap-1">
-                      <ShieldCheck className="h-3 w-3" />
-                      Both checkboxes must be checked to approve
-                    </p>
-                  )}
-                </div>
-              )}
+                  {/* Desk Timing */}
+                  <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-primary" />
+                      Desk Processing Timing
+                    </h4>
+                    <RentTimingRow
+                      requestId={selectedRequest.id}
+                      timing={deskTiming.byId.get(selectedRequest.id)}
+                      loading={deskTiming.isLoading}
+                      error={deskTiming.error}
+                      onRetry={deskTiming.refetch}
+                      ownDesk
+                    />
+                  </div>
 
-              {/* Payout Fields - only for CFO */}
-              {config.showPayoutFields && (
-                <div className="space-y-3 rounded-xl border-2 border-primary/30 p-3 bg-primary/5">
-                  <h4 className="text-sm font-bold flex items-center gap-2">💳 Payout Details</h4>
-                  
-                  {/* Landlord MoMo Info - Prominent */}
-                  <div className="rounded-lg border border-border bg-background p-3 space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Landlord Payment Info</p>
-                    <p className="font-bold text-sm">{selectedRequest.landlord_name}</p>
+                  {/* Originating Agent & Chain */}
+                  <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                    <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <UserCheck className="h-3.5 w-3.5 text-primary" />
+                        Originating Agent & Chain
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs gap-1.5 shadow-none"
+                        onClick={() => setTransferOpen(true)}
+                      >
+                        <ArrowRightLeft className="h-3 w-3" />
+                        Transfer Agent
+                      </Button>
+                    </div>
+                    <RentAgentChain
+                      lines={chainFor(selectedRequest)}
+                      onOpenAgent={(id) => openDrilldownForRequest(selectedRequest, 'agent', { agentId: id })}
+                      afterName={(l) => (l.role === 'Agent' || l.role === 'Sub-agent') ? <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} /> : null}
+                    />
                     <div className="flex items-center gap-2 flex-wrap">
+                      {(selectedRequest.assigned_agent_id || selectedRequest.agent_id) && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs gap-1 font-semibold"
+                          onClick={() => openDrilldownForRequest(selectedRequest, 'agent')}
+                        >
+                          <UserCheck className="h-3 w-3" />
+                          Agent Profile, Wallet, Performances, Tenants &amp; Landlords
+                        </Button>
+                      )}
+                      {selectedRequest.landlord_id && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs gap-1 font-semibold"
+                          onClick={() => openDrilldownForRequest(selectedRequest, 'landlord')}
+                        >
+                          <Home className="h-3 w-3" />
+                          Landlord &amp; Tenants in System
+                        </Button>
+                      )}
+                    </div>
+                    {selectedRequest.agent_email && (
+                      <p className="text-xs text-muted-foreground">✉️ {selectedRequest.agent_email}</p>
+                    )}
+                  </div>
+
+                  {/* Agent Proximity Selector */}
+                  {config.showAgentSelector && selectedRequest.registration_type !== 'outstanding_balance' && (
+                    <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Agent Proximity
+                      </h4>
+                      <AgentProximitySelector
+                        latitude={selectedRequest.request_latitude}
+                        longitude={selectedRequest.request_longitude}
+                        currentAgentId={selectedRequest.agent_id}
+                        onSelect={setAssignedAgentId}
+                        selectedAgentId={assignedAgentId}
+                      />
+                    </div>
+                  )}
+
+                  {/* Previous Stage Notes */}
+                  {config.previousCommentColumns && config.previousCommentColumns.some(c => selectedRequest[c.column]) && (
+                    <div className="rounded-xl border border-border bg-muted/40 p-4 space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <MessageCircle className="h-3.5 w-3.5 text-primary" />
+                        Notes from previous stages
+                      </h4>
+                      <div className="space-y-1.5">
+                        {config.previousCommentColumns.map(c => selectedRequest[c.column] ? (
+                          <div key={c.column} className="text-xs bg-background p-2.5 rounded-lg border border-border/60">
+                            <span className="font-semibold text-foreground">{c.label}:</span>{' '}
+                            <span className="text-muted-foreground">{selectedRequest[c.column]}</span>
+                          </div>
+                        ) : null)}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            )}
+
+            {/* Pinned Review & Action Desk Footer */}
+            {selectedRequest && (
+              <div className="border-t border-border bg-background/95 backdrop-blur px-5 sm:px-6 py-3.5 shrink-0 space-y-3">
+                {/* Special Stage Gate Alert */}
+                {stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked && (
+                  <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <div>
+                      <span className="font-bold">{landlordRejectedGate(selectedRequest).title}: </span>
+                      <span>{landlordRejectedGate(selectedRequest).description}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Landlord Verification Checklist (Landlord Ops stage) */}
+                {config.showLandlordChecklist && selectedRequest.registration_type !== 'outstanding_balance' && (
+                  <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
+                        <PhoneCall className="h-3.5 w-3.5 text-purple-600" />
+                        Landlord Verification Checklist: Call {selectedRequest.landlord_phone || selectedRequest.landlord_momo}
+                      </span>
+                      {(!landlordCalled || !landlordAcknowledged) && (
+                        <span className="text-[10px] text-destructive font-medium flex items-center gap-1">
+                          <ShieldCheck className="h-3 w-3" /> Both checkboxes required
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-center">
+                      <label className="flex items-center gap-2 cursor-pointer font-medium">
+                        <Checkbox
+                          checked={landlordCalled}
+                          onCheckedChange={(v) => {
+                            setLandlordCalled(!!v);
+                            if (selectedRequest) toggleCardCheck(selectedRequest.id, 'called', !!v);
+                          }}
+                        />
+                        <span>I have called landlord</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer font-medium">
+                        <Checkbox
+                          checked={landlordAcknowledged}
+                          onCheckedChange={(v) => {
+                            setLandlordAcknowledged(!!v);
+                            if (selectedRequest) toggleCardCheck(selectedRequest.id, 'acknowledged', !!v);
+                          }}
+                        />
+                        <span>Landlord acknowledges Welile</span>
+                      </label>
+                      <div>
+                        <select
+                          value={landlordVerificationMethod}
+                          onChange={(e) => setLandlordVerificationMethod(e.target.value)}
+                          className="h-8 w-full rounded border border-input bg-background px-2 text-xs"
+                        >
+                          <option value="" disabled>Verification method...</option>
+                          <option value="phone_call">Phone Call</option>
+                          <option value="physical_visit">Physical Visit</option>
+                          <option value="lc1_confirmation">LC1 Confirmation</option>
+                          <option value="video_call">Video Call</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Input
+                          placeholder="Call notes..."
+                          value={landlordCallNotes}
+                          onChange={e => setLandlordCallNotes(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* CFO Payout Destination & Method */}
+                {config.showPayoutFields && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-foreground">Landlord Payout:</span>
+                      <span className="font-medium text-foreground">{selectedRequest.landlord_name}</span>
                       {selectedRequest.landlord_momo && (
-                        <span className="inline-flex items-center gap-1 text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded-md">
+                        <span className="inline-flex items-center gap-1 font-mono font-bold bg-primary/10 text-primary px-2 py-0.5 rounded">
                           📱 MoMo: {selectedRequest.landlord_momo}
                         </span>
                       )}
                       {selectedRequest.landlord_phone && selectedRequest.landlord_phone !== selectedRequest.landlord_momo && (
-                        <span className="inline-flex items-center gap-1 text-xs font-mono bg-muted px-2 py-1 rounded-md">
+                        <span className="inline-flex items-center gap-1 font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
                           📞 {selectedRequest.landlord_phone}
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      Call or send MoMo directly to the landlord's number above, then enter the TID below.
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <Select value={payoutMethod} onValueChange={setPayoutMethod}>
+                        <SelectTrigger className="h-8 text-xs w-[140px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="wallet">Wallet</SelectItem>
+                          <SelectItem value="cash">Cash Payout</SelectItem>
+                          <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                          <SelectItem value="bank">Bank Transfer</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        placeholder={
+                          payoutMethod === 'mobile_money' ? 'MoMo TID *' :
+                            payoutMethod === 'bank' ? 'Bank Ref *' :
+                              payoutMethod === 'cash' ? 'Voucher # *' :
+                                'Transaction ID *'
+                        }
+                        value={payoutRef}
+                        onChange={e => setPayoutRef(e.target.value)}
+                        className="h-8 font-mono text-xs w-[180px]"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Comment & Decision Actions Row */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  {/* Left: Quick comment input with helper */}
+                  <div className="flex-1 flex items-center gap-2">
+                    <div className="flex-1 relative">
+                      <Input
+                        placeholder={stage === 'coo_approved' ? 'Add notes...' : 'Review comment (required to return/reject)...'}
+                        value={comment}
+                        onChange={e => setComment(e.target.value)}
+                        className="h-9 text-xs pr-20"
+                      />
+                      {!comment.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => setComment("Signed landlord agreement is not attached. Please attach the landlord's signed agreement to this landlord record, then resubmit this request.")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-primary transition-colors font-medium"
+                        >
+                          + Agreement missing
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Payout Method</label>
-                    <Select value={payoutMethod} onValueChange={setPayoutMethod}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="wallet">Wallet (Landlord has Rent Money)</SelectItem>
-                        <SelectItem value="cash">Cash Payout (No Wallet)</SelectItem>
-                        <SelectItem value="mobile_money">Mobile Money (Direct to Landlord)</SelectItem>
-                        <SelectItem value="bank">Bank Transfer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold mb-1 block">
-                      {payoutMethod === 'mobile_money' ? 'MoMo Transaction ID (TID) *' :
-                       payoutMethod === 'bank' ? 'Bank Reference *' :
-                       payoutMethod === 'cash' ? 'Payment Voucher Number *' :
-                       'Transaction Reference *'}
-                    </label>
-                    <Input
-                      placeholder={
-                        payoutMethod === 'mobile_money' ? 'Enter MoMo TID after sending' :
-                        payoutMethod === 'bank' ? 'Enter bank transfer reference' :
-                        payoutMethod === 'cash' ? 'Enter payment voucher number' :
-                        'Enter transaction ID or reference'
-                      }
-                      value={payoutRef}
-                      onChange={e => setPayoutRef(e.target.value)}
-                      className="h-9 font-mono"
-                    />
+                  {/* Right: Actions */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleReject}
+                      disabled={processing || !comment.trim()}
+                      className="h-9 text-xs px-4 font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
+                    >
+                      <XCircle className="h-4 w-4 mr-1.5" />
+                      {isCfoStage ? 'Return to COO' : 'Reject'}
+                    </Button>
+
+                    {isCfoStage ? (
+                      <p className="text-xs font-medium text-muted-foreground bg-muted/60 px-3 py-2 rounded-md border border-border" data-needs-pick-review>
+                        {cfoNote(selectedRequest)}
+                      </p>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => void handleApprove()}
+                        disabled={processing || (isCooStage && !requestFitsLandlordFloatBudget(selectedRequest)) || (stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked)}
+                        title={isCooStage && !requestFitsLandlordFloatBudget(selectedRequest) ? 'Over the landlord float budget left today' : (stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked) ? landlordRejectedGate(selectedRequest).title : undefined}
+                        className="h-9 text-xs px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm gap-1.5"
+                      >
+                        {processing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4" />
+                        )}
+                        {selectedRequest?.registration_type === 'outstanding_balance'
+                          ? (stage === 'pending'
+                            ? 'Approve & Send to Agent'
+                            : stage === 'tenant_ops_approved'
+                              ? 'Confirm & Record Outstanding'
+                              : config.approveLabel)
+                          : config.approveLabel}
+                      </Button>
+                    )}
                   </div>
                 </div>
-              )}
-
-              {/* Comment */}
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground mb-1 block">
-                  {stage === 'coo_approved' ? 'Notes' : 'Review Comment'}
-                </label>
-                <Textarea
-                  placeholder="Add your review notes..."
-                  value={comment}
-                  onChange={e => setComment(e.target.value)}
-                  rows={2}
-                />
-                {/* Fills the SAME review comment used by the existing
-                    return-for-correction action — no new workflow. */}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-7 gap-1 text-[11px]"
-                  onClick={() => setComment('Signed landlord agreement is not attached. Please attach the landlord\'s signed agreement to this landlord record, then resubmit this request.')}
-                >
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Use "signed agreement missing" reason
-                </Button>
               </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleReject}
-                  disabled={processing || !comment.trim()}
-                >
-                  <XCircle className="h-4 w-4 mr-1" />
-                  {isCfoStage ? 'Return to COO' : 'Reject'}
-                </Button>
-                {isCfoStage ? (
-                  <p className="self-center text-xs font-medium text-foreground" data-needs-pick-review>
-                    {cfoNote(selectedRequest)}
-                  </p>
-                ) : <Button
-                  size="sm"
-                  onClick={() => void handleApprove()}
-                  disabled={processing || (isCooStage && !requestFitsLandlordFloatBudget(selectedRequest)) || (stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked)}
-                  title={isCooStage && !requestFitsLandlordFloatBudget(selectedRequest) ? 'Over the landlord float budget left today' : (stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked) ? landlordRejectedGate(selectedRequest).title : undefined}
-                  className="gap-1"
-                >
-                  {processing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="h-4 w-4" />
-                  )}
-                  {selectedRequest?.registration_type === 'outstanding_balance'
-                    ? (stage === 'pending'
-                        ? 'Approve & Send to Agent'
-                        : stage === 'tenant_ops_approved'
-                          ? 'Confirm & Record Outstanding'
-                          : config.approveLabel)
-                    : config.approveLabel}
-                </Button>}
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-      <RentApprovalConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        request={selectedRequest}
-        approveLabel={config.approveLabel}
-        processing={processing}
-        onConfirm={(decision: FunderVisibilityDecision) => void handleApprove(decision)}
-      />
-      <UserDrilldownDrawer
-        open={drilldownContext.open}
-        onOpenChange={(v) => { if (!v) setDrilldownContext((prev) => ({ ...prev, open: false })); }}
-        tenantId={drilldownContext.tenantId}
-        agentId={drilldownContext.agentId}
-        landlordId={drilldownContext.landlordId}
-        defaultTab={drilldownContext.defaultTab}
-      />
-      {selectedRequest && (
-        <PipelineAgentTransferDialog
-          open={transferOpen}
-          onOpenChange={setTransferOpen}
-          requestId={selectedRequest.id}
-          tenantName={selectedRequest.tenant_name}
-          currentAgentId={selectedRequest.assigned_agent_id || selectedRequest.agent_id}
-          currentAgentName={selectedRequest.assigned_agent_name || selectedRequest.agent_name}
-          onTransferred={() => {
-            invalidateAllPipelineQueries();
-            setSelectedRequest(null);
-          }}
+            )}
+          </SheetContent>
+        </Sheet>
+        <RentApprovalConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          request={selectedRequest}
+          approveLabel={config.approveLabel}
+          processing={processing}
+          onConfirm={(decision: FunderVisibilityDecision) => void handleApprove(decision)}
         />
+        <UserDrilldownDrawer
+          open={drilldownContext.open}
+          onOpenChange={(v) => { if (!v) setDrilldownContext((prev) => ({ ...prev, open: false })); }}
+          tenantId={drilldownContext.tenantId}
+          agentId={drilldownContext.agentId}
+          landlordId={drilldownContext.landlordId}
+          defaultTab={drilldownContext.defaultTab}
+        />
+        {selectedRequest && (
+          <PipelineAgentTransferDialog
+            open={transferOpen}
+            onOpenChange={setTransferOpen}
+            requestId={selectedRequest.id}
+            tenantName={selectedRequest.tenant_name}
+            currentAgentId={selectedRequest.assigned_agent_id || selectedRequest.agent_id}
+            currentAgentName={selectedRequest.assigned_agent_name || selectedRequest.agent_name}
+            onTransferred={() => {
+              invalidateAllPipelineQueries();
+              setSelectedRequest(null);
+            }}
+          />
+        )}
+      </Card>
       )}
-    </Card>
-    )}
-  </div>
+    </div>
   );
 }

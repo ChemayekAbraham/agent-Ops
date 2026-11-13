@@ -59,8 +59,9 @@ import {
   SignagePhoto,
   formatSignageStatus,
   signagePipelineRecords,
+  isSignageGpsFresh,
 } from '@/lib/welileSignages';
-import { useMySignages, useSubmitSignage, useDeleteSignage, useResubmitSignage } from '@/hooks/useWelileSignages';
+import { useMySignages, useSubmitSignage, useDeleteSignage, useResubmitSignage, useSaveSignageDraft } from '@/hooks/useWelileSignages';
 import { toast } from 'sonner';
 import { prepareSignagePhoto } from '@/lib/signagePhoto';
 
@@ -79,6 +80,9 @@ export default function AgentWelileSignages() {
   const [inspectingId, setInspectingId] = useState<string>();
   const loadDetail = useLoadSignageDetail();
   const [loadingEditId, setLoadingEditId] = useState<string>();
+  // Draft being continued (saved earlier, not yet submitted).
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const saveDraftMutation = useSaveSignageDraft();
   const [pendingFilter, setPendingFilter] = useState<'all' | 'pipeline' | 'declined'>('all');
 
   // Metrics & Filters
@@ -99,7 +103,8 @@ export default function AgentWelileSignages() {
   const installingCount = installingSignages.length;
   const inPipelineCount = inPipelineSignages.length;
   const pendingCount = inPipelineSignages.length;
-  const verifiedRewardsUgx = activeCount * SIGNAGE_RATES.AGENT_REWARD_UGX;
+  // Rewards actually paid to the agent's wallet (paid once by the CFO after Ops and COO approval).
+  const verifiedRewardsUgx = signages.filter((s) => s.agent_reward_status === 'paid').length * SIGNAGE_RATES.AGENT_REWARD_UGX;
 
   // ── Form State ──
   const [propertyName, setPropertyName] = useState('');
@@ -246,29 +251,30 @@ export default function AgentWelileSignages() {
     try { record = await loadDetail(summary.id); }
     catch (error) { toast.error(error instanceof Error ? error.message : 'Could not load the application.'); return; }
     finally { setLoadingEditId(undefined); }
-    if (record.status !== 'changes_required') { toast.error('This application is no longer awaiting changes.'); return; }
-    setEditingSignage(record);
-    setPropertyName(record.property_name);
-    setPropertyType(record.property_type);
+    if (record.status !== 'changes_required' && record.status !== 'draft') { toast.error('This application can no longer be edited.'); return; }
+    if (record.status === 'draft') { setDraftId(record.id); setEditingSignage(null); }
+    else { setDraftId(null); setEditingSignage(record); }
+    setPropertyName(record.property_name || '');
+    setPropertyType(record.property_type || 'shop');
     setBusinessCategory(record.business_category || '');
-    setOwnerFullName(record.owner_full_name);
-    setOwnerPhone(record.owner_phone);
+    setOwnerFullName(record.owner_full_name || '');
+    setOwnerPhone(record.owner_phone || '');
     setOwnerAltPhone(record.owner_alt_phone || '');
-    setConsentingRelation(record.consenting_relation);
-    setPermissionConfirmed(record.permission_confirmed);
-    setPaymentMethod(record.owner_payment_method);
-    setPaymentNumber(record.owner_payment_number);
-    setPaymentName(record.owner_payment_name);
+    setConsentingRelation(record.consenting_relation || 'Property Owner');
+    setPermissionConfirmed(!!record.permission_confirmed);
+    setPaymentMethod(record.owner_payment_method || 'momo_mtn');
+    setPaymentNumber(record.owner_payment_number || '');
+    setPaymentName(record.owner_payment_name || '');
     setGpsLat(null); setGpsLng(null); setGpsAccuracy(null); setGpsCapturedAt(null);
     captureVersion.current += 1;
     setIsCapturingGps(false);
     setGpsError(null);
-    // Returned applications require a fresh device capture and address lookup.
+    // Drafts and returned applications require a fresh device capture at the property before submitting.
     setAdminLocation(null);
     setVillageTyped('');
-    toast.info('Capture live GPS again to fill the location before resubmitting.');
+    toast.info('Stand at the property and capture live GPS again before submitting.');
     setPlotOrLandmark('');
-    setFootTraffic(record.foot_traffic);
+    setFootTraffic(record.foot_traffic || 'high');
     setRoadVisibility(record.road_visibility || '');
     setOperatingHours(record.operating_hours || '');
     setProposedSurface(record.proposed_surface || '');
@@ -313,9 +319,14 @@ export default function AgentWelileSignages() {
       document.getElementById('section-location')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
-    if (photos.length === 0) {
-      toast.error('Please capture at least 1 photo of the proposed signage position in Section 5.');
+    if (!photos.some((p) => p.category === 'installed_signage')) {
+      toast.error('Add a photo of the installed signage in Section 5. It is the proof for payment.');
       document.getElementById('section-photos')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    if (!isSignageGpsFresh(gpsCapturedAt)) {
+      toast.error('Your GPS reading is more than an hour old. Stand at the property and tap Re-capture Location.');
+      document.getElementById('section-gps')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
 
@@ -356,8 +367,9 @@ export default function AgentWelileSignages() {
         photos,
       };
       if (editingSignage) await resubmitMutation.mutateAsync({ signageId: editingSignage.id, payload });
-      else await submitMutation.mutateAsync(payload);
+      else await submitMutation.mutateAsync({ ...payload, draftId: draftId ?? undefined });
       setEditingSignage(null);
+      setDraftId(null);
 
       // Reset form
       setPropertyName('');
@@ -380,6 +392,41 @@ export default function AgentWelileSignages() {
     } catch {
       // Handled in mutation hook
     }
+  };
+
+  // Save whatever is filled so far; the agent can continue later from the Pipeline.
+  const handleSaveDraft = async () => {
+    hapticTap();
+    if (editingSignage) return;
+    if (!propertyName.trim() && !ownerFullName.trim() && !ownerPhone.trim() && photos.length === 0 && gpsLat === null) {
+      toast.error('Fill at least one field before saving a draft.');
+      return;
+    }
+    const gps = gpsLat !== null && gpsLng !== null && gpsAccuracy !== null && gpsCapturedAt
+      ? { gps_latitude: gpsLat, gps_longitude: gpsLng, gps_accuracy_meters: gpsAccuracy, gps_captured_at: gpsCapturedAt, gps_source: 'device' as const }
+      : {};
+    const location = adminLocation ? {
+      district_name: adminLocation.district || undefined, county_name: adminLocation.county || undefined,
+      sub_county_name: adminLocation.subcounty || undefined, parish_name: adminLocation.parish || undefined,
+      village_name: resolvedVillage || undefined, plot_or_landmark: plotOrLandmark.trim() || undefined,
+    } : {};
+    try {
+      const id = await saveDraftMutation.mutateAsync({
+        draftId: draftId ?? undefined,
+        payload: {
+          property_name: propertyName.trim() || undefined, property_type: propertyType,
+          business_category: businessCategory.trim() || undefined, owner_full_name: ownerFullName.trim() || undefined,
+          owner_phone: ownerPhone.trim() || undefined, owner_alt_phone: ownerAltPhone.trim() || undefined,
+          consenting_relation: consentingRelation, permission_confirmed: permissionConfirmed,
+          owner_payment_method: paymentMethod, owner_payment_number: paymentNumber.trim() || undefined,
+          owner_payment_name: paymentName.trim() || undefined, foot_traffic: footTraffic,
+          road_visibility: roadVisibility.trim() || undefined, operating_hours: operatingHours.trim() || undefined,
+          proposed_surface: proposedSurface.trim() || undefined, proposed_dimensions: proposedDimensions.trim() || undefined,
+          nearby_landmarks: nearbyLandmarks.trim() || undefined, photos, ...gps, ...location,
+        },
+      });
+      setDraftId(id);
+    } catch { /* toast shown by the hook */ }
   };
 
   return (
@@ -815,7 +862,9 @@ export default function AgentWelileSignages() {
                               ) : ['draft', 'submitted', 'changes_required'].includes(signage.status) ? (
                                 <>
                                   <span className="text-[10px] text-muted-foreground">
-                                    {signage.status === 'changes_required' ? <Button type="button" size="sm" disabled={loadingEditId === signage.id} onClick={() => void handleEditReturned(signage)}>Edit & Resubmit</Button> : 'Awaiting review'}
+                                    {signage.status === 'changes_required' ? <Button type="button" size="sm" disabled={loadingEditId === signage.id} onClick={() => void handleEditReturned(signage)}>Edit & Resubmit</Button>
+                                      : signage.status === 'draft' ? <Button type="button" size="sm" disabled={loadingEditId === signage.id} onClick={() => void handleEditReturned(signage)}>Continue Draft</Button>
+                                      : 'Submitted · locked for review'}
                                   </span>
                                   <Button
                                     type="button"
@@ -1253,7 +1302,7 @@ export default function AgentWelileSignages() {
                       { cat: 'exterior' as const, label: 'Exterior Facade' },
                       { cat: 'proposed_position' as const, label: 'Signage Spot' },
                       { cat: 'surroundings' as const, label: 'Street View' },
-                      { cat: 'installed_signage' as const, label: 'Landmark / Angle' },
+                      { cat: 'installed_signage' as const, label: 'Installed Signage' },
                     ].map(({ cat, label }) => {
                       const photo = photos.find((p) => p.category === cat);
                       return (
@@ -1307,6 +1356,21 @@ export default function AgentWelileSignages() {
                     </>
                   )}
                 </Button>
+                {!editingSignage && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleSaveDraft()}
+                    disabled={saveDraftMutation.isPending || submitMutation.isPending || isUploadingPhoto}
+                    className="w-full h-11 rounded-2xl text-sm font-semibold mt-2"
+                  >
+                    {saveDraftMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                    {draftId ? 'Update Draft' : 'Save as Draft'}
+                  </Button>
+                )}
+                <p className="mt-1.5 text-[11px] text-muted-foreground text-center">
+                  After submitting, the application is locked. Save a draft if you want to finish it later.
+                </p>
 
                 {(!gpsLat || !permissionConfirmed || photos.length === 0 || !resolvedVillage) && (
                   <div className="mt-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 space-y-1">
@@ -1488,11 +1552,11 @@ export default function AgentWelileSignages() {
                           </div>
                         )}
 
-                        {signage.status === 'pending_installation' && (
+                        {signage.status === 'awaiting_cfo' && (
                           <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-xs flex items-center justify-between">
                             <span className="flex items-center gap-1.5 font-medium">
                               <Clock className="h-4 w-4 shrink-0 text-indigo-600" />
-                              Installation in Progress
+                              Approved · awaiting CFO payment of your reward
                             </span>
                           </div>
                         )}
@@ -1510,9 +1574,9 @@ export default function AgentWelileSignages() {
                           <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs flex items-center justify-between">
                             <span className="flex items-center gap-1.5 font-medium">
                               <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                              Signage Active & Verified
+                              Signage Active
                             </span>
-                            <span className="font-bold">UGX 3,000 Reward Unlocked</span>
+                            <span className="font-bold">{signage.agent_reward_status === 'paid' ? 'UGX 3,000 reward paid' : 'Reward pending'}</span>
                           </div>
                         )}
                       </div>
@@ -1540,7 +1604,7 @@ export default function AgentWelileSignages() {
                   <div className="text-xs">
                     <span className="font-bold text-foreground block">Agent Reward: UGX 3,000 (One-Time)</span>
                     <span className="text-muted-foreground">
-                      Payable once per qualifying installation immediately after Agent Operations completes physical verification.
+                      Paid once to your Welile wallet by the CFO after Agent Ops and the COO approve your application. Payment makes the signage Active.
                     </span>
                   </div>
                 </div>
@@ -1552,7 +1616,7 @@ export default function AgentWelileSignages() {
                   <div className="text-xs">
                     <span className="font-bold text-foreground block">Owner Monthly Rent: UGX 10,000 / month</span>
                     <span className="text-muted-foreground">
-                      Recurring monthly obligation starting strictly on the verified activation date. Disbursed directly to the owner's MoMo account.
+                      No payout in the first month. From one month after activation the CFO pays the owner monthly to their own Welile wallet, until the contract is terminated. Register the owner in the Welile app during that first month.
                     </span>
                   </div>
                 </div>
