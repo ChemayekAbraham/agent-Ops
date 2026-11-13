@@ -12,7 +12,7 @@ import { UserSearchPicker, type UserResult } from '@/components/cfo/UserSearchPi
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
 import { kampalaLabel, kampalaTodayYmd } from '@/lib/kampalaDays';
 import {
-  RATE_BASIS_LABEL, RATE_MAX_BY_BASIS, RATE_MAX_PERCENT, SPECIAL_ADVANCE_FREQUENCIES, SPECIAL_ADVANCE_RATE_PRESETS, SPECIAL_ADVANCE_TERMS,
+  RATE_BASIS_LABEL, SPECIAL_ADVANCE_FREQUENCIES, SPECIAL_ADVANCE_RATE_PRESETS, SPECIAL_ADVANCE_TERMS,
   TERM_MAX_DAYS, TERM_MIN_DAYS, previewSpecialAdvance, rateLabel, type RateBasis, type SpecialAdvanceFrequency,
 } from '@/lib/specialAdvancePreview';
 import {
