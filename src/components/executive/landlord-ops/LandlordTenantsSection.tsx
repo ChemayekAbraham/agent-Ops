@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Loader2, MessageCircle, Phone, RefreshCw, Users } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Loader2, MessageCircle, Phone, RefreshCw, UserCheck, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -21,7 +21,19 @@ const BATCH = 25;
  * Read-only "Tenants" section for a landlord: every Rent Plan on them, with the tenant, the money, the plan stage, the funding stage
  * and the agent. Loaded from landlord_tenant_overview; nothing here writes anything or changes any approve, reject or edit behaviour.
  */
-export function LandlordTenantsSection({ landlordId, enabled = true, className }: { landlordId: string | null | undefined; enabled?: boolean; className?: string }) {
+export function LandlordTenantsSection({
+  landlordId,
+  enabled = true,
+  className,
+  onSelectTenant,
+  onSelectAgent,
+}: {
+  landlordId: string | null | undefined;
+  enabled?: boolean;
+  className?: string;
+  onSelectTenant?: (tenantId: string, tenantName: string) => void;
+  onSelectAgent?: (agentId: string, agentName?: string) => void;
+}) {
   const { data, isLoading, isError, error, refetch, isFetching } = useLandlordTenantOverview(landlordId, enabled);
   const [shown, setShown] = useState(BATCH);
   const rows = data ?? [];
@@ -71,7 +83,14 @@ export function LandlordTenantsSection({ landlordId, enabled = true, className }
           </div>
 
           <ul className="space-y-2">
-            {rows.slice(0, shown).map((r) => <TenantCard key={r.rent_request_id} row={r} />)}
+            {rows.slice(0, shown).map((r) => (
+              <TenantCard
+                key={r.rent_request_id}
+                row={r}
+                onSelectTenant={onSelectTenant}
+                onSelectAgent={onSelectAgent}
+              />
+            ))}
           </ul>
 
           {rows.length > shown && (
@@ -85,12 +104,35 @@ export function LandlordTenantsSection({ landlordId, enabled = true, className }
   );
 }
 
-function TenantCard({ row }: { row: LandlordTenantRow }) {
+function TenantCard({
+  row,
+  onSelectTenant,
+  onSelectAgent,
+}: {
+  row: LandlordTenantRow;
+  onSelectTenant?: (tenantId: string, tenantName: string) => void;
+  onSelectAgent?: (agentId: string, agentName?: string) => void;
+}) {
+  const effectiveAgentId = row.assigned_agent_id || row.registering_agent_id;
+  const effectiveAgentName = row.assigned_agent_name || row.registering_agent_name;
+
   return (
     <li className="space-y-2 rounded-lg border bg-card px-3 py-2.5 text-sm" data-testid="tenant-card">
       <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
         <div className="min-w-0">
-          <p className="break-words font-semibold leading-tight">{row.tenant_name}</p>
+          {onSelectTenant && row.tenant_id ? (
+            <button
+              type="button"
+              onClick={() => onSelectTenant(row.tenant_id!, row.tenant_name)}
+              className="group inline-flex items-center gap-1 text-left break-words font-semibold leading-tight text-primary hover:underline"
+              title="Tap to drill into tenant profile"
+            >
+              <span>{row.tenant_name}</span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-70 transition-transform group-hover:translate-x-0.5" />
+            </button>
+          ) : (
+            <p className="break-words font-semibold leading-tight">{row.tenant_name}</p>
+          )}
           {row.tenant_phone ? <CallButtons phone={row.tenant_phone} name={row.tenant_name} /> : <p className="text-xs text-muted-foreground">No phone on file</p>}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1">
@@ -110,10 +152,23 @@ function TenantCard({ row }: { row: LandlordTenantRow }) {
 
       <div className="border-t pt-2 text-xs">
         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Agent</p>
-        {row.assigned_agent_name || row.assigned_agent_phone ? (
+        {effectiveAgentName || row.assigned_agent_phone ? (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-            <span className="font-medium">{row.assigned_agent_name || 'Unnamed agent'}</span>
-            {row.assigned_agent_phone && <CallButtons phone={row.assigned_agent_phone} name={row.assigned_agent_name || 'Agent'} />}
+            {onSelectAgent && effectiveAgentId ? (
+              <button
+                type="button"
+                onClick={() => onSelectAgent(effectiveAgentId, effectiveAgentName || 'Unnamed agent')}
+                className="group inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                title="Tap to drill into agent profile, wallet & performances"
+              >
+                <UserCheck className="h-3 w-3 shrink-0" />
+                <span>{effectiveAgentName || 'Unnamed agent'}</span>
+                <ChevronRight className="h-3 w-3 shrink-0 opacity-70 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            ) : (
+              <span className="font-medium">{effectiveAgentName || 'Unnamed agent'}</span>
+            )}
+            {row.assigned_agent_phone && <CallButtons phone={row.assigned_agent_phone} name={effectiveAgentName || 'Agent'} />}
           </div>
         ) : (
           <span className="text-muted-foreground">No agent on this Rent Plan</span>

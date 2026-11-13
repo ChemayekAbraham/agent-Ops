@@ -21,6 +21,7 @@ export interface LandlordOpsRoute {
 
 export const LANDLORD_OPS_ROUTES: LandlordOpsRoute[] = [
   { path: '', Component: lazy(() => import('./Today')) },
+  { path: 'hidden', Component: lazy(() => import('./Hidden')) },
 
   { path: 'verify/houses', Component: lazy(() => import('./verify/Houses')) },
   { path: 'verify/landlords', Component: lazy(() => import('./verify/Landlords')) },
