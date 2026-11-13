@@ -58,7 +58,8 @@ SELECT ('a0a0a0a0-0000-4000-8000-0000000000' || lpad(n::text, 2, '0'))::uuid,
 INSERT INTO public.deposit_requests (id, user_id, amount, transaction_id, status)
 VALUES ('d0d0d0d0-0000-4000-8000-000000000001', '33333333-3333-4333-8333-333333333333', 100000, 'MP-3333-3333', 'approved');
 
-UPDATE public.pipeline_switches SET is_on = true WHERE key = 'self_support_direct_pay';
+-- Phases 2-7 test option 2 for every partner; phase8_test.sql turns the everyone-switch off to test the pilot list.
+UPDATE public.pipeline_switches SET is_on = true WHERE key IN ('self_support_direct_pay', 'self_support_direct_pay_everyone');
 SET LOCAL session_replication_role = origin;
 
 -- Grace gets 50,000 operational float (balanced test credit, real ledger triggers).
