@@ -1,3 +1,4 @@
+import { readBoardMap, readStages, type BoardMap, type MapStage } from './boardMap';
 export const BOARD_POLL_MS = 30_000;
 export const BOARD_RETRY_MS = 60_000;
 export const BOARD_STALE_MS = 120_000;
@@ -11,9 +12,28 @@ export type BoardMetric = typeof BOARD_METRICS[number];
 /** The tiles whose figure is "right now", whatever the period. */
 export const BOARD_NOW_METRICS: readonly BoardMetric[] = ['selected', 'waiting'];
 export interface BoardTotal { n: number; ugx: number }
+/** E96: which screen a link shows. 'funders' (the default) is the four-tile board; 'map' the ops command map. */
+export type BoardScreen = 'funders' | 'pipeline' | 'map';
+export const BOARD_SCREENS: readonly BoardScreen[] = ['funders', 'pipeline', 'map'];
+const isScreen = (v: unknown): v is BoardScreen => typeof v === 'string' && (BOARD_SCREENS as readonly string[]).includes(v);
+/**
+ * E97: an office-locked link may switch screens (can_switch); the server lists them in
+ * display.screens and answers p_screen. Any other link shows its own (home) screen.
+ */
+export interface BoardDisplayInfo {
+  label: string;
+  screen: BoardScreen;
+  homeScreen: BoardScreen;
+  canSwitch: boolean;
+  screens: { key: BoardScreen; label: string }[];
+}
 export interface BoardFeed {
-  generated_at: string; display: { label: string };
+  generated_at: string; display: BoardDisplayInfo;
   headline: Record<BoardPeriod, Record<BoardMetric, BoardTotal>>;
+  /** Only for a 'map' link: feed.map with feed.stages, whitelisted (boardMap.ts). */
+  map: BoardMap | null;
+  /** Only for a 'pipeline' link (screen 2): feed.stages, whitelisted. Absent on the funders board. */
+  stages?: MapStage[];
 }
 export const BOARD_PERIOD_LABELS: Record<BoardPeriod, string> = { today: 'Today', '7d': '7 days', '30d': '30 days', '90d': '90 days', all: 'All time' };
 /** The list panel closes itself after a minute with no touch, so the room is back on the tiles. */
@@ -61,7 +81,25 @@ export function readBoardFeed(value: unknown): BoardFeed {
       headline[period][metric] = { n: numeric(total?.n), ugx: numeric(total?.ugx) };
     }
   }
-  return { generated_at: raw.generated_at, display: { label: String(raw.display?.label ?? '') }, headline };
+  const s = raw.display?.screen;
+  const screen: BoardScreen = s === 'map' || s === 'pipeline' ? s : 'funders';
+  const screens = (Array.isArray(raw.display?.screens) ? raw.display.screens : [])
+    .filter((x: Record<string, unknown>) => isScreen(x?.key))
+    .map((x: Record<string, unknown>) => ({ key: x.key as BoardScreen, label: typeof x.label === 'string' && x.label.trim() ? x.label : String(x.key) }));
+  return {
+    generated_at: raw.generated_at,
+    display: {
+      label: String(raw.display?.label ?? ''),
+      screen,
+      homeScreen: isScreen(raw.display?.home_screen) ? raw.display.home_screen : screen,
+      // Switching needs the server's yes and something to switch between.
+      canSwitch: raw.display?.can_switch === true && screens.length > 1,
+      screens,
+    },
+    headline,
+    map: screen === 'map' ? readBoardMap(raw.map, raw.stages) : null,
+    ...(screen === 'pipeline' ? { stages: readStages(raw.stages) } : {}),
+  };
 }
 /**
  * The server refuses a link that is not valid, switched off or used off the
@@ -145,4 +183,23 @@ export function sortBoardRows<T extends Pick<BoardListRow, 'selected_at' | 'post
       return (sort === 'newest' ? y - x : x - y) || a.i - b.i;
     })
     .map(({ r }) => r);
+}
+
+/* ───────────── E97: screen switching and auto-rotate ───────────── */
+/** Auto-rotate moves to the next screen after a minute. */
+export const BOARD_ROTATE_MS = 60_000;
+/** The choice survives a TV restart in the URL hash: #funders, #pipeline, #map or #rotate. */
+export function readBoardHash(hash: string): { screen: BoardScreen | null; rotate: boolean } {
+  const h = hash.replace(/^#/, '').trim().toLowerCase();
+  if (h === 'rotate') return { screen: null, rotate: true };
+  return { screen: isScreen(h) ? h : null, rotate: false };
+}
+export function boardHash(screen: BoardScreen | null, rotate: boolean): string {
+  return rotate ? '#rotate' : screen ? `#${screen}` : '';
+}
+/** The screen after `current` in the server's order (Funders → Pipeline → Ops map → Funders). */
+export function nextBoardScreen(screens: { key: BoardScreen }[], current: BoardScreen): BoardScreen {
+  if (screens.length === 0) return current;
+  const i = screens.findIndex((s) => s.key === current);
+  return screens[(i + 1) % screens.length].key;
 }
