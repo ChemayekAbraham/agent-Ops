@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { CFOSignagesDesk } from '@/components/cfo/CFOSignagesDesk';
 
 const mocks = vi.hoisted(() => ({
-  pay: vi.fn(), decline: vi.fn(), terminate: vi.fn(),
+  pay: vi.fn(), returnToAgent: vi.fn(), terminate: vi.fn(),
   row: {} as Record<string, unknown>,
 }));
 const base = {
@@ -18,25 +18,28 @@ vi.mock('@/hooks/useWelileSignages', () => ({
   useSignageDetail: () => ({ data: { photos: [] }, isPending: false }),
   useSignageCfoQueue: () => ({ data: [{ ...base, ...mocks.row }], refetch: vi.fn(), isLoading: false }),
   useCfoDisburseSignage: () => ({ mutateAsync: mocks.pay, isPending: false }),
-  useCfoDeclineInstallation: () => ({ mutateAsync: mocks.decline, isPending: false }),
+  useCfoReturnSignage: () => ({ mutateAsync: mocks.returnToAgent, isPending: false }),
   useCfoTerminateSignage: () => ({ mutateAsync: mocks.terminate, isPending: false }),
 }));
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); mocks.row = {}; });
 describe('CFO signage money actions', () => {
-  it('pays the agent only after the installation is posted, and that payment activates', async () => {
-    mocks.row = { status: 'installation_verification', agent_reward_status: 'not_eligible' };
+  it('pays the agent once after COO approval, and that payment activates', async () => {
+    mocks.row = { status: 'awaiting_cfo', agent_reward_status: 'not_eligible' };
     render(<CFOSignagesDesk />);
     fireEvent.click(screen.getByRole('button', { name: 'Pay Agent & Activate' }));
     expect(mocks.pay).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm & Disburse' }));
     await waitFor(() => expect(mocks.pay).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ payoutType: 'agent_reward', periodIndex: 0 })));
   });
-  it('offers no agent payment while the agent has not posted the installation', () => {
-    mocks.row = { status: 'pending_installation', agent_reward_status: 'not_eligible' };
+  it('returns an application to the agent with a reason and pays nothing', async () => {
+    mocks.row = { status: 'awaiting_cfo', agent_reward_status: 'not_eligible' };
     render(<CFOSignagesDesk />);
-    expect(screen.queryByRole('button', { name: 'Pay Agent & Activate' })).not.toBeInTheDocument();
-    expect(screen.getByText('Waiting for the agent to post the installation')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Return to agent' }));
+    fireEvent.change(screen.getByPlaceholderText('Reason (at least 10 characters)'), { target: { value: 'Signage not visible in photo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send back to agent' }));
+    await waitFor(() => expect(mocks.returnToAgent).toHaveBeenCalledExactlyOnceWith({ signageId: 'signage', reason: 'Signage not visible in photo' }));
+    expect(mocks.pay).not.toHaveBeenCalled();
   });
   it('offers no owner payment in the first month', () => {
     render(<CFOSignagesDesk />);
@@ -64,7 +67,7 @@ describe('CFO signage money actions', () => {
     expect(mocks.pay).not.toHaveBeenCalled();
   });
   it('has no batch payment and no approve-without-paying button', () => {
-    mocks.row = { status: 'installation_verification', agent_reward_status: 'not_eligible' };
+    mocks.row = { status: 'awaiting_cfo', agent_reward_status: 'not_eligible' };
     render(<CFOSignagesDesk />);
     expect(screen.queryByRole('button', { name: /Batch Pay/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Approve & Activate/ })).not.toBeInTheDocument();

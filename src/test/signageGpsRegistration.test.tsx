@@ -18,7 +18,6 @@ vi.mock('@/hooks/useWelileSignages', () => ({
   useResubmitSignage: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useLoadSignageDetail: () => vi.fn(),
   useSaveSignageDraft: () => ({ mutateAsync: mocks.saveDraft, isPending: false }),
-  usePostSignageInstallation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock('@/components/signages/SignageEvidence', () => ({ SignageEvidence: () => null }));
 import AgentWelileSignages from '@/pages/agent/AgentWelileSignages';

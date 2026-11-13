@@ -44,7 +44,7 @@ import {
   canPayOwner,
   canTerminateSignage,
 } from '@/lib/welileSignages';
-import { useSignageCfoQueue, useCfoDisburseSignage, useCfoDeclineInstallation, useCfoTerminateSignage } from '@/hooks/useWelileSignages';
+import { useSignageCfoQueue, useCfoDisburseSignage, useCfoReturnSignage, useCfoTerminateSignage } from '@/hooks/useWelileSignages';
 import { Textarea } from '@/components/ui/textarea';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { toast } from 'sonner';
@@ -52,9 +52,9 @@ import { toast } from 'sonner';
 export function CFOSignagesDesk() {
   const { data: signages = [], isLoading, isError, error, refetch } = useSignageCfoQueue();
   const disburseMutation = useCfoDisburseSignage();
-  const declineMutation = useCfoDeclineInstallation();
+  const returnMutation = useCfoReturnSignage();
   const terminateMutation = useCfoTerminateSignage();
-  const [actionModal, setActionModal] = useState<{ signage: SignageListRecord; kind: 'decline' | 'terminate' } | null>(null);
+  const [actionModal, setActionModal] = useState<{ signage: SignageListRecord; kind: 'return' | 'terminate' } | null>(null);
   const [actionReason, setActionReason] = useState('');
 
   const [search, setSearch] = useState('');
@@ -67,11 +67,10 @@ export function CFOSignagesDesk() {
   } | null>(null);
   const paymentLock = useRef(false);
 
-  // Money moves only here. The agent is paid once, after posting the installation (that payment
-  // activates the signage); the owner is paid monthly from one month after activation until terminated.
-  const approvedSignages = signages.filter((s) =>
-    ['pending_installation', 'installation_verification', 'awaiting_cfo', 'active', 'removed'].includes(s.status)
-  );
+  // Money moves only here. The board is already installed when the agent applies. The agent is paid once
+  // after Ops and COO approval (that payment activates the signage); the owner is paid monthly from one
+  // month after activation until the contract is terminated.
+  const approvedSignages = signages.filter((s) => ['awaiting_cfo', 'active', 'removed'].includes(s.status));
 
   const pendingAgentRewards = approvedSignages.filter(canPayAgentReward);
   const pendingOwnerRents = approvedSignages.filter(canPayOwner);
@@ -150,7 +149,7 @@ export function CFOSignagesDesk() {
 
   const handleConfirmAction = async () => {
     if (!actionModal) return;
-    const mutation = actionModal.kind === 'decline' ? declineMutation : terminateMutation;
+    const mutation = actionModal.kind === 'return' ? returnMutation : terminateMutation;
     try {
       await mutation.mutateAsync({ signageId: actionModal.signage.id, reason: actionReason });
       setActionModal(null);
@@ -174,7 +173,7 @@ export function CFOSignagesDesk() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Paying the agent for a posted installation makes the signage Active. Owners are paid monthly from one month after activation, until you terminate.
+              Paying the agent's one-time reward makes the signage Active. Owners are paid monthly from one month after activation, until you terminate.
             </p>
           </div>
         </div>
@@ -201,7 +200,7 @@ export function CFOSignagesDesk() {
           </div>
           <div className="text-2xl font-bold text-foreground">{totalActive}</div>
           <p className="text-[10px] text-muted-foreground mt-1">
-            {totalApprovedAwaitingInstall} installing or awaiting your review
+            {totalApprovedAwaitingInstall} awaiting your payment
           </p>
         </div>
 
@@ -212,7 +211,7 @@ export function CFOSignagesDesk() {
           </div>
           <div className="text-2xl font-bold text-amber-600">UGX {totalPendingRewardsUgx.toLocaleString()}</div>
           <p className="text-[10px] text-muted-foreground mt-1">
-            {pendingAgentRewards.length} installations posted, awaiting payment
+            {pendingAgentRewards.length} approved, awaiting payment
           </p>
         </div>
 
@@ -285,7 +284,7 @@ export function CFOSignagesDesk() {
           <Megaphone className="h-10 w-10 text-muted-foreground/30 mx-auto" />
           <h4 className="text-sm font-semibold">No Signages in this Queue</h4>
           <p className="text-xs text-muted-foreground">
-            Applications appear here after COO approval. Agents are paid once they post the installation.
+            Applications appear here after COO approval. Check the installed-signage photo before paying.
           </p>
         </div>
       ) : (
@@ -323,9 +322,9 @@ export function CFOSignagesDesk() {
                     </div>
 
                     <div className="flex items-center gap-2 self-start sm:self-center">
-                      {item.status === 'installation_verification' && (
-                        <Button size="sm" variant="outline" className="rounded-xl text-xs h-8" onClick={() => { setActionReason(''); setActionModal({ signage: item, kind: 'decline' }); }}>
-                          Decline installation
+                      {item.status === 'awaiting_cfo' && (
+                        <Button size="sm" variant="outline" className="rounded-xl text-xs h-8" onClick={() => { setActionReason(''); setActionModal({ signage: item, kind: 'return' }); }}>
+                          Return to agent
                         </Button>
                       )}
                       {canTerminateSignage(item) && (
@@ -382,9 +381,7 @@ export function CFOSignagesDesk() {
                           </Button>
                         ) : (
                           <span className="text-[10px] text-muted-foreground italic">
-                            {item.status === 'pending_installation'
-                              ? (item.installation_decline_reason ? 'Sent back; waiting for the agent to re-post' : 'Waiting for the agent to post the installation')
-                              : item.status === 'removed' ? 'Contract terminated' : 'Not yet installed'}
+                            {item.status === 'removed' ? 'Contract terminated' : 'Awaiting COO approval'}
                           </span>
                         )}
                       </div>
@@ -452,22 +449,22 @@ export function CFOSignagesDesk() {
         </div>
       )}
 
-      <Dialog open={!!actionModal} onOpenChange={(open) => { if (!open && !declineMutation.isPending && !terminateMutation.isPending) setActionModal(null); }}>
+      <Dialog open={!!actionModal} onOpenChange={(open) => { if (!open && !returnMutation.isPending && !terminateMutation.isPending) setActionModal(null); }}>
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>{actionModal?.kind === 'decline' ? 'Decline installation' : 'Terminate contract'}</DialogTitle>
+            <DialogTitle>{actionModal?.kind === 'return' ? 'Return to agent' : 'Terminate contract'}</DialogTitle>
             <DialogDescription>
-              {actionModal?.kind === 'decline'
-                ? `${actionModal?.signage.reference_no}: the agent is not paid and must post the installation again.`
+              {actionModal?.kind === 'return'
+                ? `${actionModal?.signage.reference_no}: no payment is made. The agent fixes the application and it goes through Ops and the COO again.`
                 : `${actionModal?.signage.reference_no}: no further owner payouts will be made. This cannot be undone.`}
             </DialogDescription>
           </DialogHeader>
           <Textarea value={actionReason} onChange={(e) => setActionReason(e.target.value)} placeholder="Reason (at least 10 characters)" className="rounded-xl text-sm" />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActionModal(null)} disabled={declineMutation.isPending || terminateMutation.isPending}>Cancel</Button>
+            <Button variant="outline" onClick={() => setActionModal(null)} disabled={returnMutation.isPending || terminateMutation.isPending}>Cancel</Button>
             <Button variant={actionModal?.kind === 'terminate' ? 'destructive' : 'default'} onClick={handleConfirmAction}
-              disabled={actionReason.trim().length < 10 || declineMutation.isPending || terminateMutation.isPending}>
-              {actionModal?.kind === 'decline' ? 'Send back to agent' : 'Terminate contract'}
+              disabled={actionReason.trim().length < 10 || returnMutation.isPending || terminateMutation.isPending}>
+              {actionModal?.kind === 'return' ? 'Send back to agent' : 'Terminate contract'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -555,7 +552,7 @@ export function CFOSignagesDesk() {
                 </div>
                 <DialogDescription className="text-xs">
                   {disburseModal.type === 'agent_reward'
-                    ? `Pay the agent's one-time reward for the installation they posted on ${disburseModal.signage.reference_no}. This makes the signage Active. Check the installation photo first.`
+                    ? `Pay the agent's one-time reward for ${disburseModal.signage.reference_no}. This makes the signage Active. Check the installed-signage photo first.`
                     : `Pay the owner for month ${(disburseModal.signage.owner_rent_period_index ?? 0) + 2} of ${disburseModal.signage.reference_no} to their own Welile wallet.`}
                 </DialogDescription>
               </DialogHeader>

@@ -4,8 +4,10 @@
  * Business rules (enforced in the database; see migration 20261124100000_signages_new_rules):
  *  - Eligible: busy houses and shops / business premises.
  *  - Drafts: an agent may save an incomplete application and continue later. Once submitted it is locked.
- *  - Flow: submitted → Agent Ops → COO → agent installs the board and posts it (photo + live GPS at the spot)
- *    → CFO pays the agent's one-time UGX 3,000 to their wallet, which makes the signage Active.
+ *  - The board is already installed when the agent applies; the application verifies it for payment.
+ *    Submission requires a photo of the installed signage.
+ *  - Flow: submitted → Agent Ops → COO → CFO pays the agent's one-time UGX 3,000 to their wallet,
+ *    which makes the signage Active (or returns it to the agent for changes).
  *  - Owner: nothing in the first month. From one month after activation the CFO pays UGX 10,000 a month
  *    to the owner's own Welile wallet (never the agent's), until the CFO terminates the contract.
  *  - Money moves only from the CFO dashboard.
@@ -191,13 +193,13 @@ export function formatSignageStatus(status: SignageStatus): { label: string; var
     case 'draft':
       return { label: 'Draft', variant: 'outline' };
     case 'pending_installation':
-      return { label: 'Install the Board', variant: 'secondary' };
+      return { label: 'Pending Installation', variant: 'secondary' };
     case 'installation_in_progress':
       return { label: 'Installation in Progress', variant: 'default' };
     case 'installation_verification':
-      return { label: 'Installation Posted · Awaiting CFO', variant: 'secondary' };
+      return { label: 'Installation Photos Submitted', variant: 'secondary' };
     case 'awaiting_cfo':
-      return { label: 'Awaiting CFO', variant: 'secondary' };
+      return { label: 'Awaiting CFO Payment', variant: 'secondary' };
     case 'active':
       return { label: 'Installed Successfully', variant: 'success' };
     case 'changes_required':
@@ -222,7 +224,7 @@ export function formatSignageStatus(status: SignageStatus): { label: string; var
 export function signageReviewTarget(decision: 'approve' | 'return' | 'reject', stage: 'agent_ops' | 'coo'): SignageStatus {
   if (decision === 'return') return 'changes_required';
   if (decision === 'reject') return 'rejected';
-  return stage === 'coo' ? 'pending_installation' : 'awaiting_coo';
+  return stage === 'coo' ? 'awaiting_cfo' : 'awaiting_coo';
 }
 
 export function canReviewSignage(status: SignageStatus, stage: 'agent_ops' | 'coo'): boolean {
@@ -245,9 +247,9 @@ export function signagePipelineRecords<T extends SignageListRecord>(records: T[]
     'pending_installation', 'installation_in_progress', 'installation_verification', 'awaiting_cfo', 'changes_required', 'rejected'].includes(record.status));
 }
 
-/** CFO pays the agent once, after the installation is posted; that payment activates the signage. */
+/** CFO pays the agent once, after Ops and the COO approve; that payment activates the signage. */
 export function canPayAgentReward(record: SignageListRecord): boolean {
-  return record.status === 'installation_verification';
+  return record.status === 'awaiting_cfo' && !!record.coo_approved_at;
 }
 
 /** CFO pays the owner monthly from one month after activation, until the contract is terminated. */
@@ -257,7 +259,7 @@ export function canPayOwner(record: SignageListRecord): boolean {
 
 /** Statuses the CFO can still terminate. */
 export function canTerminateSignage(record: SignageListRecord): boolean {
-  return ['awaiting_cfo', 'pending_installation', 'installation_verification', 'active', 'temporarily_inactive', 'payment_on_hold'].includes(record.status);
+  return ['awaiting_cfo', 'active', 'temporarily_inactive', 'payment_on_hold'].includes(record.status);
 }
 
 /** GPS older than this is rejected by the server at submission. */

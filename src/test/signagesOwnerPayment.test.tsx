@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { useCfoDisburseSignage, useCfoTerminateSignage, useCfoDeclineInstallation } from '@/hooks/useWelileSignages';
+import { useCfoDisburseSignage, useCfoTerminateSignage, useCfoReturnSignage } from '@/hooks/useWelileSignages';
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc } }));
@@ -22,8 +22,8 @@ describe('CFO signage actions', () => {
     await act(async () => { await result.current.mutateAsync({ signageId: 'signage', reason: 'Owner ended the contract' }); });
     expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('cfo_terminate_signage', { p_signage_id: 'signage', p_reason: 'Owner ended the contract' });
   });
-  it('refuses to decline an installation without a real reason', async () => {
-    const { result } = renderHook(() => useCfoDeclineInstallation(), { wrapper });
+  it('refuses to return an application without a real reason', async () => {
+    const { result } = renderHook(() => useCfoReturnSignage(), { wrapper });
     await act(async () => { await expect(result.current.mutateAsync({ signageId: 'signage', reason: 'blurry' })).rejects.toThrow('10 characters'); });
     expect(mocks.rpc).not.toHaveBeenCalled();
   });

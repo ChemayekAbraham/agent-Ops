@@ -62,7 +62,6 @@ import {
   isSignageGpsFresh,
 } from '@/lib/welileSignages';
 import { useMySignages, useSubmitSignage, useDeleteSignage, useResubmitSignage, useSaveSignageDraft } from '@/hooks/useWelileSignages';
-import { PostInstallationDialog } from '@/components/signages/PostInstallationDialog';
 import { toast } from 'sonner';
 import { prepareSignagePhoto } from '@/lib/signagePhoto';
 
@@ -83,7 +82,6 @@ export default function AgentWelileSignages() {
   const [loadingEditId, setLoadingEditId] = useState<string>();
   // Draft being continued (saved earlier, not yet submitted).
   const [draftId, setDraftId] = useState<string | null>(null);
-  const [installTarget, setInstallTarget] = useState<SignageListRecord | null>(null);
   const saveDraftMutation = useSaveSignageDraft();
   const [pendingFilter, setPendingFilter] = useState<'all' | 'pipeline' | 'declined'>('all');
 
@@ -105,7 +103,7 @@ export default function AgentWelileSignages() {
   const installingCount = installingSignages.length;
   const inPipelineCount = inPipelineSignages.length;
   const pendingCount = inPipelineSignages.length;
-  // Rewards actually paid to the agent's wallet (paid once, when the CFO accepts the posted installation).
+  // Rewards actually paid to the agent's wallet (paid once by the CFO after Ops and COO approval).
   const verifiedRewardsUgx = signages.filter((s) => s.agent_reward_status === 'paid').length * SIGNAGE_RATES.AGENT_REWARD_UGX;
 
   // ── Form State ──
@@ -321,8 +319,8 @@ export default function AgentWelileSignages() {
       document.getElementById('section-location')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
-    if (photos.length === 0) {
-      toast.error('Please capture at least 1 photo of the proposed signage position in Section 5.');
+    if (!photos.some((p) => p.category === 'installed_signage')) {
+      toast.error('Add a photo of the installed signage in Section 5. It is the proof for payment.');
       document.getElementById('section-photos')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
@@ -1304,7 +1302,7 @@ export default function AgentWelileSignages() {
                       { cat: 'exterior' as const, label: 'Exterior Facade' },
                       { cat: 'proposed_position' as const, label: 'Signage Spot' },
                       { cat: 'surroundings' as const, label: 'Street View' },
-                      { cat: 'installed_signage' as const, label: 'Landmark / Angle' },
+                      { cat: 'installed_signage' as const, label: 'Installed Signage' },
                     ].map(({ cat, label }) => {
                       const photo = photos.find((p) => p.category === cat);
                       return (
@@ -1554,15 +1552,12 @@ export default function AgentWelileSignages() {
                           </div>
                         )}
 
-                        {signage.status === 'pending_installation' && (
-                          <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-xs flex items-center justify-between gap-2">
+                        {signage.status === 'awaiting_cfo' && (
+                          <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-xs flex items-center justify-between">
                             <span className="flex items-center gap-1.5 font-medium">
                               <Clock className="h-4 w-4 shrink-0 text-indigo-600" />
-                              {signage.installation_decline_reason ? 'CFO sent the installation back' : 'Approved · install the board'}
+                              Approved · awaiting CFO payment of your reward
                             </span>
-                            <Button type="button" size="sm" className="h-8 rounded-xl text-xs" onClick={() => setInstallTarget(signage)}>
-                              Post Installation
-                            </Button>
                           </div>
                         )}
 
@@ -1570,7 +1565,7 @@ export default function AgentWelileSignages() {
                           <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-400 text-xs flex items-center justify-between">
                             <span className="flex items-center gap-1.5 font-medium">
                               <CheckCircle2 className="h-4 w-4 shrink-0 text-purple-600" />
-                              Installation posted • Awaiting CFO review and your reward
+                              Installed • Awaiting Final Ops Verification
                             </span>
                           </div>
                         )}
@@ -1609,7 +1604,7 @@ export default function AgentWelileSignages() {
                   <div className="text-xs">
                     <span className="font-bold text-foreground block">Agent Reward: UGX 3,000 (One-Time)</span>
                     <span className="text-muted-foreground">
-                      Paid once to your Welile wallet when the CFO accepts the installation you posted (photo and live GPS at the spot). This makes the signage Active.
+                      Paid once to your Welile wallet by the CFO after Agent Ops and the COO approve your application. Payment makes the signage Active.
                     </span>
                   </div>
                 </div>
@@ -1656,8 +1651,6 @@ export default function AgentWelileSignages() {
       </div>
 
       {/* Delete Confirmation Modal */}
-      <PostInstallationDialog signage={installTarget} onClose={() => setInstallTarget(null)} />
-
       <Dialog open={!!signageToDelete} onOpenChange={(open) => !open && setSignageToDelete(null)}>
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>

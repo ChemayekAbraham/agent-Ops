@@ -28,8 +28,8 @@ describe('Welile Signages business rules & configuration', () => {
   it('routes Agent Ops approval to COO instead of installation', () => {
     expect(signageReviewTarget('approve', 'agent_ops')).toBe('awaiting_coo');
   });
-  it('routes COO approval to installation, not straight to the CFO', () => {
-    expect(signageReviewTarget('approve', 'coo')).toBe('pending_installation');
+  it('routes COO approval to the CFO for payment (the board is already installed)', () => {
+    expect(signageReviewTarget('approve', 'coo')).toBe('awaiting_cfo');
   });
   it('only allows COO decisions on applications awaiting COO', () => {
     expect(canReviewSignage('awaiting_coo', 'coo')).toBe(true);
@@ -83,11 +83,11 @@ describe('Welile Signages business rules & configuration', () => {
 });
 
 import { canPayAgentReward, canPayOwner, canTerminateSignage, isSignageGpsFresh } from '@/lib/welileSignages';
-describe('Agent is paid once, after posting the installation', () => {
-  it('offers the agent payment only for a posted installation', () => {
-    expect(canPayAgentReward({ status: 'installation_verification' } as never)).toBe(true);
-    expect(canPayAgentReward({ status: 'pending_installation' } as never)).toBe(false);
-    expect(canPayAgentReward({ status: 'awaiting_cfo' } as never)).toBe(false);
+describe('Agent is paid once, after Ops and COO approval', () => {
+  it('offers the agent payment only for a COO-approved application awaiting the CFO', () => {
+    expect(canPayAgentReward({ status: 'awaiting_cfo', coo_approved_at: '2026-11-13T10:00:00Z' } as never)).toBe(true);
+    expect(canPayAgentReward({ status: 'awaiting_cfo', coo_approved_at: null } as never)).toBe(false);
+    expect(canPayAgentReward({ status: 'awaiting_coo' } as never)).toBe(false);
     expect(canPayAgentReward({ status: 'active' } as never)).toBe(false);
   });
 });
@@ -97,7 +97,7 @@ describe('Owner is paid monthly from the second month until terminated', () => {
     expect(canPayOwner(due as never)).toBe(true);
     expect(canPayOwner({ ...due, owner_rent_payable: false } as never)).toBe(false);
     expect(canPayOwner({ ...due, owner_account_id: null } as never)).toBe(false);
-    expect(canPayOwner({ ...due, status: 'installation_verification' } as never)).toBe(false);
+    expect(canPayOwner({ ...due, status: 'awaiting_cfo' } as never)).toBe(false);
   });
   it('stops after the CFO terminates the contract', () => {
     expect(canPayOwner({ ...due, status: 'removed', removal_effective_at: '2026-12-01' } as never)).toBe(false);

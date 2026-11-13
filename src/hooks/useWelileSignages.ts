@@ -328,8 +328,8 @@ export function useReviewSignage(stage: 'agent_ops' | 'coo' = 'agent_ops') {
       await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
       toast.success(targetStatus === 'awaiting_coo'
         ? 'Awaiting COO. Sent to the COO for approval.'
-        : stage === 'coo' && targetStatus === 'pending_installation'
-          ? 'COO approved. The agent can now install the board.'
+        : stage === 'coo' && targetStatus === 'awaiting_cfo'
+          ? 'COO approved. Sent to the CFO for payment.'
           : 'Signage review decision recorded.');
     },
     onError: (err: Error) => toast.error('Could not save the decision: ' + err.message),
@@ -433,35 +433,14 @@ function useCfoSignageAction(rpc: string, done: string) {
   });
 }
 
-/** CFO sends a posted installation back to the agent (no payment). */
-export function useCfoDeclineInstallation() {
-  return useCfoSignageAction('cfo_decline_signage_installation', 'Installation sent back to the agent.');
+/** CFO sends an application back to the agent for changes (no payment). */
+export function useCfoReturnSignage() {
+  return useCfoSignageAction('cfo_return_signage', 'Sent back to the agent for changes. No payment made.');
 }
 
 /** CFO ends the owner contract; no further owner payouts. */
 export function useCfoTerminateSignage() {
   return useCfoSignageAction('cfo_terminate_signage', 'Contract terminated. No further owner payouts.');
-}
-
-/** Agent posts the installed board: photo plus live GPS at the spot. */
-export function usePostSignageInstallation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (args: { signageId: string; photoUrl: string; latitude: number; longitude: number; accuracy: number; note?: string }) => {
-      const { data, error } = await db().rpc('agent_submit_signage_installation', {
-        p_signage_id: args.signageId, p_photo_url: args.photoUrl, p_gps_latitude: args.latitude,
-        p_gps_longitude: args.longitude, p_gps_accuracy: args.accuracy, p_note: args.note?.trim() || null,
-      });
-      if (error) throw new Error(error.message);
-      if (data?.status !== 'installation_verification') throw new Error('The installation could not be confirmed. Refresh.');
-      return data;
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success('Installation posted. The CFO will review it and pay your reward.');
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
 }
 
 /** Agents cannot delete; this cancels a still-pending application. */

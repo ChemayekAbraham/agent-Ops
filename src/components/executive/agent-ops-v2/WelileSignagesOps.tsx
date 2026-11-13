@@ -83,12 +83,11 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
       return matchesSearch && canReviewSignage(s.status, 'agent_ops');
     }
     if (statusFilter === 'approved') {
-      return matchesSearch && ['pending_installation', 'installation_verification', 'awaiting_cfo'].includes(s.status);
+      return matchesSearch && s.status === 'awaiting_cfo';
     }
     if (statusFilter === 'active') {
       return matchesSearch && s.status === 'active';
     }
-    if (statusFilter === 'awaiting_cfo') return matchesSearch && ['installation_verification', 'awaiting_cfo'].includes(s.status);
     return matchesSearch && s.status === statusFilter;
   });
 
@@ -96,8 +95,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
   const totalActive = signages.filter((s) => s.status === 'active').length;
   const pendingReview = signages.filter((s) => canReviewSignage(s.status, stage)).length;
   const awaitingCoo = signages.filter((s) => s.status === 'awaiting_coo').length;
-  // Installation posted by the agent and waiting for the CFO to pay (and activate) or decline.
-  const awaitingCfo = signages.filter((s) => ['installation_verification', 'awaiting_cfo'].includes(s.status)).length;
+  const awaitingCfo = signages.filter((s) => s.status === 'awaiting_cfo').length;
   const monthlyCommitmentUgx = totalActive * SIGNAGE_RATES.OWNER_MONTHLY_UGX;
 
   // Review submission

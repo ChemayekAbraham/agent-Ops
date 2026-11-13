@@ -1,11 +1,12 @@
 -- Welile Signages: new owner / agent / CFO rules and loophole fixes (2026-11-13).
 --
+-- The signage is already installed when the agent applies; the application verifies it for payment.
 -- Flow after this migration:
 --   draft (agent, editable, may be incomplete)
---   → submitted (locked; GPS, owner and photo checks run here)
---   → Agent Ops review → awaiting_coo → COO approves → pending_installation
---   → agent posts the installation (photo + live GPS at the spot) → installation_verification
---   → CFO pays the agent's one-time UGX 3,000 to their wallet → active (CFO may decline instead)
+--   → submitted (locked; GPS, owner and photo checks run here, including a photo of the installed board)
+--   → Agent Ops review → awaiting_coo → COO approves → awaiting_cfo
+--   → CFO pays the agent's one-time UGX 3,000 to their wallet → active
+--     (or the CFO returns it to the agent for changes, or rejects it by terminating)
 --   → owner: nothing in the first month; from one month after activation the CFO pays
 --     UGX 10,000 a month to the owner's Welile wallet, until the CFO terminates (→ removed).
 -- Money moves only through the CFO RPCs below.
@@ -16,9 +17,9 @@
 --     and is fixed to that account after the first payout;
 --   * GPS accuracy (≤ 50 m) and freshness (≤ 60 min) are enforced at submission;
 --   * spots within 25 m of another application are flagged for review;
---   * the CFO can decline an installation or terminate a contract;
+--   * the CFO can return an application to the agent or terminate a contract;
 --   * owner payouts are recorded as a marketing expense, not a customer deposit;
---   * unused installation functions and over-broad table grants removed.
+--   * unused installation-step functions and over-broad table grants removed.
 
 -- ── New columns ────────────────────────────────────────────────────────────────
 ALTER TABLE public.welile_signages
@@ -110,7 +111,6 @@ DECLARE
   v_agent boolean := auth.uid() IS NOT NULL AND auth.uid() = NEW.agent_id;
   v_ops boolean := public._has_enabled_role(auth.uid(), ARRAY['agent_ops','operations','manager','super_admin','admin','ceo']);
   v_coo boolean := public._has_enabled_role(auth.uid(), ARRAY['coo','super_admin']) AND public.staff_mfa_ok();
-  v_install boolean := coalesce(current_setting('welile.signage_agent_install', true),'') = 'on';
   v_payout boolean := coalesce(current_setting('welile.signage_payout', true),'') = 'on';
   v_cfo text := coalesce(current_setting('welile.signage_cfo', true),'');
   v_submit boolean := false;
@@ -140,13 +140,10 @@ BEGIN
         NEW.removal_effective_at := OLD.removal_effective_at; NEW.termination_reason := OLD.termination_reason;
         NEW.terminated_by := OLD.terminated_by;
       END IF;
-      IF NOT v_install THEN
-        NEW.installed_at := OLD.installed_at; NEW.installer_name := OLD.installer_name;
-        NEW.installation_photos := OLD.installation_photos; NEW.installation_submitted_at := OLD.installation_submitted_at;
-      END IF;
-      IF NOT v_install AND v_cfo <> 'decline' AND NOT (v_coo AND OLD.status = 'awaiting_coo') THEN
-        NEW.installation_started_at := OLD.installation_started_at; NEW.installation_decline_reason := OLD.installation_decline_reason;
-      END IF;
+      -- The separate installation step is retired: these fields stay as they are.
+      NEW.installed_at := OLD.installed_at; NEW.installer_name := OLD.installer_name;
+      NEW.installation_photos := OLD.installation_photos; NEW.installation_submitted_at := OLD.installation_submitted_at;
+      NEW.installation_started_at := OLD.installation_started_at; NEW.installation_decline_reason := OLD.installation_decline_reason;
     END IF;
 
     -- After submission the application is locked for everyone, Ops included.
@@ -193,16 +190,14 @@ BEGIN
         IF NEW.status = 'approved_for_installation' THEN NEW.status := 'awaiting_coo'; END IF;
         NEW.reviewed_by := v_uid; NEW.reviewed_at := now();
       ELSIF v_coo AND OLD.status = 'awaiting_coo'
-            AND NEW.status IN ('pending_installation','approved_for_installation','awaiting_cfo','changes_required','rejected') THEN
-        IF NEW.status IN ('pending_installation','approved_for_installation','awaiting_cfo') THEN
-          NEW.status := 'pending_installation';
-          NEW.coo_approved_by := v_uid; NEW.coo_approved_at := now(); NEW.installation_started_at := now();
+            AND NEW.status IN ('approved_for_installation','awaiting_cfo','changes_required','rejected') THEN
+        IF NEW.status IN ('approved_for_installation','awaiting_cfo') THEN
+          NEW.status := 'awaiting_cfo';
+          NEW.coo_approved_by := v_uid; NEW.coo_approved_at := now();
         END IF;
-      ELSIF v_install AND v_agent AND OLD.status = 'pending_installation' AND NEW.status = 'installation_verification' THEN
+      ELSIF v_payout AND OLD.status = 'awaiting_cfo' AND NEW.status = 'active' THEN
         NULL;
-      ELSIF v_payout AND OLD.status = 'installation_verification' AND NEW.status = 'active' THEN
-        NULL;
-      ELSIF v_cfo = 'decline' AND OLD.status = 'installation_verification' AND NEW.status = 'pending_installation' THEN
+      ELSIF v_cfo = 'return' AND OLD.status = 'awaiting_cfo' AND NEW.status = 'changes_required' THEN
         NULL;
       ELSIF v_cfo = 'terminate' AND NEW.status = 'removed'
             AND OLD.status IN ('awaiting_cfo','pending_installation','installation_verification','active','temporarily_inactive','payment_on_hold') THEN
@@ -223,8 +218,9 @@ BEGIN
     IF NOT coalesce(NEW.permission_confirmed, false) THEN
       RAISE EXCEPTION 'The owner''s permission must be confirmed before submitting.';
     END IF;
-    IF jsonb_typeof(NEW.photos) IS DISTINCT FROM 'array' OR jsonb_array_length(NEW.photos) < 1 THEN
-      RAISE EXCEPTION 'Add at least one photo of the spot before submitting.';
+    IF jsonb_typeof(NEW.photos) IS DISTINCT FROM 'array' OR NOT EXISTS (
+         SELECT 1 FROM jsonb_array_elements(NEW.photos) e WHERE e->>'category' = 'installed_signage') THEN
+      RAISE EXCEPTION 'Add a photo of the installed signage before submitting.';
     END IF;
     IF NEW.gps_source IS DISTINCT FROM 'device' OR NEW.gps_latitude IS NULL OR NEW.gps_longitude IS NULL
        OR NEW.gps_latitude NOT BETWEEN -90 AND 90 OR NEW.gps_longitude NOT BETWEEN -180 AND 180
@@ -323,7 +319,7 @@ REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.welile_signages FROM auth
 GRANT SELECT, INSERT, UPDATE ON public.welile_signages TO authenticated;
 GRANT ALL ON public.welile_signages TO service_role;
 
--- ── COO: approval now sends the spot for installation ─────────────────────────
+-- ── COO: approval sends the application to the CFO for payment ──────────────
 CREATE OR REPLACE FUNCTION public.coo_decide_signage(p_signage_id uuid, p_decision text, p_notes text DEFAULT NULL::text)
 RETURNS jsonb LANGUAGE plpgsql SET search_path TO 'public' AS $function$
 DECLARE v_row public.welile_signages; v_status text;
@@ -334,50 +330,18 @@ BEGIN
  SELECT * INTO v_row FROM public.welile_signages WHERE id = p_signage_id FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Signage application not found'; END IF;
  IF v_row.status <> 'awaiting_coo' THEN RAISE EXCEPTION 'This application is no longer awaiting COO approval. Refresh the queue.'; END IF;
- v_status := CASE p_decision WHEN 'approve' THEN 'pending_installation' WHEN 'return' THEN 'changes_required' ELSE 'rejected' END;
+ v_status := CASE p_decision WHEN 'approve' THEN 'awaiting_cfo' WHEN 'return' THEN 'changes_required' ELSE 'rejected' END;
  UPDATE public.welile_signages SET status=v_status, coo_review_notes=nullif(trim(p_notes),''), review_notes=coalesce(nullif(trim(p_notes),''),review_notes),
    rejection_reason=CASE WHEN p_decision='reject' THEN trim(p_notes) ELSE NULL END WHERE id=p_signage_id RETURNING * INTO v_row;
  RETURN jsonb_build_object('id',v_row.id,'status',v_row.status);
 END; $function$;
 
--- ── Agent posts the installation (photo + live GPS at the spot) ───────────────
+-- ── The separate installation step is retired (the board is up before the application) ──
 DROP FUNCTION IF EXISTS public.agent_submit_signage_installation(uuid, date, text, text);
 DROP FUNCTION IF EXISTS public.ops_decide_signage_installation(uuid, boolean, text);
 DROP FUNCTION IF EXISTS public.my_signage_installations_due();
 
-CREATE OR REPLACE FUNCTION public.agent_submit_signage_installation(
-  p_signage_id uuid, p_photo_url text, p_gps_latitude numeric, p_gps_longitude numeric,
-  p_gps_accuracy numeric, p_note text DEFAULT NULL)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
-DECLARE v_uid uuid := auth.uid(); v_s public.welile_signages; v_name text; v_m numeric;
-BEGIN
-  IF v_uid IS NULL THEN RAISE EXCEPTION 'Sign in to post the installation' USING ERRCODE='42501'; END IF;
-  SELECT * INTO v_s FROM public.welile_signages WHERE id = p_signage_id FOR UPDATE;
-  IF NOT FOUND OR v_s.agent_id <> v_uid THEN RAISE EXCEPTION 'Only the agent who registered this spot can post its installation'; END IF;
-  IF v_s.status <> 'pending_installation' THEN RAISE EXCEPTION 'This signage is not waiting for an installation. Refresh.'; END IF;
-  IF coalesce(p_photo_url,'') !~ '^(data:image/(webp|jpeg|png);base64,|https://)' THEN RAISE EXCEPTION 'Add a photo of the installed board'; END IF;
-  IF p_gps_latitude IS NULL OR p_gps_longitude IS NULL OR p_gps_accuracy IS NULL OR p_gps_accuracy < 0 THEN
-    RAISE EXCEPTION 'Capture live GPS at the spot to post the installation';
-  END IF;
-  IF p_gps_accuracy > 50 THEN RAISE EXCEPTION 'GPS accuracy is ±% m. Capture again until it is 50 m or better.', round(p_gps_accuracy); END IF;
-  v_m := signage_internal.metres(v_s.gps_latitude, v_s.gps_longitude, p_gps_latitude, p_gps_longitude);
-  IF v_m > 100 THEN
-    RAISE EXCEPTION 'You are % m from the registered spot. Post the installation while standing at the property.', round(v_m);
-  END IF;
-  SELECT coalesce(nullif(trim(full_name),''), v_s.agent_name) INTO v_name FROM public.profiles WHERE id = v_uid;
-  PERFORM set_config('welile.signage_agent_install','on',true);
-  UPDATE public.welile_signages SET status = 'installation_verification',
-    installed_at = (now() AT TIME ZONE 'Africa/Kampala')::date, installer_name = v_name,
-    installation_submitted_at = now(), installation_decline_reason = NULL,
-    installation_photos = jsonb_build_array(jsonb_build_object('id', gen_random_uuid(), 'url', p_photo_url,
-      'category', 'installed_signage', 'caption', coalesce(nullif(trim(p_note),''), 'installed signage'), 'taken_at', now(),
-      'gps_latitude', p_gps_latitude, 'gps_longitude', p_gps_longitude, 'gps_accuracy_meters', p_gps_accuracy, 'metres_from_spot', round(v_m)))
-   WHERE id = p_signage_id RETURNING * INTO v_s;
-  PERFORM set_config('welile.signage_agent_install','',true);
-  RETURN jsonb_build_object('id', v_s.id, 'status', v_s.status);
-END $$;
-
--- ── CFO: pay agent (activates), pay owner monthly, decline, terminate ─────────
+-- ── CFO: pay agent (activates), pay owner monthly, return, terminate ──────────
 CREATE OR REPLACE FUNCTION signage_internal.cfo_disburse_signage(p_signage_id uuid, p_payout_type text, p_period_index integer)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
 DECLARE v_uid uuid := auth.uid(); v_s public.welile_signages; v_payment public.welile_signage_payments;
@@ -400,9 +364,8 @@ BEGIN
       RETURN jsonb_build_object('signage_id',v_s.id,'status',v_s.status,'amount_ugx',3000,'reference_id',v_payment.reference_id,
         'recipient_id',v_payment.recipient_id,'ledger_group_id',v_payment.ledger_group_id,'already_paid',true);
     END IF;
-    IF v_s.status <> 'installation_verification' OR NOT EXISTS (
-         SELECT 1 FROM jsonb_array_elements(coalesce(v_s.installation_photos,'[]'::jsonb)) e WHERE e->>'category' = 'installed_signage') THEN
-      RAISE EXCEPTION 'The agent is paid once, after posting the installation. This signage has no installation waiting for payment.';
+    IF v_s.status <> 'awaiting_cfo' OR v_s.coo_approved_at IS NULL THEN
+      RAISE EXCEPTION 'The agent is paid once, after Ops and the COO have approved the application.';
     END IF;
     v_recipient := v_s.agent_id; v_amount := 3000;
     IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = v_recipient AND deleted_at IS NULL) THEN
@@ -456,7 +419,7 @@ BEGIN
       VALUES (v_uid,'signage_payment_disbursed','welile_signages',p_signage_id,'CFO authorized signage wallet disbursement',
         jsonb_build_object('payout_type',p_payout_type,'amount_ugx',v_amount,'reference_id',v_ref,'recipient_id',v_recipient),v_uid);
   END IF;
-  -- An agent reward paid before these rules (status was awaiting CFO) is not paid twice; it just activates.
+  -- An agent reward paid before these rules is not paid twice; paying it again just activates the signage.
 
   PERFORM set_config('welile.signage_payout','on',true);
   IF p_payout_type = 'agent_reward' THEN
@@ -479,25 +442,26 @@ BEGIN
     'owner_rent_due_at',v_s.owner_rent_due_at);
 END $function$;
 
--- Activation now happens only when the CFO pays the agent for a posted installation.
+-- Activation now happens only when the CFO pays the agent.
 CREATE OR REPLACE FUNCTION signage_internal.cfo_approve_signage(p_signage_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 BEGIN
-  RAISE EXCEPTION 'Signages become active when the CFO pays the agent for a posted installation.';
+  RAISE EXCEPTION 'A signage becomes active when the CFO pays the agent.';
 END $$;
 
-CREATE OR REPLACE FUNCTION signage_internal.cfo_decline_signage_installation(p_signage_id uuid, p_reason text)
+-- CFO sends an application back to the agent for changes (no payment); it goes through Ops and the COO again.
+CREATE OR REPLACE FUNCTION signage_internal.cfo_return_signage(p_signage_id uuid, p_reason text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE v_s public.welile_signages; v_flag text := coalesce(current_setting('welile.signage_cfo',true),'');
 BEGIN
   IF auth.uid() IS NULL OR NOT public._has_enabled_role(auth.uid(),ARRAY['cfo','super_admin']) OR NOT public.staff_mfa_ok() THEN
-    RAISE EXCEPTION 'Only the CFO can decline an installation' USING ERRCODE='42501';
+    RAISE EXCEPTION 'Only the CFO can return a signage application' USING ERRCODE='42501';
   END IF;
   IF length(trim(coalesce(p_reason,''))) < 10 THEN RAISE EXCEPTION 'Please give a reason of at least 10 characters'; END IF;
   SELECT * INTO v_s FROM public.welile_signages WHERE id = p_signage_id FOR UPDATE;
-  IF NOT FOUND OR v_s.status <> 'installation_verification' THEN RAISE EXCEPTION 'This installation is no longer waiting for the CFO. Refresh.'; END IF;
-  PERFORM set_config('welile.signage_cfo','decline',true);
-  UPDATE public.welile_signages SET status = 'pending_installation', installation_decline_reason = trim(p_reason)
+  IF NOT FOUND OR v_s.status <> 'awaiting_cfo' THEN RAISE EXCEPTION 'This application is no longer waiting for the CFO. Refresh.'; END IF;
+  PERFORM set_config('welile.signage_cfo','return',true);
+  UPDATE public.welile_signages SET status = 'changes_required', review_notes = 'CFO: '||trim(p_reason)
    WHERE id = p_signage_id RETURNING * INTO v_s;
   PERFORM set_config('welile.signage_cfo',v_flag,true);
   RETURN jsonb_build_object('signage_id',v_s.id,'status',v_s.status);
@@ -521,8 +485,8 @@ BEGIN
   RETURN jsonb_build_object('signage_id',v_s.id,'status',v_s.status,'already_terminated',false);
 END $$;
 
-CREATE OR REPLACE FUNCTION public.cfo_decline_signage_installation(p_signage_id uuid, p_reason text)
-RETURNS jsonb LANGUAGE sql SET search_path TO 'public' AS $$ SELECT signage_internal.cfo_decline_signage_installation(p_signage_id, p_reason) $$;
+CREATE OR REPLACE FUNCTION public.cfo_return_signage(p_signage_id uuid, p_reason text)
+RETURNS jsonb LANGUAGE sql SET search_path TO 'public' AS $$ SELECT signage_internal.cfo_return_signage(p_signage_id, p_reason) $$;
 CREATE OR REPLACE FUNCTION public.cfo_terminate_signage(p_signage_id uuid, p_reason text)
 RETURNS jsonb LANGUAGE sql SET search_path TO 'public' AS $$ SELECT signage_internal.cfo_terminate_signage(p_signage_id, p_reason) $$;
 
@@ -544,11 +508,11 @@ BEGIN
    s.owner_rent_due_at,
    (SELECT count(*) FROM public.welile_signage_payments p WHERE p.signage_id=s.id AND p.payout_type='owner_rent')::int AS owner_rent_period_index,
    (s.status='active' AND s.removal_effective_at IS NULL AND s.owner_rent_due_at IS NOT NULL AND s.owner_rent_due_at<=now()) AS owner_rent_payable,
-   (s.status='installation_verification') AS agent_reward_payable,
+   (s.status='awaiting_cfo' AND s.coo_approved_at IS NOT NULL) AS agent_reward_payable,
    oa.account_id AS owner_account_id, oa.account_name AS owner_account_name, oa.issue AS owner_account_issue
   FROM public.welile_signages s
-  LEFT JOIN LATERAL signage_internal.owner_account(s.id) oa ON s.status IN ('installation_verification','active')
-  WHERE s.status IN ('awaiting_cfo','pending_installation','installation_verification','active','removed')
+  LEFT JOIN LATERAL signage_internal.owner_account(s.id) oa ON s.status IN ('awaiting_cfo','active')
+  WHERE s.status IN ('awaiting_cfo','active','removed')
  ) q);
 END $function$;
 
@@ -568,24 +532,23 @@ REVOKE ALL ON FUNCTION signage_internal.metres(numeric,numeric,numeric,numeric) 
 GRANT EXECUTE ON FUNCTION signage_internal.last9(text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION signage_internal.metres(numeric,numeric,numeric,numeric) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION signage_internal.owner_account(uuid) TO authenticated, service_role;
-REVOKE ALL ON FUNCTION public.agent_submit_signage_installation(uuid,text,numeric,numeric,numeric,text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.agent_submit_signage_installation(uuid,text,numeric,numeric,numeric,text) TO authenticated, service_role;
-REVOKE ALL ON FUNCTION signage_internal.cfo_decline_signage_installation(uuid,text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION signage_internal.cfo_return_signage(uuid,text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION signage_internal.cfo_terminate_signage(uuid,text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION signage_internal.cfo_decline_signage_installation(uuid,text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION signage_internal.cfo_return_signage(uuid,text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION signage_internal.cfo_terminate_signage(uuid,text) TO authenticated, service_role;
-REVOKE ALL ON FUNCTION public.cfo_decline_signage_installation(uuid,text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.cfo_return_signage(uuid,text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.cfo_terminate_signage(uuid,text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.cfo_decline_signage_installation(uuid,text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.cfo_return_signage(uuid,text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.cfo_terminate_signage(uuid,text) TO authenticated, service_role;
 REVOKE ALL ON FUNCTION public._welile_signages_state_machine() FROM PUBLIC, anon, authenticated;
 
 -- ── Existing applications ─────────────────────────────────────────────────────
--- COO-approved spots now go to installation first (one agent reward was already paid
--- under the old rules; it is not paid again — posting the installation activates it).
-UPDATE public.welile_signages SET status = 'pending_installation', installation_started_at = coalesce(installation_started_at, now()),
-  owner_rent_due_at = NULL
- WHERE status IN ('awaiting_cfo','approved_for_installation','installation_in_progress');
+-- Applications left in retired installation statuses go to the CFO. SGN-2026-1003's agent reward
+-- was already paid under the old rules: the CFO's "Pay agent" just activates it, with no second payment.
+UPDATE public.welile_signages SET status = 'awaiting_cfo', owner_rent_due_at = NULL
+ WHERE status IN ('approved_for_installation','pending_installation','installation_in_progress','installation_verification')
+   AND coo_approved_at IS NOT NULL;
+UPDATE public.welile_signages SET owner_rent_due_at = NULL WHERE status = 'awaiting_cfo';
 -- Backfill submission time and the duplicate-spot flag for applications already in review.
 UPDATE public.welile_signages s SET submitted_at = coalesce(s.submitted_at, s.created_at),
   nearby_signage_ref = n.reference_no, nearby_signage_m = round(n.m)
