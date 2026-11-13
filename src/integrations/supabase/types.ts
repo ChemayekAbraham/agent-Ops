@@ -92799,6 +92799,10 @@ export type Database = {
         Args: { _gross: number; _run_id: string; _staff_id: string }
         Returns: number
       }
+      hr_pay_advance_pay_to_wallet: {
+        Args: { p_advance_id: string }
+        Returns: Json
+      }
       hr_pay_advance_people: {
         Args: never
         Returns: {
