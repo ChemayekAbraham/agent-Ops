@@ -843,7 +843,9 @@ export function FunderHouseListingsSection({
               </div>
             </section>
           ))}
-          {feedHasNext ? (
+          {/* Only empty houses load in pages; on Verified / Unverified the trigger would sit in view and
+              keep fetching empty houses in the background (stuck "Loading"). */}
+          {feedHasNext && boardTab === 'empty' ? (
             <div ref={loadMoreRef} className="flex justify-center">
               <Button variant="default" className="h-11 rounded-md px-6" onClick={fetchNextFeed} disabled={feedFetchingNext}>
                 {feedFetchingNext ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Home className="h-4 w-4" aria-hidden />}
