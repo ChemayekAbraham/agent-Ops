@@ -26666,6 +26666,68 @@ export type Database = {
           },
         ]
       }
+      hr_pay_payroll_exclusions: {
+        Row: {
+          end_note: string | null
+          ended_at: string | null
+          ended_by: string | null
+          excluded_at: string
+          excluded_by: string
+          id: string
+          reason: string
+          staff_id: string
+        }
+        Insert: {
+          end_note?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          excluded_at?: string
+          excluded_by: string
+          id?: string
+          reason: string
+          staff_id: string
+        }
+        Update: {
+          end_note?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          excluded_at?: string
+          excluded_by?: string
+          id?: string
+          reason?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
       hr_pay_payslip_lines: {
         Row: {
           amount: number
@@ -78484,6 +78546,10 @@ export type Database = {
         }[]
       }
       _bike_sweep_blocks_outflow: { Args: { p_user: string }; Returns: boolean }
+      _board_payload: {
+        Args: { p_names: boolean; p_screen: string }
+        Returns: Json
+      }
       _board_token_check: {
         Args: { p_token: string }
         Returns: {
@@ -79117,6 +79183,7 @@ export type Database = {
       _ontology_board_stage: { Args: { p_board: string }; Returns: string }
       _ontology_document_text: { Args: never; Returns: string }
       _ontology_inventory: { Args: never; Returns: Json }
+      _ops_map_payload: { Args: { p_names: boolean }; Returns: Json }
       _partner_commitment_follow_rate: {
         Args: { p_commitment_id: string; p_rate: number }
         Returns: undefined
@@ -82544,9 +82611,17 @@ export type Database = {
           id: string
         }[]
       }
-      board_display_feed: { Args: { p_token: string }; Returns: Json }
+      board_display_feed: {
+        Args: { p_screen?: string; p_token: string }
+        Returns: Json
+      }
       board_display_list: {
         Args: { p_kind?: string; p_period?: string; p_token: string }
+        Returns: Json
+      }
+      boardroom_feed: { Args: { p_screen?: string }; Returns: Json }
+      boardroom_list: {
+        Args: { p_kind?: string; p_period?: string }
         Returns: Json
       }
       bonus_restriction_config: {
@@ -92331,6 +92406,10 @@ export type Database = {
       hr_pay_has_authority: { Args: { _fn: string }; Returns: boolean }
       hr_pay_is_approver: { Args: never; Returns: boolean }
       hr_pay_is_own_staff: { Args: { _staff_id: string }; Returns: boolean }
+      hr_pay_is_payroll_excluded: {
+        Args: { _staff_id: string }
+        Returns: boolean
+      }
       hr_pay_is_preparer: { Args: never; Returns: boolean }
       hr_pay_is_releaser: { Args: never; Returns: boolean }
       hr_pay_is_rule_admin: { Args: never; Returns: boolean }
@@ -92355,6 +92434,21 @@ export type Database = {
       }
       hr_pay_my_positions: { Args: never; Returns: string[] }
       hr_pay_my_reinvest_signing_link: { Args: never; Returns: Json }
+      hr_pay_payroll_exclusions_list: {
+        Args: { _include_history?: boolean }
+        Returns: {
+          end_note: string
+          ended_at: string
+          ended_by_name: string
+          excluded_at: string
+          excluded_by_name: string
+          full_name: string
+          is_current: boolean
+          reason: string
+          staff_id: string
+          staff_ref: string
+        }[]
+      }
       hr_pay_pending_prompt: {
         Args: never
         Returns: {
@@ -92444,6 +92538,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      hr_pay_run_excluded_payslips: {
+        Args: { _run_id: string }
+        Returns: {
+          full_name: string
+          reason: string
+          staff_ref: string
+        }[]
+      }
       hr_pay_run_reinvestments: {
         Args: { _run_id: string }
         Returns: {
@@ -92467,6 +92569,10 @@ export type Database = {
           _prepared_position: string
         }
         Returns: boolean
+      }
+      hr_pay_set_payroll_exclusion: {
+        Args: { _exclude: boolean; _reason: string; _staff_id: string }
+        Returns: Json
       }
       hr_pay_set_statutory_ids: {
         Args: {
@@ -95100,6 +95206,7 @@ export type Database = {
         Args: { p_limit?: number; p_status?: string }
         Returns: Json
       }
+      ops_map_feed: { Args: never; Returns: Json }
       ops_query_tenants: {
         Args: { p_cursor?: string; p_limit?: number; p_segment_id: string }
         Returns: {
