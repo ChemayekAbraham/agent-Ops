@@ -17,7 +17,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractProofFieldsFromImage } from "../approve-withdrawal/proofVision.ts";
 import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 import {
-  BUCKET, MAX_IMAGE_BYTES, base64FromBytes, mimeFromPath, parseProofRequest, sha256Hex, toProofRead,
+  BUCKET, MAX_IMAGE_BYTES, READER_TIMEOUT_MS, base64FromBytes, mimeFromPath, parseProofRequest, sha256Hex,
+  toProofRead, withTimeout,
 } from "./proofRead.ts";
 
 const corsHeaders = {
@@ -64,7 +65,11 @@ Deno.serve(async (req) => {
   const [sha, vision] = await Promise.all([
     sha256Hex(bytes),
     apiKey
-      ? extractProofFieldsFromImage(base64FromBytes(bytes), blob.type || mimeFromPath(r.photo_path), apiKey)
+      ? withTimeout(
+          extractProofFieldsFromImage(base64FromBytes(bytes), blob.type || mimeFromPath(r.photo_path), apiKey),
+          READER_TIMEOUT_MS,
+          { fields: null, unverifiableReason: "reader_timeout" },
+        )
       : Promise.resolve(null),
   ]);
   const read = toProofRead(vision, apiKey ? undefined : "reader_not_configured");

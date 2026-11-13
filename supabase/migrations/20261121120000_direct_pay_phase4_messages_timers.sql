@@ -133,7 +133,12 @@ BEGIN
         || CASE WHEN v_earned > 0 THEN ' You earned UGX ' || to_char(v_earned, 'FM999,999,999') || '.' ELSE '' END
         || ' Upload ' || v_landlord || '''s signed receipt in the app. Do NOT pay ' || v_landlord || ' for this Rent Plan.';
       PERFORM public._ssd_notice('direct_payment', p.id, p_event, 'agent', v_agent.id, 'sms', v_agent.phone, v_msg);
-      PERFORM public._direct_pay_agent_receipt_email(p.id);
+      -- Its own block: an email failure (pg_net, vault) must not take the other approval messages with it.
+      BEGIN
+        PERFORM public._direct_pay_agent_receipt_email(p.id);
+      EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING 'direct pay agent receipt email % failed: %', p.id, SQLERRM;
+      END;
     END IF;
 
     IF v_tenant.id IS NOT NULL THEN
@@ -238,8 +243,23 @@ CREATE TRIGGER zz_direct_pay_messages AFTER INSERT OR UPDATE ON public.funder_of
 -- 24 hours for the COO. Returns what it did, for the job log.
 CREATE OR REPLACE FUNCTION public.direct_pay_tick() RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path TO 'public' AS $$
-DECLARE v_expired int; v_marked int;
+DECLARE v_expired int; v_marked int; v_fee_retried int := 0; r record; v_status text;
 BEGIN
+  -- A Cover fee left awaiting_topup at approval (float short then) is tried again until the float covers it.
+  FOR r IN SELECT id FROM public.funder_offplatform_rent_payments
+            WHERE flow = 'direct_pay' AND status = 'confirmed' AND cover_fee_status = 'awaiting_topup'
+            ORDER BY confirmed_at LIMIT 200 FOR UPDATE SKIP LOCKED LOOP
+    BEGIN
+      v_status := public._direct_pay_cover_charge(r.id);
+      IF v_status IN ('charged', 'kept') THEN
+        UPDATE public.funder_offplatform_rent_payments SET cover_fee_status = v_status WHERE id = r.id;
+        v_fee_retried := v_fee_retried + 1;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'direct pay cover fee retry % failed: %', r.id, SQLERRM;
+    END;
+  END LOOP;
+
   UPDATE public.funder_offplatform_rent_payments
      SET status = 'expired', expired_at = now(),
          cover_fee_status = CASE WHEN cover_fee_status = 'awaiting_confirmation' THEN 'waived' ELSE cover_fee_status END
@@ -257,7 +277,7 @@ BEGIN
          jsonb_build_object('amount', m.amount, 'severity', 'warning')
     FROM marked m;
   GET DIAGNOSTICS v_marked = ROW_COUNT;
-  RETURN jsonb_build_object('expired', v_expired, 'marked_for_coo', v_marked);
+  RETURN jsonb_build_object('expired', v_expired, 'marked_for_coo', v_marked, 'cover_fees_charged', v_fee_retried);
 END $$;
 REVOKE ALL ON FUNCTION public.direct_pay_tick() FROM PUBLIC, anon, authenticated;
 

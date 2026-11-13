@@ -84,6 +84,19 @@ export function toProofRead(result: ProofVisionResult | null, reason?: string): 
   };
 }
 
+/** How long the SMS reader may take before the proof is saved as unread (and flagged for Landlord Ops). */
+export const READER_TIMEOUT_MS = 20_000;
+
+/**
+ * Resolves with the work's result, or with `fallback` once `ms` pass. A slow or stuck AI gateway must never keep
+ * the partner waiting or lose their upload: the proof is saved either way.
+ */
+export function withTimeout<T>(work: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => { timer = setTimeout(() => resolve(fallback), ms); });
+  return Promise.race([work.catch(() => fallback), timeout]).finally(() => clearTimeout(timer));
+}
+
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");

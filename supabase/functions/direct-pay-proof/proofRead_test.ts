@@ -5,7 +5,7 @@
  * Website: welileapp.com
  */
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { kampalaTimestamp, mimeFromPath, parseProofRequest, sha256Hex, toProofRead } from "./proofRead.ts";
+import { kampalaTimestamp, mimeFromPath, parseProofRequest, sha256Hex, toProofRead, withTimeout } from "./proofRead.ts";
 
 const UID = "11111111-1111-4111-8111-111111111111";
 const PAY = "aaaaaaaa-0000-4000-8000-000000000003";
@@ -46,6 +46,24 @@ Deno.test("reader output becomes p_read; no amount means unreadable, no result m
 Deno.test("mime type from the file name", () => {
   assertEquals(mimeFromPath("a/b.PNG"), "image/png");
   assertEquals(mimeFromPath("a/b"), "image/jpeg");
+});
+
+Deno.test("a stuck reader gives up after the limit; the proof is saved as an error read", async () => {
+  const never = new Promise<{ fields: null; unverifiableReason: string }>(() => {});
+  const r = await withTimeout(never, 20, { fields: null, unverifiableReason: "reader_timeout" });
+  assertEquals(toProofRead(r).status, "error");
+  assertEquals(toProofRead(r).reason, "reader_timeout");
+});
+
+Deno.test("a reader that throws is treated like a timeout, never an error to the partner", async () => {
+  const boom = Promise.reject(new Error("gateway down"));
+  const r = await withTimeout(boom, 1000, { fields: null, unverifiableReason: "reader_timeout" });
+  assertEquals(r.unverifiableReason, "reader_timeout");
+});
+
+Deno.test("a fast reader wins the race", async () => {
+  const r = await withTimeout<{ fields: { amount: number } | null }>(Promise.resolve({ fields: { amount: 5 } }), 1000, { fields: null });
+  assertEquals(r.fields?.amount, 5);
 });
 
 Deno.test("sha256 is stable hex", async () => {
