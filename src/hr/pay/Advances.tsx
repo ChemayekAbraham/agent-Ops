@@ -37,7 +37,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { listAdvances, requestAdvance, decideAdvance, cancelAdvance, updateAdvance, type AdvanceRow } from '@/hr/pay/api/advances';
+import { listAdvances, requestAdvance, decideAdvance, cancelAdvance, updateAdvance, payAdvanceToWallet, type AdvanceRow } from '@/hr/pay/api/advances';
 import { listStaffForPayroll, type PayrollStaffOption } from '@/hr/pay/api/compensation';
 import { myPayrollAuthority } from '@/hr/pay/api/workflow';
 
@@ -71,13 +71,13 @@ const STATUS_BADGE: Record<string, { label: string; badgeCls: string }> = {
 const ACTION_LABEL: Record<string, string> = {
   requested: 'HR Approve',
   hr_approved: 'CEO Approve',
-  ceo_approved: 'Record Disbursement',
+  ceo_approved: 'Pay to wallet',
 };
 
 const DONE_LABEL: Record<string, string> = {
   requested: 'HR approval recorded.',
   hr_approved: 'CEO approval recorded.',
-  ceo_approved: 'Disbursement recorded. No money was moved; recovery starts on next payroll.',
+  ceo_approved: "Paid to the staff member's wallet. Recovery starts on the next payroll.",
 };
 
 function isActionable(status: string): boolean {
@@ -123,6 +123,8 @@ export default function Advances({ embedded = false }: { embedded?: boolean } = 
 
   // Reject dialog
   const [rejectRow, setRejectRow] = useState<AdvanceRow | null>(null);
+  // CFO release step: confirm before money moves (pays the staff wallet)
+  const [payRow, setPayRow] = useState<AdvanceRow | null>(null);
   const [rejectNote, setRejectNote] = useState('');
   const [rejectError, setRejectError] = useState('');
 
@@ -212,6 +214,10 @@ export default function Advances({ embedded = false }: { embedded?: boolean } = 
   }
 
   async function approve(row: AdvanceRow) {
+    if (row.status === 'ceo_approved') {
+      setPayRow(row);
+      return;
+    }
     setBusyId(row.id);
     try {
       await decideAdvance(row.id, true, '');
@@ -636,7 +642,7 @@ export default function Advances({ embedded = false }: { embedded?: boolean } = 
                                   disabled={busyId === row.id}
                                   title={
                                     row.status === 'ceo_approved'
-                                      ? 'Records that this advance has been disbursed. It moves no money.'
+                                      ? "Pays this advance to the staff member's Welile wallet now."
                                       : undefined
                                   }
                                   onClick={() => void approve(row)}
@@ -920,6 +926,48 @@ export default function Advances({ embedded = false }: { embedded?: boolean } = 
               disabled={busyId === rejectRow?.id}
             >
               Confirm Rejection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pay to wallet (CFO release step) */}
+      <Dialog open={!!payRow} onOpenChange={(next) => (!next && busyId !== payRow?.id ? setPayRow(null) : null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Pay advance to wallet</DialogTitle>
+            <DialogDescription className="text-xs">
+              UGX {payRow ? formatAmount(payRow.principal) : ''} will be credited to {payRow?.staff_name ?? 'the staff member'}'s Welile
+              wallet now. It is recovered from payroll as scheduled. This cannot be undone here.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={busyId === payRow?.id} onClick={() => setPayRow(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              disabled={!payRow || busyId === payRow.id}
+              onClick={async () => {
+                if (!payRow) return;
+                setBusyId(payRow.id);
+                try {
+                  const res = await payAdvanceToWallet(payRow.id);
+                  toast.success(res.replayed ? 'This advance was already paid to the wallet.' : DONE_LABEL.ceo_approved, {
+                    description: `UGX ${formatAmount(Number(res.amount))} · ${res.reference}`,
+                  });
+                  setPayRow(null);
+                  await load();
+                } catch (err) {
+                  toast.error((err as Error).message);
+                } finally {
+                  setBusyId(null);
+                }
+              }}
+            >
+              {busyId === payRow?.id && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+              Pay UGX {payRow ? formatAmount(payRow.principal) : ''}
             </Button>
           </DialogFooter>
         </DialogContent>

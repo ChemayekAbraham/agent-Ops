@@ -272,6 +272,35 @@ export async function decideAdvance(
   }
 }
 
+export interface AdvanceWalletPayout {
+  advance_id: string;
+  amount: number;
+  paid_to: string | null;
+  reference: string;
+  ledger_group_id: string;
+  status: string;
+  wallet_available?: number;
+  replayed: boolean;
+}
+
+/**
+ * CFO release step (migration 20261119160000): pays a CEO-approved advance to the staff member's Welile wallet and
+ * marks it disbursed, in one server transaction. Paid once per advance: a retry returns the payout already made.
+ */
+export async function payAdvanceToWallet(advanceId: string): Promise<AdvanceWalletPayout> {
+  const { data, error } = await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>)
+    .call(supabase, 'hr_pay_advance_pay_to_wallet', { p_advance_id: advanceId });
+  if (error) {
+    const m = error.message ?? '';
+    if (m.includes('SELF_PAYOUT')) throw new Error('You cannot pay out your own advance. Another release-authority holder must do it.');
+    if (m.includes('STAFF_WALLET_NOT_FOUND')) throw new Error('This staff member has no active staff record linked to a Welile account.');
+    if (m.includes('ADVANCE_NOT_READY_FOR_PAYOUT')) throw new Error('This advance is not awaiting payout. Refresh the list.');
+    if (m.includes('ADVANCE_NOT_FOUND')) throw new Error('The advance could not be found.');
+    throw new Error(m || 'The payout could not be made. Nothing was paid.');
+  }
+  return data as AdvanceWalletPayout;
+}
+
 export async function cancelAdvance(advanceId: string, reason: string): Promise<void> {
   const trimmed = (reason ?? '').trim();
   if (trimmed.length < 10) {
