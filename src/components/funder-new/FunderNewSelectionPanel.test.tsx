@@ -54,18 +54,19 @@ describe('FunderNewReviewDialog', () => {
     ).toBeInTheDocument();
 
     // Stats
-    expect(screen.getByText(/Total Support/i)).toBeInTheDocument();
+    expect(screen.getByText('You support')).toBeInTheDocument();
     expect(screen.getAllByText('UGX 450,000')).toHaveLength(2); // once in total card, once in item row
 
-    expect(screen.getByText(/Monthly Rent profit share \(15%\)/i)).toBeInTheDocument();
+    expect(screen.getByText('You earn monthly')).toBeInTheDocument();
+    expect(screen.getByText('at 15% a month')).toBeInTheDocument();
     expect(screen.getByText('UGX 67,500')).toBeInTheDocument();
 
-    expect(screen.getByText(/Available operational float/i)).toBeInTheDocument();
+    expect(screen.getByText('Your float')).toBeInTheDocument();
     expect(screen.getByText('UGX 450,000 short')).toBeInTheDocument();
 
-    // House item details
-    expect(screen.getByText('Shop')).toBeInTheDocument();
-    expect(screen.getByText('Wakiso Town Council, KKONA')).toBeInTheDocument();
+    // House item details (title and place show twice: hero card + item row)
+    expect(screen.getAllByText('Shop')).toHaveLength(2);
+    expect(screen.getAllByText('Wakiso Town Council, KKONA')).toHaveLength(2);
     expect(screen.getByText('Tenant ready')).toBeInTheDocument();
 
     // CTA Button for shortfall

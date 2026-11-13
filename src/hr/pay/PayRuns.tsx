@@ -35,7 +35,13 @@ import {
   type PayRuleVersionOption,
   type PayRunRow,
 } from '@/hr/pay/api/runs';
-import { calculateRun, getRunDetail, type RunDetail } from '@/hr/pay/api/calculate';
+import {
+  calculateRun,
+  getRunDetail,
+  listCurrentPayrollExclusions,
+  type PayrollExclusionRow,
+  type RunDetail,
+} from '@/hr/pay/api/calculate';
 import {
   approveRun,
   cancelRun,
@@ -1574,6 +1580,12 @@ export function PayRunDetailPlaceholder() {
   const [exceptions, setExceptions] = useState<RunException[]>([]);
   const [exceptionsError, setExceptionsError] = useState<string | null>(null);
   const [exceptionsLoading, setExceptionsLoading] = useState(false);
+  const [leftOffLastCalc, setLeftOffLastCalc] = useState<PayrollExclusionRow[] | null>(null);
+  const [exclusions, setExclusions] = useState<PayrollExclusionRow[]>([]);
+  const [excludedPayslips, setExcludedPayslips] = useState<
+    Array<{ staff_ref: string | null; full_name: string | null; reason: string | null }>
+  >([]);
+  const [exclusionsError, setExclusionsError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!runId) return;
@@ -1593,6 +1605,36 @@ export function PayRunDetailPlaceholder() {
   }, [load]);
 
   const hasPayslips = (detail?.payslips.length ?? 0) > 0;
+  const isRegular = detail?.run_type === 'regular';
+
+  // Payroll exclusions: who is switched off payroll, and whether this run still
+  // holds a payslip for any of them. Re-read whenever the run reloads.
+  useEffect(() => {
+    if (!runId || !detail || detail.run_type !== 'regular') {
+      setExclusions([]);
+      setExcludedPayslips([]);
+      return;
+    }
+    let alive = true;
+    setExclusionsError(null);
+    void (async () => {
+      try {
+        const [current, onRun] = await Promise.all([
+          listCurrentPayrollExclusions(),
+          (supabase.rpc as any)('hr_pay_run_excluded_payslips', { _run_id: runId }),
+        ]);
+        if (onRun?.error) throw new Error(onRun.error.message);
+        if (!alive) return;
+        setExclusions(current);
+        setExcludedPayslips(onRun?.data ?? []);
+      } catch (err) {
+        if (alive) setExclusionsError((err as Error).message);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [runId, detail]);
 
   useEffect(() => {
     if (!runId || !hasPayslips) {
@@ -1638,6 +1680,7 @@ export function PayRunDetailPlaceholder() {
     try {
       const res = await calculateRun(runId);
       toast.success(res.message);
+      setLeftOffLastCalc(res.excluded);
       await load();
     } catch (err) {
       setCalcError((err as Error).message);
@@ -1725,6 +1768,14 @@ export function PayRunDetailPlaceholder() {
                   {calcError}
                 </p>
               )}
+              {leftOffLastCalc && leftOffLastCalc.length > 0 && (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  {leftOffLastCalc.length} staff left off this run (switched off payroll):{' '}
+                  {leftOffLastCalc
+                    .map((e) => e.full_name ?? e.staff_ref ?? e.staff_id.slice(0, 8))
+                    .join(', ')}
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div>
                   <p className="text-[11px] uppercase text-muted-foreground">Employees</p>
@@ -1759,6 +1810,60 @@ export function PayRunDetailPlaceholder() {
               />
             </CardContent>
           </Card>
+
+          {isRegular && excludedPayslips.length > 0 && (
+            <div
+              role="alert"
+              className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <p className="font-semibold">
+                Recalculate — these people are switched off payroll.
+              </p>
+              <p className="mt-1 text-xs">
+                This run still holds a payslip for:{' '}
+                {excludedPayslips
+                  .map((p) => `${p.full_name ?? '—'}${p.staff_ref ? ` (${p.staff_ref})` : ''}`)
+                  .join(', ')}
+              </p>
+            </div>
+          )}
+
+          {isRegular && (exclusions.length > 0 || exclusionsError) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Not on this run</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Switched off payroll. They keep their account and employee role but get no
+                  payslip on a regular run.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {exclusionsError ? (
+                  <p role="alert" className="text-sm font-medium text-destructive">
+                    {exclusionsError}
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {exclusions.map((e) => (
+                      <li key={e.staff_id} className="text-sm">
+                        <span className="font-medium">{e.full_name ?? '—'}</span>
+                        {e.staff_ref && (
+                          <span className="ml-2 font-mono text-xs text-muted-foreground">
+                            {e.staff_ref}
+                          </span>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {e.reason ?? 'No reason recorded'}
+                          {e.excluded_by_name ? ` · ${e.excluded_by_name}` : ''}
+                          {e.excluded_at ? ` · ${formatDate(e.excluded_at)}` : ''}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <ArrearsPanel
             runId={detail.id}

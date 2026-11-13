@@ -115,7 +115,7 @@ export function CEODashboard() {
         supabase.rpc('get_approximate_user_count'),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', todayStart),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('updated_at', thirtyDaysAgo),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).not('referred_by', 'is', null),
+        supabase.from('referrals').select('id', { count: 'exact', head: true }),
         supabase.from('general_ledger').select('amount').gte('transaction_date', todayStart).limit(200),
       ]);
 

@@ -1,27 +1,59 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { ErrorLine, Segmented, moneyCard } from '../ui';
 import { Skeleton } from '../Skeleton';
-import { CALM, FOCUS } from '../deskTheme';
+import { CALM, FOCUS, statusText } from '../deskTheme';
+import { releaseTone, waitedText } from '../AwaitingRelease';
 import { PERIODS, useFundersDashboard, type CountUgx, type Period } from './cfoApi';
 import { HEADLINE_KINDS, type HeadlineKind } from './headlineListApi';
 import { HeadlineListPanel } from './HeadlineListPanel';
 import { ReleasesPanel } from './ReleasesPanel';
-import { PERIOD_DAYS, useReleased, waitingFrom } from './releasesApi';
+import { PERIOD_DAYS, isSold, useReleased, waitingFrom, type SelectedWaiting } from './releasesApi';
 import { readableError } from '../reviewApi';
 
 const count = new Intl.NumberFormat('en', { maximumFractionDigits: 0 });
 
-/** "7 days · released to an agent's landlord float in the last 7 days", plus how many are shown when the server caps the list. */
+const capped = (shown: number, total: number) => (shown < total ? ` · latest ${count.format(shown)} of ${count.format(total)} shown` : '');
+
+/** "7 days · landlord paid, OTP confirmed", plus how many are shown when the server caps the list. */
 export function soldNote(period: Period, shown: number, total: number): string {
   const days = PERIOD_DAYS[period];
   const label = PERIODS.find((p) => p.value === period)?.label ?? period;
-  const capped = shown < total ? ` · latest ${count.format(shown)} of ${count.format(total)} shown` : '';
-  return `${label} · released to an agent's landlord float in the last ${days} day${days === 1 ? '' : 's'}${capped}`;
+  return `${label} · landlord paid, OTP confirmed, in the last ${days} day${days === 1 ? '' : 's'}${capped(shown, total)}`;
+}
+
+/** "Right now, whatever the period · funder selected, landlord not yet paid". */
+export function selectedNote(shown: number, total: number): string {
+  return `Right now, whatever the period · funder selected, landlord not yet paid${capped(shown, total)}`;
+}
+
+/** "oldest 30 h": amber past 24 h, red past 72 h. */
+export function OldestLine({ w, board }: { w: SelectedWaiting; board: boolean }) {
+  if (w.n <= 0 || w.oldestHours === null) return null;
+  const tone = releaseTone(w.oldestHours);
+  return (
+    <span className={`${board ? 'text-base' : 'text-sm'} font-semibold ${statusText[tone]}`} data-oldest={tone} style={{ display: 'block' }}>
+      oldest {waitedText(w.oldestHours)}
+    </span>
+  );
 }
 
 /** A headline tile is a button: a tap opens the requests behind its number. */
-function BigTile({ title, value, caption, board, onOpen }: { title: string; value: CountUgx | null; caption: string; board: boolean; onOpen: () => void }) {
+function BigTile({
+  title,
+  value,
+  caption,
+  board,
+  onOpen,
+  extra,
+}: {
+  title: string;
+  value: CountUgx | null;
+  caption: string;
+  board: boolean;
+  onOpen: () => void;
+  extra?: ReactNode;
+}) {
   return (
     <button
       type="button"
@@ -43,6 +75,7 @@ function BigTile({ title, value, caption, board, onOpen }: { title: string; valu
       <p className="text-xl font-semibold tabular-nums text-foreground" style={{ margin: '4px 0 0' }}>
         {value ? moneyCard(value.ugx) : '—'}
       </p>
+      {extra}
       <p className="text-xs text-muted-foreground" style={{ margin: '8px 0 0' }}>
         {caption}
       </p>
@@ -51,20 +84,26 @@ function BigTile({ title, value, caption, board, onOpen }: { title: string; valu
 }
 
 /**
- * The Funders Dashboard headline row: the page's period toggle above posted / sold / waiting.
- * Posted is the server's (funders_dashboard, same query as the page). Sold counts every funder
- * selection RELEASED to an agent's landlord float in the period (funded_money_flow(p_days).released,
- * p_days 1 / 7 / 30 / 90 / 365), not only landlord-paid ones. Waiting is posted minus released, so
- * the three add up.
+ * The Funders Dashboard headline row (boardroom screen 1): the page's period toggle above
+ * posted / sold / selected, waiting / waiting for funder.
+ *   Posted    the server's (funders_dashboard, same query as the page).
+ *   Sold      landlord PAID, OTP confirmed, by payment time in the period (E93:
+ *             funded_money_flow(p_days).sold, p_days 1 / 7 / 30 / 90 / 365).
+ *   Selected, waiting   a funder selected it, the landlord is not yet paid, right now
+ *             (selected_waiting), with the oldest wait (amber past 24 h, red past 72 h).
+ *   Waiting for funder  posted minus (sold + selected, waiting), never below zero.
  */
 export function FundersHeadline({ board, period, onPeriodChange }: { board: boolean; period: Period; onPeriodChange: (p: Period) => void }) {
   const q = useFundersDashboard(period);
   const rel = useReleased(period);
   const h = q.data?.headline;
-  const sold = rel.data?.released ?? null;
-  const waiting = h && sold ? waitingFrom(h.posted, sold) : null;
-  const releasedIds = useMemo(() => (rel.data?.items ?? []).map((i) => i.rent_request_id), [rel.data]);
-  const value: Record<HeadlineKind, CountUgx | null> = { posted: h?.posted ?? null, sold, waiting };
+  const sold = rel.data?.sold ?? null;
+  const selected = rel.data?.selectedWaiting ?? null;
+  const waiting = h && sold && selected ? waitingFrom(h.posted, sold, selected) : null;
+  const soldItems = useMemo(() => (rel.data?.items ?? []).filter(isSold), [rel.data]);
+  const selectedItems = useMemo(() => (rel.data?.items ?? []).filter((i) => !isSold(i)), [rel.data]);
+  const takenIds = useMemo(() => (rel.data?.items ?? []).map((i) => i.rent_request_id), [rel.data]);
+  const value: Record<HeadlineKind, CountUgx | null> = { posted: h?.posted ?? null, sold, selected, waiting };
   const [open, setOpen] = useState<HeadlineKind | null>(null);
   // Stable, so the panel's focus-on-open runs once, not on every refetch.
   const close = useCallback(() => setOpen(null), []);
@@ -78,10 +117,10 @@ export function FundersHeadline({ board, period, onPeriodChange }: { board: bool
         value={period}
         onChange={(p) => p !== null && onPeriodChange(p)}
       />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {loading || !h ? (
           loading ? (
-            [0, 1, 2].map((i) => (
+            [0, 1, 2, 3].map((i) => (
               <div key={i} role="status" aria-label="Loading the headline" style={{ height: 168 }}>
                 <Skeleton className="h-full w-full" />
               </div>
@@ -90,18 +129,28 @@ export function FundersHeadline({ board, period, onPeriodChange }: { board: bool
         ) : (
           <>
             {HEADLINE_KINDS.map((k) => (
-              <BigTile key={k.kind} board={board} title={k.title} value={value[k.kind]} caption={k.caption} onOpen={() => setOpen(k.kind)} />
+              <BigTile
+                key={k.kind}
+                board={board}
+                title={k.title}
+                value={value[k.kind]}
+                caption={k.caption}
+                onOpen={() => setOpen(k.kind)}
+                extra={k.kind === 'selected' && selected ? <OldestLine w={selected} board={board} /> : undefined}
+              />
             ))}
           </>
         )}
       </div>
-      {/* Sold and waiting need the releases; never a zero the server did not send. */}
+      {/* Sold, selected and waiting need funded_money_flow; never a zero the server did not send. */}
       {rel.error && <ErrorLine>{readableError(rel.error)}</ErrorLine>}
       {/* The lists use the page's current period. */}
       {open === 'sold' && rel.data ? (
-        <ReleasesPanel title="Rent requests sold" items={rel.data.items} note={soldNote(period, rel.data.items.length, rel.data.released.n)} onClose={close} />
-      ) : open && open !== 'sold' ? (
-        <HeadlineListPanel kind={open} period={period} onClose={close} excludeIds={open === 'waiting' ? releasedIds : undefined} />
+        <ReleasesPanel title="Rent requests sold" items={soldItems} note={soldNote(period, soldItems.length, rel.data.sold.n)} onClose={close} />
+      ) : open === 'selected' && rel.data ? (
+        <ReleasesPanel title="Selected, waiting" items={selectedItems} note={selectedNote(selectedItems.length, rel.data.selectedWaiting.n)} onClose={close} />
+      ) : open === 'posted' || open === 'waiting' ? (
+        <HeadlineListPanel kind={open} period={period} onClose={close} excludeIds={open === 'waiting' ? takenIds : undefined} />
       ) : null}
     </section>
   );

@@ -1,5 +1,38 @@
 import { describe, it, expect } from 'vitest';
 import { getNextRunDate, computeNextRun } from './standingOrderSchedule';
+import { dailyRunBlocked, isEatWeekend } from '../../supabase/functions/process-scheduled-payouts/lunchWeekdays';
+
+describe('daily standing orders run Monday through Friday only in Kampala', () => {
+  it('creates a Friday order for Monday at the same time', () => {
+    expect(getNextRunDate({ frequency: 'daily', dayOfMonth: 1, dayOfWeek: 1, intervalDays: 1 }, new Date('2026-11-13T06:53:00Z')))
+      .toBe('2026-11-16T06:53:00.000Z');
+  });
+
+  it('advances every weekday cycle without scheduling a weekend', () => {
+    let cursor = new Date('2026-11-12T21:30:00Z'); // Friday in Kampala
+    expect(computeNextRun(cursor, { frequency: 'daily' }).toISOString()).toBe('2026-11-15T21:30:00.000Z');
+    for (let i = 0; i < 60; i++) {
+      cursor = computeNextRun(cursor, { frequency: 'daily' });
+      expect(isEatWeekend(cursor)).toBe(false);
+      expect(cursor.getUTCHours()).toBe(21);
+      expect(cursor.getUTCMinutes()).toBe(30);
+    }
+  });
+
+  it('blocks daily execution on Saturday and Sunday, including overdue orders', () => {
+    expect(dailyRunBlocked('daily', new Date('2026-11-13T21:00:00Z'))).toBe(true);
+    expect(dailyRunBlocked('daily', new Date('2026-11-14T21:00:00Z'))).toBe(true);
+    for (const day of [16, 17, 18, 19, 20]) {
+      expect(dailyRunBlocked('daily', new Date(`2026-11-${day}T06:53:00Z`))).toBe(false);
+    }
+  });
+
+  it('does not restrict weekly, monthly or interval orders on weekends', () => {
+    for (const frequency of ['weekly', 'monthly', 'interval']) {
+      expect(dailyRunBlocked(frequency, new Date('2026-11-14T06:53:00Z'))).toBe(false);
+    }
+  });
+});
 
 describe('monthly standing order time-of-day preservation', () => {
   it('keeps the original next_run_at time-of-day across many monthly cycles', () => {
