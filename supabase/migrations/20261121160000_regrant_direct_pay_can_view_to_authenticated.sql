@@ -1,3 +1,6 @@
+-- Renumbered to sort AFTER direct_pay phase 3 (20261121110000), which REVOKEs EXECUTE on
+-- this function from authenticated; its storage policy calls it as the caller, so the
+-- revoke breaks proof upload for Merchant Agents. Already applied to production.
 -- Merchant Agents (and anyone else signed in) got "permission denied for
 -- function _direct_pay_can_view" when confirming a payout / uploading proof.
 --
