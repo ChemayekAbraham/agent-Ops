@@ -83,11 +83,12 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
       return matchesSearch && canReviewSignage(s.status, 'agent_ops');
     }
     if (statusFilter === 'approved') {
-      return matchesSearch && s.status === 'awaiting_cfo';
+      return matchesSearch && ['pending_installation', 'installation_verification', 'awaiting_cfo'].includes(s.status);
     }
     if (statusFilter === 'active') {
       return matchesSearch && s.status === 'active';
     }
+    if (statusFilter === 'awaiting_cfo') return matchesSearch && ['installation_verification', 'awaiting_cfo'].includes(s.status);
     return matchesSearch && s.status === statusFilter;
   });
 
@@ -95,7 +96,8 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
   const totalActive = signages.filter((s) => s.status === 'active').length;
   const pendingReview = signages.filter((s) => canReviewSignage(s.status, stage)).length;
   const awaitingCoo = signages.filter((s) => s.status === 'awaiting_coo').length;
-  const awaitingCfo = signages.filter((s) => s.status === 'awaiting_cfo').length;
+  // Installation posted by the agent and waiting for the CFO to pay (and activate) or decline.
+  const awaitingCfo = signages.filter((s) => ['installation_verification', 'awaiting_cfo'].includes(s.status)).length;
   const monthlyCommitmentUgx = totalActive * SIGNAGE_RATES.OWNER_MONTHLY_UGX;
 
   // Review submission
@@ -246,6 +248,11 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                       </p>
                       {item.repeat_owner_phone && (
                         <Badge variant="destructive" className="mt-1 text-[10px]">Repeat owner phone — review</Badge>
+                      )}
+                      {item.nearby_signage_ref && (
+                        <Badge variant="destructive" className="mt-1 ml-1 text-[10px]">
+                          {item.nearby_signage_m} m from {item.nearby_signage_ref}: possible duplicate spot
+                        </Badge>
                       )}
                     </div>
                     <Badge variant={statusMeta.variant as any} className="text-[10px] shrink-0">

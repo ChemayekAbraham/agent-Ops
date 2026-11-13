@@ -40,17 +40,22 @@ import {
   SIGNAGE_RATES,
   SignageListRecord,
   formatSignageStatus,
-  canPaySignage,
+  canPayAgentReward,
+  canPayOwner,
+  canTerminateSignage,
 } from '@/lib/welileSignages';
-import { useSignageCfoQueue, useCfoDisburseSignage, useCfoApproveSignage } from '@/hooks/useWelileSignages';
+import { useSignageCfoQueue, useCfoDisburseSignage, useCfoDeclineInstallation, useCfoTerminateSignage } from '@/hooks/useWelileSignages';
+import { Textarea } from '@/components/ui/textarea';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { toast } from 'sonner';
 
 export function CFOSignagesDesk() {
   const { data: signages = [], isLoading, isError, error, refetch } = useSignageCfoQueue();
   const disburseMutation = useCfoDisburseSignage();
-  const approveMutation = useCfoApproveSignage();
-  const [approvalModal, setApprovalModal] = useState<SignageListRecord | null>(null);
+  const declineMutation = useCfoDeclineInstallation();
+  const terminateMutation = useCfoTerminateSignage();
+  const [actionModal, setActionModal] = useState<{ signage: SignageListRecord; kind: 'decline' | 'terminate' } | null>(null);
+  const [actionReason, setActionReason] = useState('');
 
   const [search, setSearch] = useState('');
   const [filterTab, setFilterTab] = useState<'pending_payout' | 'active' | 'pipeline' | 'disbursed' | 'all'>('all');
@@ -60,25 +65,19 @@ export function CFOSignagesDesk() {
     signage: SignageListRecord;
     type: 'agent_reward' | 'owner_rent';
   } | null>(null);
-  const [batchConfirm, setBatchConfirm] = useState(false);
-  const [batchPending, setBatchPending] = useState(false);
   const paymentLock = useRef(false);
 
-  // CFO approval activates without paying the owner; payout eligibility is server-owned.
+  // Money moves only here. The agent is paid once, after posting the installation (that payment
+  // activates the signage); the owner is paid monthly from one month after activation until terminated.
   const approvedSignages = signages.filter((s) =>
-    ['approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'awaiting_cfo', 'active'].includes(s.status)
+    ['pending_installation', 'installation_verification', 'awaiting_cfo', 'active', 'removed'].includes(s.status)
   );
 
-  // Signages with pending rewards or rent obligations
-  const pendingAgentRewards = approvedSignages.filter(
-    (s) => canPaySignage(s) && s.agent_reward_status !== 'paid'
-  );
-  const pendingOwnerRents = approvedSignages.filter(
-    (s) => canPaySignage(s) && s.owner_rent_payable === true
-  );
+  const pendingAgentRewards = approvedSignages.filter(canPayAgentReward);
+  const pendingOwnerRents = approvedSignages.filter(canPayOwner);
 
   const totalActive = approvedSignages.filter((s) => s.status === 'active').length;
-    const totalApprovedAwaitingInstall = approvedSignages.filter((s) => s.status !== 'active').length;
+  const totalApprovedAwaitingInstall = approvedSignages.filter((s) => !['active', 'removed'].includes(s.status)).length;
   const totalDisbursedCount = approvedSignages.filter(
     (s) => s.agent_reward_status === 'paid' || s.owner_rent_status === 'paid'
   ).length;
@@ -102,16 +101,13 @@ export function CFOSignagesDesk() {
     if (!matchesSearch) return false;
 
     if (filterTab === 'pending_payout') {
-      return (
-        canPaySignage(item) &&
-        (item.agent_reward_status !== 'paid' || item.owner_rent_payable === true)
-      );
+      return canPayAgentReward(item) || canPayOwner(item);
     }
     if (filterTab === 'active') {
       return item.status === 'active';
     }
     if (filterTab === 'pipeline') {
-      return item.status !== 'active';
+      return !['active', 'removed'].includes(item.status);
     }
     if (filterTab === 'disbursed') {
       return item.agent_reward_status === 'paid' || item.owner_rent_status === 'paid';
@@ -152,36 +148,14 @@ export function CFOSignagesDesk() {
     finally { paymentLock.current = false; }
   };
 
-  const handleBatchDisburseAgentRewards = async () => {
-    if (pendingAgentRewards.length === 0 || paymentLock.current) return;
-    paymentLock.current = true;
-    setBatchPending(true);
-    setBatchConfirm(false);
-    hapticTap();
-    const toastId = toast.loading(`Batch disbursing ${pendingAgentRewards.length} agent rewards...`);
-
-    let successCount = 0;
-    let failureCount = 0;
-    for (const s of pendingAgentRewards) {
-      try {
-        await disburseMutation.mutateAsync({
-          signageId: s.id,
-          payoutType: 'agent_reward',
-          amountUgx: SIGNAGE_RATES.AGENT_REWARD_UGX,
-          periodIndex: 0,
-        });
-        successCount++;
-      } catch (err) {
-        failureCount++;
-        console.error('Failed for signage:', s.id, err);
-      }
-    }
-
-    toast.dismiss(toastId);
-    paymentLock.current = false;
-    setBatchPending(false);
-    if (failureCount) toast.error(`${successCount} agent rewards credited; ${failureCount} failed. Review errors and refresh.`);
-    else toast.success(`${successCount} agent rewards credited to Welile wallets.`);
+  const handleConfirmAction = async () => {
+    if (!actionModal) return;
+    const mutation = actionModal.kind === 'decline' ? declineMutation : terminateMutation;
+    try {
+      await mutation.mutateAsync({ signageId: actionModal.signage.id, reason: actionReason });
+      setActionModal(null);
+      setActionReason('');
+    } catch { /* The mutation reports the refusal. */ }
   };
 
   return (
@@ -200,23 +174,12 @@ export function CFOSignagesDesk() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              CFO approval makes the signage Active. Owner payouts start at least 30 days after submission.
+              Paying the agent for a posted installation makes the signage Active. Owners are paid monthly from one month after activation, until you terminate.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          {pendingAgentRewards.length > 0 && (
-            <Button
-              size="sm"
-              onClick={() => setBatchConfirm(true)}
-              disabled={disburseMutation.isPending || batchPending}
-              className="rounded-xl text-xs font-bold gap-1.5 h-9"
-            >
-              <Send className="h-3.5 w-3.5" />
-              <span>{batchPending ? 'Paying agents...' : 'Batch Pay Agents'}</span>
-            </Button>
-          )}
           <Button
             variant="outline"
             size="sm"
@@ -238,7 +201,7 @@ export function CFOSignagesDesk() {
           </div>
           <div className="text-2xl font-bold text-foreground">{totalActive}</div>
           <p className="text-[10px] text-muted-foreground mt-1">
-            {totalApprovedAwaitingInstall} awaiting CFO approval
+            {totalApprovedAwaitingInstall} installing or awaiting your review
           </p>
         </div>
 
@@ -249,7 +212,7 @@ export function CFOSignagesDesk() {
           </div>
           <div className="text-2xl font-bold text-amber-600">UGX {totalPendingRewardsUgx.toLocaleString()}</div>
           <p className="text-[10px] text-muted-foreground mt-1">
-            {pendingAgentRewards.length} agents awaiting UGX 3,000 reward
+            {pendingAgentRewards.length} installations posted, awaiting payment
           </p>
         </div>
 
@@ -322,7 +285,7 @@ export function CFOSignagesDesk() {
           <Megaphone className="h-10 w-10 text-muted-foreground/30 mx-auto" />
           <h4 className="text-sm font-semibold">No Signages in this Queue</h4>
           <p className="text-xs text-muted-foreground">
-            Applications appear here after COO approval. Owner payouts wait at least 30 days from submission.
+            Applications appear here after COO approval. Agents are paid once they post the installation.
           </p>
         </div>
       ) : (
@@ -330,8 +293,7 @@ export function CFOSignagesDesk() {
           {filtered.map((item) => {
             const statusMeta = formatSignageStatus(item.status);
             const isRewardPaid = item.agent_reward_status === 'paid';
-            const isRentPaid = item.owner_rent_status === 'paid' && item.owner_rent_payable !== true;
-            const isInstalled = canPaySignage(item);
+            const ownerMonth = (item.owner_rent_period_index ?? 0) + 2;
 
             return (
               <Card key={item.id} className="rounded-2xl border-border/60 shadow-sm overflow-hidden hover:border-primary/40 transition-colors">
@@ -351,12 +313,24 @@ export function CFOSignagesDesk() {
                       <p className="text-xs text-muted-foreground mt-0.5">
                         Ref: <span className="font-mono font-bold text-foreground">{item.reference_no}</span> • Locality: {item.village_name}, {item.district_name}
                       </p>
+                      {(item.nearby_signage_ref || item.repeat_owner_phone) && (
+                        <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {item.nearby_signage_ref ? `Only ${item.nearby_signage_m} m from ${item.nearby_signage_ref}. Check it is not the same spot. ` : ''}
+                          {item.repeat_owner_phone ? 'Owner phone is used on another signage.' : ''}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 self-start sm:self-center">
-                      {item.status === 'awaiting_cfo' && item.coo_approved_at && (
-                        <Button size="sm" disabled={approveMutation.isPending} onClick={() => setApprovalModal(item)}>
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Approve & Activate
+                      {item.status === 'installation_verification' && (
+                        <Button size="sm" variant="outline" className="rounded-xl text-xs h-8" onClick={() => { setActionReason(''); setActionModal({ signage: item, kind: 'decline' }); }}>
+                          Decline installation
+                        </Button>
+                      )}
+                      {canTerminateSignage(item) && (
+                        <Button size="sm" variant="ghost" className="rounded-xl text-xs h-8 text-destructive hover:bg-destructive/10" onClick={() => { setActionReason(''); setActionModal({ signage: item, kind: 'terminate' }); }}>
+                          Terminate contract
                         </Button>
                       )}
                       <Button
@@ -396,18 +370,22 @@ export function CFOSignagesDesk() {
                             <Check className="h-3 w-3" />
                             <span>Disbursed</span>
                           </Badge>
-                        ) : isInstalled ? (
+                        ) : canPayAgentReward(item) ? (
                           <Button
                             size="sm"
-                            disabled={disburseMutation.isPending || batchPending}
+                            disabled={disburseMutation.isPending}
                             onClick={() => handleOpenDisburse(item, 'agent_reward')}
                             className="rounded-xl text-xs h-8 font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1"
                           >
                             <Send className="h-3 w-3" />
-                            <span>Pay Agent</span>
+                            <span>Pay Agent & Activate</span>
                           </Button>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground italic">Awaiting COO approval</span>
+                          <span className="text-[10px] text-muted-foreground italic">
+                            {item.status === 'pending_installation'
+                              ? (item.installation_decline_reason ? 'Sent back; waiting for the agent to re-post' : 'Waiting for the agent to post the installation')
+                              : item.status === 'removed' ? 'Contract terminated' : 'Not yet installed'}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -421,7 +399,9 @@ export function CFOSignagesDesk() {
                         </div>
                         <p className="font-bold text-foreground mt-0.5">{item.owner_full_name}</p>
                         <p className="text-[10px] text-muted-foreground">
-                          {item.owner_payment_number} ({item.owner_payment_method.toUpperCase()})
+                          {item.owner_account_id
+                            ? `Welile wallet: ${item.owner_account_name || 'owner account'}`
+                            : item.owner_account_issue || `Phone ${item.owner_phone}`}
                         </p>
                         <span className="font-mono font-bold text-foreground block mt-0.5">
                           UGX {SIGNAGE_RATES.OWNER_MONTHLY_UGX.toLocaleString()} / mo
@@ -429,24 +409,24 @@ export function CFOSignagesDesk() {
                       </div>
 
                       <div>
-                        {isRentPaid ? (
-                          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] gap-1">
-                            <Check className="h-3 w-3" />
-                            <span>Paid</span>
-                          </Badge>
-                        ) : isInstalled && item.owner_rent_payable === true ? (
+                        {canPayOwner(item) ? (
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled={disburseMutation.isPending || batchPending}
+                            disabled={disburseMutation.isPending}
                             onClick={() => handleOpenDisburse(item, 'owner_rent')}
                             className="rounded-xl text-xs h-8 font-bold border-primary text-primary hover:bg-primary/10 gap-1"
                           >
                             <Send className="h-3 w-3" />
-                            <span>Monthly payout</span>
+                            <span>Pay Owner (month {ownerMonth})</span>
                           </Button>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground italic">{item.owner_rent_due_at ? `Due ${new Date(item.owner_rent_due_at).toLocaleDateString()}` : 'No owner payout in the first 30 days'}</span>
+                          <span className="text-[10px] text-muted-foreground italic">
+                            {item.status === 'removed' ? 'Contract terminated'
+                              : item.status !== 'active' ? 'Starts one month after activation'
+                              : item.owner_rent_payable && item.owner_account_issue ? 'Blocked: owner wallet not ready'
+                              : item.owner_rent_due_at ? `Month ${ownerMonth} due ${new Date(item.owner_rent_due_at).toLocaleDateString()}` : 'Not due yet'}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -472,21 +452,23 @@ export function CFOSignagesDesk() {
         </div>
       )}
 
-      <Dialog open={!!approvalModal} onOpenChange={(open) => { if (!open && !approveMutation.isPending) setApprovalModal(null); }}>
-        <DialogContent>
+      <Dialog open={!!actionModal} onOpenChange={(open) => { if (!open && !declineMutation.isPending && !terminateMutation.isPending) setActionModal(null); }}>
+        <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Approve & Activate signage</DialogTitle>
-            <DialogDescription>{approvalModal?.property_name}. This approval activates the signage without paying the owner. Owner payments start at least 30 days after submission.</DialogDescription>
+            <DialogTitle>{actionModal?.kind === 'decline' ? 'Decline installation' : 'Terminate contract'}</DialogTitle>
+            <DialogDescription>
+              {actionModal?.kind === 'decline'
+                ? `${actionModal?.signage.reference_no}: the agent is not paid and must post the installation again.`
+                : `${actionModal?.signage.reference_no}: no further owner payouts will be made. This cannot be undone.`}
+            </DialogDescription>
           </DialogHeader>
+          <Textarea value={actionReason} onChange={(e) => setActionReason(e.target.value)} placeholder="Reason (at least 10 characters)" className="rounded-xl text-sm" />
           <DialogFooter>
-            <Button variant="outline" disabled={approveMutation.isPending} onClick={() => setApprovalModal(null)}>Cancel</Button>
-            <Button disabled={approveMutation.isPending} onClick={async () => {
-              if (!approvalModal || paymentLock.current) return;
-              paymentLock.current = true;
-              try { await approveMutation.mutateAsync(approvalModal.id); setApprovalModal(null); }
-              catch { /* The mutation reports the refusal. */ }
-              finally { paymentLock.current = false; }
-            }}><CheckCircle2 className="h-4 w-4" />Confirm approval</Button>
+            <Button variant="outline" onClick={() => setActionModal(null)} disabled={declineMutation.isPending || terminateMutation.isPending}>Cancel</Button>
+            <Button variant={actionModal?.kind === 'terminate' ? 'destructive' : 'default'} onClick={handleConfirmAction}
+              disabled={actionReason.trim().length < 10 || declineMutation.isPending || terminateMutation.isPending}>
+              {actionModal?.kind === 'decline' ? 'Send back to agent' : 'Terminate contract'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -573,8 +555,8 @@ export function CFOSignagesDesk() {
                 </div>
                 <DialogDescription className="text-xs">
                   {disburseModal.type === 'agent_reward'
-                    ? `Disburse one-time acquisition reward to field agent for ${disburseModal.signage.reference_no}.`
-                    : `Credit monthly premise rent to the owner's Welile wallet for ${disburseModal.signage.reference_no}.`}
+                    ? `Pay the agent's one-time reward for the installation they posted on ${disburseModal.signage.reference_no}. This makes the signage Active. Check the installation photo first.`
+                    : `Pay the owner for month ${(disburseModal.signage.owner_rent_period_index ?? 0) + 2} of ${disburseModal.signage.reference_no} to their own Welile wallet.`}
                 </DialogDescription>
               </DialogHeader>
 
@@ -592,7 +574,7 @@ export function CFOSignagesDesk() {
                   <span className="font-bold text-foreground">
                     {disburseModal.type === 'agent_reward'
                       ? disburseModal.signage.agent_name || 'Agent'
-                      : disburseModal.signage.owner_payment_name || disburseModal.signage.owner_full_name}
+                      : disburseModal.signage.owner_account_name || disburseModal.signage.owner_full_name}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -600,12 +582,12 @@ export function CFOSignagesDesk() {
                   <span className="font-bold text-foreground">
                     {disburseModal.type === 'agent_reward'
                       ? 'Agent Welile wallet'
-                      : `Owner Welile wallet (${disburseModal.signage.owner_payment_number || disburseModal.signage.owner_phone})`}
+                      : 'Owner Welile wallet'}
                   </span>
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground">The payment reference is recorded automatically. Activation requires both the agent reward and first owner rent.</p>
+              <p className="text-xs text-muted-foreground">The payment reference is recorded automatically. Each payment can be made only once.</p>
 
               <DialogFooter className="pt-2">
                 <Button variant="ghost" size="sm" onClick={() => setDisburseModal(null)}>
@@ -614,7 +596,7 @@ export function CFOSignagesDesk() {
                 <Button
                   size="sm"
                   onClick={handleConfirmDisburse}
-                  disabled={disburseMutation.isPending || batchPending}
+                  disabled={disburseMutation.isPending}
                   className="rounded-xl text-xs font-bold"
                 >
                   {disburseMutation.isPending ? 'Processing...' : 'Confirm & Disburse'}
@@ -622,12 +604,6 @@ export function CFOSignagesDesk() {
               </DialogFooter>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-      <Dialog open={batchConfirm} onOpenChange={setBatchConfirm}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Batch Pay Agents</DialogTitle><DialogDescription>Credit {pendingAgentRewards.length} one-time agent rewards of UGX 3,000 each to Welile wallets. Total UGX {totalPendingRewardsUgx.toLocaleString()}. Owner rent is paid separately.</DialogDescription></DialogHeader>
-          <DialogFooter><Button variant="ghost" onClick={() => setBatchConfirm(false)}>Cancel</Button><Button onClick={handleBatchDisburseAgentRewards} disabled={batchPending || disburseMutation.isPending}>Confirm batch payment</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

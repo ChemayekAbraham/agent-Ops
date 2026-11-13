@@ -1,12 +1,15 @@
 /**
  * Welile Signages — Core Types & Constants
  *
- * Business Rules:
- *  - Eligible: Busy houses and shops / business premises.
- *  - Property Owner: UGX 10,000 monthly; server enforces at least 30 days from submission before the first payout.
- *  - Agent Reward: UGX 3,000 once after COO approval; separate CFO approval activates without an owner payment.
- *  - Mandatory Live GPS: Required before submission (accuracy <= 25m recommended).
- *  - Administrative Location: Dataset-driven (UgLocationPicker: District -> Village).
+ * Business rules (enforced in the database; see migration 20261124100000_signages_new_rules):
+ *  - Eligible: busy houses and shops / business premises.
+ *  - Drafts: an agent may save an incomplete application and continue later. Once submitted it is locked.
+ *  - Flow: submitted → Agent Ops → COO → agent installs the board and posts it (photo + live GPS at the spot)
+ *    → CFO pays the agent's one-time UGX 3,000 to their wallet, which makes the signage Active.
+ *  - Owner: nothing in the first month. From one month after activation the CFO pays UGX 10,000 a month
+ *    to the owner's own Welile wallet (never the agent's), until the CFO terminates the contract.
+ *  - Money moves only from the CFO dashboard.
+ *  - Live GPS at submission: accuracy 50 m or better, captured within the last hour.
  */
 
 export const SIGNAGE_RATES = {
@@ -49,6 +52,18 @@ export interface SignagePhoto {
 
 export interface SignageRecord {
   id: string;
+  submitted_at?: string;
+  nearby_signage_ref?: string | null;
+  nearby_signage_m?: number | null;
+  installation_started_at?: string;
+  installation_submitted_at?: string;
+  installation_decline_reason?: string | null;
+  termination_reason?: string | null;
+  owner_user_id?: string | null;
+  owner_account_id?: string | null;
+  owner_account_name?: string | null;
+  owner_account_issue?: string | null;
+  agent_reward_payable?: boolean;
   reference_no: string;
   agent_id: string;
   agent_name?: string;
@@ -173,12 +188,14 @@ export function formatSignageStatus(status: SignageStatus): { label: string; var
       return { label: 'Awaiting COO', variant: 'secondary' };
     case 'approved_for_installation':
       return { label: 'Approved for Installation', variant: 'default' };
+    case 'draft':
+      return { label: 'Draft', variant: 'outline' };
     case 'pending_installation':
-      return { label: 'Pending Installation', variant: 'secondary' };
+      return { label: 'Install the Board', variant: 'secondary' };
     case 'installation_in_progress':
       return { label: 'Installation in Progress', variant: 'default' };
     case 'installation_verification':
-      return { label: 'Installation Photos Submitted', variant: 'secondary' };
+      return { label: 'Installation Posted · Awaiting CFO', variant: 'secondary' };
     case 'awaiting_cfo':
       return { label: 'Awaiting CFO', variant: 'secondary' };
     case 'active':
@@ -194,7 +211,7 @@ export function formatSignageStatus(status: SignageStatus): { label: string; var
     case 'removal_requested':
       return { label: 'Removal Requested', variant: 'outline' };
     case 'removed':
-      return { label: 'Removed', variant: 'outline' };
+      return { label: 'Contract Terminated', variant: 'outline' };
     case 'cancelled':
       return { label: 'Cancelled', variant: 'outline' };
     default:
@@ -205,7 +222,7 @@ export function formatSignageStatus(status: SignageStatus): { label: string; var
 export function signageReviewTarget(decision: 'approve' | 'return' | 'reject', stage: 'agent_ops' | 'coo'): SignageStatus {
   if (decision === 'return') return 'changes_required';
   if (decision === 'reject') return 'rejected';
-  return stage === 'coo' ? 'awaiting_cfo' : 'awaiting_coo';
+  return stage === 'coo' ? 'pending_installation' : 'awaiting_coo';
 }
 
 export function canReviewSignage(status: SignageStatus, stage: 'agent_ops' | 'coo'): boolean {
@@ -228,7 +245,26 @@ export function signagePipelineRecords<T extends SignageListRecord>(records: T[]
     'pending_installation', 'installation_in_progress', 'installation_verification', 'awaiting_cfo', 'changes_required', 'rejected'].includes(record.status));
 }
 
-export function canPaySignage(record: SignageListRecord): boolean {
-  return ['awaiting_cfo', 'active'].includes(record.status) && (!!record.coo_approved_at || (!!record.verified_at && !!record.installed_at));
+/** CFO pays the agent once, after the installation is posted; that payment activates the signage. */
+export function canPayAgentReward(record: SignageListRecord): boolean {
+  return record.status === 'installation_verification';
+}
+
+/** CFO pays the owner monthly from one month after activation, until the contract is terminated. */
+export function canPayOwner(record: SignageListRecord): boolean {
+  return record.status === 'active' && !record.removal_effective_at && record.owner_rent_payable === true && !!record.owner_account_id;
+}
+
+/** Statuses the CFO can still terminate. */
+export function canTerminateSignage(record: SignageListRecord): boolean {
+  return ['awaiting_cfo', 'pending_installation', 'installation_verification', 'active', 'temporarily_inactive', 'payment_on_hold'].includes(record.status);
+}
+
+/** GPS older than this is rejected by the server at submission. */
+export const SIGNAGE_GPS_MAX_AGE_MS = 60 * 60 * 1000;
+
+export function isSignageGpsFresh(capturedAt: string | null | undefined, now = Date.now()): boolean {
+  const t = capturedAt ? Date.parse(capturedAt) : NaN;
+  return Number.isFinite(t) && now - t <= SIGNAGE_GPS_MAX_AGE_MS - 60_000 && t - now <= 5 * 60_000;
 }
 
