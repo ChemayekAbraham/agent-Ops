@@ -241,5 +241,12 @@ export function useDirectPayRecordLandlordReceipt() {
   });
 }
 
+/** Optional agent evidence uses the existing signed-in user's upload folder. */
+export function useDirectPayUploadLandlordReceiptPhoto() {
+  return useMutation({
+    mutationFn: ({ rentRequestId, photo }: { rentRequestId: string; photo: File }) => uploadCashReceiptPhoto(rentRequestId, photo),
+  });
+}
+
 /** Re-exported so screens import from one place. */
 export type { DirectPayView, DirectPayClaimResult };
