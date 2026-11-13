@@ -2,7 +2,7 @@ import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, ChevronDown, Camera, Search } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Send, RotateCcw, ChevronRight, LogIn, LogOut, Repeat, ChevronDown, Camera, Search } from 'lucide-react';
 import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershipPanel';
 import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
 import StudentPhotoCapture from '@/components/welile-schools/StudentPhotoCapture';
