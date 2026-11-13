@@ -167,7 +167,8 @@ export default function AgentWeeklyPerformancePage() {
   const judged = data?.weeks.find((w) => w.is_judged) ?? null;
   const live = useMemo(() => (data ? currentWeekProgress(data.current_week) : null), [data]);
   const judgedProg = judged ? judgedWeekProgress(judged) : null;
-  const canPost = !data?.settings.enforced || !judged || judged.passes;
+  // E100 (COO decision): agents can always post. The weekly result is information only.
+  const canPost = true;
   const plans = (data?.plans ?? []).filter((p) =>
     planFilter === 'all' ? true : planFilter === 'expired' ? p.expired : !p.expired);
   const s = data?.settings;
@@ -236,7 +237,8 @@ export default function AgentWeeklyPerformancePage() {
                   )}
                 </div>
               </div>
-              {!canPost && judged?.reason && (
+              {/* Last week's result, as information: it no longer stops a post (E100). */}
+              {judged && !judged.passes && judged.reason && (
                 <p className="relative mt-3 rounded-2xl bg-primary-foreground/15 px-3 py-2 text-[12px] leading-snug">{judged.reason}</p>
               )}
               <div className="relative mt-3 flex items-center gap-2 text-[12px] opacity-95">
@@ -349,7 +351,7 @@ export default function AgentWeeklyPerformancePage() {
                 </button>
                 {showRules && (
                   <div className="px-4 pb-4 space-y-2 text-[12px] text-muted-foreground leading-relaxed">
-                    <p>Each week runs from <strong className="text-foreground">Thursday to Wednesday</strong>. Every Thursday morning your result for the week that just ended decides whether you can post new Rent Plans for the whole new week.</p>
+                    <p>Each week runs from <strong className="text-foreground">Thursday to Wednesday</strong>. Every Thursday morning you get your result for the week that just ended. You can always post new Rent Plans; below 50% of what is due, your requests wait at the COO desk and can&apos;t be funded.</p>
                     <p><strong className="text-foreground">Current Rent Plans</strong> (still inside their repayment period): collect at least <strong className="text-foreground">{Math.round(s.in_window_required_pct * 100)}%</strong> of what they were due.</p>
                     <p><strong className="text-foreground">Expired Rent Plans</strong> (past their repayment period): if you also have current plans, collect at least <strong className="text-foreground">{Math.round(s.expired_required_pct * 100)}%</strong> of what the expired ones were due. If all your plans have expired, you need <strong className="text-foreground">{Math.round(s.all_expired_required_pct * 100)}%</strong>.</p>
                     <p>Each tenant counts only up to what they were due, so one tenant paying extra does not cover another who paid nothing. Visit every tenant.</p>                  </div>
