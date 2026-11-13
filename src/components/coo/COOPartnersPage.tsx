@@ -5273,7 +5273,18 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
     }
   };
 
-  const handlePay = async (p: NearingPayoutPortfolio, reason: string, mode: 'wallet' | 'already_paid' | 'agent_wallet') => {
+  /**
+   * `correction` requests this cycle's Return although the card shows it credited, because the only credit is an
+   * earlier payout saved under this cycle's key (p.correctionEligible). It goes to the COO Rent profit share Return
+   * Approvals queue like any payout; the database proves the misdate and refuses it otherwise.
+   */
+  const handlePay = async (
+    p: NearingPayoutPortfolio,
+    reason: string,
+    mode: 'wallet' | 'already_paid' | 'agent_wallet',
+    opts?: { correctionReason?: string },
+  ) => {
+    const correctionReason = opts?.correctionReason?.trim();
     setProcessing(prev => ({ ...prev, [p.portfolioId]: 'pay' }));
     try {
       let roiAmount = Math.round(p.investmentAmount * p.roiPercentage / 100);
@@ -5352,7 +5363,16 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
 
       // Read the fresh permission BEFORE treating the original compounding
       // reservation as a duplicate. The database remains the final authority.
-      if (!overrideId && ((creditedRows?.length ?? 0) > 0 || ((claimedRows as unknown[] | null)?.length ?? 0) > 0)) {
+      if (correctionReason !== undefined && (!p.correctionEligible || correctionReason.length < 20)) {
+        toast.error('Correction not possible', {
+          description: !p.correctionEligible
+            ? `${p.name}'s ${cycleAnchor} cycle is not blocked by a misdated payout.`
+            : 'Give a correction reason of at least 20 characters.',
+        });
+        setProcessing(prev => ({ ...prev, [p.portfolioId]: null }));
+        return;
+      }
+      if (!overrideId && correctionReason === undefined && ((creditedRows?.length ?? 0) > 0 || ((claimedRows as unknown[] | null)?.length ?? 0) > 0)) {
         toast.error('Already paid this cycle', {
           description: `${p.name} already received their Rent profit share for the ${cycleAnchor} cycle. It advances after the next due date.`,
         });
@@ -5398,6 +5418,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
           // Pins the cycle this request pays, so a later edit of next_roi_date cannot re-label it.
           cycle_anchor: cycleAnchor,
           ...(overrideId ? { override_id: overrideId } : {}),
+          ...(correctionReason !== undefined ? { correction: 'misdated_cycle_key', correction_reason: correctionReason } : {}),
           ...(hasProxy ? { proxy_agent_name: managed.agentName, proxy_agent_id: managed.agentId, custody_route: isManagedProxy ? 'managed_proxy_agent_wallet_v3' : 'partner_wallet_v2' } : {}),
         },
       });
