@@ -1100,6 +1100,8 @@ export function FunderHouseListingsSection({
                   email: (profile?.email || user?.email || '').trim() || null,
                   amount: Number(total || 0),
                   contribution_type: 'once_off',
+                  // Booking for themselves: the server uses this funder's own details and links the note to them.
+                  self_booking: true,
                 },
                 p_house_ids: ids,
               });
