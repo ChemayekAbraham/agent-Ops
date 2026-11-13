@@ -128,6 +128,13 @@ export type FunderListMapFilters = Pick<FunderNewFilters, 'search' | 'location' 
 /** A rent request pin on the map, coloured by its funders board tag. */
 export type BoardPin = { id: string; cardId: string; lat: number; lng: number; amount: number; tag: BoardTag };
 
+type BoardListTab = 'verified' | 'unverified' | 'empty';
+const BOARD_LIST_TABS: { key: BoardListTab; label: string; tags: BoardTag[] }[] = [
+  { key: 'verified', label: 'Verified', tags: ['verified', 'booked', 'funded'] },
+  { key: 'unverified', label: 'Unverified', tags: ['pending_verification'] },
+  { key: 'empty', label: 'Empty houses', tags: ['empty_house'] },
+];
+
 export function FunderHouseListingsSection({
   searchOnMap = false,
   onFiltersChange,
@@ -230,6 +237,8 @@ export function FunderHouseListingsSection({
   // houses (also verified: the feed asks for p_verified_only) are opt-in from
   // the Filters drawer.
   const [includePending, setIncludePending] = useState(false);
+  // Grouped list (board tags on) is split into three tabs; booked and funded plans sit under Verified.
+  const [boardTab, setBoardTab] = useState<BoardListTab>('verified');
   // E72b: with the funders board tags on, the grouped list always ends with
   // the Empty house cards; the switch is for the plain list only.
   const showEmpty = includePending || boardTagsOn;
@@ -767,9 +776,32 @@ export function FunderHouseListingsSection({
               <p className="text-xs text-muted-foreground" data-testid="board-subline">{boardSubline(boardCounts)}</p>
             </div>
           ) : null}
-          {boardGroups.map((group) => (
+          {/* Three tabs: Verified (with booked and funded), Unverified, Empty houses. */}
+          <div role="tablist" aria-label="Houses to fund" className="grid grid-cols-3 gap-1 rounded-full bg-muted p-1">
+            {BOARD_LIST_TABS.map((tab) => {
+              const count = boardGroups.filter((g) => tab.tags.includes(g.tag)).reduce((sum, g) => sum + g.count, 0);
+              const active = boardTab === tab.key;
+              return (
+                <button key={tab.key} type="button" role="tab" aria-selected={active} onClick={() => setBoardTab(tab.key)}
+                  className={cn('flex min-h-[40px] min-w-0 items-center justify-center gap-1.5 rounded-full px-2 text-xs font-semibold transition-colors sm:text-sm',
+                    active ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground')}>
+                  <span className="truncate">{tab.label}</span>
+                  <span className={cn('shrink-0 rounded-full px-1.5 text-[11px] tabular-nums', active ? 'bg-primary-foreground/20' : 'bg-background')}>{count.toLocaleString('en')}</span>
+                </button>
+              );
+            })}
+          </div>
+          {(() => {
+            const tabGroups = boardGroups.filter((g) => (BOARD_LIST_TABS.find((t) => t.key === boardTab)?.tags ?? []).includes(g.tag));
+            if (tabGroups.every((g) => g.rows.length === 0)) {
+              return <p className="rounded-2xl bg-muted/50 p-6 text-center text-sm text-muted-foreground">No houses here yet.</p>;
+            }
+            return null;
+          })()}
+          {boardGroups.filter((g) => (BOARD_LIST_TABS.find((t) => t.key === boardTab)?.tags ?? []).includes(g.tag)).map((group, _i, shownGroups) => (
             <section key={group.tag} aria-label={`${group.label}, ${group.count}`} data-board-group={group.tag} className="space-y-2">
-              <h3 className="flex items-center gap-2 px-1 text-sm font-semibold text-foreground">
+              {/* A tab with one group needs no heading; Verified keeps its Booked / Funded sub-headings. */}
+              <h3 className={cn('flex items-center gap-2 px-1 text-sm font-semibold text-foreground', shownGroups.length === 1 && 'sr-only')}>
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: group.color }} aria-hidden />
                 {group.label}
                 <span className="tabular-nums text-muted-foreground">{group.count.toLocaleString('en')}</span>
