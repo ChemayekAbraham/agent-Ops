@@ -1,5 +1,5 @@
 import type { ReverseGeocodeResult } from './reverseGeocode';
-import { districtHints, mergeOfficialChain, normalizeAdminName, searchTokens, type OfficialCandidates } from './signageOfficialLocation';
+import { mergeOfficialChain, resolveDistricts, searchTokens, tokenRegex, type AdminUnit, type CountyUnit, type OfficialCandidates } from './signageOfficialLocation';
 
 export interface SignageGpsLocation {
   district: string;
@@ -120,6 +120,23 @@ async function fetchJson(url: string, ms = 8000): Promise<unknown> {
   }
 }
 
+type Db = typeof import('@/integrations/supabase/client')['supabase'];
+
+/** All 135 districts and 303 counties/municipalities: small, static, loaded once per session. */
+let adminUnits: Promise<{ districts: AdminUnit[]; counties: CountyUnit[] }> | null = null;
+function loadAdminUnits(db: Db) {
+  adminUnits ??= Promise.all([
+    db.from('ug_districts').select('id, name'),
+    db.from('ug_counties').select('name, district:ug_districts(id, name)'),
+  ]).then(([d, c]) => {
+    if (d.error || c.error) throw d.error ?? c.error;
+    const counties = ((c.data ?? []) as unknown as { name: string; district: AdminUnit | null }[])
+      .filter((x): x is CountyUnit => !!x.district);
+    return { districts: (d.data ?? []) as AdminUnit[], counties };
+  }).catch((e) => { adminUnits = null; throw e; });
+  return adminUnits;
+}
+
 /**
  * Official dataset rows for this GPS point: the district(s) the geocoder's district / city /
  * municipality name resolves to, and the villages in them whose cell or ward name shares a
@@ -127,32 +144,21 @@ async function fetchJson(url: string, ms = 8000): Promise<unknown> {
  */
 async function fetchOfficialCandidates(a: Record<string, string>): Promise<OfficialCandidates> {
   const empty: OfficialCandidates = { districts: [], villages: [] };
-  const stems = [...new Set(districtHints(a).map(normalizeAdminName).filter((x) => x.length >= 3))]
-    .map((x) => x.replace(/[^a-z0-9 ]/g, '').replace(/ /g, '%'));
-  const tokens = searchTokens(a).map((t) => t.replace(/[^a-z0-9]/g, '')).filter(Boolean).slice(0, 8);
-  if (stems.length === 0) return empty;
+  const tokens = searchTokens(a).slice(0, 8);
   try {
-    const { supabase } = await import('@/integrations/supabase/client');
-    const db = supabase;
-    // District by name ("Wakiso"), else via a municipality/county of that name ("Entebbe" → Wakiso).
-    const [direct, viaCounty] = await Promise.all([
-      db.from('ug_districts').select('id, name').or(stems.map((x) => `name.ilike.${x}`).join(',')).limit(5),
-      db.from('ug_counties').select('district:ug_districts(id, name)').or(stems.map((x) => `name.ilike.${x}%`).join(',')).limit(10),
-    ]);
-    type DistrictRow = { id: number; name: string };
-    const viaCountyRows = (viaCounty.data ?? []) as unknown as { district: DistrictRow | null }[];
-    const districtRows: DistrictRow[] = direct.data?.length
-      ? (direct.data as DistrictRow[])
-      : viaCountyRows.map((r) => r.district).filter((d): d is DistrictRow => !!d);
-    const ids = [...new Set(districtRows.map((d) => d.id))];
+    const { supabase: db } = await import('@/integrations/supabase/client');
+    const units = await loadAdminUnits(db);
+    const districtRows = resolveDistricts(a, units.districts, units.counties);
+    const ids = districtRows.map((d) => d.id);
     const districts = [...new Set(districtRows.map((d) => d.name))];
     if (ids.length === 0 || tokens.length === 0) return { districts, villages: [] };
 
     const geo = await db.from('mv_ug_village_geo')
       .select('village_name, parish_name, subcounty_id, subcounty_name, district_name')
       .in('district_id', ids)
-      .or(tokens.flatMap((t) => [`village_name.ilike.%${t}%`, `parish_name.ilike.%${t}%`]).join(','))
-      .limit(300);
+      .or(tokens.flatMap((t) => [`village_name.imatch.${tokenRegex(t)}`, `parish_name.imatch.${tokenRegex(t)}`]).join(','))
+      .limit(400);
+    if (geo.error) throw geo.error;
     type GeoRow = { village_name: string | null; parish_name: string | null; subcounty_id: number | null; subcounty_name: string | null; district_name: string | null };
     const geoRows = (geo.data ?? []) as GeoRow[];
     const subIds = [...new Set(geoRows.map((r) => r.subcounty_id).filter((x): x is number => x !== null))];

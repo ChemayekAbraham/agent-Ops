@@ -36,17 +36,56 @@ export interface OfficialCandidates {
 }
 
 /** Structural words: "Entebbe City" = "Entebbe Municipality" = "Entebbe". */
-const STRUCTURE = /\b(city|municipality|municipal|council|district|division|town|tc|ward|cell|village|parish|sub ?county|county|central)\b/g;
+const STRUCTURE = /\b(city|capital|municipality|municipal|council|district|division|town|tc|ward|cell|village|parish|sub ?county|county)\b/g;
 /** Words that say nothing about which place this is. */
 const NOISE = new Set([
   'road', 'rd', 'street', 'st', 'avenue', 'lane', 'close', 'drive', 'way', 'highway', 'bypass',
   'primary', 'secondary', 'school', 'college', 'university', 'church', 'mosque', 'hospital',
   'health', 'centre', 'center', 'market', 'stage', 'trading', 'estate', 'plot', 'the', 'and',
-  'north', 'south', 'east', 'west', 'upper', 'lower', 'uganda', 'region', 'zone',
-]);
+  'north', 'south', 'east', 'west', 'northern', 'southern', 'eastern', 'western', 'upper', 'lower',
+  'uganda', 'region', 'zone', 'central', 'borough',
+].map((w) => w.replace(/([a-z])\1+/g, '$1'))); // compared after doubled letters collapse ("school" → "schol")
 
+/**
+ * Lowercase, drop structural words and punctuation, and collapse doubled letters so the
+ * dataset's spellings match the geocoders' ("Luweero" = "Luwero", "Ssembabule" = "Sembabule",
+ * "Kassanda" = "Kasanda", "Bukoto Ii" = "Bukoto I").
+ */
 export function normalizeAdminName(s: string | null | undefined): string {
-  return (s || '').toLowerCase().replace(STRUCTURE, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+  return (s || '').toLowerCase().replace(STRUCTURE, ' ').replace(/[^a-z0-9]+/g, ' ')
+    // Cell numerals stay distinct before letters collapse: "II" must not become "I".
+    .replace(/\b(iii|ii|iv|i)\b/g, (r) => ({ i: '1', ii: '2', iii: '3', iv: '4' })[r] as string)
+    .replace(/([a-z])\1+/g, '$1').trim();
+}
+
+/** Case-insensitive regex for a normalised token that tolerates doubled letters ("kasanda" → k+a+s+a+n+d+a+). */
+export function tokenRegex(token: string): string {
+  return token.replace(/[^a-z0-9]/g, '').split('').map((ch) => `${ch}+`).join('');
+}
+
+export interface AdminUnit { id: number; name: string }
+export interface CountyUnit { name: string; district: AdminUnit }
+
+const tokenSet = (s: string | null | undefined) => new Set(placeTokens(s));
+const within = (unit: Set<string>, hint: Set<string>) => unit.size > 0 && [...unit].every((t) => hint.has(t));
+
+/**
+ * Official district(s) for the geocoder's names, checked in order of reliability
+ * (district, state_district, county, municipality, city, town). A district matches when all
+ * its words appear in the hint ("Kampala Capital City" → Kampala); otherwise a municipality /
+ * county does ("Entebbe City" → Entebbe Municipality → Wakiso, "Busiro" → Wakiso).
+ */
+export function resolveDistricts(a: Record<string, string>, districts: AdminUnit[], counties: CountyUnit[]): AdminUnit[] {
+  const hints = districtHints(a).map(tokenSet).filter((h) => h.size > 0);
+  for (const h of hints) {
+    const hit = districts.filter((d) => within(tokenSet(d.name), h));
+    if (hit.length) return hit;
+  }
+  for (const h of hints) {
+    const hit = counties.filter((c) => within(tokenSet(c.name), h)).map((c) => c.district);
+    if (hit.length) return [...new Map(hit.map((d) => [d.id, d])).values()];
+  }
+  return [];
 }
 
 /** Distinctive words of a place name ("Nkumba Primary School" → ["nkumba"]). */
@@ -54,7 +93,7 @@ export function placeTokens(s: string | null | undefined): string[] {
   return normalizeAdminName(s).split(' ').filter((w) => w.length >= 4 && !NOISE.has(w) && !/^\d+$/.test(w));
 }
 
-const clean = (s: string | null | undefined) => (s || '').trim();
+const clean = (s: string | null | undefined) => (s || '').replace(/\s+/g, ' ').trim();
 const uniq = (xs: string[]) => [...new Set(xs.filter(Boolean))];
 
 /** Names the geocoder gave for the district / city / municipality level. */
@@ -79,7 +118,9 @@ export function searchTokens(a: Record<string, string>): string[] {
   return uniq([...villageTokens(a), ...areaTokens(a)]).filter((t) => !districtWords.has(t));
 }
 
-function score(row: OfficialChainRow, vt: string[], at: string[]): { score: number; villageHit: boolean } {
+function score(row: OfficialChainRow, vt: string[], at: string[], gpsVillage: string): { score: number; villageHit: boolean } {
+  // The same cell by name ("Kasusu B" = "KASUSU  B", "Kasana B" = "KASAANA B") settles it.
+  const exact = !!gpsVillage && normalizeAdminName(row.village) === normalizeAdminName(gpsVillage);
   const v = new Set(placeTokens(row.village));
   const p = new Set(placeTokens(row.parish));
   const s = new Set(placeTokens(row.subcounty));
@@ -89,7 +130,7 @@ function score(row: OfficialChainRow, vt: string[], at: string[]): { score: numb
     2 * [...vt, ...at].filter((t) => p.has(t)).length +
     1 * at.filter((t) => v.has(t)).length +
     1 * at.filter((t) => s.has(t)).length;
-  return { score: total, villageHit: villageHits > 0 };
+  return { score: total + (exact ? 10 : 0), villageHit: exact || villageHits > 0 };
 }
 
 function common(rows: OfficialChainRow[], key: keyof OfficialChainRow): string {
@@ -115,7 +156,7 @@ export function mergeOfficialChain(
 
   const scored = c.villages
     .filter((r) => !district || clean(r.district) === district)
-    .map((r) => ({ r, ...score(r, vt, at) }))
+    .map((r) => ({ r, ...score(r, vt, at, loc.village) }))
     .filter((x) => x.score >= 2);
   const best = scored.reduce((m, x) => Math.max(m, x.score), 0);
   const top = scored.filter((x) => x.score === best);
