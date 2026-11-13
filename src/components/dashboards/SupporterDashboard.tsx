@@ -612,7 +612,6 @@ export default function SupporterDashboard({
   const supporterMenuItems = [
     { icon: CreditCard, label: 'Add Funds', onClick: () => setShowPaymentPartners(true) },
     { icon: Wallet, label: 'My Wallet', onClick: () => setShowFunderHub(true) },
-    { icon: TrendingUp, label: 'My Portfolios', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
     { icon: Home, label: 'Houses I Support', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
     { icon: Bookmark, label: 'Saved Items', onClick: () => setShowSavedItems(true), badge: savedCount || undefined },
     { icon: Zap, label: 'Angel Pool', onClick: () => { setCapitalView('angel'); openHousesMap(); } },
