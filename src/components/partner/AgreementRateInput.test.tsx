@@ -57,4 +57,36 @@ describe('agreement Returns rate workflow', () => {
     expect(screen.getByRole('button', { name: 'Save rate' })).toBeDisabled();
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
+  it('saves an agreement rate without creating a portfolio and waits for approval', async () => {
+    mocks.rpc.mockImplementation(async (fn: string) => ({ data: fn === 'get_partner_agreement_rate'
+      ? { rate_in_force: 15, ready: true, status: null }
+      : { rate_in_force: 15, requested_rate: 20, ready: false, status: 'pending' }, error: null }));
+    const approved = vi.fn();
+    const saved = vi.fn();
+    render(<AgreementRateInput portfolios={[]} partnerId="partner-1" initialRate={15} onRateSaved={saved} onApprovalState={approved} />);
+    await waitFor(() => expect(approved).toHaveBeenLastCalledWith(true));
+    fireEvent.change(screen.getByLabelText('Monthly Returns rate (%)'), { target: { value: '20' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save rate' }));
+    await waitFor(() => expect(approved).toHaveBeenLastCalledWith(false));
+    expect(mocks.rpc).toHaveBeenCalledWith('set_partner_agreement_rate', { p_partner_id: 'partner-1', p_requested_rate: 20 });
+    expect(saved).toHaveBeenLastCalledWith(15);
+    mocks.rpc.mockResolvedValue({ data: { rate_in_force: 20, requested_rate: 20, ready: true, status: 'approved' }, error: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Check approval' }));
+    await waitFor(() => expect(approved).toHaveBeenLastCalledWith(true));
+    expect(saved).toHaveBeenLastCalledWith(20);
+  });
+  it('keeps a rejected agreement rate blocked on reopening', async () => {
+    mocks.rpc.mockResolvedValue({ data: { rate_in_force: 15, requested_rate: 20, ready: false, status: 'rejected', decision_note: 'Not approved' }, error: null });
+    const approved = vi.fn();
+    render(<AgreementRateInput portfolios={[]} partnerId="partner-1" initialRate={15} onRateSaved={vi.fn()} onApprovalState={approved} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Check approval' })).toBeEnabled());
+    expect(approved).toHaveBeenLastCalledWith(false);
+  });
+  it('keeps approval blocked when the server cannot confirm it', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'Unavailable' } });
+    const approved = vi.fn();
+    render(<AgreementRateInput portfolios={[]} partnerId="partner-1" initialRate={15} onRateSaved={vi.fn()} onApprovalState={approved} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Check approval' })).toBeEnabled());
+    expect(approved).toHaveBeenLastCalledWith(false);
+  });
 });

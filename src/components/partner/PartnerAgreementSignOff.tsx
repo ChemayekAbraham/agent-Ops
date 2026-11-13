@@ -608,7 +608,7 @@ export default function PartnerAgreementSignOff({
                       <Button
                         variant="outline"
                         onClick={openConfirm}
-                        disabled={busy || !repName.trim() || !(sigDataUrl || defaults?.signature_path)}
+                        disabled={busy || !rateApprovalReady || rateNeedsSave || !repName.trim() || !(sigDataUrl || defaults?.signature_path)}
                         className="gap-1.5"
                       >
                         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
@@ -619,7 +619,7 @@ export default function PartnerAgreementSignOff({
                       </p>
                     </>
                   ) : (
-                    <Button onClick={openConfirm} disabled={busy || !supportMode || !repName.trim() || !(sigDataUrl || defaults?.signature_path)} className="gap-1.5">
+                    <Button onClick={openConfirm} disabled={busy || !rateApprovalReady || rateNeedsSave || !supportMode || !repName.trim() || !(sigDataUrl || defaults?.signature_path)} className="gap-1.5">
                       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                       Counter-sign &amp; send
                     </Button>
