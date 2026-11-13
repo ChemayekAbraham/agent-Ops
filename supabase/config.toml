@@ -304,3 +304,9 @@ verify_jwt = false
 # System-only (pg_net from the database): the function checks the service-role key itself, like notify-advance-deduction.
 [functions.notify-special-advance-payment]
 verify_jwt = false
+
+[functions.direct-pay-proof]
+verify_jwt = false
+
+[functions.direct-pay-landlord-otp]
+verify_jwt = false
