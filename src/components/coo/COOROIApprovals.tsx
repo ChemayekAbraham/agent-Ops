@@ -265,6 +265,9 @@ export function COOROIApprovals() {
             const meta = op.metadata as Record<string, any> | null;
             const isAltWallet = op.operation_type === 'roi_split_alt_wallet';
             const isProxy = !!op.target_wallet_user_id && !isAltWallet;
+            // A payout whose cycle was locked by an earlier payout saved under the wrong month.
+            const isCorrection = meta?.correction === 'misdated_cycle_key';
+            const correctionReason = typeof meta?.correction_reason === 'string' ? meta.correction_reason.trim() : '';
             const isRejecting = rejecting === op.id;
 
             return (
@@ -302,11 +305,19 @@ export function COOROIApprovals() {
                           <Badge variant="outline" className="text-xs">Different Wallet</Badge>
                         </>
                       )}
+                      {isCorrection && (
+                        <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-700 dark:text-amber-300">Correction</Badge>
+                      )}
                     </div>
                     <p className="text-lg font-bold text-primary">{formatUGX(op.amount)}</p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(op.created_at), 'dd MMM yyyy, HH:mm')} · Ref: {op.reference_id || '—'}
                     </p>
+                    {isCorrection && correctionReason && (
+                      <p className="text-xs text-amber-800 dark:text-amber-300">
+                        <span className="font-semibold">Correction reason:</span> {correctionReason}
+                      </p>
+                    )}
                     {op.description && (
                       <p className="text-xs text-muted-foreground">{op.description}</p>
                     )}

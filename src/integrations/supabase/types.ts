@@ -79615,6 +79615,10 @@ export type Database = {
         }
         Returns: string
       }
+      _return_cycle_misdated_only: {
+        Args: { p_month: string; p_portfolio_id: string }
+        Returns: boolean
+      }
       _return_cycle_posted_total: { Args: { p_claim: string }; Returns: number }
       _rt_compute: {
         Args: { e: Json; p_as_of: string; p_with_visits?: boolean }
@@ -99490,6 +99494,16 @@ export type Database = {
       resume_expired_repayment_pauses: { Args: never; Returns: Json }
       retire_tenant_document: { Args: { p_doc_id: string }; Returns: Json }
       retry_funder_house_progress_notices: { Args: never; Returns: undefined }
+      return_cycle_correction_eligible: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          cycle_date: string
+          cycle_return: number
+          misdated_amount: number
+          misdated_paid_on: string
+          portfolio_id: string
+        }[]
+      }
       return_rent_request_for_correction: {
         Args: { p_reason: string; p_request_id: string; p_stage: string }
         Returns: string
