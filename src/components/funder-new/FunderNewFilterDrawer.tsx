@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { MapPin, Wallet, X } from 'lucide-react';
+import { MapPin, Wallet } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,7 +106,7 @@ export function FunderNewFilterDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="flex max-h-[88vh] flex-col gap-0 rounded-t-[28px] border-t p-0 data-[state=closed]:duration-200 data-[state=open]:duration-300 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=open]:ease-out [&>button]:hidden"
+        className="flex max-h-[88vh] flex-col gap-0 rounded-t-[28px] border-t p-0 data-[state=closed]:duration-200 data-[state=open]:duration-300 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=open]:ease-out"
       >
         {/* Header: title, Reset, close. The match count lives on the bottom button. */}
         <SheetHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 px-4 pb-3 pt-4 text-left">
