@@ -150,14 +150,14 @@ export function SupportedTenantDrawer({ tenant, open, onOpenChange }: Props) {
           <div className="flex items-center gap-3">
             <UserAvatar avatarUrl={tenant.tenant_avatar_url} fullName={tenant.tenant_name} size="lg" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-lg font-bold">{tenant.tenant_name}</p>
-              <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5 shrink-0 text-red-600" aria-hidden />{location}
+              <p className="break-words text-lg font-bold leading-tight">{tenant.tenant_name}</p>
+              <p className="mt-0.5 flex items-start gap-1 text-xs text-muted-foreground">
+                <MapPin className="mt-px h-3.5 w-3.5 shrink-0 text-red-600" aria-hidden /><span className="line-clamp-2">{location}</span>
               </p>
+              <span className={cn('mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold', managed ? 'bg-primary/10 text-primary' : 'bg-muted text-foreground')}>
+                {managed ? 'Managed' : 'Self managed'}
+              </span>
             </div>
-            <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold', managed ? 'bg-primary/10 text-primary' : 'bg-muted text-foreground')}>
-              {managed ? 'Managed' : 'Self managed'}
-            </span>
           </div>
 
           {/* Repayment: the one number a funder checks first. */}
