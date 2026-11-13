@@ -722,7 +722,10 @@ export function FunderHouseListingsSection({
 
       {/* Applied context: what is loaded, and by which order */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{sortLabel(effectiveSort)}</span>
+        {/* Only verified houses are recommended: the "Recommended" pill shows on the Verified tab only. */}
+        {effectiveSort === 'recommended' && boardGroups && boardTab !== 'verified' ? null : (
+          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{sortLabel(effectiveSort)}</span>
+        )}
         {origin && origin.radiusKm !== null ? (
           <span>Within {origin.radiusKm} km of {origin.label}</span>
         ) : effectiveSort === 'nearest' && origin ? (
