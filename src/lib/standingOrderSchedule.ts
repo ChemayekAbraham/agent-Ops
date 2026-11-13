@@ -1,4 +1,5 @@
 import type { PayoutScheduleConfig } from '@/components/cfo/PayoutAutomationToggle';
+import { nextDailyWeekday } from '../../supabase/functions/process-scheduled-payouts/lunchWeekdays';
 
 // Recurrence shape shared by the UI config and the DB row.
 export interface RecurrenceConfig {
@@ -17,9 +18,7 @@ export function getNextRunDate(config: PayoutScheduleConfig, from: Date = new Da
   const now = new Date(from);
   switch (config.frequency) {
     case 'daily': {
-      const next = new Date(now);
-      next.setDate(next.getDate() + 1);
-      return next.toISOString();
+      return nextDailyWeekday(now).toISOString();
     }
     case 'weekly': {
       const next = new Date(now);
@@ -62,8 +61,7 @@ export function computeNextRun(from: Date, config: RecurrenceConfig): Date {
   const next = new Date(from);
   switch (config.frequency) {
     case 'daily':
-      next.setDate(next.getDate() + 1);
-      return next;
+      return nextDailyWeekday(from);
     case 'weekly': {
       const target = ((Number(config.day_of_week ?? 1) % 7) + 7) % 7;
       let diff = (target - next.getDay() + 7) % 7;
