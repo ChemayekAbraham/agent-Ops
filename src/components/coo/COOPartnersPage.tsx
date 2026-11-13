@@ -96,6 +96,8 @@ function isPortfolioDueToday(p: { next_roi_date: string | null; created_at: stri
   const next = getNextPayoutDate(p.next_roi_date, p.created_at, p.payout_day ?? 15);
   return next === formatLocalDateOnly(new Date());
 }
+import { AuthoriseExtraPaymentDialog, type AuthoriseExtraPaymentTarget } from './AuthoriseExtraPaymentDialog';
+import { useCfoApprovalAuthority } from '@/hooks/useCfoApprovalAuthority';
 import { RenewPortfolioDialog } from '@/components/manager/RenewPortfolioDialog';
 import { FundInvestmentAccountDialog } from '@/components/manager/FundInvestmentAccountDialog';
 import { CreateInvestmentAccountDialog } from '@/components/manager/CreateInvestmentAccountDialog';
@@ -4849,6 +4851,8 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
   const [processing, setProcessing] = useState<Record<string, 'compound' | 'pay' | 'split' | null>>({});
   const [completed, setCompleted] = useState<Record<string, 'compounded' | 'pending' | 'completed' | 'split'>>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
+  const { canApprove: isCfoApprover } = useCfoApprovalAuthority();
+  const [extraPayTarget, setExtraPayTarget] = useState<AuthoriseExtraPaymentTarget | null>(null);
   const [managedInfo, setManagedInfo] = useState<Record<string, { isManaged: boolean; agentName: string; agentId: string; hasProxy: boolean } | null>>({});
   
   // Step 2 state
@@ -6054,6 +6058,14 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                           </p>
                         </div>
                       )}
+                      {p.alreadyProcessedThisCycle && !isDone && p.processedState !== 'pending' && isCfoApprover && (
+                        <Button size="sm" variant="outline" className="w-full" onClick={() => setExtraPayTarget({
+                          portfolioId: p.portfolioId, portfolioName: p.portfolioName, partnerName: p.name,
+                          nextPayoutDate: p.nextPayoutDate, investmentAmount: p.investmentAmount, roiPercentage: p.roiPercentage,
+                        })}>
+                          Authorise extra payment
+                        </Button>
+                      )}
                       {!isDone && !p.alreadyProcessedThisCycle && (
                         <div className="space-y-2 pt-1">
                           <Textarea
@@ -6501,6 +6513,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
         })()}
       </DialogContent>
     </Dialog>
+    <AuthoriseExtraPaymentDialog target={extraPayTarget} onOpenChange={(o) => { if (!o) setExtraPayTarget(null); }} onDone={() => onActionComplete?.()} />
     </>
   );
 }
