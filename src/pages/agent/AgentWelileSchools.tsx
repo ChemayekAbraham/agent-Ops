@@ -446,11 +446,12 @@ export function SchoolRegistration({ draft, setDraft, captureGps, gpsBusy, savin
         )}
       </StepCard>
 
-      <StickyCta>
+      <Button variant="ghost" className="h-11 w-full rounded-2xl text-muted-foreground" disabled={saving} onClick={onCancel}>Cancel registration</Button>
+
+      <StickyCta className="bg-background shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.25)]">
         <Button className="h-12 w-full gap-2 rounded-2xl text-base" disabled={saving} onClick={submit}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}Register School & Lock Gate
         </Button>
-        <Button variant="ghost" className="h-10 w-full rounded-2xl text-muted-foreground" disabled={saving} onClick={onCancel}>Cancel</Button>
       </StickyCta>
     </section>
   );
