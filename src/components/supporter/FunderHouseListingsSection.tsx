@@ -786,7 +786,11 @@ export function FunderHouseListingsSection({
                   className={cn('flex min-h-[40px] min-w-0 items-center justify-center gap-1.5 rounded-full px-2 text-xs font-semibold transition-colors sm:text-sm',
                     active ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground')}>
                   <span className="truncate">{tab.label}</span>
-                  <span className={cn('shrink-0 rounded-full px-1.5 text-[11px] tabular-nums', active ? 'bg-primary-foreground/20' : 'bg-background')}>{count.toLocaleString('en')}</span>
+                  {/* Compact count (2.4K) so the full tab label still fits on a phone. */}
+                  <span className={cn('shrink-0 rounded-full px-1.5 text-[11px] tabular-nums', active ? 'bg-primary-foreground/20' : 'bg-background')}
+                    title={count.toLocaleString('en')}>
+                    {new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(count)}
+                  </span>
                 </button>
               );
             })}
