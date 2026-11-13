@@ -67,7 +67,8 @@ const calls = (fn: string) => mocks.rpc.mock.calls.filter(([f]) => f === fn).map
 async function fillValid() {
   fireEvent.click(screen.getByText('pick borrower'));
   setPrincipal('500000');
-  click('special-advance-rate-monthly-28');
+  click('special-advance-basis-monthly');
+  fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '28' } });
   click('special-advance-term-7');
   await serverShown();
   fireEvent.change(screen.getByLabelText(/Purpose of the advance/), { target: { value: 'Working capital for verified supplier stock' } });
@@ -123,21 +124,23 @@ describe('Already-issued outside-Welile advances', () => {
 });
 
 describe('SpecialAdvanceModal — agreed terms', () => {
-  it('offers the approved rates and terms with nothing pre-selected', () => {
+  it('offers an open rate entry and term presets with nothing pre-selected', () => {
     renderModal();
-    const rates = within(screen.getByRole('group', { name: 'Agreed access fee rate' })).getAllByRole('button');
-    expect(rates.map((b) => b.textContent)).toEqual(['1% per day', '15% per month', '28% per month', 'Custom rate']);
+    const basis = within(screen.getByRole('group', { name: 'Rate basis' })).getAllByRole('button');
+    expect(basis.map((b) => b.textContent)).toEqual(['Per day', 'Per month']);
+    expect(screen.getByLabelText('Agreed rate (%)')).toBeTruthy();
     const terms = within(screen.getByRole('group', { name: 'Agreed term' })).getAllByRole('button');
     expect(terms.map((b) => b.textContent)).toEqual(['7 days', '14 days', '30 days', 'Custom days']);
-    for (const b of [...rates, ...terms]) expect(b.getAttribute('aria-pressed')).toBe('false');
+    for (const b of [...basis, ...terms]) expect(b.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('shows nothing until principal, agreed rate and term are chosen, and asks the server only then', async () => {
     renderModal();
     setPrincipal('500000');
     expect(document.getElementById('special-advance-preview')).toBeNull();
-    expect(screen.getByText(/Choose the agreed rate, term/)).toBeTruthy();
-    click('special-advance-rate-monthly-28');
+    expect(screen.getByText(/Choose the rate basis, term/)).toBeTruthy();
+    click('special-advance-basis-monthly');
+    fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '28' } });
     expect(document.getElementById('special-advance-preview')).toBeNull();
     click('special-advance-term-7');
     expect(document.getElementById('special-advance-preview')).not.toBeNull();
@@ -148,7 +151,8 @@ describe('SpecialAdvanceModal — agreed terms', () => {
   it('shows the server figures: 500,000 @ 28%/month for 7 days prorated (32,667)', async () => {
     renderModal();
     setPrincipal('500,000');
-    click('special-advance-rate-monthly-28');
+    click('special-advance-basis-monthly');
+    fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '28' } });
     click('special-advance-term-7');
     await serverShown();
     const terms = document.getElementById('special-advance-agreed-terms')?.textContent ?? '';
@@ -160,10 +164,9 @@ describe('SpecialAdvanceModal — agreed terms', () => {
     expect(within(document.getElementById('special-advance-preview') as HTMLElement).getAllByRole('row')).toHaveLength(8);
   });
 
-  it('requires an explicit basis for a custom rate and applies the per-basis limit', async () => {
+  it('requires an explicit basis for the agreed rate, with no upper ceiling on the rate', async () => {
     renderModal();
     setPrincipal('300000');
-    click('special-advance-rate-custom');
     fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '20' } });
     click('special-advance-term-custom');
     fireEvent.change(screen.getByLabelText('Term (days)'), { target: { value: '21' } });
@@ -172,26 +175,27 @@ describe('SpecialAdvanceModal — agreed terms', () => {
     click('special-advance-basis-monthly');
     await serverShown();
     for (const v of [62_000, 362_000]) expect(previewText()).toContain(formatUGX(v)); // 42,000 access + 20,000 registration
+    // a rate above the old 1%/day ceiling is accepted
     click('special-advance-basis-daily');
-    expect(document.getElementById('special-advance-preview')).toBeNull();
-    expect(screen.getByText(/Enter a rate above 0 and up to 1% per day/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '5' } });
+    await serverShown();
+    expect(document.getElementById('special-advance-preview')).not.toBeNull();
   });
 
   it('rejects invalid custom rate and term values', () => {
     renderModal();
     setPrincipal('300000');
-    click('special-advance-rate-custom');
     click('special-advance-basis-daily');
-    fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '150' } });
+    fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '0' } });
     click('special-advance-term-custom');
     fireEvent.change(screen.getByLabelText('Term (days)'), { target: { value: '400' } });
-    expect(screen.getByText(/Enter a rate above 0 and up to 1% per day/)).toBeTruthy();
+    expect(screen.getByText(/Enter a rate above 0 \(at most 2 decimals\)/)).toBeTruthy();
     expect(screen.getByText(/Enter whole days between 1 and 90/)).toBeTruthy();
     expect(document.getElementById('special-advance-preview')).toBeNull();
-    for (const bad of ['0', '28.01', '12.345']) {
+    for (const bad of ['-0', '12.345']) {
       click('special-advance-basis-monthly');
       fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: bad } });
-      expect(screen.getByText(/Enter a rate above 0 and up to 28% per month/)).toBeTruthy();
+      expect(screen.getByText(/Enter a rate above 0 \(at most 2 decimals\)/)).toBeTruthy();
     }
   });
 
@@ -252,7 +256,8 @@ describe('SpecialAdvanceModal — server eligibility and recording', () => {
     renderModal();
     fireEvent.click(screen.getByText('pick borrower'));
     setPrincipal('500000');
-    click('special-advance-rate-monthly-28');
+    click('special-advance-basis-monthly');
+    fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '28' } });
     click('special-advance-term-7');
     await serverShown();
     const submit = () => document.getElementById('special-advance-submit') as HTMLButtonElement;
@@ -306,7 +311,8 @@ describe('SpecialAdvanceModal — server eligibility and recording', () => {
     fireEvent.change(screen.getByLabelText(/Full Name/), { target: { value: 'David Kato' } });
     fireEvent.change(screen.getByLabelText(/Phone Number/), { target: { value: '0772000111' } });
     setPrincipal('500000');
-    click('special-advance-rate-monthly-28');
+    click('special-advance-basis-monthly');
+    fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '28' } });
     click('special-advance-term-7');
     await serverShown();
     expect(previewText()).toContain('Borrower: David Kato (External)');
