@@ -14,6 +14,12 @@ These are for Landlord Ops, the COO and the on-call engineer. Each runbook says 
 - **Stopped:** new claims are refused.
 - **Still works:** partners already holding a plan can still upload their SMS, because they may already have paid, and Landlord Ops can still approve or reject them.
 
+**Who can start a direct payment (pilot):** a partner can claim only when `self_support_direct_pay` is ON **and** either they are on `direct_pay_pilot_partners` or `self_support_direct_pay_everyone` is ON (created OFF).
+
+- **Add a pilot partner (service key only):** `insert into public.direct_pay_pilot_partners (partner_id, note) values ('<partner uuid>', 'pilot: <name>');`
+- **Remove a pilot partner:** `delete from public.direct_pay_pilot_partners where partner_id = '<partner uuid>';` This stops new claims only. A partner who already holds a plan can still finish.
+- **Open option 2 to every partner:** turn `self_support_direct_pay_everyone` ON. Only do this with the owner's yes, after the pilot.
+
 **Health check:** `select public.direct_pay_health();`, open to Landlord Ops, the COO, the CTO and super admin. Every morning at 07:00 the job `direct-pay-health` writes an `audit_logs` row (`action_type = 'direct_pay_health_breach'`) for each target missed.
 
 ## 1. A partner paid, but the hold ended first
