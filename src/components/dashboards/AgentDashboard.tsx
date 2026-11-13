@@ -96,7 +96,6 @@ import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkD
 import { TenantInviteLinkDialog } from '@/components/agent/TenantInviteLinkDialog';
 import SavedRentDraftsPanel from '@/components/agent/SavedRentDraftsPanel';
 import { useBusinessAdvanceCommissionListener } from '@/hooks/useBusinessAdvanceCommissionListener';
-import { useAgentUnblockToast } from '@/hooks/useAgentUnblockToast';
 import { useRecruiterOverrideToast } from '@/hooks/useRecruiterOverrideToast';
 import { useAgentNudges } from '@/hooks/useAgentNudges';
 import { useAgentEarnings } from '@/hooks/useAgentEarnings';
@@ -287,9 +286,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const queryClient = useQueryClient();
   const { profile, loading: profileLoading } = useProfile();
   const { data: hasRepayingTenant, isLoading: repayingTenantLoading } = useAgentHasRepayingTenant(user?.id);
-  // Celebratory toast the moment the agent crosses today's 50% eligibility
-  // threshold (fires once per Kampala day, on mount or via realtime).
-  useAgentUnblockToast(user?.id);
+  // E100: posting is never blocked, so the old "You're unblocked" toast is gone.
   // Success / error toast when a UGX 2,000 recruiter override payout is created
   // for this agent (a verified sub-agent listing / landlord / LC1 chairperson).
   useRecruiterOverrideToast(user?.id);

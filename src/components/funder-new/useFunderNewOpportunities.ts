@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import type {
@@ -197,6 +197,68 @@ export function useFunderNewEmptyHouses(
     ...query, data: undefined, error: null, isLoading: false, isFetching: false,
     isFetchingNextPage: false, hasNextPage: false,
   };
+}
+
+
+/**
+ * One numbered page of empty houses (the Empty houses tab's pagination). Same server read and
+ * filters as useFunderNewEmptyHouses, but fetched by offset, so jumping to page 90 is one request
+ * instead of loading every page before it. The previous page stays on screen while the next loads.
+ */
+export function useFunderNewEmptyHousesPage(
+  filters: FunderNewFilters,
+  origin: FunderNewOrigin | null,
+  page: number,
+  pageSize: number,
+  enabled: boolean,
+) {
+  const bucket = amountRange(filters.amount);
+  const range = { min: filters.rentMin ?? bucket.min, max: filters.rentMax ?? bucket.max };
+  const effectiveSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
+  const radiusKm = origin?.radiusKm ?? null;
+  const allowed = useFunderEmptyHousesAllowed();
+  const signedIn = useSignedInEnabled(enabled && allowed);
+  const offset = Math.max(0, (page - 1) * pageSize);
+  return useQuery<FunderNewListResult<FunderNewEmptyHouse>>({
+    queryKey: [
+      'funder-new',
+      'empty-houses-page',
+      {
+        search: filters.search.trim(), location: filters.location.trim(), amount: filters.amount,
+        rentMin: filters.rentMin, rentMax: filters.rentMax, sort: effectiveSort,
+      },
+      stableOriginKey(origin),
+      offset,
+      pageSize,
+    ],
+    enabled: signedIn,
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      if (!allowed) return { items: [], total: 0 };
+      await requireUserSession();
+      const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
+        p_search: normalizeTextFilter(filters.search),
+        p_limit: pageSize,
+        p_offset: offset,
+        p_district: normalizeTextFilter(filters.location),
+        p_verified_only: true,
+        p_gps_only: radiusKm !== null,
+        p_min_rent: range.min,
+        p_max_rent: range.max,
+        p_near_lat: origin ? origin.lat : null,
+        p_near_lng: origin ? origin.lng : null,
+        p_radius_km: radiusKm,
+        p_sort: effectiveSort,
+      });
+      if (error) throw error;
+      const payload = asRecord(data);
+      const houses = Array.isArray(payload.houses) ? (payload.houses as FunderNewEmptyHouse[]) : [];
+      return { items: houses, total: toNumber(payload.total) || houses.length };
+    },
+  });
 }
 
 /**

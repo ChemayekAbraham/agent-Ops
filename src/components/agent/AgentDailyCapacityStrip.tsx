@@ -102,11 +102,6 @@ export function AgentDailyCapacityStrip() {
           {cap.tenants_paid_today} of {cap.tenants_due} tenants paid today
           {' · '}{cap.tenants_paid_yesterday} of {cap.tenants_due} yesterday
         </p>
-        {yesterdayCarrying && canPost && (
-          <p className="text-xs text-primary leading-snug">
-            Yesterday&apos;s {cap.tenants_paid_yesterday} of {cap.tenants_due} is keeping you unlocked.
-          </p>
-        )}
         <div
           role="progressbar"
           aria-label="Tenants reached, best of today or yesterday"

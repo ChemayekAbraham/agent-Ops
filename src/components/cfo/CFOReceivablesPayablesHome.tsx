@@ -70,7 +70,7 @@ export function CFOReceivablesPayablesHome() {
   const spark = trend.slice(-8);
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-1 flex-col space-y-4">
       {/* ── KPI row ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <Kpi
@@ -108,13 +108,13 @@ export function CFOReceivablesPayablesHome() {
       </div>
 
       {/* ── Charts row ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr_1fr] gap-4 [&>*]:min-w-0">
+      <div className="grid flex-1 grid-cols-1 xl:grid-cols-[1.2fr_1fr_1fr] gap-4 [&>*]:min-w-0">
         <Panel title="Receivables vs Payables Trend" right={
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <Dot c="hsl(var(--success))" /> Receivables <Dot c="hsl(var(--destructive))" /> Payables
           </div>
         }>
-          <div className="h-56">
+          <div className="flex-1 min-h-[14rem]">
             {trend.length === 0 ? <Empty /> : (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -144,7 +144,7 @@ export function CFOReceivablesPayablesHome() {
       </div>
 
       {/* ── Tables row ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid flex-1 grid-cols-1 xl:grid-cols-2 gap-4">
         <CatTable title="Top Receivables" cats={recCats} total={r?.total ?? 0} count={r?.item_count ?? 0} totalLabel="Total Receivables" />
         <CatTable title="Top Payables" cats={payCats} total={p?.total ?? 0} count={p?.item_count ?? 0} totalLabel="Total Payables" />
       </div>
@@ -223,7 +223,7 @@ function Kpi({ icon, tone, label, value, foot, percent, percentLabel, spark, onC
 
 function Panel({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-card shadow-sm p-4">
+    <div className="rounded-2xl border border-border/70 bg-card shadow-sm p-4 flex flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h3 className="text-sm font-semibold">{title}</h3>
         {right}
@@ -239,7 +239,7 @@ const Empty = () => <div className="h-full flex items-center justify-center text
 function Donut({ title, total, cats, centerLabel }: { title: string; total: number; cats: Cat[]; centerLabel: string }) {
   return (
     <Panel title={title}>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-1 items-center gap-3">
         <div className="relative h-36 w-36 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -272,7 +272,7 @@ function CatTable({ title, cats, total, count, totalLabel }: {
 }) {
   return (
     <Panel title={title}>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto flex-1">
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-muted/40 text-muted-foreground">

@@ -52,7 +52,8 @@ vi.mock('@/integrations/supabase/client', () => {
 // One stable user object, as the real hook gives.
 const auth = vi.hoisted(() => ({ user: { id: 'agent-1', user_metadata: { full_name: 'Agent One' } } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => auth }));
-vi.mock('@/hooks/useAgentCapacityMap', () => ({ useAgentCapacityMap: () => ({ data: undefined, isLoading: false }), DAILY_ELIGIBILITY_THRESHOLD: 0.5 }));
+const cap = vi.hoisted(() => ({ data: undefined as undefined | Map<string, unknown> }));
+vi.mock('@/hooks/useAgentCapacityMap', () => ({ useAgentCapacityMap: () => ({ data: cap.data, isLoading: false }), DAILY_ELIGIBILITY_THRESHOLD: 0.5 }));
 vi.mock('@/components/agent/rentRequestAssistant/useAssistantSpeech', () => ({
   useAssistantSpeech: () => ({ supported: false, enabled: false, speaking: false, failed: false, toggle: vi.fn(), stop: vi.fn(), replay: vi.fn() }),
 }));
@@ -90,6 +91,7 @@ const TENANT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  cap.data = undefined;
   mocks.openQueries = [];
   mocks.rpc.mockResolvedValue({ data: { ok: true }, error: null });
   mocks.tables = {
@@ -161,7 +163,8 @@ describe('T4 resubmit', () => {
     fireEvent.click(sendButton());
 
     expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
-    const calls = mocks.rpc.mock.calls.filter(([fn]) => String(fn).startsWith('agent_'));
+    // agent_eligibility_of only reads the collection line (E100).
+    const calls = mocks.rpc.mock.calls.filter(([fn]) => String(fn).startsWith('agent_') && fn !== 'agent_eligibility_of');
     // E90: family size and work go in before the resubmit.
     expect(calls).toEqual([
       ['agent_save_intake_details', { p_request_id: 'req-9', p_family_size: 5, p_work_business: 'Tailor', p_work_location: null }],
@@ -255,6 +258,38 @@ describe('E90: ask only for what _agent_side_missing lists', () => {
     expect(screen.queryByText('Sent to the Service Centre')).toBeNull();
     const list = await screen.findByTestId('resubmit-side-missing');
     expect(within(list).getByRole('button', { name: 'Photos of the house' })).toBeInTheDocument();
+  });
+});
+
+describe('E100: no posting gate', () => {
+  // VERON OWARUHANGA: 52.8% collected across all plans, 0 tenants paid today. Even a capacity
+  // record from before E100 that still says "can't post" must not stop her.
+  const veron = {
+    can_post_rent_today: false, unlimited_posting: false, posting_rule: 'weekly', per_tenant_max: 1_000_000,
+    tenants_due: 12, tenants_paid_today: 0, tenants_paid_yesterday: 0,
+    weekly_posting: { passes: false, reason: 'Last week you collected 9.2% of what your current Rent Plans were due.' },
+  };
+
+  it.each([[52.8, '52.8'], [31, '31']])('opens with the collection line only (%s%%) and lets the agent post', async (pct, shown) => {
+    cap.data = new Map([['agent-1', veron]]);
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'agent_eligibility_of' ? { data: { eligible: pct >= 50, pct }, error: null } : { data: { ok: true }, error: null }));
+    const { container } = render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    expect(await screen.findByTestId('collection-info')).toHaveTextContent(
+      `Your collection: ${shown}% of what is due across all your plans. Below 50%, your requests still move but wait at the COO desk and can't be funded.`,
+    );
+    expect(mocks.rpc).toHaveBeenCalledWith('agent_eligibility_of', { p_agent: 'agent-1' });
+    expect(screen.queryByText(/can’t post|cannot post|Collect from|Checking whether you can post|Good news/)).toBeNull();
+    // The conversation is open: the composer is there for the first answer.
+    expect(container.querySelector('footer')).not.toBeNull();
+  });
+
+  it('with no collection figure, says nothing about it and still lets the agent post', async () => {
+    cap.data = new Map([['agent-1', veron]]);
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'permission denied' } });
+    const { container } = render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('agent_eligibility_of', { p_agent: 'agent-1' }));
+    expect(screen.queryByTestId('collection-info')).toBeNull();
+    expect(container.querySelector('footer')).not.toBeNull();
   });
 });
 
