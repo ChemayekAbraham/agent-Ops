@@ -21,6 +21,7 @@ import {
   Download,
   Wallet,
   Undo2,
+  EyeOff,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -43,6 +44,7 @@ export const LANDLORD_OPS_SECTIONS: LandlordOpsNavSection[] = [
     items: [
       { key: 'pipeline-rent-requests', label: 'Rent Requests', path: 'pipeline/rent-requests', icon: GitBranch, badgeKey: 'pipeline' },
       { key: 'today', label: 'Today', path: '', icon: LayoutDashboard },
+      { key: 'hidden', label: 'Hidden', path: 'hidden', icon: EyeOff },
     ],
   },
   {

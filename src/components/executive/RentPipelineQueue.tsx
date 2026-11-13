@@ -41,6 +41,12 @@ import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
+import {
+  RentRequestsGeoDrilldown,
+  matchesRentRequestGeoPath,
+  type RentRequestGeoPath,
+} from './landlord-ops/RentRequestsGeoDrilldown';
+import { LandlordTenantsSection } from './landlord-ops/LandlordTenantsSection';
 import { toast as sonnerToast } from 'sonner';
 import { format } from 'date-fns';
 import { AgentProximitySelector } from './AgentProximitySelector';
@@ -262,9 +268,25 @@ interface RentPipelineQueueProps {
    * statuses (e.g. `agent_verified`) that pre-date the unified pipeline naming.
    */
   additionalStatuses?: string[];
+  /**
+   * 'full' (default): renders the top lead card + approval money counter + review queue.
+   * 'lead-only': renders ONLY the standalone "Rent Requests waiting to be Approved" card.
+   * 'queue-only': renders the approval money counter + review queue without the top lead card.
+   */
+  viewMode?: 'full' | 'lead-only' | 'queue-only';
+  /** Optional click handler for the lead card (e.g., to navigate to the queue tab). */
+  onLeadClick?: () => void;
+  /** Scroll to and highlight the first rent request when the queue mounts. */
+  focusFirstOnMount?: boolean;
 }
 
-export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipelineQueueProps) {
+export function RentPipelineQueue({
+  stage,
+  additionalStatuses = [],
+  viewMode = 'full',
+  onLeadClick,
+  focusFirstOnMount = false,
+}: RentPipelineQueueProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -434,10 +456,34 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const [bulkRejectReason, setBulkRejectReason] = useState('');
   // Landlord Ops: the card's Reject asks for the reason straight away instead of opening the full review.
   const [directReject, setDirectReject] = useState<{ id: string; name: string; reason: string } | null>(null);
-  // Agent profile drilldown
-  const [drilldownAgentId, setDrilldownAgentId] = useState<string | null>(null);
-  // Landlord profile drilldown — full location, contacts, houses
-  const [drilldownLandlordId, setDrilldownLandlordId] = useState<string | null>(null);
+  // Unified Tenant / Agent / Landlord continuous drilldown drawer
+  const [drilldownContext, setDrilldownContext] = useState<{
+    open: boolean;
+    defaultTab: 'tenant' | 'agent' | 'landlord';
+    tenantId: string | null;
+    agentId: string | null;
+    landlordId: string | null;
+  }>({
+    open: false,
+    defaultTab: 'agent',
+    tenantId: null,
+    agentId: null,
+    landlordId: null,
+  });
+
+  const openDrilldownForRequest = (
+    req: any,
+    defaultTab: 'tenant' | 'agent' | 'landlord',
+    overrides?: { tenantId?: string | null; agentId?: string | null; landlordId?: string | null },
+  ) => {
+    setDrilldownContext({
+      open: true,
+      defaultTab,
+      tenantId: overrides?.tenantId !== undefined ? overrides.tenantId : (req?.tenant_id ?? null),
+      agentId: overrides?.agentId !== undefined ? overrides.agentId : (req?.assigned_agent_id || req?.agent_id || null),
+      landlordId: overrides?.landlordId !== undefined ? overrides.landlordId : (req?.landlord_id ?? null),
+    });
+  };
   // Tenant selector — CFO picks which tenant's landlord to fund before approving.
   // localStorage acts as an offline mirror; the durable cross-device source of
   // truth is the per-user `user_ui_preferences` row keyed by TENANT_FILTER_PREF_KEY.
@@ -454,6 +500,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   // persisted filter value is.
   const [tenantSyncAt, setTenantSyncAt] = useState<Date | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [geoOpen, setGeoOpen] = useState(false);
+  const [geoPath, setGeoPath] = useState<RentRequestGeoPath>({});
   // A Review Rent Request sheet with text typed into it, or a bulk reject reason being written, is unsent work: nothing
   // may interrupt it (the "new version" prompt, the install nag). This only registers the work; it changes no decision.
   useCriticalFlow(
@@ -957,7 +1005,11 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           is_resubmitted: resubmittedSet.has(r.id),
           tenant_name: tenantProfile?.full_name || 'Unknown',
           tenant_phone: tenantProfile?.phone || '',
+          tenant_region: tenantProfile?.region || '',
           tenant_district: tenantProfile?.district || '',
+          tenant_sub_county: tenantProfile?.sub_county || tenantProfile?.city || tenantProfile?.town || '',
+          tenant_parish: tenantProfile?.parish || '',
+          tenant_village: tenantProfile?.village || tenantProfile?.landmark || '',
           tenant_address: tenantAddress,
           agent_name: r.agent_id ? (profileMap.get(r.agent_id)?.full_name || 'Unassigned') : 'Unassigned',
           agent_phone: agentProfile?.phone || '',
@@ -976,10 +1028,15 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           lc1_is_new: !!lc1?.registered_by && !lc1?.verified,
           landlord_phone: landlord?.phone || '',
           landlord_momo: landlord?.mobile_money_number || landlord?.phone || '',
+          landlord_region: landlord?.region || '',
           landlord_district: landlord?.district || '',
+          landlord_sub_county: landlord?.sub_county || '',
+          landlord_village: landlord?.village || landlord?.property_address || '',
           landlord_address: landlordAddress,
           lc1_name: lc1?.name || '',
           lc1_phone: lc1?.phone || '',
+          lc1_region: lc1?.region || '',
+          lc1_parish: lc1?.parish || '',
           lc1_village: lc1?.village || '',
           lc1_district: lc1?.district || '',
           lc1_address: lc1Address,
@@ -1103,6 +1160,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   // The server says which requests match the paying-label and arrival filters; the rest of the filters below are this desk's own.
   const matching = filterByRentDesk(rows, deskOrder.data)
     .filter(r => {
+      if (viewMode === 'lead-only' && geoOpen && !matchesRentRequestGeoPath(r, geoPath)) return false;
       if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
       if (aboveOnly && !(r as any).renewal_above_suggestion) return false;
       if (noCallOnly && callStatus.loaded && !hasNoCallAtStage(callStatus.byId.get(r.id))) return false;
@@ -1637,67 +1695,215 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
     });
   };
 
+  const hasFocusedOnMountRef = useRef(false);
+  useEffect(() => {
+    if (!focusFirstOnMount || hasFocusedOnMountRef.current || isLoading) return;
+    hasFocusedOnMountRef.current = true;
+    jumpToFirstRequest();
+  }, [focusFirstOnMount, isLoading]);
+
+  const handleLeadCardActivate = () => {
+    if (viewMode === 'lead-only') {
+      setGeoOpen(true);
+      setGeoPath({});
+      return;
+    }
+    if (onLeadClick) {
+      onLeadClick();
+    } else {
+      jumpToFirstRequest();
+    }
+  };
+
+  const isStandaloneHero = viewMode === 'lead-only';
+
+  const leadCard = (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleLeadCardActivate}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleLeadCardActivate();
+        }
+      }}
+      style={{
+        backgroundColor: '#7616d0',
+        backgroundImage: 'linear-gradient(137deg, #9234ea 0%, #7616d0 54%, #4a1da5 100%)',
+        color: '#ffffff',
+      }}
+      className={cn(
+        'portfolio-hero-card relative w-full rounded-3xl border-2 border-primary/40 bg-primary text-white shadow-xl hover:shadow-2xl hover:brightness-105 active:scale-[0.995] transition-all duration-200 cursor-pointer select-none overflow-hidden group',
+        isStandaloneHero && 'min-h-[68vh] sm:min-h-[75vh] lg:min-h-[80vh] flex flex-col justify-between',
+      )}
+    >
+      {/* Subtle decorative ambient glow circles for the large hero */}
+      <div
+        aria-hidden="true"
+        style={{ backgroundColor: 'rgba(255, 255, 255, 0.07)' }}
+        className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 sm:h-96 sm:w-96 rounded-full blur-2xl"
+      />
+      <div
+        aria-hidden="true"
+        style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+        className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 sm:h-96 sm:w-96 rounded-full blur-2xl"
+      />
+
+      <div
+        className={cn(
+          'relative z-10 flex flex-1 flex-col justify-between',
+          isStandaloneHero
+            ? 'p-7 sm:p-12 lg:p-16 min-h-[68vh] sm:min-h-[75vh] lg:min-h-[80vh] gap-8 sm:gap-12'
+            : 'p-6 sm:p-8 min-h-[220px] sm:min-h-[240px] gap-5',
+        )}
+      >
+        {/* Top Row: Icon on Left, Pending Count Pill on Right */}
+        <div className="flex items-center justify-between gap-4">
+          <div
+            style={{ backgroundColor: 'rgba(255, 255, 255, 0.18)', color: '#ffffff' }}
+            className={cn(
+              'flex items-center justify-center rounded-3xl bg-white/20 text-white shrink-0 shadow-inner ring-1 ring-white/25',
+              isStandaloneHero ? 'h-16 w-16 sm:h-24 sm:w-24 lg:h-28 lg:w-28' : 'h-14 w-14 sm:h-16 sm:w-16',
+            )}
+          >
+            <config.icon
+              className={cn(
+                isStandaloneHero ? 'h-8 w-8 sm:h-12 sm:w-12 lg:h-14 lg:w-14' : 'h-7 w-7 sm:h-8 sm:w-8',
+              )}
+            />
+          </div>
+
+          <span
+            style={{ backgroundColor: '#ffffff', color: '#7616d0' }}
+            className={cn(
+              'inline-flex items-center justify-center rounded-full bg-white text-primary font-black tabular-nums shadow-md shrink-0',
+              isStandaloneHero
+                ? 'px-5 py-2 sm:px-8 sm:py-3.5 text-base sm:text-xl lg:text-2xl'
+                : 'px-4 py-1.5 sm:px-5 sm:py-2 text-sm sm:text-base',
+            )}
+          >
+            {rows.length} pending
+          </span>
+        </div>
+
+        {/* Middle Row: Full-Width Bold Heading + Helpful Subtitle when Standalone */}
+        <div className="space-y-3 sm:space-y-4 my-auto">
+          <h2
+            style={{ color: '#ffffff' }}
+            className={cn(
+              'w-full font-extrabold tracking-tight text-white text-left',
+              isStandaloneHero
+                ? 'text-3xl sm:text-5xl lg:text-6xl leading-[1.12]'
+                : 'text-2xl sm:text-3xl lg:text-4xl leading-snug',
+            )}
+          >
+            Rent Requests waiting to be Approved
+          </h2>
+          {isStandaloneHero && (
+            <p
+              style={{ color: 'rgba(255, 255, 255, 0.86)' }}
+              className="text-sm sm:text-lg lg:text-xl font-medium max-w-3xl leading-relaxed"
+            >
+              Tap anywhere on this card to drill down by Continent, Country, Region, District, County, Parish &amp; Village.
+            </p>
+          )}
+        </div>
+
+        {/* Bottom Row: Total UGX Value on Left, Action Arrow on Right */}
+        <div
+          style={{ borderColor: 'rgba(255, 255, 255, 0.24)' }}
+          className={cn(
+            'flex items-center justify-between gap-4 border-t border-white/20',
+            isStandaloneHero ? 'pt-6 sm:pt-8 lg:pt-10' : 'pt-4 sm:pt-5',
+          )}
+        >
+          <div className="space-y-1">
+            {isStandaloneHero && (
+              <span
+                style={{ color: 'rgba(255, 255, 255, 0.78)' }}
+                className="block text-xs sm:text-sm uppercase tracking-widest font-bold"
+              >
+                Total Value Waiting Approval
+              </span>
+            )}
+            <p
+              style={{ color: '#ffffff' }}
+              className={cn(
+                'font-black text-white tracking-tight tabular-nums leading-none',
+                isStandaloneHero
+                  ? 'text-4xl sm:text-6xl lg:text-7xl'
+                  : 'text-3xl sm:text-4xl lg:text-5xl',
+              )}
+            >
+              {formatUGX(queueTotalAmount)}
+            </p>
+          </div>
+          <div
+            style={{ backgroundColor: '#ffffff', color: '#7616d0' }}
+            className={cn(
+              'flex items-center justify-center rounded-full bg-white text-primary shadow-lg group-hover:translate-x-1.5 transition-transform shrink-0',
+              isStandaloneHero ? 'h-14 w-14 sm:h-20 sm:w-20 lg:h-24 lg:w-24' : 'h-12 w-12 sm:h-14 sm:w-14',
+            )}
+          >
+            <ArrowRight
+              className={cn(
+                isStandaloneHero ? 'h-7 w-7 sm:h-10 sm:w-10 lg:h-12 lg:w-12' : 'h-6 w-6 sm:h-7 sm:w-7',
+              )}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (viewMode === 'lead-only' && !geoOpen) {
+    return <div className="space-y-4">{leadCard}</div>;
+  }
+
+  const showFullQueueChrome = viewMode !== 'lead-only';
+  const showGeoFilteredQueue =
+    viewMode === 'lead-only' &&
+    geoOpen &&
+    (Boolean(geoPath.village) || (Boolean(geoPath.country) && filtered.length > 0));
+
   return (
     <div className="space-y-4">
       {/* Independent First Card on its own line — Rent Requests waiting to be Approved */}
-      <Card
-        role="button"
-        tabIndex={0}
-        onClick={jumpToFirstRequest}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            jumpToFirstRequest();
-          }
-        }}
-        className="w-full rounded-3xl border-2 border-primary/40 bg-gradient-to-br from-primary via-primary/95 to-violet-700 text-primary-foreground shadow-lg hover:shadow-xl hover:brightness-105 active:scale-[0.99] transition-all duration-200 cursor-pointer select-none overflow-hidden group"
-      >
-        <CardContent className="p-6 sm:p-8 min-h-[220px] sm:min-h-[240px] flex flex-col justify-between gap-5">
-          {/* Top Row: Icon on Left, Pending Count Pill on Right */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-primary-foreground/15 text-primary-foreground shrink-0 shadow-inner ring-1 ring-primary-foreground/20">
-              <config.icon className="h-7 w-7 sm:h-8 sm:w-8" />
-            </div>
+      {viewMode === 'full' && leadCard}
 
-            <span className="inline-flex items-center justify-center rounded-full bg-primary-foreground text-primary px-4 py-1.5 sm:px-5 sm:py-2 text-sm sm:text-base font-black tabular-nums shadow-sm shrink-0">
-              {rows.length} pending
-            </span>
-          </div>
+      {viewMode === 'lead-only' && geoOpen && (
+        <RentRequestsGeoDrilldown
+          requests={rows}
+          path={geoPath}
+          onPathChange={setGeoPath}
+          onBackToHeroCard={() => {
+            setGeoOpen(false);
+            setGeoPath({});
+          }}
+        />
+      )}
 
-          {/* Middle Row: Full-Width Bold Heading — never squished between icon and pill */}
-          <h2 className="w-full text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-snug text-primary-foreground text-left">
-            Rent Requests waiting to be Approved
-          </h2>
+      {showFullQueueChrome && isCooStage && cooReason.picker}
+      {showFullQueueChrome && isCooStage && (landlordFloatBudget.data ? <LandlordFloatBudgetPosition position={landlordFloatBudget.data} /> : <p role="status" className="text-sm text-destructive">{landlordFloatBudget.isError ? landlordFloatErrorText(landlordFloatBudget.error) : 'Loading landlord float budget…'}</p>)}
+      {showFullQueueChrome && isCfoStage && landlordFloatBudget.data && <LandlordFloatExcessBanner daily={landlordFloatBudget.data.daily.excess} weekly={landlordFloatBudget.data.weekly.excess} />}
+      {showFullQueueChrome && (
+        <RentApprovalMoneyCounter
+          stage={stage}
+          reviewerAtColumn={config.reviewerAtColumn}
+          reviewerColumn={config.reviewerColumn}
+          selectedAmount={selectedAmount}
+          selectedCount={selectedIds.size}
+          queueTotalAmount={queueTotalAmount}
+          queueCount={rows.length}
+          queueRequests={rows}
+          selectedRequests={rows.filter((r) => selectedIds.has(r.id))}
+          onRequestClick={(req) => setSelectedRequest(req)}
+          onJumpToFirstRequest={jumpToFirstRequest}
+        />
+      )}
 
-          {/* Bottom Row: Total UGX Value on Left, Action Arrow on Right */}
-          <div className="flex items-center justify-between gap-4 pt-4 sm:pt-5 border-t border-primary-foreground/20">
-            <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-primary-foreground tracking-tight tabular-nums leading-none">
-              {formatUGX(queueTotalAmount)}
-            </p>
-            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-primary-foreground text-primary shadow-md group-hover:translate-x-1 transition-transform shrink-0">
-              <ArrowRight className="h-6 w-6 sm:h-7 sm:w-7" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {isCooStage && cooReason.picker}
-      {isCooStage && (landlordFloatBudget.data ? <LandlordFloatBudgetPosition position={landlordFloatBudget.data} /> : <p role="status" className="text-sm text-destructive">{landlordFloatBudget.isError ? landlordFloatErrorText(landlordFloatBudget.error) : 'Loading landlord float budget…'}</p>)}
-      {isCfoStage && landlordFloatBudget.data && <LandlordFloatExcessBanner daily={landlordFloatBudget.data.daily.excess} weekly={landlordFloatBudget.data.weekly.excess} />}
-      <RentApprovalMoneyCounter
-        stage={stage}
-        reviewerAtColumn={config.reviewerAtColumn}
-        reviewerColumn={config.reviewerColumn}
-        selectedAmount={selectedAmount}
-        selectedCount={selectedIds.size}
-        queueTotalAmount={queueTotalAmount}
-        queueCount={rows.length}
-        queueRequests={rows}
-        selectedRequests={rows.filter((r) => selectedIds.has(r.id))}
-        onRequestClick={(req) => setSelectedRequest(req)}
-        onJumpToFirstRequest={jumpToFirstRequest}
-      />
-
+      {(showFullQueueChrome || showGeoFilteredQueue) && (
       <Card data-rent-requests-queue="true" className="border border-border scroll-mt-4">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
@@ -1705,10 +1911,23 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
               <config.icon className="h-4 w-4" />
             </span>
-            <span>{config.title}</span>
+            <span>
+              {viewMode === 'lead-only'
+                ? [
+                    geoPath.country,
+                    geoPath.region,
+                    geoPath.district ? `${geoPath.district} District` : undefined,
+                    geoPath.subcounty,
+                    geoPath.parish,
+                    geoPath.village,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || config.title
+                : config.title}
+            </span>
           </CardTitle>
           <Badge variant="secondary" className="text-xs font-bold">
-            {rows.length} pending
+            {viewMode === 'lead-only' ? `${filtered.length} pending` : `${rows.length} pending`}
           </Badge>
         </div>
         {/* Bulk review controls for Agent Ops and COO */}
@@ -1836,6 +2055,8 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
             </div>
           </div>
         )}
+        {showFullQueueChrome && (
+        <>
         {/* Desktop Filter Toolbar */}
         <div className="hidden sm:flex sm:flex-row gap-2 mt-2 items-start">
           <div className="flex items-center gap-2 w-auto">
@@ -2091,22 +2312,26 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
             );
           })()}
         </div>
+        </>
+        )}
       </CardHeader>
       <CardContent className="p-0">
-        {(stage === 'pending' || stage === 'agent_ops_approved' || stage === 'tenant_ops_approved') && (
+        {showFullQueueChrome && (stage === 'pending' || stage === 'agent_ops_approved' || stage === 'tenant_ops_approved') && (
           <div className="px-3 pb-3">
             <MyAwarenessCallsCard />
           </div>
         )}
-        <div className="px-3 pb-3">
-          <TenantOpsReportToolbar
-            tool="review_requests"
-            status="all"
-            search={search}
-            visibleCount={filtered.length}
-            fileSlug="tenant-requests-review-queue"
-          />
-        </div>
+        {showFullQueueChrome && (
+          <div className="px-3 pb-3">
+            <TenantOpsReportToolbar
+              tool="review_requests"
+              status="all"
+              search={search}
+              visibleCount={filtered.length}
+              fileSlug="tenant-requests-review-queue"
+            />
+          </div>
+        )}
         {isLoading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -2294,7 +2519,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <div className="space-y-1.5 text-xs text-muted-foreground">
                       <RentAgentChain
                         lines={chainFor(req)}
-                        onOpenAgent={(id) => setDrilldownAgentId(id)}
+                        onOpenAgent={(id) => openDrilldownForRequest(req, 'agent', { agentId: id })}
                         afterName={(l) =>
                           l.role === 'Agent' || l.role === 'Sub-agent' ? (
                             <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} />
@@ -2307,10 +2532,10 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                           <span
                             role="button"
                             tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); } }}
+                            onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); } }}
                             className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary hover:underline cursor-pointer min-w-0"
-                            title="Open landlord profile"
+                            title="Open landlord profile & see all their tenants in the system"
                           >
                             <Home className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                             <span className="text-muted-foreground text-xs shrink-0">Landlord:</span>
@@ -2356,10 +2581,10 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                         <span
                           role="button"
                           tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); }}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); } }}
+                          onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); } }}
                           className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
-                          title="Open landlord profile"
+                          title="Open landlord profile & tenants"
                         >
                           <Home className="h-3 w-3" />
                           {req.landlord_name}
@@ -2615,7 +2840,18 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="space-y-0.5">
                   <p className="text-xs text-muted-foreground">Tenant</p>
-                  <p className="font-semibold">{selectedRequest.tenant_name}</p>
+                  {selectedRequest.tenant_id ? (
+                    <button
+                      type="button"
+                      onClick={() => openDrilldownForRequest(selectedRequest, 'tenant')}
+                      className="font-semibold text-primary hover:underline text-left"
+                      title="Open full tenant profile, wallet & history"
+                    >
+                      {selectedRequest.tenant_name}
+                    </button>
+                  ) : (
+                    <p className="font-semibold">{selectedRequest.tenant_name}</p>
+                  )}
                   <div className="flex items-center gap-1 mt-0.5">
                     <span className="text-xs text-muted-foreground">{selectedRequest.tenant_phone}</span>
                     <WhatsAppButton phone={selectedRequest.tenant_phone} name={selectedRequest.tenant_name} label="WhatsApp" />
@@ -2626,9 +2862,9 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   {selectedRequest.landlord_id ? (
                     <button
                       type="button"
-                      onClick={() => setDrilldownLandlordId(selectedRequest.landlord_id)}
+                      onClick={() => openDrilldownForRequest(selectedRequest, 'landlord')}
                       className="font-semibold text-primary hover:underline text-left"
-                      title="Open full landlord profile"
+                      title="Open full landlord profile & all their tenants in the system"
                     >
                       {selectedRequest.landlord_name}
                     </button>
@@ -2644,8 +2880,36 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   <RentTimingRow requestId={selectedRequest.id} timing={deskTiming.byId.get(selectedRequest.id)} loading={deskTiming.isLoading} error={deskTiming.error} onRetry={deskTiming.refetch} ownDesk />
                 </div>
                 <div className="space-y-1 col-span-2">
-                  <RentAgentChain lines={chainFor(selectedRequest)} onOpenAgent={(id) => setDrilldownAgentId(id)} afterName={(l) => (l.role === 'Agent' || l.role === 'Sub-agent') ? <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} /> : null} />
+                  <RentAgentChain
+                    lines={chainFor(selectedRequest)}
+                    onOpenAgent={(id) => openDrilldownForRequest(selectedRequest, 'agent', { agentId: id })}
+                    afterName={(l) => (l.role === 'Agent' || l.role === 'Sub-agent') ? <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} /> : null}
+                  />
                   <div className="flex items-center gap-2 flex-wrap">
+                    {(selectedRequest.assigned_agent_id || selectedRequest.agent_id) && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs gap-1 font-semibold"
+                        onClick={() => openDrilldownForRequest(selectedRequest, 'agent')}
+                      >
+                        <UserCheck className="h-3 w-3" />
+                        Agent Profile, Wallet, Performances, Tenants &amp; Landlords
+                      </Button>
+                    )}
+                    {selectedRequest.landlord_id && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs gap-1 font-semibold"
+                        onClick={() => openDrilldownForRequest(selectedRequest, 'landlord')}
+                      >
+                        <Home className="h-3 w-3" />
+                        Landlord &amp; Tenants in System
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="outline"
@@ -2731,6 +2995,16 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   </div>
                 )}
               </div>
+
+              {selectedRequest.landlord_id && (
+                <div className="rounded-xl border border-border bg-card p-3">
+                  <LandlordTenantsSection
+                    landlordId={selectedRequest.landlord_id}
+                    onSelectTenant={(tid) => openDrilldownForRequest(selectedRequest, 'tenant', { tenantId: tid })}
+                    onSelectAgent={(aid) => openDrilldownForRequest(selectedRequest, 'agent', { agentId: aid })}
+                  />
+                </div>
+              )}
 
               {selectedRequest.landlord_id && (
                 <LandlordAgreementHistory
@@ -3125,10 +3399,12 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         onConfirm={(decision: FunderVisibilityDecision) => void handleApprove(decision)}
       />
       <UserDrilldownDrawer
-        open={!!drilldownAgentId}
-        onOpenChange={(v) => { if (!v) setDrilldownAgentId(null); }}
-        agentId={drilldownAgentId}
-        defaultTab="agent"
+        open={drilldownContext.open}
+        onOpenChange={(v) => { if (!v) setDrilldownContext((prev) => ({ ...prev, open: false })); }}
+        tenantId={drilldownContext.tenantId}
+        agentId={drilldownContext.agentId}
+        landlordId={drilldownContext.landlordId}
+        defaultTab={drilldownContext.defaultTab}
       />
       {selectedRequest && (
         <PipelineAgentTransferDialog
@@ -3144,13 +3420,8 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
           }}
         />
       )}
-      <UserDrilldownDrawer
-        open={!!drilldownLandlordId}
-        onOpenChange={(v) => { if (!v) setDrilldownLandlordId(null); }}
-        landlordId={drilldownLandlordId}
-        defaultTab="landlord"
-      />
     </Card>
+    )}
   </div>
   );
 }
