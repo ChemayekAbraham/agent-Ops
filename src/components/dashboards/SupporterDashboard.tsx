@@ -611,15 +611,8 @@ export default function SupporterDashboard({
   // funder-specific actions from the old side drawer passed as menuItems.
   const supporterMenuItems = [
     { icon: CreditCard, label: 'Add Funds', onClick: () => setShowPaymentPartners(true) },
-    { icon: Wallet, label: 'My Wallet', onClick: () => setShowFunderHub(true) },
     { icon: Home, label: 'Houses I Support', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
-    { icon: Bookmark, label: 'Saved Items', onClick: () => setShowSavedItems(true), badge: savedCount || undefined },
     { icon: Zap, label: 'Angel Pool', onClick: () => { setCapitalView('angel'); openHousesMap(); } },
-    { icon: Calculator, label: 'Rent profit share Calculator', onClick: () => setShowCalculator(true) },
-    { icon: TrendingUp, label: 'Rent profit share Analytics', onClick: () => navigate('/supporter-earnings') },
-    { icon: History, label: 'History', onClick: () => navigate('/transactions') },
-    { icon: FileText, label: 'Statement', onClick: () => navigate('/financial-statement') },
-    { icon: Receipt, label: 'Receipts', onClick: () => navigate('/my-receipts') },
     { icon: Share2, label: 'Referrals', onClick: () => navigate('/referrals'), separator: true },
     { icon: ScrollText, label: 'Agreement', onClick: () => { setViewAgreementTab('summary'); setShowViewAgreementModal(true); } },
   ];
