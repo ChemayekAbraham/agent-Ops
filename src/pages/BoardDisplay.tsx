@@ -29,6 +29,8 @@ import {
   sortBoardRows,
   storeBoardPeriod,
 } from '@/lib/boardDisplay';
+import { OpsMapScreen } from './board/OpsMapScreen';
+import { PipelineScreen } from './board/PipelineScreen';
 
 /**
  * The boardroom screen (/b/:code, /board/:code): a 16:9 TV display of the
@@ -321,6 +323,15 @@ export default function BoardDisplay() {
 
   const stale = boardIsStale(lastGood, now);
   const fatal = !!error && (error.link || !feed);
+
+  // E96: a link set to screen 3 (the ops command map) or screen 2 (the pipeline) gets its own layout.
+  // The polling, the 60 s retry and a refused link taking the whole screen stay exactly as below.
+  if (feed && !fatal && feed.display.screen === 'map' && feed.map) {
+    return <OpsMapScreen label={feed.display.label} map={feed.map} now={now} stale={stale} errorText={error?.text ?? null} idle={idle} />;
+  }
+  if (feed && !fatal && feed.display.screen === 'pipeline') {
+    return <PipelineScreen label={feed.display.label} stages={feed.stages ?? []} now={now} stale={stale} errorText={error?.text ?? null} idle={idle} />;
+  }
 
   return (
     <main className={`board-display ${idle ? 'board-idle' : ''}`} data-board-state={fatal ? 'error' : feed ? 'live' : 'connecting'}>
