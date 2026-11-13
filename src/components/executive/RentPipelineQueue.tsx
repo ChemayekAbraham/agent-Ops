@@ -2558,7 +2558,7 @@ export function RentPipelineQueue({
                               <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
                                 <MapPin className="h-3 w-3 shrink-0 text-muted-foreground/60" />
                                 <span className="truncate max-w-[180px]">
-                                  {req.request_city || req.landlord_district || req.tenant_district || req.property_address || req.landlord_phone || 'Uganda'}
+                                  {req.request_city || req.landlord_district || req.tenant_district || req.landlord_address || req.landlord_phone || 'Uganda'}
                                 </span>
                               </div>
                             </div>
@@ -2592,7 +2592,7 @@ export function RentPipelineQueue({
                               </div>
                               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                 <span className="font-mono">{req.agent_phone}</span>
-                                {req.proxy_agent_name && (
+                                {req.proxy_agent_id && (
                                   <span className="inline-flex items-center text-[10px] text-muted-foreground/80 px-1 py-0.2 rounded bg-muted/60">
                                     Proxy
                                   </span>
@@ -3229,7 +3229,7 @@ export function RentPipelineQueue({
                       </Badge>
                       {selectedRequest.repayment_frequency && (
                         <Badge variant="outline" className={cn("text-[11px] font-semibold", RENT_CYCLE_BADGE_CLASSES[getRentCycleLabel(selectedRequest.repayment_frequency, selectedRequest.duration_days).cycle] || "bg-muted text-muted-foreground")}>
-                          {getRentCycleLabel(selectedRequest.repayment_frequency, selectedRequest.duration_days).badge}
+                          {getRentCycleLabel(selectedRequest.repayment_frequency, selectedRequest.duration_days).full}
                         </Badge>
                       )}
                       {selectedRequest.registration_type === 'outstanding_balance' && (

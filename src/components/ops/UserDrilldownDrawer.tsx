@@ -155,6 +155,10 @@ export function UserDrilldownDrawer({
     });
   };
 
+  // True when the tenant being viewed was reached from an agent pane, so the
+  // tenant pane can offer a "back to agent" jump.
+  const cameFromAgent = navHistory.some((h) => h.tab === 'agent');
+
   const handleSelectTenant = (id: string, name: string) => {
     pushHistory(tab === 'agent' ? 'Agent' : tab === 'landlord' ? 'Landlord' : 'Tenant');
     setPickedUser({ id, full_name: name, phone: null });
@@ -2252,15 +2256,10 @@ function AgentPane({
             </div>
             <AgentProfile360Sheet
               agentId={agentId}
-              agentName={profile?.full_name ?? undefined}
               onOpenChange={() => {}}
               inline
             />
           </Card>
-        </TabsContent>
-            </div>
-          )}
-          <AgentTenantsList agentId={agentId} onSelectTenant={onSelectTenant} />
         </TabsContent>
 
         {/* Tab 2: Landlords */}
