@@ -28,7 +28,7 @@ describe('Welile Signages business rules & configuration', () => {
   it('routes Agent Ops approval to COO instead of installation', () => {
     expect(signageReviewTarget('approve', 'agent_ops')).toBe('awaiting_coo');
   });
-  it('routes COO approval straight to the CFO', () => {
+  it('routes COO approval to the CFO for payment (the board is already installed)', () => {
     expect(signageReviewTarget('approve', 'coo')).toBe('awaiting_cfo');
   });
   it('only allows COO decisions on applications awaiting COO', () => {
@@ -82,12 +82,36 @@ describe('Welile Signages business rules & configuration', () => {
   });
 });
 
-import { canPaySignage } from '@/lib/welileSignages';
-describe('COO approval goes straight to CFO payment', () => {
-  it('lets the CFO pay a COO-approved signage without any installation verification', () => {
-    expect(canPaySignage({ status: 'awaiting_cfo', coo_approved_at: '2026-11-09T10:00:00Z' } as never)).toBe(true);
+import { canPayAgentReward, canPayOwner, canTerminateSignage, isSignageGpsFresh } from '@/lib/welileSignages';
+describe('Agent is paid once, after Ops and COO approval', () => {
+  it('offers the agent payment only for a COO-approved application awaiting the CFO', () => {
+    expect(canPayAgentReward({ status: 'awaiting_cfo', coo_approved_at: '2026-11-13T10:00:00Z' } as never)).toBe(true);
+    expect(canPayAgentReward({ status: 'awaiting_cfo', coo_approved_at: null } as never)).toBe(false);
+    expect(canPayAgentReward({ status: 'awaiting_coo' } as never)).toBe(false);
+    expect(canPayAgentReward({ status: 'active' } as never)).toBe(false);
   });
-  it('does not let the CFO pay before COO approval', () => {
-    expect(canPaySignage({ status: 'awaiting_coo', coo_approved_at: null } as never)).toBe(false);
+});
+describe('Owner is paid monthly from the second month until terminated', () => {
+  const due = { status: 'active', owner_rent_payable: true, owner_account_id: 'owner' };
+  it('offers the owner payment only when due and the owner wallet is known', () => {
+    expect(canPayOwner(due as never)).toBe(true);
+    expect(canPayOwner({ ...due, owner_rent_payable: false } as never)).toBe(false);
+    expect(canPayOwner({ ...due, owner_account_id: null } as never)).toBe(false);
+    expect(canPayOwner({ ...due, status: 'awaiting_cfo' } as never)).toBe(false);
+  });
+  it('stops after the CFO terminates the contract', () => {
+    expect(canPayOwner({ ...due, status: 'removed', removal_effective_at: '2026-12-01' } as never)).toBe(false);
+    expect(canTerminateSignage({ status: 'active' } as never)).toBe(true);
+    expect(canTerminateSignage({ status: 'removed' } as never)).toBe(false);
+    expect(canTerminateSignage({ status: 'submitted' } as never)).toBe(false);
+  });
+});
+describe('GPS must be fresh at submission', () => {
+  const now = Date.parse('2026-11-13T12:00:00Z');
+  it('accepts a reading from the last hour and rejects older or future ones', () => {
+    expect(isSignageGpsFresh('2026-11-13T11:30:00Z', now)).toBe(true);
+    expect(isSignageGpsFresh('2026-11-13T10:30:00Z', now)).toBe(false);
+    expect(isSignageGpsFresh('2026-11-13T12:30:00Z', now)).toBe(false);
+    expect(isSignageGpsFresh(null, now)).toBe(false);
   });
 });

@@ -47,8 +47,18 @@ import { LandlordChangeHistory } from './LandlordChangeHistory';
 import { TenantLandlordPayoutsEditor } from './TenantLandlordPayoutsEditor';
 import { PaymentPeriodControl } from './PaymentPeriodControl';
 import LandlordAgreementHistory from '@/components/landlord/agreement/LandlordAgreementHistory';
+import { AgentProfile360Sheet } from '@/components/executive/AgentProfile360Sheet';
+import { LandlordTenantsSection } from '@/components/executive/landlord-ops/LandlordTenantsSection';
 
 type UserBrief = { id: string; full_name: string | null; phone: string | null };
+
+type DrilldownHistoryEntry = {
+  tab: 'tenant' | 'agent' | 'landlord';
+  pickedUser: UserBrief | null;
+  pickedAgentId: string | null;
+  pickedLandlordId: string | null;
+  label: string;
+};
 
 interface Props {
   open: boolean;
@@ -89,14 +99,18 @@ export function UserDrilldownDrawer({
   // Global "open any user" — overrides tenantId when a user is picked
   const [pickedUser, setPickedUser] = useState<UserBrief | null>(null);
   const effectiveTenantId = pickedUser?.id ?? tenantId ?? null;
+  // Allow in-drawer navigation to any agent (e.g. from a landlord's tenant row or tenant pane).
+  const [pickedAgentId, setPickedAgentId] = useState<string | null>(null);
+  const effectiveAgentId = pickedAgentId ?? agentId ?? null;
   // Allow in-drawer navigation to a landlord (e.g. tap a name in the
   // agent's "Linked landlords" list). Overrides the landlordId prop.
   const [pickedLandlordId, setPickedLandlordId] = useState<string | null>(null);
   const effectiveLandlordId = pickedLandlordId ?? landlordId ?? null;
   const isOps = useIsOpsRole();
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Track where the user came from so the tenant pane can show "← Back to agent"
-  const [cameFromAgent, setCameFromAgent] = useState(false);
+  // Track navigation history so the user can dig continuously through
+  // Agent → Tenant → Landlord → Tenant → Agent and step back at any point.
+  const [navHistory, setNavHistory] = useState<DrilldownHistoryEntry[]>([]);
 
   // Reset transient drawer state whenever the drawer is opened OR the
   // target IDs change. Without this, opening the drawer for agent B
@@ -106,25 +120,61 @@ export function UserDrilldownDrawer({
   useEffect(() => {
     if (!open) return;
     setPickedUser(null);
+    setPickedAgentId(null);
     setPickedLandlordId(null);
-    setCameFromAgent(false);
+    setNavHistory([]);
     setTab(defaultTab);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, tenantId, agentId, landlordId]);
+  }, [open, tenantId, agentId, landlordId, defaultTab]);
+
+  const pushHistory = (label: string) => {
+    setNavHistory((prev) => [
+      ...prev,
+      {
+        tab,
+        pickedUser,
+        pickedAgentId,
+        pickedLandlordId,
+        label,
+      },
+    ]);
+  };
+
+  const handleStepBack = () => {
+    setNavHistory((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      setTab(last.tab);
+      setPickedUser(last.pickedUser);
+      setPickedAgentId(last.pickedAgentId);
+      setPickedLandlordId(last.pickedLandlordId);
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      return prev.slice(0, -1);
+    });
+  };
 
   const handleSelectTenant = (id: string, name: string) => {
+    pushHistory(tab === 'agent' ? 'Agent' : tab === 'landlord' ? 'Landlord' : 'Tenant');
     setPickedUser({ id, full_name: name, phone: null });
     setTab('tenant');
-    setCameFromAgent(true);
-    // Scroll the drawer back to the top so the freshly-loaded tenant
-    // profile is visible immediately instead of leaving the user on the
-    // (now-hidden) Tenants-under-management section.
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  };
+
+  const handleSelectAgent = (id: string, _name?: string) => {
+    pushHistory(tab === 'tenant' ? 'Tenant' : tab === 'landlord' ? 'Landlord' : 'Agent');
+    setPickedAgentId(id);
+    setTab('agent');
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     });
   };
 
   const handleSelectLandlord = (id: string) => {
+    pushHistory(tab === 'agent' ? 'Agent' : tab === 'tenant' ? 'Tenant' : 'Landlord');
     setPickedLandlordId(id);
     setTab('landlord');
     requestAnimationFrame(() => {
@@ -135,9 +185,9 @@ export function UserDrilldownDrawer({
   // Open any user (e.g. the counterpart of a wallet transfer) in the
   // Tenant pane, which now shows their profile + full wallet buckets.
   const handleSelectUser = (id: string, name: string) => {
+    pushHistory(tab === 'agent' ? 'Agent' : tab === 'landlord' ? 'Landlord' : 'Tenant');
     setPickedUser({ id, full_name: name, phone: null });
     setTab('tenant');
-    setCameFromAgent(false);
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     });
@@ -153,9 +203,23 @@ export function UserDrilldownDrawer({
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
           <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-xs border-b">
             <SheetHeader className="px-4 sm:px-6 pt-4 pb-2.5">
-              <SheetTitle className="text-lg font-bold flex items-center gap-2">
-                <UserCheck className="h-5 w-5 text-primary" /> User 360° Profile
-              </SheetTitle>
+              <div className="flex items-center justify-between gap-2 pr-8">
+                <SheetTitle className="text-lg font-bold flex items-center gap-2">
+                  <UserCheck className="h-5 w-5 text-primary" /> User 360° Profile
+                </SheetTitle>
+                {navHistory.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleStepBack}
+                    className="h-7 gap-1 px-2.5 text-xs font-semibold"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Back to {navHistory[navHistory.length - 1]?.label} ({navHistory.length})
+                  </Button>
+                )}
+              </div>
               <SheetDescription className="text-xs text-muted-foreground">
                 Identity, location, balances, linkages, and operational audit trail.
               </SheetDescription>
@@ -198,6 +262,7 @@ export function UserDrilldownDrawer({
                   isOps={isOps}
                   onBackToAgent={cameFromAgent && agentId ? () => { setTab('agent'); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); } : undefined}
                   onSelectLandlord={handleSelectLandlord}
+                  onSelectAgent={handleSelectAgent}
                   onSelectUser={handleSelectUser}
                 />
               )}
@@ -209,12 +274,20 @@ export function UserDrilldownDrawer({
                   isOps={isOps}
                   onSelectTenant={handleSelectTenant}
                   onSelectLandlord={handleSelectLandlord}
+                  onSelectAgent={handleSelectAgent}
                   onSelectUser={handleSelectUser}
                 />
               )}
             </TabsContent>
             <TabsContent value="landlord" className="mt-0 focus-visible:outline-none">
-              {effectiveLandlordId && <LandlordPane landlordId={effectiveLandlordId} isOps={isOps} />}
+              {effectiveLandlordId && (
+                <LandlordPane
+                  landlordId={effectiveLandlordId}
+                  isOps={isOps}
+                  onSelectTenant={handleSelectTenant}
+                  onSelectAgent={handleSelectAgent}
+                />
+              )}
             </TabsContent>
           </div>
         </Tabs>
@@ -233,7 +306,7 @@ function useProfile(id: string) {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, full_name, phone, avatar_url, ops_note, continent, country, region, district, city, town, sub_county, parish, village, landmark, residence_lat, residence_lng, address_complete, has_smartphone, ug_village_id',
+          'id, full_name, phone, avatar_url, ops_note, managing_agent_id, continent, country, region, district, city, town, sub_county, parish, village, landmark, residence_lat, residence_lng, address_complete, has_smartphone, ug_village_id',
         )
         .eq('id', id)
         .maybeSingle();
@@ -1477,8 +1550,15 @@ function LandlordFundingEditor({
 }
 
 function TenantPane({
-  tenantId, isOps, onBackToAgent, onSelectLandlord, onSelectUser,
-}: { tenantId: string; isOps: boolean; onBackToAgent?: () => void; onSelectLandlord?: (id: string) => void; onSelectUser?: (id: string, name: string) => void }) {
+  tenantId, isOps, onBackToAgent, onSelectLandlord, onSelectAgent, onSelectUser,
+}: {
+  tenantId: string;
+  isOps: boolean;
+  onBackToAgent?: () => void;
+  onSelectLandlord?: (id: string) => void;
+  onSelectAgent?: (id: string, name?: string) => void;
+  onSelectUser?: (id: string, name: string) => void;
+}) {
   const qc = useQueryClient();
   const [dateRange, setDateRange] = useState<StatementDateRange>({ preset: 'today' });
   const { data: profile, isLoading } = useProfile(tenantId);
@@ -1512,6 +1592,22 @@ function TenantPane({
         .from('landlords')
         .select('id, name, phone, property_address')
         .eq('id', activeRr.landlord_id)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const linkedAgentId: string | null =
+    activeRr?.assigned_agent_id ?? activeRr?.agent_id ?? profile?.managing_agent_id ?? null;
+
+  const { data: linkedAgent } = useQuery({
+    queryKey: ['drilldown-tenant-linked-agent', linkedAgentId],
+    enabled: !!linkedAgentId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone')
+        .eq('id', linkedAgentId!)
         .maybeSingle();
       return data;
     },
@@ -1602,7 +1698,7 @@ function TenantPane({
           onClick={onBackToAgent}
           className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          <ArrowLeft className="h-3 w-3" /> Back to agent
+          <ArrowLeft className="h-3 w-3" /> Step back
         </button>
       )}
       <ProfileHeader profile={profile} roles={roles} userId={tenantId} canEdit={isOps} />
@@ -1696,6 +1792,33 @@ function TenantPane({
       {/* Landlord payments recorded by the agent — Tenant Ops can edit the amount */}
       <TenantLandlordPayoutsEditor tenantId={tenantId} canEdit={isOps} />
 
+      {linkedAgentId && (
+        <Card className="p-3 space-y-1.5">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <UserCheck className="h-4 w-4 text-primary" /> Agent on file
+          </div>
+          <button
+            type="button"
+            onClick={() => onSelectAgent?.(linkedAgentId, linkedAgent?.full_name ?? 'Agent')}
+            className="inline-flex items-center gap-1 text-left text-sm font-semibold truncate text-primary hover:underline disabled:no-underline disabled:text-foreground"
+            disabled={!onSelectAgent}
+          >
+            <span>{linkedAgent?.full_name?.trim() || linkedAgent?.phone || 'View Agent Profile'}</span>
+            {onSelectAgent && <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+          </button>
+          {linkedAgent?.phone && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-mono">{linkedAgent.phone}</span>
+              <ContactActions
+                phone={linkedAgent.phone}
+                size="xs"
+                message={`Hello ${linkedAgent?.full_name ?? ''}, this is Welile Ops regarding your tenant.`}
+              />
+            </div>
+          )}
+        </Card>
+      )}
+
       {activeRr?.landlord_id && (
         <Card className="p-3 space-y-1.5">
           <div className="flex items-center gap-2 text-sm font-medium">
@@ -1779,10 +1902,25 @@ function TenantPane({
 /* ------------------------------------------------------------------ */
 /* Agent pane                                                          */
 /* ------------------------------------------------------------------ */
-function AgentPane({ agentId, isOps, onSelectTenant, onSelectLandlord, onSelectUser }: { agentId: string; isOps: boolean; onSelectTenant?: (id: string, name: string) => void; onSelectLandlord?: (id: string) => void; onSelectUser?: (id: string, name: string) => void }) {
+function AgentPane({
+  agentId,
+  isOps,
+  onSelectTenant,
+  onSelectLandlord,
+  onSelectAgent,
+  onSelectUser,
+}: {
+  agentId: string;
+  isOps: boolean;
+  onSelectTenant?: (id: string, name: string) => void;
+  onSelectLandlord?: (id: string) => void;
+  onSelectAgent?: (id: string, name?: string) => void;
+  onSelectUser?: (id: string, name: string) => void;
+}) {
   const qc = useQueryClient();
   const { data: profile, isLoading } = useProfile(agentId);
   const { data: roles = [] } = useUserRoles(agentId);
+
   // Listings filters
   const [listingsSearch, setListingsSearch] = useState('');
   const [listingsStatusFilter, setListingsStatusFilter] = useState<string>('all');
@@ -1857,10 +1995,26 @@ function AgentPane({ agentId, isOps, onSelectTenant, onSelectLandlord, onSelectU
   const { data: stats } = useQuery({
     queryKey: ['drilldown-agent-stats', agentId],
     queryFn: async () => {
-      const [tenants, rentSum, landlords, wallet, strict, capacity, referrals, partners, advances] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('managing_agent_id', agentId),
-        supabase.from('rent_requests').select('rent_amount').eq('assigned_agent_id', agentId).limit(1000),
-        supabase.from('agent_landlord_assignments').select('landlord_id, landlords(id,name,phone)').eq('agent_id', agentId).eq('status','active'),
+      const [
+        tenantsManaged,
+        rrsAssigned,
+        rrsOwned,
+        assignedLandlords,
+        registeredLandlords,
+        listingLandlords,
+        wallet,
+        strict,
+        capacity,
+        referrals,
+        partners,
+        advances,
+      ] = await Promise.all([
+        supabase.from('profiles').select('id').eq('managing_agent_id', agentId).limit(1000),
+        supabase.from('rent_requests').select('id, tenant_id, landlord_id, rent_amount').eq('assigned_agent_id', agentId).limit(1000),
+        supabase.from('rent_requests').select('id, tenant_id, landlord_id, rent_amount').eq('agent_id', agentId).limit(1000),
+        supabase.from('agent_landlord_assignments').select('landlord_id, landlords(id,name,phone,property_address,village,district)').eq('agent_id', agentId).eq('status','active'),
+        supabase.from('landlords').select('id, name, phone, property_address, village, district').eq('registered_by', agentId).limit(500),
+        supabase.from('house_listings').select('landlord_id').eq('agent_id', agentId).limit(500),
         supabase.from('wallets').select('withdrawable_balance, float_balance, advance_balance, balance, currency, locked_balance').eq('user_id', agentId).maybeSingle(),
         supabase.rpc('get_user_available_balance', { p_user_id: agentId } as any),
         supabase.rpc('get_agent_rent_request_capacity', { p_agent_id: agentId } as any),
@@ -1874,16 +2028,82 @@ function AgentPane({ agentId, isOps, onSelectTenant, onSelectLandlord, onSelectU
           .eq('agent_id', agentId)
           .in('status', ['active','outstanding','approved','disbursed']),
       ]);
-      const totalRent = (rentSum.data ?? []).reduce((s: number, r: any) => s + Number(r.rent_amount || 0), 0);
+
+      // Deduplicate rent requests & tenants across assigned_agent_id, agent_id, and managing_agent_id
+      const rrById = new Map<string, any>();
+      for (const r of [...(rrsAssigned.data ?? []), ...(rrsOwned.data ?? [])]) {
+        if (r?.id && !rrById.has(r.id)) rrById.set(r.id, r);
+      }
+      const uniqueTenantIds = new Set<string>();
+      for (const r of rrById.values()) {
+        if (r.tenant_id) uniqueTenantIds.add(r.tenant_id);
+      }
+      for (const p of tenantsManaged.data ?? []) {
+        if (p?.id) uniqueTenantIds.add(p.id);
+      }
+      const totalRent = Array.from(rrById.values()).reduce((s: number, r: any) => s + Number(r.rent_amount || 0), 0);
+
+      // Union landlords across assignments, rent requests, registered_by, and house listings
+      const landlordSourceMap = new Map<string, { landlord_id: string; source: string; landlords: any | null }>();
+      for (const a of assignedLandlords.data ?? []) {
+        if (a?.landlord_id) {
+          landlordSourceMap.set(a.landlord_id, {
+            landlord_id: a.landlord_id,
+            source: 'Assigned',
+            landlords: a.landlords ?? null,
+          });
+        }
+      }
+      for (const l of registeredLandlords.data ?? []) {
+        if (l?.id && !landlordSourceMap.has(l.id)) {
+          landlordSourceMap.set(l.id, {
+            landlord_id: l.id,
+            source: 'Registered',
+            landlords: l,
+          });
+        }
+      }
+      const missingLandlordIds = new Set<string>();
+      for (const r of rrById.values()) {
+        if (r.landlord_id && !landlordSourceMap.has(r.landlord_id)) {
+          landlordSourceMap.set(r.landlord_id, {
+            landlord_id: r.landlord_id,
+            source: 'Rent Plan',
+            landlords: null,
+          });
+          missingLandlordIds.add(r.landlord_id);
+        }
+      }
+      for (const hl of listingLandlords.data ?? []) {
+        if (hl?.landlord_id && !landlordSourceMap.has(hl.landlord_id)) {
+          landlordSourceMap.set(hl.landlord_id, {
+            landlord_id: hl.landlord_id,
+            source: 'House Listing',
+            landlords: null,
+          });
+          missingLandlordIds.add(hl.landlord_id);
+        }
+      }
+      if (missingLandlordIds.size > 0) {
+        const { data: resolvedLls } = await supabase
+          .from('landlords')
+          .select('id, name, phone, property_address, village, district')
+          .in('id', Array.from(missingLandlordIds));
+        for (const ll of resolvedLls ?? []) {
+          const entry = landlordSourceMap.get(ll.id);
+          if (entry) entry.landlords = ll;
+        }
+      }
+
       const partnerRows = partners.data ?? [];
       const partnersOnboarded = partnerRows.filter((p: any) => p.beneficiary_role === 'supporter').length;
       const proxyLandlords = partnerRows.filter((p: any) => p.beneficiary_role === 'landlord').length;
       const managedAccounts = partnerRows.filter((p: any) => p.is_managed_account && p.approval_status === 'approved').length;
       const outstandingAdvance = (advances.data ?? []).reduce((s: number, r: any) => s + Number(r.outstanding_balance || 0), 0);
       return {
-        tenantCount: tenants.count ?? 0,
+        tenantCount: uniqueTenantIds.size,
         totalRent,
-        landlords: landlords.data ?? [],
+        landlords: Array.from(landlordSourceMap.values()),
         wallet: wallet.data ?? null,
         strictWithdrawable: Number(strict.data ?? 0),
         capacity: capacity.data ?? null,
@@ -1981,6 +2201,10 @@ function AgentPane({ agentId, isOps, onSelectTenant, onSelectLandlord, onSelectU
               <Home className="h-3.5 w-3.5" />
               <span>Houses ({listings.length})</span>
             </TabsTrigger>
+            <TabsTrigger value="performance" className="text-xs font-semibold gap-1.5 px-3">
+              <TrendingUp className="h-3.5 w-3.5" />
+              <span>Performances</span>
+            </TabsTrigger>
             <TabsTrigger value="wallet" className="text-xs font-semibold gap-1.5 px-3">
               <Wallet className="h-3.5 w-3.5" />
               <span>Wallet & Ledger</span>
@@ -2012,6 +2236,28 @@ function AgentPane({ agentId, isOps, onSelectTenant, onSelectLandlord, onSelectU
               <span className="flex items-center gap-1">
                 <Sparkles className="h-3 w-3 text-amber-500" /> Referrals: <strong className="text-foreground">{stats?.referralCount ?? 0}</strong>
               </span>
+            </div>
+          )}
+          <AgentTenantsList agentId={agentId} onSelectTenant={onSelectTenant} />
+        </TabsContent>
+
+        {/* Tab: Performance */}
+        <TabsContent value="performance" className="space-y-4 mt-0 focus-visible:outline-none">
+          <Card className="p-4 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between border-b border-border/60 pb-2">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <TrendingUp className="h-4 w-4 text-primary" /> Agent Performances &amp; 360 Analytics
+              </div>
+              <Badge variant="secondary" className="text-[10px]">Live 360</Badge>
+            </div>
+            <AgentProfile360Sheet
+              agentId={agentId}
+              agentName={profile?.full_name ?? undefined}
+              onOpenChange={() => {}}
+              inline
+            />
+          </Card>
+        </TabsContent>
             </div>
           )}
           <AgentTenantsList agentId={agentId} onSelectTenant={onSelectTenant} />
@@ -2364,7 +2610,17 @@ function AgentPane({ agentId, isOps, onSelectTenant, onSelectLandlord, onSelectU
 /* ------------------------------------------------------------------ */
 /* Landlord pane                                                       */
 /* ------------------------------------------------------------------ */
-function LandlordPane({ landlordId, isOps }: { landlordId: string; isOps: boolean }) {
+function LandlordPane({
+  landlordId,
+  isOps,
+  onSelectTenant,
+  onSelectAgent,
+}: {
+  landlordId: string;
+  isOps: boolean;
+  onSelectTenant?: (tenantId: string, tenantName: string) => void;
+  onSelectAgent?: (agentId: string, agentName?: string) => void;
+}) {
   const qc = useQueryClient();
   const [photoUploadFor, setPhotoUploadFor] = useState<any | null>(null);
   const [galleryPage, setGalleryPage] = useState(0);
@@ -2544,6 +2800,15 @@ function LandlordPane({ landlordId, isOps }: { landlordId: string; isOps: boolea
         <LandlordEditCard landlordId={landlordId} landlord={landlord} canEdit={isOps} />
       </Card>
 
+      {/* All Tenants of this Landlord in the System (with continuous drilldown to Tenant & Agent) */}
+      <Card className="p-3">
+        <LandlordTenantsSection
+          landlordId={landlordId}
+          onSelectTenant={onSelectTenant}
+          onSelectAgent={onSelectAgent}
+        />
+      </Card>
+
       <LandlordChangeHistory landlordId={landlordId} visible={isOps} />
 
       <LandlordAgreementHistory
@@ -2598,7 +2863,18 @@ function LandlordPane({ landlordId, isOps }: { landlordId: string; isOps: boolea
             {(placed as any[]).map((r) => (
               <li key={r.id} className="border border-border/40 rounded-md p-2 space-y-1">
                 <div className="flex justify-between gap-2">
-                  <span className="truncate font-medium">{r.tenant?.full_name ?? 'Tenant'}</span>
+                  {onSelectTenant && r.tenant_id ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectTenant(r.tenant_id, r.tenant?.full_name ?? 'Tenant')}
+                      className="inline-flex items-center gap-1 truncate font-medium text-left text-primary hover:underline"
+                    >
+                      <span>{r.tenant?.full_name ?? 'Tenant'}</span>
+                      <ChevronRight className="h-3 w-3 shrink-0" />
+                    </button>
+                  ) : (
+                    <span className="truncate font-medium">{r.tenant?.full_name ?? 'Tenant'}</span>
+                  )}
                   <Badge variant="outline" className="text-[9px] capitalize shrink-0">{r.status}</Badge>
                 </div>
                 <div className="flex justify-between text-[11px] text-muted-foreground">
@@ -3488,7 +3764,15 @@ function toWhatsAppUrl(raw: string): string {
   return `https://wa.me/${intl}?text=${text}`;
 }
 
-function AgentTenantsList({ agentId, onSelectTenant }: { agentId: string; onSelectTenant?: (id: string, name: string) => void }) {
+function AgentTenantsList({
+  agentId,
+  onSelectTenant,
+  onSelectLandlord,
+}: {
+  agentId: string;
+  onSelectTenant?: (id: string, name: string) => void;
+  onSelectLandlord?: (id: string) => void;
+}) {
   const [filter, setFilter] = useState<TenantFilter>('all');
   const [search, setSearch] = useState('');
   const { data, isLoading } = useQuery({
@@ -3823,10 +4107,25 @@ function AgentTenantsList({ agentId, onSelectTenant }: { agentId: string; onSele
                   <p className="font-medium truncate">
                     {row.tenant?.full_name ?? 'Unnamed tenant'}
                   </p>
-                  <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
-                    <Home className="h-2.5 w-2.5" />
-                    {row.landlord?.name?.trim() || row.landlord?.phone || 'No landlord on file'}
-                  </p>
+                  {row.landlordId && onSelectLandlord ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectLandlord(row.landlordId);
+                      }}
+                      className="text-[10px] text-primary hover:underline truncate flex items-center gap-1"
+                      title="Tap to drill into landlord & their tenants"
+                    >
+                      <Home className="h-2.5 w-2.5 shrink-0" />
+                      <span>{row.landlord?.name?.trim() || row.landlord?.phone || 'View landlord'}</span>
+                    </button>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+                      <Home className="h-2.5 w-2.5" />
+                      {row.landlord?.name?.trim() || row.landlord?.phone || 'No landlord on file'}
+                    </p>
+                  )}
                   {row.tenant?.phone && (
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <span className="text-[10px] text-muted-foreground font-mono">{row.tenant.phone}</span>

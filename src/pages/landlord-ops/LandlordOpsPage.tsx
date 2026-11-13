@@ -115,8 +115,12 @@ export default function LandlordOpsPage() {
           ) : (
             destinationView
           )}
-          <V360StaffPricingBanner sticky={false} />
-          <TutorialVideosButton />
+          {path !== 'pipeline/rent-requests' && (
+            <>
+              <V360StaffPricingBanner sticky={false} />
+              <TutorialVideosButton />
+            </>
+          )}
         </main>
 
         {/* The phone shortcut to the verification queue is part of the Today dashboard,

@@ -57,6 +57,12 @@ import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
+import {
+  RentRequestsGeoDrilldown,
+  matchesRentRequestGeoPath,
+  type RentRequestGeoPath,
+} from './landlord-ops/RentRequestsGeoDrilldown';
+import { LandlordTenantsSection } from './landlord-ops/LandlordTenantsSection';
 import { toast as sonnerToast } from 'sonner';
 import { format } from 'date-fns';
 import { AgentProximitySelector } from './AgentProximitySelector';
@@ -348,9 +354,26 @@ interface RentPipelineQueueProps {
    */
   additionalStatuses?: string[];
   initialViewMode?: 'table' | 'cards';
+  /**
+   * 'full' (default): renders the top lead card + approval money counter + review queue.
+   * 'lead-only': renders ONLY the standalone "Rent Requests waiting to be Approved" card.
+   * 'queue-only': renders the approval money counter + review queue without the top lead card.
+   */
+  viewMode?: 'full' | 'lead-only' | 'queue-only';
+  /** Optional click handler for the lead card (e.g., to navigate to the queue tab). */
+  onLeadClick?: () => void;
+  /** Scroll to and highlight the first rent request when the queue mounts. */
+  focusFirstOnMount?: boolean;
 }
 
-export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewMode }: RentPipelineQueueProps) {
+export function RentPipelineQueue({
+  stage,
+  additionalStatuses = [],
+  initialViewMode,
+  viewMode = 'full',
+  onLeadClick,
+  focusFirstOnMount = false,
+}: RentPipelineQueueProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -505,11 +528,11 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
     });
   };
 
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => initialViewMode ?? (isCfoStage ? 'table' : 'cards'));
+  const [layoutMode, setLayoutMode] = useState<'table' | 'cards'>(() => initialViewMode ?? (isCfoStage ? 'table' : 'cards'));
 
   useEffect(() => {
     if (initialViewMode) {
-      setViewMode(initialViewMode);
+      setLayoutMode(initialViewMode);
     }
   }, [initialViewMode]);
 
@@ -528,12 +551,38 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
   const [bulkRejectReason, setBulkRejectReason] = useState('');
   // Landlord Ops: the card's Reject asks for the reason straight away instead of opening the full review.
   const [directReject, setDirectReject] = useState<{ id: string; name: string; reason: string } | null>(null);
-  // Agent profile drilldown
-  const [drilldownAgentId, setDrilldownAgentId] = useState<string | null>(null);
-  // Landlord profile drilldown — full location, contacts, houses
-  const [drilldownLandlordId, setDrilldownLandlordId] = useState<string | null>(null);
-  // Tenant profile drilldown — full history, payment track record, details
-  const [drilldownTenantId, setDrilldownTenantId] = useState<string | null>(null);
+
+  // Unified Tenant / Agent / Landlord continuous drilldown drawer
+  const [drilldownContext, setDrilldownContext] = useState<{
+    open: boolean;
+    defaultTab: 'tenant' | 'agent' | 'landlord';
+    tenantId: string | null;
+    agentId: string | null;
+    landlordId: string | null;
+  }>({
+    open: false,
+    defaultTab: 'agent',
+    tenantId: null,
+    agentId: null,
+    landlordId: null,
+  });
+
+  const openDrilldownForRequest = (
+    req: any,
+    defaultTab: 'tenant' | 'agent' | 'landlord',
+    overrides?: { tenantId?: string | null; agentId?: string | null; landlordId?: string | null },
+  ) => {
+    setDrilldownContext({
+      open: true,
+      defaultTab,
+      tenantId: overrides?.tenantId !== undefined ? overrides.tenantId : (req?.tenant_id ?? null),
+      agentId: overrides?.agentId !== undefined ? overrides.agentId : (req?.assigned_agent_id || req?.agent_id || null),
+      landlordId: overrides?.landlordId !== undefined ? overrides.landlordId : (req?.landlord_id ?? null),
+    });
+  };
+
+  const [geoOpen, setGeoOpen] = useState(false);
+  const [geoPath, setGeoPath] = useState<RentRequestGeoPath>({});
   // Tenant selector — CFO picks which tenant's landlord to fund before approving.
   // localStorage acts as an offline mirror; the durable cross-device source of
   // truth is the per-user `user_ui_preferences` row keyed by TENANT_FILTER_PREF_KEY.
@@ -1199,6 +1248,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
   // The server says which requests match the paying-label and arrival filters; the rest of the filters below are this desk's own.
   const matching = filterByRentDesk(rows, deskOrder.data)
     .filter(r => {
+      if (viewMode === 'lead-only' && geoOpen && !matchesRentRequestGeoPath(r, geoPath)) return false;
       if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
       if (aboveOnly && !(r as any).renewal_above_suggestion) return false;
       if (noCallOnly && callStatus.loaded && !hasNoCallAtStage(callStatus.byId.get(r.id))) return false;
@@ -1733,87 +1783,205 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
     });
   };
 
-  return (
-    <div className="space-y-4">
-      {/* Independent First Card on its own line — Rent Requests waiting to be Approved */}
-      <Card
-        role="button"
-        tabIndex={0}
-        onClick={jumpToFirstRequest}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            jumpToFirstRequest();
-          }
-        }}
-        className="w-full rounded-3xl border-2 border-primary/40 bg-gradient-to-br from-primary via-primary/95 to-violet-700 text-primary-foreground shadow-lg hover:shadow-xl hover:brightness-105 active:scale-[0.99] transition-all duration-200 cursor-pointer select-none overflow-hidden group"
-      >
-        <CardContent className="p-6 sm:p-8 min-h-[220px] sm:min-h-[240px] flex flex-col justify-between gap-5">
-          {/* Top Row: Icon on Left, Pending Count Pill on Right */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-primary-foreground/15 text-primary-foreground shrink-0 shadow-inner ring-1 ring-primary-foreground/20">
-              <config.icon className="h-7 w-7 sm:h-8 sm:w-8" />
-            </div>
+  const hasFocusedOnMountRef = useRef(false);
+  useEffect(() => {
+    if (!focusFirstOnMount || hasFocusedOnMountRef.current || isLoading) return;
+    hasFocusedOnMountRef.current = true;
+    jumpToFirstRequest();
+  }, [focusFirstOnMount, isLoading]);
 
-            <span className="inline-flex items-center justify-center rounded-full bg-primary-foreground text-primary px-4 py-1.5 sm:px-5 sm:py-2 text-sm sm:text-base font-black tabular-nums shadow-sm shrink-0">
-              {rows.length} pending
-            </span>
+  const handleLeadCardActivate = () => {
+    if (viewMode === 'lead-only') {
+      setGeoOpen(true);
+      setGeoPath({});
+      return;
+    }
+    if (onLeadClick) {
+      onLeadClick();
+    } else {
+      jumpToFirstRequest();
+    }
+  };
+
+  const isStandaloneHero = viewMode === 'lead-only';
+
+  const leadCard = (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleLeadCardActivate}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleLeadCardActivate();
+        }
+      }}
+      style={{
+        backgroundColor: '#7616d0',
+        backgroundImage: 'linear-gradient(137deg, #9234ea 0%, #7616d0 54%, #4a1da5 100%)',
+        color: '#ffffff',
+      }}
+      className={cn(
+        'portfolio-hero-card relative w-full rounded-3xl border-2 border-primary/40 bg-primary text-white shadow-xl hover:shadow-2xl hover:brightness-105 active:scale-[0.995] transition-all duration-200 cursor-pointer select-none overflow-hidden group',
+        isStandaloneHero && 'min-h-[68vh] sm:min-h-[75vh] lg:min-h-[80vh] flex flex-col justify-between',
+      )}
+    >
+      {/* Subtle decorative ambient glow circles for the large hero */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-white/10 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-24 -left-24 h-96 w-96 rounded-full bg-black/15 blur-3xl"
+      />
+
+      <CardContent
+        className={cn(
+          'relative z-10 p-6 sm:p-8 flex flex-col justify-between gap-5 text-white',
+          isStandaloneHero
+            ? 'min-h-[68vh] sm:min-h-[75vh] lg:min-h-[80vh] py-8 sm:py-12'
+            : 'min-h-[220px] sm:min-h-[240px]',
+        )}
+      >
+        {/* Top Row: Icon on Left, Pending Count Pill on Right */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-white/15 text-white shrink-0 shadow-inner ring-1 ring-white/25">
+            <config.icon className="h-7 w-7 sm:h-8 sm:w-8" />
           </div>
 
-          {/* Middle Row: Full-Width Bold Heading — never squished between icon and pill */}
-          <h2 className="w-full text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-snug text-primary-foreground text-left">
+          <span className="inline-flex items-center justify-center rounded-full bg-white text-[#7616d0] px-4 py-1.5 sm:px-5 sm:py-2 text-sm sm:text-base font-black tabular-nums shadow-sm shrink-0">
+            {rows.length} pending
+          </span>
+        </div>
+
+        {/* Middle Row: Full-Width Bold Heading — never squished between icon and pill */}
+        <div className="space-y-2">
+          <h2
+            className={cn(
+              'w-full font-extrabold tracking-tight leading-snug text-white text-left',
+              isStandaloneHero ? 'text-3xl sm:text-5xl lg:text-6xl' : 'text-2xl sm:text-3xl lg:text-4xl',
+            )}
+          >
             Rent Requests waiting to be Approved
           </h2>
+          {isStandaloneHero && (
+            <p className="text-white/80 text-sm sm:text-base max-w-2xl text-left">
+              Tap anywhere on this card to explore requests geographically across Uganda — drill down from Region to District, Sub-county, Parish and Village.
+            </p>
+          )}
+        </div>
 
-          {/* Bottom Row: Total UGX Value on Left, Action Arrow on Right */}
-          <div className="flex items-center justify-between gap-4 pt-4 sm:pt-5 border-t border-primary-foreground/20">
-            <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-primary-foreground tracking-tight tabular-nums leading-none">
+        {/* Bottom Row: Total UGX Value on Left, Action Arrow on Right */}
+        <div className="flex items-center justify-between gap-4 pt-4 sm:pt-5 border-t border-white/20">
+          <div>
+            <span className="block text-xs uppercase tracking-wider text-white/70 font-semibold mb-1">
+              Total pipeline value
+            </span>
+            <p
+              className={cn(
+                'font-black text-white tracking-tight tabular-nums leading-none',
+                isStandaloneHero ? 'text-4xl sm:text-6xl lg:text-7xl' : 'text-3xl sm:text-4xl lg:text-5xl',
+              )}
+            >
               {formatUGX(queueTotalAmount)}
             </p>
-            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-primary-foreground text-primary shadow-md group-hover:translate-x-1 transition-transform shrink-0">
+          </div>
+          <div className="flex items-center gap-3">
+            {isStandaloneHero && (
+              <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider text-white/90">
+                Explore Uganda
+              </span>
+            )}
+            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-white text-[#7616d0] shadow-md group-hover:translate-x-1 transition-transform shrink-0">
               <ArrowRight className="h-6 w-6 sm:h-7 sm:w-7" />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </CardContent>
+    </div>
+  );
 
-      {isCooStage && cooReason.picker}
-      {isCooStage && (landlordFloatBudget.data ? <LandlordFloatBudgetPosition position={landlordFloatBudget.data} /> : <p role="status" className="text-sm text-destructive">{landlordFloatBudget.isError ? landlordFloatErrorText(landlordFloatBudget.error) : 'Loading landlord float budget…'}</p>)}
-      {isCfoStage && landlordFloatBudget.data && <LandlordFloatExcessBanner daily={landlordFloatBudget.data.daily.excess} weekly={landlordFloatBudget.data.weekly.excess} />}
-      <RentApprovalMoneyCounter
-        stage={stage}
-        reviewerAtColumn={config.reviewerAtColumn}
-        reviewerColumn={config.reviewerColumn}
-        selectedAmount={selectedAmount}
-        selectedCount={selectedIds.size}
-        queueTotalAmount={queueTotalAmount}
-        queueCount={rows.length}
-        queueRequests={rows}
-        selectedRequests={rows.filter((r) => selectedIds.has(r.id))}
-        onRequestClick={(req) => setSelectedRequest(req)}
-        onJumpToFirstRequest={jumpToFirstRequest}
-      />
+  if (viewMode === 'lead-only' && !geoOpen) {
+    return <div className="space-y-4">{leadCard}</div>;
+  }
 
-      <Card data-rent-requests-queue="true" className="border border-border scroll-mt-4">
+  const showFullQueueChrome = viewMode !== 'lead-only';
+  const showGeoFilteredQueue =
+    viewMode === 'lead-only' &&
+    geoOpen &&
+    (Boolean(geoPath.village) || (Boolean(geoPath.country) && filtered.length > 0));
+
+  return (
+    <div className="space-y-4">
+      {/* Independent First Card on its own line — Rent Requests waiting to be Approved */}
+      {viewMode === 'full' && leadCard}
+
+      {viewMode === 'lead-only' && geoOpen && (
+        <RentRequestsGeoDrilldown
+          requests={rows}
+          path={geoPath}
+          onPathChange={setGeoPath}
+          onBackToHeroCard={() => {
+            setGeoOpen(false);
+            setGeoPath({});
+          }}
+        />
+      )}
+
+      {showFullQueueChrome && isCooStage && cooReason.picker}
+      {showFullQueueChrome && isCooStage && (landlordFloatBudget.data ? <LandlordFloatBudgetPosition position={landlordFloatBudget.data} /> : <p role="status" className="text-sm text-destructive">{landlordFloatBudget.isError ? landlordFloatErrorText(landlordFloatBudget.error) : 'Loading landlord float budget…'}</p>)}
+      {showFullQueueChrome && isCfoStage && landlordFloatBudget.data && <LandlordFloatExcessBanner daily={landlordFloatBudget.data.daily.excess} weekly={landlordFloatBudget.data.weekly.excess} />}
+      {showFullQueueChrome && (
+        <RentApprovalMoneyCounter
+          stage={stage}
+          reviewerAtColumn={config.reviewerAtColumn}
+          reviewerColumn={config.reviewerColumn}
+          selectedAmount={selectedAmount}
+          selectedCount={selectedIds.size}
+          queueTotalAmount={queueTotalAmount}
+          queueCount={rows.length}
+          queueRequests={rows}
+          selectedRequests={rows.filter((r) => selectedIds.has(r.id))}
+          onRequestClick={(req) => setSelectedRequest(req)}
+          onJumpToFirstRequest={jumpToFirstRequest}
+        />
+      )}
+
+      {(showFullQueueChrome || showGeoFilteredQueue) && (
+        <Card data-rent-requests-queue="true" className="border border-border scroll-mt-4">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <CardTitle className="text-base font-bold flex items-center gap-2.5">
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
                 <config.icon className="h-4 w-4" />
               </span>
-              <span>{config.title}</span>
+              <span>
+                {viewMode === 'lead-only'
+                  ? [
+                      geoPath.country,
+                      geoPath.region,
+                      geoPath.district ? `${geoPath.district} District` : undefined,
+                      geoPath.subcounty,
+                      geoPath.parish,
+                      geoPath.village,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || config.title
+                  : config.title}
+              </span>
             </CardTitle>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50">
                 <Button
                   type="button"
-                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  variant={layoutMode === 'table' ? 'default' : 'ghost'}
                   size="sm"
                   className={cn(
                     "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
-                    viewMode === 'table' ? "bg-background text-foreground shadow-xs hover:bg-background" : "text-muted-foreground hover:text-foreground"
+                    layoutMode === 'table' ? "bg-background text-foreground shadow-xs hover:bg-background" : "text-muted-foreground hover:text-foreground"
                   )}
-                  onClick={() => setViewMode('table')}
+                  onClick={() => setLayoutMode('table')}
                   title="Table view"
                 >
                   <LayoutList className="h-3.5 w-3.5" />
@@ -1821,13 +1989,13 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
                 </Button>
                 <Button
                   type="button"
-                  variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                  variant={layoutMode === 'cards' ? 'default' : 'ghost'}
                   size="sm"
                   className={cn(
                     "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
-                    viewMode === 'cards' ? "bg-background text-foreground shadow-xs hover:bg-background" : "text-muted-foreground hover:text-foreground"
+                    layoutMode === 'cards' ? "bg-background text-foreground shadow-xs hover:bg-background" : "text-muted-foreground hover:text-foreground"
                   )}
-                  onClick={() => setViewMode('cards')}
+                  onClick={() => setLayoutMode('cards')}
                   title="Card view"
                 >
                   <LayoutGrid className="h-3.5 w-3.5" />
@@ -1964,6 +2132,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
               </div>
             </div>
           )}
+          {showFullQueueChrome && (
+          <>
           {/* Desktop Filter Toolbar */}
           <div className="hidden sm:flex sm:flex-row gap-2 mt-2 items-start">
             <div className="flex items-center gap-2 w-auto">
@@ -2219,22 +2389,26 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
               );
             })()}
           </div>
+          </>
+          )}
         </CardHeader>
         <CardContent className="p-0">
-          {(stage === 'pending' || stage === 'agent_ops_approved' || stage === 'tenant_ops_approved') && (
+          {showFullQueueChrome && (stage === 'pending' || stage === 'agent_ops_approved' || stage === 'tenant_ops_approved') && (
             <div className="px-3 pb-3">
               <MyAwarenessCallsCard />
             </div>
           )}
-          <div className="px-3 pb-3">
-            <TenantOpsReportToolbar
-              tool="review_requests"
-              status="all"
-              search={search}
-              visibleCount={filtered.length}
-              fileSlug="tenant-requests-review-queue"
-            />
-          </div>
+          {showFullQueueChrome && (
+            <div className="px-3 pb-3">
+              <TenantOpsReportToolbar
+                tool="review_requests"
+                status="all"
+                search={search}
+                visibleCount={filtered.length}
+                fileSlug="tenant-requests-review-queue"
+              />
+            </div>
+          )}
           {isLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -2243,7 +2417,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
             <div className="text-center py-8 text-sm text-muted-foreground">
               {deskFiltered && !deskOrder.isError ? 'No requests match these filters' : 'No requests at this stage'}
             </div>
-          ) : viewMode === 'table' ? (
+          ) : layoutMode === 'table' ? (
             <div className="overflow-x-auto">
               {deskTiming.omitted > 0 && (
                 <p className="px-3.5 py-2 text-xs text-muted-foreground border-b border-border/50" data-testid="timing-limit-note">
@@ -2318,7 +2492,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
                                 {req.tenant_id ? (
                                   <button
                                     type="button"
-                                    onClick={(e) => { e.stopPropagation(); setDrilldownTenantId(req.tenant_id); }}
+                                    onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'tenant'); }}
                                     className="font-bold text-sm text-foreground hover:text-primary transition-colors text-left truncate inline-flex items-center gap-1 group/tenant"
                                     title="Open Tenant 360° Profile & Payment History"
                                   >
@@ -2369,7 +2543,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
                                 {req.landlord_id ? (
                                   <button
                                     type="button"
-                                    onClick={(e) => { e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); }}
+                                    onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); }}
                                     className="font-semibold text-sm text-foreground hover:text-primary transition-colors text-left truncate inline-flex items-center gap-1 group/landlord"
                                     title="Open Landlord 360° Profile & Agreements"
                                   >
@@ -2405,7 +2579,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
                                 {req.agent_id ? (
                                   <button
                                     type="button"
-                                    onClick={(e) => { e.stopPropagation(); setDrilldownAgentId(req.agent_id); }}
+                                    onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'agent'); }}
                                     className="font-semibold text-xs text-foreground hover:text-primary transition-colors text-left truncate inline-flex items-center gap-1 group/agent"
                                     title="Open Agent Profile & Performance"
                                   >
@@ -2537,7 +2711,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
 
                                   <DropdownMenuItem
                                     onClick={() => {
-                                      if (req.landlord_id) setDrilldownLandlordId(req.landlord_id);
+                                      if (req.landlord_id) openDrilldownForRequest(req, 'landlord');
                                     }}
                                     disabled={!req.landlord_id}
                                     className="gap-2.5 cursor-pointer font-medium py-2 text-xs"
@@ -2548,7 +2722,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
 
                                   <DropdownMenuItem
                                     onClick={() => {
-                                      if (req.agent_id) setDrilldownAgentId(req.agent_id);
+                                      if (req.agent_id) openDrilldownForRequest(req, 'agent');
                                     }}
                                     disabled={!req.agent_id}
                                     className="gap-2.5 cursor-pointer font-medium py-2 text-xs"
@@ -2746,7 +2920,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
                         <div className="space-y-1.5 text-xs text-muted-foreground">
                           <RentAgentChain
                             lines={chainFor(req)}
-                            onOpenAgent={(id) => setDrilldownAgentId(id)}
+                            onOpenAgent={(id) => openDrilldownForRequest(req, 'agent', { agentId: id })}
                             afterName={(l) =>
                               l.role === 'Agent' || l.role === 'Sub-agent' ? (
                                 <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} />
@@ -2759,8 +2933,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
                               <span
                                 role="button"
                                 tabIndex={0}
-                                onClick={(e) => { e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); }}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); } }}
+                                onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); } }}
                                 className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary hover:underline cursor-pointer min-w-0"
                                 title="Open landlord profile"
                               >
@@ -2808,8 +2982,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
                                 <span
                                   role="button"
                                   tabIndex={0}
-                                  onClick={(e) => { e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); }}
-                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); } }}
+                                  onClick={(e) => { e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); }}
+                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openDrilldownForRequest(req, 'landlord'); } }}
                                   className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
                                   title="Open landlord profile"
                                 >
@@ -3197,7 +3371,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
                         {selectedRequest.tenant_id && (
                           <button
                             type="button"
-                            onClick={() => setDrilldownTenantId(selectedRequest.tenant_id)}
+                            onClick={() => openDrilldownForRequest(selectedRequest, 'tenant')}
                             className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1"
                             title="Open full tenant 360° profile"
                           >
@@ -3231,7 +3405,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
                         {selectedRequest.landlord_id && (
                           <button
                             type="button"
-                            onClick={() => setDrilldownLandlordId(selectedRequest.landlord_id)}
+                            onClick={() => openDrilldownForRequest(selectedRequest, 'landlord')}
                             className="text-[11px] font-semibold text-primary hover:underline"
                             title="Open full landlord profile"
                           >
@@ -3254,6 +3428,16 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
                       )}
                     </div>
                   </div>
+
+                  {selectedRequest.landlord_id && (
+                    <div className="rounded-xl border border-border bg-card p-3">
+                      <LandlordTenantsSection
+                        landlordId={selectedRequest.landlord_id}
+                        onSelectTenant={(tid) => openDrilldownForRequest(selectedRequest, 'tenant', { tenantId: tid })}
+                        onSelectAgent={(aid) => openDrilldownForRequest(selectedRequest, 'agent', { agentId: aid })}
+                      />
+                    </div>
+                  )}
 
                   {/* Landlord Agreement History */}
                   {selectedRequest.landlord_id && (
@@ -3499,9 +3683,35 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
                     </div>
                     <RentAgentChain
                       lines={chainFor(selectedRequest)}
-                      onOpenAgent={(id) => setDrilldownAgentId(id)}
+                      onOpenAgent={(id) => openDrilldownForRequest(selectedRequest, 'agent', { agentId: id })}
                       afterName={(l) => (l.role === 'Agent' || l.role === 'Sub-agent') ? <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} /> : null}
                     />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {(selectedRequest.assigned_agent_id || selectedRequest.agent_id) && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs gap-1 font-semibold"
+                          onClick={() => openDrilldownForRequest(selectedRequest, 'agent')}
+                        >
+                          <UserCheck className="h-3 w-3" />
+                          Agent Profile, Wallet, Performances, Tenants &amp; Landlords
+                        </Button>
+                      )}
+                      {selectedRequest.landlord_id && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs gap-1 font-semibold"
+                          onClick={() => openDrilldownForRequest(selectedRequest, 'landlord')}
+                        >
+                          <Home className="h-3 w-3" />
+                          Landlord &amp; Tenants in System
+                        </Button>
+                      )}
+                    </div>
                     {selectedRequest.agent_email && (
                       <p className="text-xs text-muted-foreground">✉️ {selectedRequest.agent_email}</p>
                     )}
@@ -3739,10 +3949,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
           onConfirm={(decision: FunderVisibilityDecision) => void handleApprove(decision)}
         />
         <UserDrilldownDrawer
-          open={!!drilldownAgentId}
-          onOpenChange={(v) => { if (!v) setDrilldownAgentId(null); }}
-          agentId={drilldownAgentId}
-          defaultTab="agent"
+          open={drilldownContext.open}
+          onOpenChange={(v) => { if (!v) setDrilldownContext((prev) => ({ ...prev, open: false })); }}
+          tenantId={drilldownContext.tenantId}
+          agentId={drilldownContext.agentId}
+          landlordId={drilldownContext.landlordId}
+          defaultTab={drilldownContext.defaultTab}
         />
         {selectedRequest && (
           <PipelineAgentTransferDialog
@@ -3758,19 +3970,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [], initialViewM
             }}
           />
         )}
-        <UserDrilldownDrawer
-          open={!!drilldownLandlordId}
-          onOpenChange={(v) => { if (!v) setDrilldownLandlordId(null); }}
-          landlordId={drilldownLandlordId}
-          defaultTab="landlord"
-        />
-        <UserDrilldownDrawer
-          open={!!drilldownTenantId}
-          onOpenChange={(v) => { if (!v) setDrilldownTenantId(null); }}
-          tenantId={drilldownTenantId}
-          defaultTab="tenant"
-        />
       </Card>
+      )}
     </div>
   );
 }
