@@ -161,7 +161,7 @@ export default function MyAdvanceCard({ staffId }: { staffId: string }) {
                   <TableHead className="text-right">Principal</TableHead>
                   <TableHead className="text-right">Monthly deduction</TableHead>
                   <TableHead className="text-right">Deducted so far</TableHead>
-                  <TableHead className="text-right">Still pending</TableHead>
+                  <TableHead className="text-right">Still to repay</TableHead>
                   <TableHead>First recovery</TableHead>
                 </TableRow>
               </TableHeader>
