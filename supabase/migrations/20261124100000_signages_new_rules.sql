@@ -240,6 +240,8 @@ BEGIN
       RAISE EXCEPTION 'The owner''s phone or payment number is your own number. Enter the owner''s details.';
     END IF;
     NEW.submitted_at := now();
+    -- A resubmitted application needs a fresh COO approval.
+    NEW.coo_approved_by := NULL; NEW.coo_approved_at := NULL;
     NEW.repeat_owner_phone := EXISTS (
       SELECT 1 FROM public.welile_signages s WHERE s.id <> NEW.id AND s.status NOT IN ('draft','cancelled')
         AND signage_internal.last9(s.owner_phone) = signage_internal.last9(NEW.owner_phone));
@@ -543,11 +545,14 @@ GRANT EXECUTE ON FUNCTION public.cfo_terminate_signage(uuid,text) TO authenticat
 REVOKE ALL ON FUNCTION public._welile_signages_state_machine() FROM PUBLIC, anon, authenticated;
 
 -- ── Existing applications ─────────────────────────────────────────────────────
--- Applications left in retired installation statuses go to the CFO. SGN-2026-1003's agent reward
--- was already paid under the old rules: the CFO's "Pay agent" just activates it, with no second payment.
+-- Applications left in retired installation statuses go to the CFO. An agent reward already paid
+-- under the old rules (SGN-2026-1003) is not paid again: the CFO's "Pay agent" just activates it.
 UPDATE public.welile_signages SET status = 'awaiting_cfo', owner_rent_due_at = NULL
  WHERE status IN ('approved_for_installation','pending_installation','installation_in_progress','installation_verification')
    AND coo_approved_at IS NOT NULL;
+-- An application waiting for the CFO without any COO approval (SGN-2026-1003, approved under the
+-- pre-COO flow) goes to the COO for a real decision rather than being paid on an approval it never had.
+UPDATE public.welile_signages SET status = 'awaiting_coo' WHERE status = 'awaiting_cfo' AND coo_approved_at IS NULL;
 UPDATE public.welile_signages SET owner_rent_due_at = NULL WHERE status = 'awaiting_cfo';
 -- Backfill submission time and the duplicate-spot flag for applications already in review.
 UPDATE public.welile_signages s SET submitted_at = coalesce(s.submitted_at, s.created_at),
