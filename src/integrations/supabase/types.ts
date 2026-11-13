@@ -41388,6 +41388,138 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_agreement_rate_requests: {
+        Row: {
+          applied_at: string | null
+          applied_xact: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          partner_id: string
+          portfolio_id: string | null
+          rate_in_force: number
+          requested_at: string
+          requested_by: string
+          requested_rate: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_xact?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          partner_id: string
+          portfolio_id?: string | null
+          rate_in_force: number
+          requested_at?: string
+          requested_by: string
+          requested_rate: number
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_xact?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          partner_id?: string
+          portfolio_id?: string | null
+          rate_in_force?: number
+          requested_at?: string
+          requested_by?: string
+          requested_rate?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       partner_agreements: {
         Row: {
           address: string | null
@@ -83859,6 +83991,10 @@ export type Database = {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
         Returns: Json
       }
+      cfo_decide_agreement_rate_requests: {
+        Args: { p_decision: string; p_note?: string; p_request_ids: string[] }
+        Returns: Json
+      }
       cfo_decide_allocation_return: {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
         Returns: Json
@@ -84789,6 +84925,18 @@ export type Database = {
           p_actor: string
           p_amount: number
           p_countersign_only?: boolean
+          p_partner_id: string
+          p_return_option: string
+          p_support_mode: string
+        }
+        Returns: Json
+      }
+      countersign_prepare_support_with_rate: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_countersign_only?: boolean
+          p_expected_rate: number
           p_partner_id: string
           p_return_option: string
           p_support_mode: string
@@ -90229,6 +90377,10 @@ export type Database = {
         }[]
       }
       get_partner_360: { Args: { p_user_id: string }; Returns: Json }
+      get_partner_agreement_rate: {
+        Args: { p_partner_id: string }
+        Returns: Json
+      }
       get_partner_capital_management_split: {
         Args: { p_as_at?: string }
         Returns: Json
@@ -93672,6 +93824,10 @@ export type Database = {
           quantity: number
           total_revenue: number
         }[]
+      }
+      list_agreement_rate_requests: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: Json
       }
       list_assignable_agents:
         | {
@@ -99910,6 +100066,10 @@ export type Database = {
           p_village: string
           p_village_id?: number
         }
+        Returns: Json
+      }
+      set_partner_agreement_rate: {
+        Args: { p_partner_id: string; p_requested_rate: number }
         Returns: Json
       }
       set_partner_return_policy: {

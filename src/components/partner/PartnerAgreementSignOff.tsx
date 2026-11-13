@@ -89,6 +89,7 @@ export default function PartnerAgreementSignOff({
   const [returnRate, setReturnRate] = useState<number | undefined>();
   const [rateEdited, setRateEdited] = useState(false);
   const [rateNeedsSave, setRateNeedsSave] = useState(false);
+  const [rateApprovalReady, setRateApprovalReady] = useState(false);
   // Earliest portfolio's roi_mode decides the Return Option (A/B) printed in the contract.
   const [roiMode, setRoiMode] = useState<string | null>(null);
   // How the partner supports — REQUIRED before countersigning.
@@ -111,6 +112,7 @@ export default function PartnerAgreementSignOff({
     setReturnRate(undefined);
     setRateEdited(false);
     setRateNeedsSave(false);
+    setRateApprovalReady(false);
     (async () => {
       try {
         const [{ data: ag, error: agErr }, { data: def }, { data: pfAll }] = await Promise.all([
@@ -129,6 +131,7 @@ export default function PartnerAgreementSignOff({
         if (cancelled) return;
         if (agErr) throw agErr;
         setRatePortfolios(pfAll || []);
+        setRateApprovalReady((pfAll || []).length > 0);
         const ratePortfolio = (pfAll || []).find((item) => item.id === ag?.auto_portfolio_id) ?? (pfAll || [])[0];
         if (ratePortfolio) setReturnRate(Number(ratePortfolio.roi_percentage));
         else {
@@ -279,6 +282,10 @@ export default function PartnerAgreementSignOff({
 
   const openConfirm = async () => {
     if (!partner) return;
+    if (!rateApprovalReady) {
+      toast({ title: 'Check the agreement rate approval', description: 'Wait for approval before countersigning.', variant: 'destructive' });
+      return;
+    }
     if (rateNeedsSave) {
       toast({ title: 'Save the Returns rate first', description: 'The contract shows a draft rate. Save it before sending; any required approval still applies.', variant: 'destructive' });
       return;
@@ -313,7 +320,7 @@ export default function PartnerAgreementSignOff({
         p_amount: Number(amountInput) || null,
       });
       if (error) throw error;
-      setSummary(data as CountersignSummary);
+      setSummary({ ...(data as CountersignSummary), roi_percentage: returnRate ?? (data as CountersignSummary).roi_percentage });
     } catch (e: any) {
       setConfirmOpen(false);
       toast({ title: 'Could not load the summary', description: e?.message || 'Try again.', variant: 'destructive' });
@@ -324,6 +331,7 @@ export default function PartnerAgreementSignOff({
 
   const handleCountersign = async () => {
     if (!partner) return;
+    if (!rateApprovalReady) return;
     if (rateNeedsSave) {
       toast({ title: 'Save the Returns rate first', description: 'Draft rate changes cannot be sent as approved contract terms.', variant: 'destructive' });
       return;
@@ -364,7 +372,21 @@ export default function PartnerAgreementSignOff({
           });
         }
       } else {
-        const pdfBase64 = await renderAgreementPdfBase64(buildAgreementHtml(previewData));
+        let confirmedRate = returnRate;
+        if (ratePortfolios.length === 0) {
+          const { data: rateState, error: rateError } = await supabase.rpc('get_partner_agreement_rate', { p_partner_id: partner.id });
+          if (rateError) throw rateError;
+          if (!rateState || typeof rateState !== 'object' || Array.isArray(rateState) || rateState.ready !== true || typeof rateState.rate_in_force !== 'number') {
+            setRateApprovalReady(false);
+            throw new Error('Wait for CFO approval of the agreement rate before countersigning.');
+          }
+          confirmedRate = rateState.rate_in_force;
+          if (confirmedRate !== returnRate) {
+            setReturnRate(confirmedRate);
+            throw new Error('The approved rate changed. Review the updated contract and countersign again.');
+          }
+        }
+        const pdfBase64 = await renderAgreementPdfBase64(buildAgreementHtml({ ...previewData, monthlyReturnRate: confirmedRate }));
         // The server runs the money step first (support type, float check and,
         // for company-managed, the automatic portfolio). If it refuses, nothing
         // is stored, signed or emailed.
@@ -375,6 +397,7 @@ export default function PartnerAgreementSignOff({
             pdfBase64,
             amount: Number(amountInput) || undefined,
             supportMode,
+            expectedAgreementRate: ratePortfolios.length === 0 ? confirmedRate : undefined,
             countersignAt: stampDate || undefined,
             rep: {
               name: repName.trim(),
@@ -524,7 +547,7 @@ export default function PartnerAgreementSignOff({
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <AgreementRateInput portfolios={ratePortfolios} initialId={agreement.auto_portfolio_id} initialRate={ratePortfolios.length ? undefined : returnRate} onRatePreview={(rate, unsaved) => {
+                    <AgreementRateInput portfolios={ratePortfolios} partnerId={partner.id} onApprovalState={setRateApprovalReady} initialId={agreement.auto_portfolio_id} initialRate={ratePortfolios.length ? undefined : returnRate} onRatePreview={(rate, unsaved) => {
                       setReturnRate(rate);
                       setRateNeedsSave(unsaved);
                     }} onRateSaved={(rate) => {
@@ -682,7 +705,7 @@ export default function PartnerAgreementSignOff({
             <AlertDialogFooter>
               <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                disabled={busy || summaryLoading || !summary || !summary.covered}
+                disabled={busy || summaryLoading || !summary || !summary.covered || !rateApprovalReady || rateNeedsSave}
                 onClick={(e) => { e.preventDefault(); void handleCountersign(); }}
                 className="gap-1.5"
               >

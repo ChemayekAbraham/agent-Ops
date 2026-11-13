@@ -130,13 +130,17 @@ Deno.serve(async (req) => {
     if (countersign) {
       const supportMode = typeof body?.supportMode === 'string' ? body.supportMode : null;
       const amount = Number(body?.amount);
-      const { data: prep, error: prepErr } = await admin.rpc('countersign_prepare_support', {
+      const expectedRate = Number(body?.expectedAgreementRate);
+      const hasExpectedRate = body?.expectedAgreementRate != null;
+      if (hasExpectedRate && (!Number.isFinite(expectedRate) || expectedRate <= 0 || expectedRate > 100)) return json({ error: 'A valid approved agreement rate is required.' }, 400);
+      const { data: prep, error: prepErr } = await admin.rpc(hasExpectedRate ? 'countersign_prepare_support_with_rate' : 'countersign_prepare_support', {
         p_partner_id: partnerId,
         p_amount: Number.isFinite(amount) && amount > 0 ? amount : null,
         p_support_mode: supportMode,
         p_return_option: null, // filled automatically server-side
         p_actor: callerId,
         p_countersign_only: body?.countersignOnly === true,
+        ...(hasExpectedRate ? { p_expected_rate: expectedRate } : {}),
       });
       if (prepErr) return json({ error: `Could not prepare the countersign: ${prepErr.message}` }, 500);
       if (!(prep as any)?.ok) {

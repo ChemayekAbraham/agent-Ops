@@ -41,13 +41,13 @@ export type PartnerRateRequestStage = 'pending' | 'approved_next_cycle' | 'appli
 
 export interface PartnerRateRequestRow {
   request_id: string;
-  portfolio_id: string;
+  portfolio_id: string | null;
   portfolio_code: string | null;
   partner_id: string | null;
   partner_name: string | null;
   investment_amount: number | null;
   portfolio_status: string | null;
-  source: 'new_portfolio' | 'rate_change';
+  source: 'new_portfolio' | 'rate_change' | 'agreement_rate';
   requested_rate: number;
   rate_in_force: number;
   standard_rate: number;
@@ -114,8 +114,13 @@ export function useSetPartnerReturnPolicy() {
 export function usePartnerRateRequests(status: PartnerRateRequestStatus | null, limit = 200) {
   return useQuery({
     queryKey: [...REQUESTS_KEY, status ?? 'all', limit],
-    queryFn: async () =>
-      (await call<PartnerRateRequestRow[] | null>('list_portfolio_rate_requests', { p_status: status, p_limit: limit })) ?? [],
+    queryFn: async () => {
+      const [portfolios, agreements] = await Promise.all([
+        call<PartnerRateRequestRow[] | null>('list_portfolio_rate_requests', { p_status: status, p_limit: limit }),
+        call<PartnerRateRequestRow[] | null>('list_agreement_rate_requests', { p_status: status, p_limit: limit }),
+      ]);
+      return [...(portfolios ?? []), ...(agreements ?? [])].sort((a, b) => b.requested_at.localeCompare(a.requested_at));
+    },
     staleTime: 30_000,
   });
 }
@@ -124,12 +129,13 @@ export function usePartnerRateRequests(status: PartnerRateRequestStatus | null, 
 export function useDecidePartnerRateRequests() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { requestIds: string[]; decision: 'approve' | 'reject'; note?: string }) =>
-      call<PartnerRateDecisionResult>('cfo_decide_portfolio_rate_requests', {
-        p_request_ids: v.requestIds,
-        p_decision: v.decision,
-        p_note: v.note?.trim() || null,
-      }),
+    mutationFn: async (v: { requestIds: string[]; agreementRequestIds?: string[]; decision: 'approve' | 'reject'; note?: string }) => {
+      const args = { p_decision: v.decision, p_note: v.note?.trim() || null };
+      const results: PartnerRateDecisionResult[] = [];
+      if (v.requestIds.length) results.push(await call<PartnerRateDecisionResult>('cfo_decide_portfolio_rate_requests', { ...args, p_request_ids: v.requestIds }));
+      if (v.agreementRequestIds?.length) results.push(await call<PartnerRateDecisionResult>('cfo_decide_agreement_rate_requests', { ...args, p_request_ids: v.agreementRequestIds }));
+      return { decision: v.decision === 'approve' ? 'approved' as const : 'rejected' as const, decided: results.reduce((sum, r) => sum + r.decided, 0), skipped: results.reduce((sum, r) => sum + r.skipped, 0) };
+    },
     onSettled: () => qc.invalidateQueries({ queryKey: REQUESTS_KEY }),
   });
 }
