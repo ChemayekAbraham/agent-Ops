@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { hasUsableUserSession, useAuthenticatedAudience, useAuthenticatedPoll } from '@/hooks/useAuthenticatedPoll';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -14,6 +15,7 @@ import { formatUGX } from '@/lib/creditFeeCalculations';
 import { StaffRequisitionNoticeGate } from './StaffRequisitionNoticeGate';
 import { ReceiptMatchNotice } from './ReceiptMatchNotice';
 import type { ReceiptFacts } from '../../../supabase/functions/_shared/requisitionReceiptMatch';
+import { REQUISITION_REMINDER_MS, reminderDelay, reminderDue } from './reminderTiming';
 
 /**
  * Blocking requisition prompt — for the named approver only, at the COO, CEO
@@ -30,7 +32,7 @@ import type { ReceiptFacts } from '../../../supabase/functions/_shared/requisiti
  * never writes the stage.
  */
 
-const POLL_MS = 4 * 60 * 60 * 1000;
+const POLL_MS = REQUISITION_REMINDER_MS;
 
 type Stage = 'coo' | 'ceo' | 'cfo';
 
@@ -74,13 +76,24 @@ export function StaffRequisitionApprovalGate(
   const [receiptRow, setReceiptRow] = useState<ReceiptFacts | null>(null);
   const [viewingPath, setViewingPath] = useState<string | null>(null);
   const suppressedUntilRef = useRef(0);
+  const lastCheckedRef = useRef<number | null>(null);
   const laterTimerRef = useRef<number | null>(null);
   const ready = useAuthenticatedAudience();
+  const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    lastCheckedRef.current = null;
+    suppressedUntilRef.current = 0;
+    if (laterTimerRef.current) window.clearTimeout(laterTimerRef.current);
+    setPrompt(null);
+  }, [user?.id]);
 
   const load = useCallback(async () => {
     if (Date.now() < suppressedUntilRef.current) return;
+    if (!reminderDue(lastCheckedRef.current, Date.now())) return;
     if (!(await hasUsableUserSession())) { setPrompt(null); return; }
+    lastCheckedRef.current = Date.now();
     try {
       const { data, error } = await supabase.rpc('staff_requisition_pending_prompt' as never);
       if (error) { setPrompt(null); return; }
@@ -146,7 +159,7 @@ export function StaffRequisitionApprovalGate(
     w.location.href = data.url;
   };
 
-  const later = async () => {
+  const later = async (openQueue = false) => {
     if (!prompt) return;
     setWorking(true);
     const { data, error } = await supabase.rpc(
@@ -155,12 +168,12 @@ export function StaffRequisitionApprovalGate(
     );
     setWorking(false);
     if (error) { toast.error(error.message); return; }
-    const until = new Date(String(data)).getTime();
-    const delay = Number.isFinite(until) ? Math.max(1000, until - Date.now() + 5000) : 4 * 60 * 60 * 1000;
+    const delay = reminderDelay(data, Date.now());
     suppressedUntilRef.current = Date.now() + delay;
     if (laterTimerRef.current) window.clearTimeout(laterTimerRef.current);
     laterTimerRef.current = window.setTimeout(() => { void load(); }, delay + 500);
     setPrompt(null);
+    if (openQueue) navigate(`/${prompt.stage}/dashboard?section=requisitions`);
   };
 
   if (!prompt) return null;
@@ -245,11 +258,7 @@ export function StaffRequisitionApprovalGate(
           <div className="space-y-1 pt-1">
             <div className="flex flex-wrap gap-2">
               <Button
-                onClick={() => {
-                  const stage = prompt.stage;
-                  setPrompt(null);
-                  navigate(`/${stage}/dashboard?section=requisitions`);
-                }}
+                onClick={() => void later(true)}
                 disabled={working}
               >
                 Open requisitions
@@ -259,7 +268,7 @@ export function StaffRequisitionApprovalGate(
                 Later
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Open requisitions takes you to the review queue, where approval is done. Later tells the requester you have seen it, and hides this until you refresh or for 4 hours.</p>
+            <p className="text-xs text-muted-foreground">The next reminder appears in 4 hours if approval is still pending.</p>
           </div>
         </div>
       </DialogContent>
