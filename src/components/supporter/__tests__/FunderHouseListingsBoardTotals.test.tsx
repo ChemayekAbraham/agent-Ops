@@ -47,6 +47,7 @@ vi.mock('@/components/funder-new/useFunderNewOpportunities', () => ({
   // Only the first page of fundable plans has loaded: plan "a". Plan "late" is selectable on the board.
   useFunderNewReadyPlans: () => infinite([plan('a')], 2),
   useFunderNewEmptyHouses: () => infinite([], 0),
+  useFunderNewEmptyHousesPage: () => ({ data: { items: [], total: 0 }, isFetching: false }),
   useFunderNewMarketSummary: () => ({ data: { houseCount: 0, totalRentNeeded: 0, avgMonthlyRent: 0, districts: [] } }),
 }));
 
