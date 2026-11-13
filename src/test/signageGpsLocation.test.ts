@@ -26,6 +26,24 @@ describe('signage GPS address mapping', () => {
     const r = bigDataCloudToReverse({ countryCode: 'UG', locality: 'Kireka', localityInfo: { administrative: [{ name: 'Uganda' }, { name: 'Wakiso District' }] } });
     expect(signageGpsLocation(r)).toMatchObject({ district: 'Wakiso', village: 'Kireka', villageFound: true });
   });
+  it('treats a Ugandan city as the district when OpenStreetMap returns no district (Entebbe)', () => {
+    expect(signageGpsLocation({ address: 'Nkumba Road, Bendegere A, Entebbe City', raw: { address: {
+      country_code: 'ug', amenity: 'Nkumba Primary School', road: 'Nkumba Road', village: 'Bendegere A',
+      city_district: 'Kasenyi', city: 'Entebbe City', state: 'Central Region',
+    } } })).toMatchObject({ district: 'Entebbe City', subcounty: 'Kasenyi', village: 'Bendegere A', villageFound: true });
+  });
+  it('maps the backup geocoder city response without using the region (Entebbe)', () => {
+    const r = bigDataCloudToReverse({
+      countryCode: 'UG', principalSubdivision: 'Central', city: 'Entebbe', locality: 'Entebbe',
+      localityInfo: { administrative: [
+        { name: 'Uganda', description: 'country in East Africa', adminLevel: 2 },
+        { name: 'Central', description: 'region of Uganda', adminLevel: 3 },
+        { name: 'Entebbe', description: 'city in Uganda', adminLevel: 4 },
+        { name: 'Kasenyi', adminLevel: 9 },
+      ] },
+    });
+    expect(signageGpsLocation(r)).toMatchObject({ district: 'Entebbe', subcounty: 'Kasenyi', village: 'Kasenyi', villageFound: true });
+  });
 });
 
 describe('village actually saved', () => {
