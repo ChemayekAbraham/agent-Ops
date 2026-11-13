@@ -1,7 +1,7 @@
 /**
  * Welile Signages — Core Types & Constants
  *
- * Business rules (enforced in the database; see migration 20261124100000_signages_new_rules):
+ * Business rules (enforced in the database; see migration 20261113175723_signages_new_rules):
  *  - Eligible: busy houses and shops / business premises.
  *  - Drafts: an agent may save an incomplete application and continue later. Once submitted it is locked.
  *  - The board is already installed when the agent applies; the application verifies it for payment.
