@@ -843,10 +843,10 @@ export function FunderHouseListingsSection({
             }
             return null;
           })()}
-          {boardGroups.filter((g) => (BOARD_LIST_TABS.find((t) => t.key === boardTab)?.tags ?? []).includes(g.tag)).map((group, _i, shownGroups) => (
+          {boardGroups.filter((g) => (BOARD_LIST_TABS.find((t) => t.key === boardTab)?.tags ?? []).includes(g.tag)).map((group) => (
             <section key={group.tag} aria-label={`${group.label}, ${group.count}`} data-board-group={group.tag} className="space-y-2">
-              {/* A tab with one group needs no heading; Verified keeps its Booked / Funded sub-headings. */}
-              <h3 className={cn('flex items-center gap-2 px-1 text-sm font-semibold text-foreground', shownGroups.length === 1 && 'sr-only')}>
+              {/* The tab names the group, so the heading is for screen readers only; cards carry their own tag. */}
+              <h3 className="sr-only">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: group.color }} aria-hidden />
                 {group.label}
                 <span className="tabular-nums text-muted-foreground">{group.count.toLocaleString('en')}</span>
