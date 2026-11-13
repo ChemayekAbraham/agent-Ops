@@ -114,10 +114,9 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
   const preset = SPECIAL_ADVANCE_RATE_PRESETS.find((p) => p.id === ratePreset);
   const isCustomRate = ratePreset === CUSTOM;
   const customRateNum = Number(customRate);
-  // Same limits as the server (_special_advance_term_errors): > 0, at most 1% per day or 28% per month, 2 decimals.
-  const customRateMax = customBasis ? RATE_MAX_BY_BASIS[customBasis] : RATE_MAX_PERCENT;
+  // Same limits as the server (_special_advance_term_errors): above 0, at most 2 decimals, no upper ceiling.
   const customRateValid = customRate.trim() !== '' && Number.isFinite(customRateNum) && customRateNum > 0
-    && customRateNum <= customRateMax && /^\d+(\.\d{1,2})?$/.test(customRate.trim());
+    && /^\d+(\.\d{1,2})?$/.test(customRate.trim());
   const rate: { ratePercent: number; basis: RateBasis } | null = preset
     ? { ratePercent: preset.ratePercent, basis: preset.basis }
     : isCustomRate && customBasis && customRateValid ? { ratePercent: customRateNum, basis: customBasis } : null;
@@ -371,7 +370,7 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
                   {!customBasis && <p className="col-span-2 text-[11px] text-amber-600">Choose whether the agreed rate is per day or per month.</p>}
                   {customRate !== '' && !customRateValid && (
                     <p className="col-span-2 text-[11px] text-destructive">
-                      Enter a rate above 0 and up to {customRateMax}%{customBasis ? ` ${RATE_BASIS_LABEL[customBasis]}` : ''} (at most 2 decimals).
+                      Enter a rate above 0 (at most 2 decimals).
                     </p>
                   )}
                 </div>
