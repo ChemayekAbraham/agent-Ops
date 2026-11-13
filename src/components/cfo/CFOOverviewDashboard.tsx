@@ -226,7 +226,7 @@ export function CFOOverviewDashboard({
 
 
   return (
-    <div className={cashPositionOnly ? 'cash-position-page max-w-7xl mx-auto' : 'space-y-6 max-w-7xl mx-auto'}>
+    <div className={cashPositionOnly ? 'cash-position-page max-w-7xl mx-auto' : 'space-y-6 max-w-7xl mx-auto flex flex-1 flex-col'}>
 
       {/* ══════════════ HEADER ══════════════ */}
       {!cashPositionOnly && <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
@@ -281,7 +281,7 @@ export function CFOOverviewDashboard({
           page reads top-down: what we hold → what is owed to/by us →
           how it moved → the advances book → lookup tools.
          ══════════════════════════════════════════════════════════════ */}
-      <div className="space-y-6">
+      <div className={cashPositionOnly ? 'space-y-6' : 'space-y-6 flex flex-1 flex-col'}>
         {/* ─────────── 1 · CASH POSITION ─────────── */}
         {showCashPosition && <Band
           title="Cash Position"
@@ -574,7 +574,7 @@ export function CFOOverviewDashboard({
         )}
 
 
-        {!cashPositionOnly && <>
+        {!cashPositionOnly && <div className="flex flex-1 flex-col space-y-6">
         {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Receivables &amp; Payables</h2>
@@ -584,7 +584,7 @@ export function CFOOverviewDashboard({
 
         {/* Tools & Audit Trail (receipt lookup, email transactions, transaction
             search, CFO actions log) removed from Home at the CFO's request. */}
-        </>}
+        </div>}
       </div>
 
       {/* ── BREAKDOWNS ── */}
