@@ -1,7 +1,7 @@
 import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { createPortal } from 'react-dom';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, Clock, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Clock, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -129,6 +129,18 @@ export type FunderListMapFilters = Pick<FunderNewFilters, 'search' | 'location' 
 export type BoardPin = { id: string; cardId: string; lat: number; lng: number; amount: number; tag: BoardTag };
 
 type BoardListTab = 'verified' | 'unverified' | 'empty';
+const EMPTY_PAGE_SIZE = 20;
+/** Page numbers to show: first, last, and the current page with one either side; null marks a gap. */
+function pageWindow(current: number, total: number): (number | null)[] {
+  const pages = new Set([1, total, current - 1, current, current + 1].filter((p) => p >= 1 && p <= total));
+  const sorted = [...pages].sort((a, b) => a - b);
+  const out: (number | null)[] = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) out.push(null);
+    out.push(p);
+  });
+  return out;
+}
 const BOARD_LIST_TABS: { key: BoardListTab; label: string; tags: BoardTag[] }[] = [
   { key: 'verified', label: 'Verified', tags: ['verified', 'booked', 'funded'] },
   { key: 'unverified', label: 'Unverified', tags: ['pending_verification'] },
@@ -239,6 +251,9 @@ export function FunderHouseListingsSection({
   const [includePending, setIncludePending] = useState(false);
   // Grouped list (board tags on) is split into three tabs; booked and funded plans sit under Verified.
   const [boardTab, setBoardTab] = useState<BoardListTab>('verified');
+  // Empty houses are paged (20 a page) instead of an endless list.
+  const [emptyPage, setEmptyPage] = useState(1);
+  const listTopRef = useRef<HTMLDivElement | null>(null);
   // E72b: with the funders board tags on, the grouped list always ends with
   // the Empty house cards; the switch is for the plain list only.
   const showEmpty = includePending || boardTagsOn;
@@ -447,6 +462,19 @@ export function FunderHouseListingsSection({
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const fetchNextFeedRef = useRef<() => void>(() => {});
   fetchNextFeedRef.current = fetchNextFeed;
+  // Empty-house paging: fetch further pages from the server only when the chosen page needs them.
+  const emptyGroup = boardGroups?.find((g) => g.tag === 'empty_house') ?? null;
+  const emptyLoaded = emptyGroup?.rows.length ?? 0;
+  const emptyPages = Math.max(1, Math.ceil((emptyGroup?.count ?? 0) / EMPTY_PAGE_SIZE));
+  const emptyPageLoading = boardTab === 'empty' && emptyLoaded < Math.min(emptyPage * EMPTY_PAGE_SIZE, emptyGroup?.count ?? 0) && feedHasNext;
+  useEffect(() => {
+    if (emptyPageLoading && !feedFetchingNext) fetchNextFeedRef.current();
+  }, [emptyPageLoading, feedFetchingNext, emptyLoaded]);
+  useEffect(() => { setEmptyPage(1); }, [filters]);
+  const goToEmptyPage = (page: number) => {
+    setEmptyPage(Math.min(Math.max(1, page), emptyPages));
+    listTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   useEffect(() => {
     const node = loadMoreRef.current;
     if (!node || typeof IntersectionObserver === 'undefined') return;
@@ -780,13 +808,14 @@ export function FunderHouseListingsSection({
             </div>
           ) : null}
           {/* Three tabs: Verified (with booked and funded), Unverified, Empty houses. */}
+          <div ref={listTopRef} className="scroll-mt-24" aria-hidden />
           {/* Sizes follow the bar's own width (container units), so the three capsules fit a phone. */}
           <div role="tablist" aria-label="Houses to fund" className="flex gap-0.5 rounded-full bg-muted p-0.5 [container-type:inline-size]">
             {BOARD_LIST_TABS.map((tab) => {
               const count = boardGroups.filter((g) => tab.tags.includes(g.tag)).reduce((sum, g) => sum + g.count, 0);
               const active = boardTab === tab.key;
               return (
-                <button key={tab.key} type="button" role="tab" aria-selected={active} onClick={() => setBoardTab(tab.key)}
+                <button key={tab.key} type="button" role="tab" aria-selected={active} onClick={() => { setBoardTab(tab.key); setEmptyPage(1); }}
                   className={cn('flex min-h-[36px] min-w-0 flex-auto items-center justify-center gap-1 rounded-full px-1.5 text-[length:clamp(10.5px,3.4cqw,14px)] font-semibold transition-colors',
                     active ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground')}>
                   <span className="truncate">{tab.label}</span>
@@ -815,7 +844,7 @@ export function FunderHouseListingsSection({
                 <span className="tabular-nums text-muted-foreground">{group.count.toLocaleString('en')}</span>
               </h3>
               <div className="grid gap-0 sm:grid-cols-2 sm:gap-3">
-                {group.rows.map((row) => {
+                {(group.tag === 'empty_house' ? group.rows.slice((emptyPage - 1) * EMPTY_PAGE_SIZE, emptyPage * EMPTY_PAGE_SIZE) : group.rows).map((row) => {
                   if (row.kind === 'board') {
                     const d = row.item.lat !== null && row.item.lng !== null ? straightLineDistance(deviceOrigin, { lat: row.item.lat, lng: row.item.lng }) : null;
                     return <FunderBoardItemCard key={row.cardId} item={row.item} cardId={row.cardId} distance={d} />;
@@ -843,15 +872,33 @@ export function FunderHouseListingsSection({
               </div>
             </section>
           ))}
-          {/* Only empty houses load in pages; on Verified / Unverified the trigger would sit in view and
-              keep fetching empty houses in the background (stuck "Loading"). */}
-          {feedHasNext && boardTab === 'empty' ? (
-            <div ref={loadMoreRef} className="flex justify-center">
-              <Button variant="default" className="h-11 rounded-md px-6" onClick={fetchNextFeed} disabled={feedFetchingNext}>
-                {feedFetchingNext ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Home className="h-4 w-4" aria-hidden />}
-                {feedFetchingNext ? 'Loading' : `Show more homes${remaining > 0 ? ` (${remaining.toLocaleString()} left)` : ''}`}
-              </Button>
-            </div>
+          {/* Empty houses: numbered pages. Verified and Unverified are short and load in full. */}
+          {boardTab === 'empty' && emptyGroup && emptyGroup.count > EMPTY_PAGE_SIZE ? (
+            <nav aria-label="Empty houses pages" className="flex flex-col items-center gap-2 pt-1">
+              {emptyPageLoading ? (
+                <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />Loading page {emptyPage}</p>
+              ) : null}
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="sm" className="h-9 rounded-full px-3" disabled={emptyPage <= 1} onClick={() => goToEmptyPage(emptyPage - 1)} aria-label="Previous page">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {pageWindow(emptyPage, emptyPages).map((p, k) => (p === null ? (
+                  <span key={`gap-${k}`} className="px-1 text-sm text-muted-foreground" aria-hidden>…</span>
+                ) : (
+                  <button key={p} type="button" onClick={() => goToEmptyPage(p)} aria-current={p === emptyPage ? 'page' : undefined}
+                    className={cn('h-9 min-w-9 rounded-full px-2 text-sm font-semibold tabular-nums transition-colors',
+                      p === emptyPage ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted')}>
+                    {p}
+                  </button>
+                )))}
+                <Button variant="outline" size="sm" className="h-9 rounded-full px-3" disabled={emptyPage >= emptyPages} onClick={() => goToEmptyPage(emptyPage + 1)} aria-label="Next page">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Page {emptyPage} of {emptyPages.toLocaleString('en')} · {emptyGroup.count.toLocaleString('en')} empty houses
+              </p>
+            </nav>
           ) : null}
         </div>
       ) : (
