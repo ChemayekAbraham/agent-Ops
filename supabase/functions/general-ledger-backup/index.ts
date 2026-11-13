@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { BACKUP_LINK_TTL_SECONDS } from "../_shared/backupDelivery.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 // Dedicated, verified backup of public.general_ledger, emailed to Josh's company mailbox.
 //
@@ -41,7 +42,7 @@ Deno.serve(async (req) => {
   try {
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
     if (token) {
-      const { data: userData } = await supabase.auth.getUser(token);
+      const { data: userData } = await (bearerHasSub(token) ? supabase.auth.getUser(token) : noUserResult());
       const uid = userData?.user?.id;
       if (uid) {
         const { data: profile } = await supabase

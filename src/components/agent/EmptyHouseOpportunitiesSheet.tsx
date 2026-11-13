@@ -25,6 +25,8 @@ import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 import { EmptyHouseDetailSheet, housePlace, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatDueBy, noteDueByMessage } from '@/lib/promissoryNoteDraft';
 
 
 const PAGE_SIZE = 20;
@@ -160,6 +162,8 @@ export function EmptyHouseOpportunitiesSheet({
   // Partner mode only: "Promise a date" holds the houses for 7 days.
   const [promisedDate, setPromisedDate] = useState('');
   const [fulfilmentDueOn, setFulfilmentDueOn] = useState('');
+  // Latest fulfilment date allowed (31 Dec 2026 while Partner Returns is off); the database enforces it too.
+  const { noteDueBy } = usePartnerReturnPolicy();
   const [fundingNow, setFundingNow] = useState(false);
 
 
@@ -344,6 +348,7 @@ export function EmptyHouseOpportunitiesSheet({
     if (phoneNumber.trim() && !isValidPhone(phoneNumber)) out.push('Phone number (10 digits)');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) out.push('Valid email');
     if (!fulfilmentDueOn) out.push('Fulfil by date');
+    else if (noteDueBy && fulfilmentDueOn > noteDueBy) out.push(`Fulfil by date on or before ${formatDueBy(noteDueBy)}`);
     return out;
   };
 
@@ -427,7 +432,7 @@ export function EmptyHouseOpportunitiesSheet({
       const raw = String((err as { message?: string })?.message || 'Failed to create note');
       const msg = raw.includes('HOUSES_UNAVAILABLE')
         ? 'Some selected houses are no longer empty. Refresh the list and pick again.'
-        : raw;
+        : noteDueByMessage(raw) ?? raw;
       setErrorMsg(msg);
       toast.error(msg);
       if (raw.includes('HOUSES_UNAVAILABLE')) { setSelected({}); void refetch(); }
@@ -508,7 +513,7 @@ export function EmptyHouseOpportunitiesSheet({
     // No rate known: the text states no rate and no figure.
     const text = quoteRatePct && monthlyReturn !== null
       ? `Hi ${partnerName}, you are supporting ${homes} on Welile. You contribute one month of rent (${formatUGX(rentTotal)}) and earn ${quoteRatePct} of that rent every month for 12 months — ${formatUGXOrDash(monthlyReturn)} per month. Activate here: ${link}`
-      : `Hi ${partnerName}, you are supporting ${homes} on Welile. You contribute one month of rent (${formatUGX(rentTotal)}) and earn monthly Returns on that rent for 12 months. Activate here: ${link}`;
+      : `Hi ${partnerName}, you are supporting ${homes} on Welile. You contribute one month of rent (${formatUGX(rentTotal)}) and earn monthly Rent profit share on that rent for 12 months. Activate here: ${link}`;
     if (navigator.share) {
       navigator.share({ title: 'Welile funding opportunity', text, url: link }).catch(() => {});
     } else {
@@ -531,13 +536,13 @@ export function EmptyHouseOpportunitiesSheet({
                 <>
                   Pick the empty houses you want to fund. You pay one month of rent, the agent who listed
                   the house moves a tenant in once your note is fulfilled, and you earn
-                  <span className="font-semibold text-emerald-600"> {quoteRatePct ? `${quoteRatePct} of that rent every month` : 'monthly Returns on that rent'} for 12 months</span>.
+                  <span className="font-semibold text-emerald-600"> {quoteRatePct ? `${quoteRatePct} of that rent every month` : 'monthly Rent profit share on that rent'} for 12 months</span>.
                 </>
               ) : (
                 <>
                   Pick the empty houses this partner will fund. They pay one month of rent, the agent who
                   listed the house moves a tenant in once the note is fulfilled, and the partner earns
-                  <span className="font-semibold text-emerald-600"> {quoteRatePct ? `${quoteRatePct} of that rent every month` : 'monthly Returns on that rent'} for 12 months</span>.
+                  <span className="font-semibold text-emerald-600"> {quoteRatePct ? `${quoteRatePct} of that rent every month` : 'monthly Rent profit share on that rent'} for 12 months</span>.
                 </>
               )}
             </SheetDescription>
@@ -570,7 +575,7 @@ export function EmptyHouseOpportunitiesSheet({
               <span className="font-bold">{formatUGX(rentTotal)}</span>
             </div>
             <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 px-3 py-2">
-              <span className="text-[11px] font-semibold text-emerald-700">{isPartner ? 'You earn' : 'Partner earns'} {quoteRatePct ? `${quoteRatePct} per month` : 'monthly Returns'}</span>
+              <span className="text-[11px] font-semibold text-emerald-700">{isPartner ? 'You earn' : 'Partner earns'} {quoteRatePct ? `${quoteRatePct} per month` : 'monthly Rent profit share'}</span>
               <span className="text-sm font-bold text-emerald-600">{formatUGXOrDash(monthlyReturn)}</span>
             </div>
             <p className="text-[10px] text-muted-foreground text-center">
@@ -662,7 +667,7 @@ export function EmptyHouseOpportunitiesSheet({
                   </div>
                   <div className="grid grid-cols-2 gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-[10px]">
                     <div>
-                      <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Returns'}</p>
+                      <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Rent profit share'}</p>
                       <p className="font-semibold text-emerald-600">{formatUGXOrDash(m)}</p>
                     </div>
                     <div>
@@ -708,7 +713,7 @@ export function EmptyHouseOpportunitiesSheet({
                           <p className="font-semibold">{formatUGX(rent)}</p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Returns'}</p>
+                          <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Rent profit share'}</p>
                           <p className="font-semibold text-emerald-600">{formatUGXOrDash(m)}</p>
                         </div>
                         <div>
@@ -763,6 +768,7 @@ export function EmptyHouseOpportunitiesSheet({
                       type="date"
                       value={fulfilmentDueOn}
                       onChange={(e) => setFulfilmentDueOn(e.target.value)}
+                      max={noteDueBy ?? undefined}
                       className="mt-0.5 h-9 text-xs"
                     />
                   </div>
@@ -1161,7 +1167,7 @@ export function EmptyHouseOpportunitiesSheet({
                     <p className="text-sm font-bold">{formatUGX(rentTotal)}</p>
                   </div>
                   <Button className="h-10 gap-1.5 text-xs font-semibold" onClick={() => setStep('checkout')}>
-                    Checkout <ArrowRight className="h-4 w-4" />
+                    Create <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -1195,7 +1201,7 @@ export function EmptyHouseOpportunitiesSheet({
                             <p className="font-semibold">{formatUGX(rent)}</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Returns'}</p>
+                            <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Rent profit share'}</p>
                             <p className="font-semibold text-emerald-600">{formatUGXOrDash(m)}</p>
                           </div>
                           <div>

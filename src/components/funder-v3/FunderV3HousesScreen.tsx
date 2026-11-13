@@ -1,11 +1,19 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, Filter, MapPin, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ArrowLeft, Filter, ListChecks, MapPin, Search, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import type { FunderListingsViewApi } from '@/components/supporter/FunderHouseListingsSection';
+import type { FeedEntry, FunderListingsViewApi } from '@/components/supporter/FunderHouseListingsSection';
+import type { BoardKind, DemoteReason, DemoteResult } from '@/lib/fundersBoard';
+import { boardItemFor } from '@/components/funder-new/FundersBoardTag';
 import type { FunderNewEmptyHouse } from '@/components/funder-new/types';
 import { locationNoticeState } from '@/components/funder-new/FunderNewLocationNotice';
 import { FunderV3HousesList, type FunderV3HousesListHandle } from './FunderV3HousesList';
 import { FunderV3MapControls } from './FunderV3MapControls';
+import { boardHeadline, boardSubline } from '@/components/funder-new/boardGroups';
+import type { BoardPin } from '@/components/supporter/FunderHouseListingsSection';
+import type { BoardItem } from '@/lib/fundersBoard';
+import { FunderV3DemoteSheet } from './FunderV3DemoteSheet';
+import { cardIdOf } from './FunderV3HousesList';
 import type { FunderV3MapInsets } from './FunderV3Map';
 import { useLayoutMode, usePrefersReducedMotion, useViewportHeight } from './useLayoutMode';
 import './funderV3.css';
@@ -42,6 +50,23 @@ export interface FunderV3MapRenderProps {
   onMapTap?: () => void;
   /** px the visible part of the map sits below the canvas centre (half the shrink, once settled). */
   centreOffsetY?: number;
+  /** E59: colour pins by funders board tag. */
+  boardTagsOn: boolean;
+  /** Bumped by "my location": the map recentres on the device. */
+  locateToken?: number;
+  /** E72b: rent request pins coloured by tag (tags on); tapping one scrolls to its card. */
+  boardPins?: BoardPin[];
+  onPinCard?: (cardId: string) => void;
+}
+
+/** E59 demote, given only to viewers for whom funders_board_can_demote() is true. */
+export interface FunderV3DemoteApi {
+  submit: (items: { kind: BoardKind; id: string }[], reason: DemoteReason, note: string) => Promise<DemoteResult>;
+}
+
+/** "3 demoted · 1 skipped" */
+export function demoteToastTitle(result: DemoteResult): string {
+  return `${result.demoted_count} demoted · ${result.skipped.length} skipped`;
 }
 
 /** "12 of 2,534" — loaded cards against the filtered total the list already has. */
@@ -91,6 +116,7 @@ export function FunderV3HousesScreen({
   listTop,
   listOverlay,
   listLoadingOverride = false,
+  demote = null,
 }: {
   api: FunderListingsViewApi;
   onClose: () => void;
@@ -101,6 +127,8 @@ export function FunderV3HousesScreen({
   listOverlay?: ReactNode;
   /** The dashboard's own first-load skeleton (kept from the live screen). */
   listLoadingOverride?: boolean;
+  /** E59: null (default) = no demote controls at all. */
+  demote?: FunderV3DemoteApi | null;
 }) {
   const mode = useLayoutMode();
   const reducedMotion = usePrefersReducedMotion();
@@ -120,8 +148,74 @@ export function FunderV3HousesScreen({
   const backRef = useRef<HTMLButtonElement | null>(null);
   const [topReserve, setTopReserve] = useState(76);
   const [centreOffset, setCentreOffset] = useState(0);
+  const [locateToken, setLocateToken] = useState(0);
+  const bumpLocate = useCallback(() => setLocateToken((n) => n + 1), []);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  // E59 select-to-demote.
+  const [demoteMode, setDemoteMode] = useState(false);
+  const [demoteChecked, setDemoteChecked] = useState<Map<string, { kind: BoardKind; id: string }>>(() => new Map());
+  const [demoteSheetOpen, setDemoteSheetOpen] = useState(false);
+  const [demoteBusy, setDemoteBusy] = useState(false);
+  const demoteIds = useMemo(() => new Set(demoteChecked.keys()), [demoteChecked]);
+  const leaveDemoteMode = useCallback(() => {
+    setDemoteMode(false);
+    setDemoteChecked(new Map());
+    setDemoteSheetOpen(false);
+  }, []);
+  const toggleDemoteMode = useCallback(() => {
+    if (demoteMode) leaveDemoteMode();
+    else setDemoteMode(true);
+  }, [demoteMode, leaveDemoteMode]);
+  const toggleDemoteCard = useCallback((entry: FeedEntry) => {
+    const cardId = cardIdOf(entry);
+    setDemoteChecked((prev) => {
+      const next = new Map(prev);
+      if (next.has(cardId)) next.delete(cardId);
+      else next.set(cardId, boardItemFor(entry.category, entry.item));
+      return next;
+    });
+  }, []);
+  const toggleDemoteBoard = useCallback((item: BoardItem) => {
+    const cardId = `board:${item.id}`;
+    setDemoteChecked((prev) => {
+      const next = new Map(prev);
+      if (next.has(cardId)) next.delete(cardId);
+      else next.set(cardId, { kind: 'rent_request', id: item.id });
+      return next;
+    });
+  }, []);
+  const confirmDemote = useCallback(
+    async (reason: DemoteReason, note: string) => {
+      if (!demote || demoteChecked.size === 0) return;
+      setDemoteBusy(true);
+      try {
+        const result = await demote.submit(Array.from(demoteChecked.values()), reason, note);
+        const skips = result.skipped.map((skip) => skip.message).filter(Boolean);
+        toast.success(
+          demoteToastTitle(result),
+          skips.length
+            ? {
+                description: (
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4" data-testid="fv3-demote-skips">
+                    {skips.map((message, index) => (
+                      <li key={index}>{message}</li>
+                    ))}
+                  </ul>
+                ),
+              }
+            : undefined,
+        );
+        leaveDemoteMode();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not demote.');
+      } finally {
+        setDemoteBusy(false);
+      }
+    },
+    [demote, demoteChecked, leaveDemoteMode],
+  );
 
   // While this screen is up the app header, role nav and assistant launcher step aside.
   useEffect(() => {
@@ -146,6 +240,11 @@ export function FunderV3HousesScreen({
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  const demoteModeRef = useRef(demoteMode);
+  demoteModeRef.current = demoteMode;
+  const leaveDemoteModeRef = useRef(leaveDemoteMode);
+  leaveDemoteModeRef.current = leaveDemoteMode;
+
   const close = useCallback(() => {
     const state = (window.history.state ?? {}) as Record<string, unknown>;
     if (state[HISTORY_KEY]) window.history.back();
@@ -158,6 +257,7 @@ export function FunderV3HousesScreen({
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
       if (mapFullRef.current) setMapFull(false);
+      else if (demoteModeRef.current) leaveDemoteModeRef.current();
       else close();
     };
     window.addEventListener('keydown', onKey);
@@ -251,20 +351,49 @@ export function FunderV3HousesScreen({
     [api],
   );
 
+  // E72b: a rent request pin scrolls to its card (fundable or view only) and lights it.
+  const onPinCard = useCallback((cardId: string) => {
+    const reveal = () => {
+      if (listHandle.current?.scrollToCard(cardId)) setHighlightedId(cardId);
+    };
+    if (mapFullRef.current) {
+      setMapFull(false);
+      window.requestAnimationFrame(() => window.requestAnimationFrame(reveal));
+    } else reveal();
+  }, []);
+
   const openMapFull = useCallback(() => setMapFull(true), []);
   const toggleMapFull = useCallback(() => setMapFull((on) => !on), []);
 
   const activeCard = hoveredId ?? highlightedId;
   const activeHouseId = activeCard?.startsWith('empty:') ? activeCard.slice('empty:'.length) : null;
 
-  const shown = api.items.length;
   const counting = api.feedLoading || listLoadingOverride;
 
-  const titleRow = (
+  const counts = api.boardCounts;
+  const titleRow = api.boardTagsOn && !counts ? (
+    // E72b (tags on), funders: the grouped list without header totals (those are COO/CEO only).
+    <div className="flex min-w-0 items-center gap-2">
+      <h2 className="fv3-t-base font-bold text-foreground">Houses to fund</h2>
+    </div>
+  ) : counts ? (
+    // E72b (tags on), COO/CEO: "{ready_total} ready to fund · UGX {ready_total_ugx}", then "{verified} verified · {pending} pending verification".
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <h2 className="fv3-t-base font-bold text-foreground">Houses to fund</h2>
+        <span data-testid="fv3-count" className="rounded-full bg-primary/10 px-2 py-0.5 fv3-t-2xs font-semibold tabular-nums text-primary">
+          {boardHeadline(counts)}
+        </span>
+      </div>
+      <p className="fv3-t-2xs tabular-nums text-muted-foreground" style={{ margin: 0 }} data-testid="fv3-count-sub">
+        {boardSubline(counts)}
+      </p>
+    </div>
+  ) : (
     <div className="flex min-w-0 items-center gap-2">
       <h2 className="fv3-t-base font-bold text-foreground">Houses to fund</h2>
       <span data-testid="fv3-count" className="rounded-full bg-primary/10 px-2 py-0.5 fv3-t-2xs font-semibold tabular-nums text-primary">
-        {counting ? '…' : countLabel(shown, api.filteredTotal)}
+        {counting ? '…' : countLabel(api.items.length, api.filteredTotal)}
       </span>
     </div>
   );
@@ -350,6 +479,54 @@ export function FunderV3HousesScreen({
     </button>
   );
 
+  const demoteToggle = demote ? (
+    <button
+      type="button"
+      onClick={toggleDemoteMode}
+      aria-pressed={demoteMode}
+      data-testid="fv3-demote-toggle"
+      className={cn(
+        'inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 fv3-t-sm font-semibold ring-1 transition-colors',
+        demoteMode ? 'bg-destructive/10 text-destructive ring-destructive/40' : 'bg-card text-foreground ring-border hover:bg-muted',
+      )}
+    >
+      <ListChecks className="h-4 w-4" aria-hidden />
+      {demoteMode ? 'Cancel selecting' : 'Select to demote'}
+    </button>
+  ) : null;
+
+  // Sticky bar for the selection: inside the screen (a page region), never in a dialog.
+  const demoteBar =
+    demote && demoteMode ? (
+      <div
+        data-testid="fv3-demote-bar"
+        className="pointer-events-auto flex items-center gap-3 rounded-2xl bg-card p-2 pl-4 shadow-[0_-2px_18px_hsl(var(--foreground)/0.18)] ring-1 ring-border"
+      >
+        <span className="min-w-0 flex-1 fv3-t-sm font-semibold text-foreground" aria-live="polite">
+          {demoteChecked.size === 0 ? 'Tick the houses to demote' : `${demoteChecked.size} selected`}
+        </span>
+        <button
+          type="button"
+          disabled={demoteChecked.size === 0}
+          onClick={() => setDemoteSheetOpen(true)}
+          data-testid="fv3-demote-open"
+          className="fv3-tap inline-flex h-11 items-center rounded-xl bg-destructive px-5 fv3-t-sm font-semibold text-destructive-foreground shadow-sm transition-opacity disabled:opacity-50"
+        >
+          Demote {demoteChecked.size}
+        </button>
+      </div>
+    ) : null;
+
+  const demoteSheet = demote ? (
+    <FunderV3DemoteSheet
+      open={demoteSheetOpen}
+      count={demoteChecked.size}
+      busy={demoteBusy}
+      onOpenChange={setDemoteSheetOpen}
+      onConfirm={confirmDemote}
+    />
+  ) : null;
+
   const listBody = (scrollRef: React.RefObject<HTMLElement | null>, scrollPaddingTop = 0) => (
     <div className="relative flex flex-col gap-3" id="opportunities">
       {listOverlay}
@@ -368,6 +545,10 @@ export function FunderV3HousesScreen({
           highlightedId={highlightedId}
           onHoverCard={expanded ? setHoveredId : undefined}
           reducedMotion={reducedMotion}
+          demoteMode={demoteMode}
+          demoteChecked={demoteIds}
+          onDemoteToggle={demote ? toggleDemoteCard : undefined}
+          onDemoteToggleBoard={demote ? toggleDemoteBoard : undefined}
         />
       )}
     </div>
@@ -383,7 +564,7 @@ export function FunderV3HousesScreen({
         data-testid="fv3-houses"
         data-layout="expanded"
       >
-        <aside className="flex min-h-0 flex-col border-r border-border/60 bg-background">
+        <aside className="relative flex min-h-0 flex-col border-r border-border/60 bg-background">
           <div className="flex-none space-y-3 border-b border-border/50 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <div className="flex items-center gap-2">
               {backButton}
@@ -394,21 +575,24 @@ export function FunderV3HousesScreen({
               {filtersButton}
             </div>
             {chip}
+            {demoteToggle}
           </div>
           <div
             ref={paneScrollRef}
             data-testid="fv3-pane-scroll"
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-3 [scrollbar-gutter:stable]"
+            className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3 [scrollbar-gutter:stable]', demoteMode ? 'pb-28' : 'pb-8')}
           >
             {listBody(paneScrollRef)}
           </div>
+          {demoteBar ? <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20">{demoteBar}</div> : null}
         </aside>
         <div className="relative min-h-0 min-w-0">
-          {renderMap({ activeHouseId, onPinHouse, insets: { top: 0, right: 0, bottom: 0, left: 0 }, showLoadedNote: true, interactive: true })}
+          {renderMap({ activeHouseId, onPinHouse, insets: { top: 0, right: 0, bottom: 0, left: 0 }, showLoadedNote: true, interactive: true, boardTagsOn: api.boardTagsOn, locateToken, boardPins: api.boardPins, onPinCard })}
           <div className="absolute bottom-4 right-4 z-20">
-            <FunderV3MapControls location={api.location} />
+            <FunderV3MapControls location={api.location} onLocate={bumpLocate} />
           </div>
         </div>
+        {demoteSheet}
       </div>
     );
   }
@@ -448,10 +632,14 @@ export function FunderV3HousesScreen({
               interactive: mapFull,
               onMapTap: openMapFull,
               centreOffsetY: mapFull ? 0 : centreOffset,
+              boardTagsOn: api.boardTagsOn,
+              boardPins: api.boardPins,
+              onPinCard,
+              locateToken,
             })}
           </div>
           <div className="pointer-events-none absolute bottom-3 right-3 z-10 pb-[env(safe-area-inset-bottom,0px)]">
-            <FunderV3MapControls location={api.location} fullscreen={mapFull} onToggleFullscreen={toggleMapFull} />
+            <FunderV3MapControls location={api.location} fullscreen={mapFull} onToggleFullscreen={toggleMapFull} onLocate={bumpLocate} />
           </div>
         </div>
 
@@ -463,8 +651,9 @@ export function FunderV3HousesScreen({
           <div className={cn('mx-auto w-full space-y-2 px-3 pb-2 pt-4', mode === 'medium' && 'max-w-[980px] px-5')}>
             {titleRow}
             {chip}
+            {demoteToggle}
           </div>
-          <div className={cn('mx-auto w-full px-3', mode === 'medium' && 'max-w-[980px] px-5')}>
+          <div className={cn('mx-auto w-full px-3', mode === 'medium' && 'max-w-[980px] px-5', demoteMode && 'pb-24')}>
             {listBody(scrollerRef, pinnedHeight + 12)}
           </div>
         </section>
@@ -480,6 +669,13 @@ export function FunderV3HousesScreen({
           {filtersButton}
         </div>
       </div>
+
+      {demoteBar && !mapFull ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
+          <div className={cn('mx-auto w-full', mode === 'medium' ? 'max-w-[720px]' : '')}>{demoteBar}</div>
+        </div>
+      ) : null}
+      {demoteSheet}
     </div>
   );
 }

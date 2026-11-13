@@ -63,7 +63,7 @@ describe('assistant empty state', () => {
   it('greets the person by first name', () => {
     open();
     expect(document.body.textContent).toContain('Hi Ssenkaali');
-    expect(document.body.textContent).toContain("I'm Clara");
+    expect(document.body.textContent).toContain("I'm Nexa");
   });
 
   it('drops the empty-state suggestions once a conversation has started', () => {

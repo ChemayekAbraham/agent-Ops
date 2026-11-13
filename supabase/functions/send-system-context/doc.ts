@@ -92,7 +92,7 @@ flowchart TD
 
 - **Frontend:** React 18, Vite 5, TypeScript 5, Tailwind v3, shadcn/ui, React Query, React Router, jsPDF; Vitest + Playwright for tests.
 - **Backend:** Supabase — Postgres 15, PostgREST Data API, GoTrue auth, Storage, Edge Functions (Deno), \`pg_cron\`, \`pg_net\`.
-- **Messaging:** Yoola SMS (primary), Africa's Talking, LANA (fallbacks); Mailgun US for email; Twilio WhatsApp; Web Push (VAPID).
+- **Messaging:** Yoola SMS (primary), Africa's Talking, LANA (fallbacks); Mailgun US for email; Meta WhatsApp Cloud API; Web Push (VAPID).
 - **AI:** Lovable AI Gateway (\`LOVABLE_API_KEY\`) — \`welile-ai-chat\`, analytics helpers.
 
 ## 1.6 Deployment
@@ -110,7 +110,6 @@ Static SPA served through the Lovable proxy (HTML \`no-cache\`). **No service wo
 | Gmail API | MoMo receipt polling | \`GOOGLE_MAIL_API_KEY\`, \`gmail-poll-transactions\` |
 | Google Drive | offsite document vault | \`GOOGLE_DRIVE_API_KEY\`, \`drive-archive\` |
 | Search Console / SEMrush | SEO monitoring | \`GOOGLE_SEARCH_CONSOLE_API_KEY\`, \`SEMRUSH_API_KEY\` |
-| Twilio | WhatsApp login links | \`TWILIO_*\` |
 | Web Push | in-app notifications | \`VAPID_PUBLIC_KEY\` / \`VAPID_PRIVATE_KEY\` |
 | Inngest | background SMS events | \`INNGEST_API_KEY\`, \`inngest\`, \`inngest-send-sms\` |
 | Google Maps JS | in-browser routing/geocoding only | \`get_maps_browser_key()\` RPC (referrer-restricted) |
@@ -568,7 +567,7 @@ Every public table has RLS enabled and explicit \`GRANT\`s (Data API grants are 
 ## 9.3 Edge Function conventions
 
 - Manually define \`corsHeaders\` — never import a cors package.
-- Authenticate with \`adminClient.auth.getUser(token)\`, then check roles server-side.
+- Authenticate with \`(bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult())\`, then check roles server-side.
 - Pass \`entries\` to \`create_ledger_transaction\` as a **raw JSON array**, never \`JSON.stringify\`.
 - Use only allowlisted ledger categories.
 - Cron-invoked functions must be idempotent and listed in \`config.toml\` with \`verify_jwt = false\` if invoked by \`net.http_post\`.
@@ -823,3 +822,4 @@ Directionally, from current code and memory:
 
 *This document supersedes \`SYSTEM_ARCHITECTURE.md\`, \`welile_architecture_guide.md\` and \`backend\` where they conflict. When code and this document disagree, the code and the database catalog are authoritative — update this file in the same change.*
 `;
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";

@@ -142,13 +142,13 @@ export function InvitePartnerPortfolioDialog({ open, onOpenChange, partner, onSe
               <Input id="dur" type="number" min={1} max={60} value={duration} onChange={(e) => setDuration(e.target.value)} disabled={busy} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="roi" className="text-xs">Monthly Returns (%)</Label>
+              <Label htmlFor="roi" className="text-xs">Monthly Rent profit share (%)</Label>
               <Input id="roi" type="number" min={1} max={100} step="0.5" value={roi} onChange={(e) => setRoi(e.target.value)} disabled={busy} />
               <PartnerRateCfoNote policyEnabled={rate.policyEnabled} personRate={rate.personRate} typedRate={rate.value} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Returns mode</Label>
+            <Label className="text-xs">Rent profit share mode</Label>
             <Select value={mode} onValueChange={(v: 'monthly_payout' | 'monthly_compounding') => setMode(v)} disabled={busy}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -165,7 +165,7 @@ export function InvitePartnerPortfolioDialog({ open, onOpenChange, partner, onSe
           {previewMonthly > 0 && (
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs">
               <p className="font-semibold text-foreground">Preview</p>
-              <p className="text-muted-foreground mt-1">Monthly Returns: <span className="font-medium text-foreground">{formatUGX(previewMonthly)}</span></p>
+              <p className="text-muted-foreground mt-1">Monthly Rent profit share: <span className="font-medium text-foreground">{formatUGX(previewMonthly)}</span></p>
               <p className="text-muted-foreground">Projected over {duration} months: <span className="font-medium text-foreground">{formatUGX(previewMonthly * Number(duration))}</span></p>
             </div>
           )}

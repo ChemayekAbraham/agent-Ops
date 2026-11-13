@@ -32,6 +32,7 @@ import AgreementHtmlPreview, { type AgreementPreviewData } from '@/components/pa
 import { buildAgreementHtml, OPTION_FROM_ROI_MODE, storedOption } from '@/components/partner/agreementTemplate';
 import { buildPartnerReference } from '@/lib/partnerReference';
 import { renderAgreementPdfBase64 } from '@/components/partner/renderAgreementPdf';
+import AgreementRateInput from '@/components/partner/AgreementRateInput';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 
 type InviteStatus = 'awaiting_partner_details' | 'pending_ops_approval' | 'active';
@@ -571,7 +572,7 @@ export function InvitedPortfoliosPanel() {
                       <p className="font-bold">{formatUGX(row.investment_amount)}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">ROI</p>
+                      <p className="text-muted-foreground">Rent profit share</p>
                       <p className="font-semibold">{row.roi_percentage}%{row.roi_mode ? ` · ${row.roi_mode.replace(/_/g, ' ')}` : ''}</p>
                     </div>
                     <div>
@@ -741,7 +742,7 @@ export function InvitedPortfoliosPanel() {
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
             The partner never completed the invite form, so no NIN, mobile-money name or
-            signature will be on file. The portfolio goes live immediately and ROI starts
+            signature will be on file. The portfolio goes live immediately and Rent profit share starts
             accruing. Only do this when funding has been verified offline.
           </p>
           {approvalError && (
@@ -925,8 +926,13 @@ function ReviewSubmissionDialog({
   const [sendingContract, setSendingContract] = useState(false);
   // Stamp / execution date shown on the Welile stamp and DATE field.
   const [stampDate, setStampDate] = useState('');
-  // Monthly return percentage printed in the contract returns clause.
-  const [returnPct, setReturnPct] = useState('');
+  // Monthly Rent profit share rate printed in the contract returns clause. It
+  // starts at the portfolio's saved rate; typing previews it live, and "Save
+  // rate" stores it on the portfolio (set_portfolio_renewal_rate) so the
+  // approved portfolio and the executed PDF carry the same rate.
+  const [returnRate, setReturnRate] = useState<number | undefined>();
+  const [rateNeedsSave, setRateNeedsSave] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: submission, isLoading } = useQuery({
     queryKey: ['invited-portfolio-submission', row?.id, row?.investor_id],
@@ -980,11 +986,12 @@ function ReviewSubmissionDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row?.id, defaults?.rep_name, defaults?.rep_position, defaults?.rep_contact]);
 
-  // Seed the contract return percentage from the portfolio terms.
+  // Seed the contract rate from the portfolio terms.
   useEffect(() => {
     if (!row) return;
     const pct = Number(row.roi_percentage);
-    setReturnPct(pct > 0 ? String(pct) : '15');
+    setReturnRate(pct > 0 && pct <= 100 ? pct : undefined);
+    setRateNeedsSave(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row?.id, row?.roi_percentage]);
 
@@ -1027,6 +1034,7 @@ function ReviewSubmissionDialog({
     // Portfolio amount is authoritative so the preview/PDF always matches the
     // "Portfolio terms → Amount" shown in the details section.
     partnershipAmount: Number(row.investment_amount) || Number(agreement.partnership_amount) || 0,
+    monthlyReturnRate: returnRate,
     returnOption: storedOption(agreement.return_option) ?? (row.roi_mode ? OPTION_FROM_ROI_MODE[row.roi_mode] : undefined),
     reference: agreement.reference || buildPartnerReference(row.investor_id, row.created_at),
     payoutMode: agreement.payout_mode === 'momo' ? 'momo' : 'bank',
@@ -1087,6 +1095,7 @@ function ReviewSubmissionDialog({
     ...(!repPosition.trim() ? ['Missing Welile representative position.'] : []),
     ...(!repContact.trim() ? ['Missing Welile representative contact.'] : []),
     ...(!stampDate ? ['Missing stamp date.'] : []),
+    ...(rateNeedsSave ? ['The Rent profit share rate in the contract is a draft. Press Save rate first.'] : []),
     ...(!(sigDataUrl || defaultSigUrl) ? ['Missing Welile representative signature.'] : []),
   ];
   const approvalBlocked = approvalBlockers.length > 0;
@@ -1146,7 +1155,7 @@ function ReviewSubmissionDialog({
                   <ReadRow label="Code" value={row.portfolio_code} />
                   <ReadRow label="Amount" value={formatUGX(row.investment_amount)} />
                   <ReadRow
-                    label="ROI"
+                    label="Rent profit share"
                     value={`${row.roi_percentage}%${row.roi_mode ? ` · ${row.roi_mode.replace(/_/g, ' ')}` : ''}`}
                   />
                   <ReadRow label="Tenor" value={`${row.duration_months ?? '—'} mo`} />
@@ -1207,22 +1216,20 @@ function ReviewSubmissionDialog({
                       Sets the DATE field and the date printed inside the Welile stamp.
                     </p>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Monthly return in contract (%)</Label>
-                    <Input
-                      type="number"
-                      min={0.1}
-                      max={100}
-                      step={0.5}
-                      value={returnPct}
-                      onChange={(e) => setReturnPct(e.target.value)}
-                      placeholder="15"
-                      className="h-8 text-xs"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      Prints in the returns clause: “monthly return of {Number(returnPct) > 0 ? Number(returnPct) : 15}% on the principal partnership amount.”
-                    </p>
-                  </div>
+                  <AgreementRateInput
+                    key={row.id}
+                    portfolios={[{ id: row.id, portfolio_code: row.portfolio_code, roi_percentage: Number(row.roi_percentage) }]}
+                    initialId={row.id}
+                    onRatePreview={(rate, unsaved) => {
+                      setReturnRate(rate);
+                      setRateNeedsSave(unsaved);
+                    }}
+                    onRateSaved={(rate) => {
+                      setReturnRate(rate);
+                      setRateNeedsSave(false);
+                      void queryClient.invalidateQueries({ queryKey: ['invited-portfolios'] });
+                    }}
+                  />
                   <div className="space-y-1">
                     <Label className="text-[11px]">Signature image</Label>
                     <div className="flex items-center gap-2">
@@ -1304,7 +1311,7 @@ function ReviewSubmissionDialog({
                     type="button"
                     variant="secondary"
                     className="gap-1.5"
-                    disabled={approving || sendingContract || !previewData}
+                    disabled={approving || sendingContract || !previewData || rateNeedsSave}
                     title="Email the contract to the partner without approving or creating a portfolio"
                     onClick={async () => {
                       if (!previewData) return;

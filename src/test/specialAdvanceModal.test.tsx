@@ -5,12 +5,12 @@ import { previewSpecialAdvance } from '@/lib/specialAdvancePreview';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
 
 const mocks = vi.hoisted(() => ({
-  rpc: vi.fn(), from: vi.fn(), functionsInvoke: vi.fn(), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+  rpc: vi.fn(), from: vi.fn(), upload: vi.fn(), functionsInvoke: vi.fn(), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
   // legacyFees: a server before migration 20261103170000 (sa-calc-1) sends the fixed part separately as registration_fee
   server: { issuance: true, legacyFees: false, eligibility: [] as string[], borrowerErrors: [] as string[], createError: null as null | { code: string; message: string; details?: string } },
 }));
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { rpc: mocks.rpc, from: mocks.from, functions: { invoke: mocks.functionsInvoke } },
+  supabase: { rpc: mocks.rpc, from: mocks.from, storage: { from: () => ({ upload: mocks.upload }) }, functions: { invoke: mocks.functionsInvoke } },
 }));
 vi.mock('sonner', () => ({ toast: mocks.toast }));
 vi.mock('@/components/cfo/UserSearchPicker', () => ({
@@ -54,9 +54,9 @@ function serverQuote(req: { terms?: Record<string, unknown>; borrower?: Record<s
 }
 
 const onOpenChange = vi.fn();
-const renderModal = () => {
+const renderModal = (historical = false) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}><SpecialAdvanceModal open onOpenChange={onOpenChange} /></QueryClientProvider>);
+  return render(<QueryClientProvider client={client}><SpecialAdvanceModal open historical={historical} onOpenChange={onOpenChange} /></QueryClientProvider>);
 };
 const click = (id: string) => fireEvent.click(document.getElementById(id) as HTMLElement);
 const setPrincipal = (v: string) => fireEvent.change(screen.getByLabelText('Principal (UGX)'), { target: { value: v } });
@@ -76,16 +76,51 @@ async function fillValid() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.upload.mockResolvedValue({ error: null });
   Object.assign(mocks.server, { issuance: true, legacyFees: false, eligibility: [], borrowerErrors: [], createError: null });
   mocks.rpc.mockImplementation((fn: string, args: { p_request: Record<string, unknown> }) => {
     if (fn === 'special_advance_quote') return Promise.resolve({ data: serverQuote(args.p_request), error: null });
-    if (fn === 'special_advance_create') {
+    if (fn === 'special_advance_create' || fn === 'special_advance_record_historical') {
       return Promise.resolve(mocks.server.createError ? { data: null, error: mocks.server.createError } : { data: { id: 'sa-1', reference: 'SA-000001', status: 'pending_approval' }, error: null });
     }
     return Promise.resolve({ data: null, error: { message: `unexpected ${fn}` } });
   });
 });
 afterEach(cleanup);
+
+describe('Already-issued outside-Welile advances', () => {
+  it('records with the original date and proof through the historical action only, never create or payout', async () => {
+    renderModal(true);
+    fireEvent.change(screen.getByLabelText(/Original payment date/), { target: { value: '2026-10-01' } });
+    await fillValid();
+    const submit = screen.getByRole('button', { name: 'Record Special Advance' });
+    expect(submit.hasAttribute('disabled')).toBe(true);
+    fireEvent.change(screen.getByLabelText(/Original transaction/), { target: { value: 'EXTERNAL-TID-123' } });
+    fireEvent.change(document.getElementById('historical-payment-proof') as HTMLInputElement, {
+      target: { files: [new File(['original receipt'], 'receipt.pdf', { type: 'application/pdf' })] },
+    });
+    fireEvent.click(screen.getByRole('checkbox', { name: /I confirm this advance was paid outside/ }));
+    await waitFor(() => expect(submit.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(submit);
+    await waitFor(() => expect(calls('special_advance_record_historical')).toHaveLength(1));
+    expect(calls('special_advance_record_historical')[0].p_request).toMatchObject({
+      original_payout_date: '2026-10-01', method: 'mobile_money', reference: 'EXTERNAL-TID-123', confirm_not_recorded: true,
+    });
+    expect(calls('special_advance_create')).toHaveLength(0);
+    expect(calls('special_advance_disburse')).toHaveLength(0);
+    expect(mocks.upload).toHaveBeenCalledTimes(1);
+    expect(mocks.toast.success).toHaveBeenCalledWith('SA-000001 recorded — no new payment sent');
+    expect(calls('special_advance_quote').at(-1)?.p_request.planned_payout_date).toBe('2026-10-01');
+  });
+
+  it('blocks a future original payment date', async () => {
+    renderModal(true);
+    fireEvent.change(screen.getByLabelText(/Original payment date/), { target: { value: '2099-01-01' } });
+    await fillValid();
+    expect(screen.getByRole('button', { name: 'Record Special Advance' }).hasAttribute('disabled')).toBe(true);
+    expect(calls('special_advance_record_historical')).toHaveLength(0);
+  });
+});
 
 describe('SpecialAdvanceModal — agreed terms', () => {
   it('offers the approved rates and terms with nothing pre-selected', () => {

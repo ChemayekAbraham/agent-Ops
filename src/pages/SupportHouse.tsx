@@ -32,6 +32,8 @@ import {
 import { formatDynamic } from '@/lib/currencyFormat';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import { formatRatePct } from '@/lib/partnerReturnPolicy';
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
+import { AgentCareNote } from '@/components/partner/AgentCareNote';
 import {
   clearHouseSupportIntent,
   getHouseSupportIntent,
@@ -102,6 +104,10 @@ export default function SupportHouse() {
   const offer = offerQ.data;
   const rent = Number(offer?.monthly_rent || 0);
   const monthlyReturn = Number(offer?.monthly_return || 0);
+  // Field Care: the partner pays pay(rent) and earns on it (= rent while the switch is off).
+  const { pay } = useSelfSupportFeePolicy();
+  const partnerAmount = pay(rent);
+  const partnerReturn = rent > 0 && partnerAmount !== rent ? Math.round((monthlyReturn * partnerAmount) / rent) : monthlyReturn;
   const place = useMemo(
     () =>
       [offer?.village, offer?.sub_county, offer?.district, 'Uganda'].filter(Boolean).join(', '),
@@ -229,7 +235,7 @@ export default function SupportHouse() {
         <title>{shellTitle}</title>
         <meta
           name="description"
-          content={`Support this available house in ${place} through Welile for ${formatDynamic(rent)}.`}
+          content={`Support this available house in ${place} through Welile for ${formatDynamic(partnerAmount)}.`}
         />
       </Helmet>
 
@@ -282,12 +288,12 @@ export default function SupportHouse() {
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <div className="rounded-2xl border border-border/60 p-3">
               <p className="text-[11px] text-muted-foreground">Monthly rent</p>
-              <p className="text-base font-black tabular-nums sm:text-xl">{formatDynamic(rent)}</p>
+              <p className="text-base font-black tabular-nums sm:text-xl">{formatDynamic(partnerAmount)}</p>
             </div>
             <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3">
               <p className="text-[11px] text-emerald-700 dark:text-emerald-400">Monthly return</p>
               <p className="text-base font-black tabular-nums text-emerald-700 dark:text-emerald-400 sm:text-xl">
-                {formatDynamic(monthlyReturn)}
+                {formatDynamic(partnerReturn)}
               </p>
             </div>
           </div>
@@ -297,10 +303,11 @@ export default function SupportHouse() {
               <TrendingUp className="h-4 w-4 text-primary" /> How supporting this house works
             </p>
             <p className="mt-1.5">
-              You cover one month's rent of {formatDynamic(rent)}. Welile places a family in the
-              house and pays the landlord. You receive {formatDynamic(monthlyReturn)} every month
+              {partnerAmount !== rent ? 'You support this house with' : "You cover one month's rent of"} {formatDynamic(partnerAmount)}. Welile places a family in the
+              house and pays the landlord. You receive {formatDynamic(partnerReturn)} every month
               for 12 months{formatRatePct(newContractRate) ? `, which is ${formatRatePct(newContractRate)} a month` : ''}.
             </p>
+            <AgentCareNote kind="house" rent={rent} className="mt-2" />
           </div>
 
           {done ? (
@@ -387,7 +394,7 @@ export default function SupportHouse() {
               <ShieldCheck className="h-4 w-4 text-primary" /> Confirm your support
             </DialogTitle>
             <DialogDescription className="text-xs">
-              You are committing {formatDynamic(rent)} to {offer.title}. Partner Operations review
+              You are committing {formatDynamic(partnerAmount)} to {offer.title}. Partner Operations review
               it before anything is deployed, and your money stays in your wallet until then.
             </DialogDescription>
           </DialogHeader>
@@ -395,11 +402,11 @@ export default function SupportHouse() {
           <div className="space-y-1 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Amount</span>
-              <span className="font-black">{formatDynamic(rent)}</span>
+              <span className="font-black">{formatDynamic(partnerAmount)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Monthly return</span>
-              <span className="font-black">{formatDynamic(monthlyReturn)}</span>
+              <span className="font-black">{formatDynamic(partnerReturn)}</span>
             </div>
             <div className="flex justify-between border-t border-primary/10 pt-1">
               <span className="text-muted-foreground">Projected over 12 months</span>

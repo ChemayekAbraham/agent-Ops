@@ -19,7 +19,8 @@ import {
   PURPOSE_MAX, PURPOSE_MIN, buildCreateRequest, combinedAccessFee, buildRequest, describeSpecialAdvanceError, eligibilityText, fieldText,
   newIdempotencyKey, type BorrowerRequest, type TermsRequest,
 } from '@/lib/specialAdvances';
-import { useCreateSpecialAdvance, useSpecialAdvanceQuote } from '@/hooks/useSpecialAdvances';
+import { useCreateSpecialAdvance, useRecordHistoricalSpecialAdvance, useSpecialAdvanceQuote, uploadSpecialAdvanceProof } from '@/hooks/useSpecialAdvances';
+import { SpecialAdvanceProofInput } from '@/components/cfo/special-advances/SpecialAdvanceProofInput';
 import { cn } from '@/lib/utils';
 
 const CUSTOM = 'custom';
@@ -46,7 +47,7 @@ interface ShownRow { number: number; dueYmd: string; amount: number; accessFee: 
  * eligible borrower, a purpose and the CFO's explicit confirmation of the server total; it creates a PENDING agreement
  * — approval and payout are separate steps. Nothing here moves money.
  */
-export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: { open: boolean; onOpenChange: (o: boolean) => void; historical?: boolean }) {
   const [borrowerType, setBorrowerType] = useState<'welile' | 'external'>('welile');
   const [welileUser, setWelileUser] = useState<UserResult | null>(null);
   const [externalKind, setExternalKind] = useState<'individual' | 'entity'>('individual');
@@ -56,7 +57,7 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
   const [externalReg, setExternalReg] = useState('');
   const [externalOrg, setExternalOrg] = useState('');
   const [amount, setAmount] = useState('');
-  const [ratePreset, setRatePreset] = useState<string | null>(null);
+  const [ratePreset, setRatePreset] = useState<string | null>(CUSTOM);
   const [customBasis, setCustomBasis] = useState<RateBasis | null>(null);
   const [customRate, setCustomRate] = useState('');
   const [frequency, setFrequency] = useState<SpecialAdvanceFrequency>('daily');
@@ -68,6 +69,15 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
   const [submitError, setSubmitError] = useState<string | null>(null);
   const idempotencyKey = useRef(newIdempotencyKey());
   const create = useCreateSpecialAdvance();
+  const recordHistorical = useRecordHistoricalSpecialAdvance();
+  const advanceId = useRef(crypto.randomUUID());
+  const [originalMethod, setOriginalMethod] = useState('mobile_money');
+  const [originalReference, setOriginalReference] = useState('');
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPath, setProofPath] = useState<string | null>(null);
+  const [notRecorded, setNotRecorded] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const busy = create.isPending || recordHistorical.isPending || uploading;
 
   useEffect(() => {
     if (open) return;
@@ -80,7 +90,7 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
     setExternalReg('');
     setExternalOrg('');
     setAmount('');
-    setRatePreset(null);
+    setRatePreset(CUSTOM);
     setCustomBasis(null);
     setCustomRate('');
     setFrequency('daily');
@@ -91,6 +101,12 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
     setConfirmedTotal(null);
     setSubmitError(null);
     idempotencyKey.current = newIdempotencyKey();
+    advanceId.current = crypto.randomUUID();
+    setOriginalMethod('mobile_money');
+    setOriginalReference('');
+    setProofFile(null);
+    setProofPath(null);
+    setNotRecorded(false);
   }, [open]);
 
   const principal = Number(amount) || 0;
@@ -112,7 +128,7 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
   const termDays = termPreset && !isCustomTerm ? Number(termPreset) : isCustomTerm && customTermValid ? customTermNum : null;
 
   const todayYmd = kampalaTodayYmd();
-  const issueYmd = plannedDate && plannedDate >= todayYmd ? plannedDate : todayYmd;
+  const issueYmd = historical ? plannedDate || todayYmd : plannedDate && plannedDate >= todayYmd ? plannedDate : todayYmd;
 
   const ratePercent = rate?.ratePercent ?? null;
   const rateBasis = rate?.basis ?? null;
@@ -134,7 +150,7 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
   const terms: TermsRequest | null = preview && rateBasis && ratePercent !== null && termDays
     ? { principal, rate_percent: ratePercent, rate_basis: rateBasis, term_days: termDays, frequency }
     : null;
-  const plannedPayoutDate = plannedDate && plannedDate >= todayYmd ? plannedDate : null;
+  const plannedPayoutDate = historical ? plannedDate || null : plannedDate && plannedDate >= todayYmd ? plannedDate : null;
 
   // Server quote: debounced, only once the terms are complete (the server is asked even without a borrower).
   const quoteRequest = useDebounced(terms ? buildRequest({ borrower, terms, plannedPayoutDate }) : null, 300);
@@ -175,20 +191,39 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
     borrowerProblems.length ? 'The borrower cannot receive a Special Advance (see above).' : null,
     !purposeValid ? `Describe the purpose (${PURPOSE_MIN}–${PURPOSE_MAX} characters).` : null,
     !confirmed ? 'Confirm the agreed terms and the server total.' : null,
+    historical && (!plannedDate || plannedDate > todayYmd) ? 'Enter the original payment date, no later than today.' : null,
+    historical && originalReference.trim().length < 3 ? 'Enter the original transaction or receipt reference.' : null,
+    historical && !proofFile && !proofPath ? 'Attach proof of the original payment.' : null,
+    historical && !notRecorded ? 'Confirm this payment has not already been recorded in Welile.' : null,
   ].filter(Boolean) as string[];
-  const canSubmit = !!server && blockers.length === 0 && !create.isPending;
+  const canSubmit = !!server && blockers.length === 0 && !busy;
 
   const submit = async () => {
     if (!canSubmit || !borrower || !terms || serverTotal === null) return;
     setSubmitError(null);
     try {
-      const saved = await create.mutateAsync(buildCreateRequest({
-        borrower, terms, purpose, plannedPayoutDate, confirmedTotal: serverTotal, idempotencyKey: idempotencyKey.current }));
-      toast.success(`${saved.reference} recorded — pending approval`);
+      let saved;
+      if (historical) {
+        setUploading(true);
+        const path = proofPath ?? (proofFile ? await uploadSpecialAdvanceProof(advanceId.current, proofFile) : null);
+        setProofPath(path);
+        setUploading(false);
+        saved = await recordHistorical.mutateAsync({
+          ...buildCreateRequest({ borrower, terms, purpose, confirmedTotal: serverTotal, idempotencyKey: idempotencyKey.current }),
+          advance_id: advanceId.current, original_payout_date: plannedDate, method: originalMethod,
+          reference: originalReference.trim(), proof_path: path, confirm_not_recorded: notRecorded,
+        });
+      } else {
+        saved = await create.mutateAsync(buildCreateRequest({
+          borrower, terms, purpose, plannedPayoutDate, confirmedTotal: serverTotal, idempotencyKey: idempotencyKey.current }));
+      }
+      toast.success(historical ? `${saved.reference} recorded — no new payment sent` : `${saved.reference} recorded — pending approval`);
       idempotencyKey.current = newIdempotencyKey();
       onOpenChange(false);
     } catch (e) {
       setSubmitError(describeSpecialAdvanceError(e));
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -208,10 +243,10 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Sparkles className="h-4 w-4" />
             </span>
-            Special Advance
+            {historical ? 'Record Special Advance' : 'Special Advance'}
           </DialogTitle>
           <DialogDescription>
-            Record the borrower's agreed terms. The server calculates every figure; nothing is paid out from this screen.
+            {historical ? 'Record the original outside-Welile payment and agreed terms. No money will be sent again.' : "Record the borrower's agreed terms. The server calculates every figure; nothing is paid out from this screen."}
           </DialogDescription>
         </DialogHeader>
 
@@ -314,14 +349,6 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
 
             <fieldset>
               <legend className="text-sm font-medium">Agreed access fee rate</legend>
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                {SPECIAL_ADVANCE_RATE_PRESETS.map((p) => (
-                  <Chip key={p.id} id={`special-advance-rate-${p.id}`} active={ratePreset === p.id} onClick={() => setRatePreset(p.id)}>
-                    {rateLabel(p.ratePercent, p.basis)}
-                  </Chip>
-                ))}
-                <Chip id="special-advance-rate-custom" active={isCustomRate} onClick={() => setRatePreset(CUSTOM)}>Custom rate</Chip>
-              </div>
               {isCustomRate && (
                 <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-dashed border-border p-3">
                   <div>
@@ -386,12 +413,25 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
                 </Select>
               </div>
               <div>
-                <Label htmlFor="special-advance-planned-date">Planned payout date (optional)</Label>
-                <Input id="special-advance-planned-date" type="date" className="mt-1" min={todayYmd} value={plannedDate}
+                <Label htmlFor="special-advance-planned-date">{historical ? 'Original payment date *' : 'Planned payout date (optional)'}</Label>
+                <Input id="special-advance-planned-date" type="date" className="mt-1" min={historical ? undefined : todayYmd} max={historical ? todayYmd : undefined} value={plannedDate}
                   onChange={(e) => setPlannedDate(e.target.value)} />
               </div>
             </div>
           </section>
+
+          {historical && <section className="space-y-3">
+            <Label htmlFor="historical-payment-method">Original payment method</Label>
+            <Select value={originalMethod} onValueChange={setOriginalMethod}><SelectTrigger id="historical-payment-method"><SelectValue /></SelectTrigger><SelectContent>
+              <SelectItem value="mobile_money">Mobile money</SelectItem><SelectItem value="bank_transfer">Bank transfer</SelectItem><SelectItem value="cash">Cash</SelectItem>
+            </SelectContent></Select>
+            <Label htmlFor="historical-payment-reference">Original transaction / receipt reference *</Label>
+            <Input id="historical-payment-reference" value={originalReference} maxLength={100} onChange={e => setOriginalReference(e.target.value)} />
+            <SpecialAdvanceProofInput id="historical-payment-proof" label="Proof of original payment" required file={proofFile} onFileChange={file => { setProofFile(file); setProofPath(null); }} />
+            <label className="flex items-start gap-2 text-xs"><Checkbox checked={notRecorded} onCheckedChange={value => setNotRecorded(value === true)} />
+              I confirm this advance was paid outside Welile and the payment has not already been recorded in Welile’s accounts.
+            </label>
+          </section>}
 
           {shown ? (
             <section id="special-advance-preview" className="space-y-3 rounded-2xl border border-border bg-gradient-to-br from-muted/40 to-background p-4">
@@ -430,7 +470,7 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
                   <thead className="sticky top-0 bg-muted/80 text-[10px] uppercase tracking-wide text-muted-foreground backdrop-blur">
                     <tr>
                       <th className="px-2.5 py-2 text-left font-medium">#</th>
-                      <th className="px-2.5 py-2 text-left font-medium">Due (if paid out {plannedPayoutDate ? 'as planned' : 'today'})</th>
+                      <th className="px-2.5 py-2 text-left font-medium">{historical ? 'Due from original payment' : `Due (if paid out ${plannedPayoutDate ? 'as planned' : 'today'})`}</th>
                       <th className="px-2.5 py-2 text-right font-medium">Instalment</th>
                       <th className="hidden px-2.5 py-2 text-right font-medium sm:table-cell">Access fee</th>
                       <th className="hidden px-2.5 py-2 text-right font-medium sm:table-cell">Principal</th>
@@ -491,13 +531,13 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
         <DialogFooter className="items-center gap-2 sm:justify-between">
           <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Lock className="h-3.5 w-3.5" />
-            {q && !issuanceEnabled ? 'Issuance is switched off on the server — preview only.' : 'CFO authorization only. Recording creates a pending agreement; payout is a separate step.'}
+            {q && !issuanceEnabled ? 'Issuance is switched off on the server — preview only.' : historical ? 'CFO authorization only. Original payment recorded once; no new payout.' : 'CFO authorization only. Recording creates a pending agreement; payout is a separate step.'}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
             {server && (
               <Button id="special-advance-submit" disabled={!canSubmit} onClick={() => void submit()}>
-                {create.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} Record Special Advance
+                {busy && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} {historical ? 'Record Special Advance' : 'Record Special Advance'}
               </Button>
             )}
           </div>

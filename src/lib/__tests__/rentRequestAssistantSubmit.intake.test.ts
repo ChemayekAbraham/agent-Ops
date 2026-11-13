@@ -103,10 +103,12 @@ describe('submitAssistantRentRequest: intake after the request is created', () =
     const res = await submitAssistantRentRequest(input({ lcLetter: letter, noLc1Reason: null }));
     expect(res.ok).toBe(true);
     expect(mocks.upload).toHaveBeenCalledWith('agent-1/req-1/lc_letter.jpg', letter, expect.objectContaining({ upsert: true }));
-    expect(intakeCalls().map(([fn, args]) => [fn, args])).toEqual([
+    // After the insert these run side by side, so their order does not matter.
+    expect(intakeCalls()).toHaveLength(2);
+    expect(intakeCalls().map(([fn, args]) => [fn, args])).toEqual(expect.arrayContaining([
       ['agent_attach_lc1_letter', { p_request_id: 'req-1', p_path: 'agent-1/req-1/lc_letter.jpg' }],
       ['agent_save_intake_details', { p_request_id: 'req-1', p_family_size: 4, p_work_business: 'Tailor', p_work_location: 'Owino' }],
-    ]);
+    ]));
   });
 
   it('keeps the request when saving details fails, returning the server errors as-is', async () => {
@@ -116,5 +118,40 @@ describe('submitAssistantRentRequest: intake after the request is created', () =
     });
     const res = await submitAssistantRentRequest(input());
     expect(res).toMatchObject({ ok: true, rentRequestId: 'req-1', intakeError: 'FAMILY_SIZE_RANGE: 1-30', lc1NoteError: 'REASON_TOO_SHORT' });
+  });
+});
+
+describe('DOCS-1: the three document photos go in the insert', () => {
+  const docs = {
+    idFront: { bucket: 'tenant-ids', path: 'agent-1/new-x/national_id_1.jpg' },
+    idBack: { bucket: 'tenant-ids', path: 'agent-1/new-x/national_id_back_1.jpg' },
+    lcLetter: { bucket: 'lc-letters', path: 'agent-1/new-x/lc_letter_1.jpg' },
+  };
+
+  it('puts nin_photo_*, nin_photo_back_* and lc_letter_* in the rent_requests insert', async () => {
+    serveRpcs();
+    const inserts: unknown[] = [];
+    mocks.from.mockImplementation((table: string) => {
+      const b = builder(table === 'rent_requests' ? { data: { id: 'req-1' }, error: null } : { data: [], error: null });
+      if (table === 'rent_requests') b.insert = vi.fn((row: unknown) => { inserts.push(row); return b; });
+      return b;
+    });
+    const res = await submitAssistantRentRequest(input({ docs, lcLetter: null, noLc1Reason: null }));
+    expect(res.ok).toBe(true);
+    expect(inserts[0]).toMatchObject({
+      nin_photo_path: 'agent-1/new-x/national_id_1.jpg', nin_photo_bucket: 'tenant-ids',
+      nin_photo_back_path: 'agent-1/new-x/national_id_back_1.jpg', nin_photo_back_bucket: 'tenant-ids',
+      lc_letter_path: 'agent-1/new-x/lc_letter_1.jpg', lc_letter_bucket: 'lc-letters',
+    });
+  });
+
+  it('shows the database’s DOCS_MISSING refusal exactly as it is', async () => {
+    serveRpcs();
+    const refusal = 'DOCS_MISSING: add the National ID back photo before posting this rent request';
+    mocks.from.mockImplementation((table: string) => builder(
+      table === 'rent_requests' ? { data: null, error: { message: refusal } } : { data: [], error: null },
+    ));
+    const res = await submitAssistantRentRequest(input({ docs, lcLetter: null, noLc1Reason: null }));
+    expect(res).toMatchObject({ ok: false, message: refusal });
   });
 });

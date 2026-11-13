@@ -3,7 +3,7 @@
  * Asserts hydration from the stored single string, the join on save,
  * blocked save with a blank last name, and no write on mount.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 const updateSpy = vi.fn().mockResolvedValue({ error: null });
@@ -27,10 +27,18 @@ async function renderGate(full_name: string) {
   storedName.value = full_name;
   const Gate = (await import('@/components/notifications/NameCompletionGate')).default;
   render(<Gate />);
+  // The gate waits a few seconds after sign-in before checking (it must not
+  // compete with the dashboard's own requests); skip that wait.
+  await vi.advanceTimersByTimeAsync(3000);
   await waitFor(() => expect(screen.getByLabelText(/First name/i)).toBeInTheDocument());
 }
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
   updateSpy.mockClear();
   vi.resetModules();
   try { localStorage.clear(); } catch { /* noop */ }

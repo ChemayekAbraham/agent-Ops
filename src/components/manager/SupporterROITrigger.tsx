@@ -47,15 +47,15 @@ export function SupporterROITrigger() {
       if (data.success) {
         setLastResults(data.results);
         setLastProcessedAt(new Date().toISOString());
-        toast.success('Supporter ROI processed successfully!', {
+        toast.success('Supporter Rent profit share processed successfully!', {
           description: `Credited ${data.results.credited} supporters, total: UGX ${data.results.totalAmount.toLocaleString()}`,
         });
       } else {
         throw new Error(data.error || 'Unknown error');
       }
     } catch (error: any) {
-      console.error('Error processing ROI:', error);
-      toast.error('Failed to process supporter ROI', {
+      console.error('Error processing Rent profit share:', error);
+      toast.error('Failed to process supporter Rent profit share', {
         description: error.message,
       });
     } finally {
@@ -70,7 +70,7 @@ export function SupporterROITrigger() {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
               <TrendingUp className="h-5 w-5 text-emerald-500" />
-              Supporter ROI Processing
+              Supporter Rent profit share Processing
             </CardTitle>
             <Badge variant="outline" className="text-xs">
               <Calendar className="h-3 w-3 mr-1" />
@@ -80,7 +80,7 @@ export function SupporterROITrigger() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            ROI is <strong>automatically paid daily at 6:00 AM</strong> to supporter wallets via the platform ledger. Use the button below to manually trigger processing if needed.
+            Rent profit share is <strong>automatically paid daily at 6:00 AM</strong> to supporter wallets via the platform ledger. Use the button below to manually trigger processing if needed.
           </p>
           {isPaused ? (
             <Badge variant="destructive" className="text-xs gap-1">
@@ -96,7 +96,7 @@ export function SupporterROITrigger() {
           
           <div className="flex flex-wrap gap-2 text-xs">
             <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600">
-              💰 15% ROI per month
+              💰 15% Rent profit share per month
             </div>
             <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/10 text-blue-600">
               📅 Every 30 days
@@ -153,7 +153,7 @@ export function SupporterROITrigger() {
             ) : (
               <>
                 <TrendingUp className="h-4 w-4" />
-                Process Supporter ROI
+                Process Supporter Rent profit share
               </>
             )}
           </Button>
@@ -165,29 +165,29 @@ export function SupporterROITrigger() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-emerald-500" />
-              Process Supporter ROI?
+              Process Supporter Rent profit share?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will process monthly ROI payments for all eligible supporters.
+              This will process monthly Rent profit share payments for all eligible supporters.
               <br /><br />
               <strong>How it works:</strong>
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Checks all verified payment proofs due for ROI</li>
+                <li>Checks all verified payment proofs due for Rent profit share</li>
                 <li>Credits 15% of rent amount to supporter wallets</li>
                 <li>Sends notifications to credited supporters</li>
-                <li>Sets next ROI due date (30 days later)</li>
+                <li>Sets next Rent profit share due date (30 days later)</li>
               </ul>
               <br />
               <span className="text-muted-foreground text-xs flex items-center gap-1">
                 <Users className="h-3 w-3" />
-                Only payments due for ROI will be processed
+                Only payments due for Rent profit share will be processed
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleProcessROI}>
-              Process ROI
+              Process Rent profit share
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

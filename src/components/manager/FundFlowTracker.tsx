@@ -154,7 +154,7 @@ export default function FundFlowTracker() {
             </div>
             <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-2">
               <TrendingUp className="h-3.5 w-3.5 mx-auto text-emerald-500 mb-0.5" />
-              <p className="text-[10px] text-muted-foreground">ROI Paid</p>
+              <p className="text-[10px] text-muted-foreground">Rent profit share Paid</p>
               <p className="text-xs font-bold text-emerald-600">{formatUGX(totalROIPaid)}</p>
             </div>
             <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-2">

@@ -1,3 +1,56 @@
+# Signage shop-owner cross-check
+- [ ] Add staff-only phone/account/Rent Plan matching and the Agent Ops Shop owners tab.
+- [ ] Test matching, paging, access and existing signage behavior.
+
+# Already-issued Special Advances
+- [x] Add separate CFO recording for outside-Welile advances with original date, proof, duplicate safeguards and platform-only accounting; never calls the fresh payout action.
+- [x] Eighty form/table/accounting tests pass, all guards pass and automatic build OK; embedded Postgres confirms original-date schedules, platform-only accounting and replay/payout refusal. Signed-in CFO end-to-end verification is unavailable with external unmanaged authentication.
+
+# Agent Ops signage location filters
+- [x] Add a region filter and search across region, district, county, sub-county, parish, village and landmarks using authorized loaded signage rows and the shared official district-region reference.
+- [x] Twelve filter/photo/approval checks pass; automatic build OK. Authorized live Agent Ops browser verification remains unavailable with external unmanaged authentication.
+
+# Invitation profile picture
+- [x] Diagnose signing-placeholder errors incorrectly poisoning the shared avatar failure cache; cache only failed image attempts, keeping real failure suppression unchanged.
+- [x] All 45 avatar/co-support checks pass and build OK; Benjamin's real invitation photo loads and remains visible after the one-minute refresh. Storage access unchanged.
+
+# Agent Ops signage evidence photos
+- [x] Fit complete photos inside their frames and open any clicked photo in a full-screen, closable preview; other signage desks and financial actions unchanged.
+- [x] Six photo/approval tests pass and automatic build OK; isolated desktop/phone checks confirm contained portrait/landscape images, full-screen sizing and Escape returns to review. Live authorized inspection remains unavailable with external unmanaged authentication.
+
+# Co-support invitation follow-ups
+- [x] Confirm pushed commit 447b8bdd02 and the supplied float-watch regression test; keep the hook and safety boundary unchanged.
+- [x] Use the supplied waiting-sheet and joined-card labels and suppress the global install prompt on invitation links only; storage untouched.
+- [x] Co-support library, both page tests, upstream float-watch tests and install-route tests pass (49 checks); automatic build OK. Phone invitation route remains uncovered by the install prompt; live payment verification still requires an authorized session and valid invitation.
+
+# Signage GPS-only locations
+- [x] Populate read-only location fields from captured GPS for new and returned applications; block failed/unresolved lookups without guessing missing optional levels.
+- [x] Test capture, recapture, lookup failures, locked fields and existing signage safeguards; 24 tests and all guards passed, build OK.
+- [ ] Verify signed-in registration; external unmanaged authentication prevents a real authorized browser check.
+
+# Co-support invitation redesign
+- [x] Confirm commit 604a836d18, eight owner boards and required hooks/deposit callback.
+- [x] Match invitation and joined views and connect existing DepositFlow to float-watch sheets; no financial writer changes.
+- [x] Run co-support tests and check mobile/desktop invitation rendering and build output.
+- [x] Float-watch initialization crash fixed upstream in 447b8bdd02; retain the safety boundary and re-run the supplied hook and page regressions.
+- [x] Resolve merchandise storage finding: user selected uploaders and staff; applied owner/staff read restrictions, verified live policies, private bucket unchanged and finding cleared.
+
+# Production log fixes (12 November)
+- [x] Add fresh operational-float-only funding checks for Rent Plans and empty houses and clarify the review balance labels.
+- [ ] Verify support through a real signed-in Funder; external unmanaged authentication prevents an authenticated browser check.
+- [x] Normalize timestamp filters and regression-test the three reported tables plus sibling raw cursors.
+- [x] Isolate service-role float readers and replace the browser helper with the ownership-checked capacity wrapper.
+- [x] Gate weekly posting eligibility on a usable session; 25 focused tests and all guards passed; build OK.
+- [ ] Verify authenticated production flows; external unmanaged authentication prevents signed-in checks here.
+
+# Tenant Repayment Tracker exception investigation
+- [x] Reproduce the displayed 243 exceptions across 208 tenants and compare plan-specific receipts, repayments, edits and Tenant Operations activity sources.
+- [x] Prepare the case register and evidence-backed reporting proposal without financial or production data changes.
+- [x] Apply the approved reporting-only migration, full-register pagination and exact-plan investigation/activity links; financial records unchanged.
+- [x] Run reporting, pagination, permissions and preservation tests plus all project safeguards; revalidate the five live source-evidence matches.
+- [ ] Verify the five corrected warnings and complete register through an authorized CFO screen; external unmanaged authentication prevents signed-in checks.
+- [ ] Resolve remaining evidence gaps; requires case-specific payment/adjustment evidence and approved scope, never money movement or ledger edits.
+
 # R&D monthly project planning
 - [x] Confirm requested d572009ed0 is already included; do not reapply its migration or publish.
 - [x] Add account-scoped device-saved monthly budgets and targets for each R&D project, separate from cash position and approved finance budgets.
@@ -12,9 +65,10 @@
 - [ ] Verify real board totals with an enabled display link; no valid display token was supplied. Real invalid-link message verified.
 
 # Signages CFO disbursement
-- [ ] Change verified installations to Awaiting CFO, with activation only after CFO disbursement.
-- [ ] Connect Pay Agent, Pay Owner and Batch Pay Agents to authorized, duplicate-safe payments.
-- [ ] Test installation/payment rules and verify available preview signals.
+- [x] Capture registered owner phone; enforce no owner payout before submission + 30 days and separate CFO activation from payments.
+- [x] Test owner payout timing, approval-only activation and unchanged agent rewards; 28 tests and all guards pass, build OK.
+- [x] Preserve authorized, duplicate-safe agent and monthly owner payments; no payout triggered during this work.
+- [ ] Verify real CFO activation and payout through a signed-in screen; external unmanaged authentication prevents authenticated browser checks.
 
 # Signages and dashboard loading
 - [x] Fetch photo-free cached Signages queues from the restored/cached session; load evidence only for the selected application.
@@ -48,6 +102,7 @@
 - [x] Add selected-portfolio rate editing through the existing server approval workflow and active-rate contract rendering.
 - [x] Run focused tests and guards (6 tests passed; all safeguards passed).
 - [ ] Verify an actual authorized rate save; external unmanaged authentication prevents signed-in browser verification.
+- [x] Allow agreement-rate editing before portfolio creation, wait for required CFO approval, and consume the approved rate atomically on countersign; matching PDF terms are rechecked before funding. UI/database regression tests and financial guards passed; real signed-in verification remains unavailable with external unmanaged authentication.
 
 # Funders Houses to fund switch
 - [x] Fix obsolete test imports after the restored discovery change.
@@ -87,3 +142,14 @@
 - [x] Requisition receipt columns: pending draft updated (helper grants for authenticated, MFA policy check).
 - [ ] Apply receipt columns migration; waiting on Josh/Benjamin go-ahead.
 - [x] Publish so browsers load the login telemetry fix.
+- [x] Special Advances table: overflow menu with Record Repayment, Top up, Reverse
+- [x] Alpha Ssema only: pay assigned landlords himself from Landlord Float (code + location kept), record TID/receipt, no merchant queue, wallet untouched
+- [x] Funder Saved Items: Co-support/Bookmarked/Booked pills + float-hold line on Support screen (UI only, sync 89c304d876)
+
+## Error-watch fixes (frontend only)
+- [ ] wallet_transactions.user_id: not in this app code (blocked: caller unknown); profiles referred_by fixed
+- [x] resolve_short_link already .maybeSingle()
+- [ ] escape search regex input (blocked: source not found in logs)
+- [x] nexa_learned_knowledge browser call removed; houses not queried by app
+- [x] avatar fallback + failure cache already in place
+- [ ] investor_portfolios 400 (blocked: no failing request in logs)

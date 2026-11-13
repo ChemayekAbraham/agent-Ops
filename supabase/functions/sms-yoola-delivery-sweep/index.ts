@@ -1,5 +1,6 @@
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -119,7 +120,7 @@ function mapYoolaStatus(rawStatus: unknown): { status: SweepStatus | null; error
 
 async function callerHasOpsAccess(authHeader: string): Promise<boolean> {
   const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
-  const { data: { user }, error } = await userClient.auth.getUser();
+  const { data: { user }, error } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
   if (error || !user) return false;
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);

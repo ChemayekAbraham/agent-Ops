@@ -1,5 +1,5 @@
 /** The assistant's display name — change it here only. */
-export const ASSISTANT_NAME = 'Clara';
+export const ASSISTANT_NAME = 'Nexa';
 export const HELP_URL = 'https://help.welileapp.com';
 export const WHATSAPP_URL = 'https://wa.me/256777607640';
 
@@ -30,9 +30,9 @@ export const PARTNER_DATA_CHIPS = [
   'Show my contract details',
   'Which of my portfolios compound?',
 ];
-export const PARTNER_HOW_TO_CHIPS = ['How do I top up a portfolio?', 'How do I renew a portfolio?', 'How do I withdraw my Returns?'];
-export const PARTNER_EXPLAINER_CHIPS = ['What is compounding?', 'How are Returns calculated?'];
-export const PARTNER_GREETING = 'Ask me about your portfolios, Returns, top-ups, renewals or withdrawals.';
+export const PARTNER_HOW_TO_CHIPS = ['How do I top up a portfolio?', 'How do I renew a portfolio?', 'How do I withdraw my Rent profit share?'];
+export const PARTNER_EXPLAINER_CHIPS = ['What is compounding?', 'How are Rent profit share calculated?'];
+export const PARTNER_GREETING = 'Ask me about your portfolios, Rent profit share, top-ups, renewals or withdrawals.';
 export const DEFAULT_GREETING = 'How can i help you!';
 
 export function isPartnerPath(pathname: string): boolean {

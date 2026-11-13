@@ -1,5 +1,6 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { memo } from 'react';
-import { Bookmark, Check, ChevronRight, Clock, Home, Navigation, Sprout } from 'lucide-react';
+import { Bookmark, Check, ChevronRight, Home, Navigation, Sprout } from 'lucide-react';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
 import type { FunderNewCategory, FunderNewDistance, FunderNewEmptyHouse, FunderNewReadyPlan } from '@/components/funder-new/types';
@@ -12,8 +13,13 @@ import {
   itemMonthlyReturn,
   readyPlanPlace,
   readyPlanTitle,
+  isUncheckedEmptyHouse,
+  requestRef,
 } from '@/components/funder-new/utils';
 import { STRAIGHT_LINE_EXPLANATION } from '@/components/funder-new/distance';
+import { FundersBoardTag, tagKindFor } from '@/components/funder-new/FundersBoardTag';
+import { FundersIncompleteChip } from '@/components/funder-new/FundersIncompleteChip';
+import type { BoardTag } from '@/lib/fundersBoard';
 
 /** Rendered photo box is 16:10; these are the intrinsic hints for the browser. */
 const PHOTO_W = 640;
@@ -38,6 +44,16 @@ export interface FunderV3HouseCardProps {
   onHoverChange?: (hovering: boolean) => void;
   /** Stable id for scroll-to-card and pin matching. */
   cardId: string;
+  /** E59: show the funders board tag (Empty house / Verified). */
+  boardTagsOn?: boolean;
+  /** E65: the server's tag (Verified, Booked, Funded, Pending verification, Empty house), when known. */
+  boardTag?: BoardTag | null;
+  /** E59 select-to-demote mode (staff who may demote only). */
+  demoteMode?: boolean;
+  demoteChecked?: boolean;
+  onDemoteToggle?: () => void;
+  /** COO/CEO only (null for funders): what this Verified request still lacks. */
+  incomplete?: string[] | null;
 }
 
 /**
@@ -58,25 +74,38 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   highlighted = false,
   onHoverChange,
   cardId,
+  boardTagsOn = false,
+  boardTag = null,
+  demoteMode = false,
+  demoteChecked = false,
+  onDemoteToggle,
+  incomplete = null,
 }: FunderV3HouseCardProps) {
   const isEmpty = category === 'empty';
   const title = isEmpty ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan);
   const place = isEmpty ? emptyHousePlace(item as FunderNewEmptyHouse) : readyPlanPlace(item as FunderNewReadyPlan);
-  const amount = itemAmount(category, item);
-  const monthlyReturn = itemMonthlyReturn(category, item);
+  // Agent Care: the partner amount is pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
+  const amount = itemAmount(category, item, partnerPay);
+  const monthlyReturn = itemMonthlyReturn(category, item, partnerPay);
   const photo = firstPhoto(category, item);
   const coords = itemCoordinates(item, category);
+  const unchecked = isUncheckedEmptyHouse(category, item);
+  const ref = category === 'ready' ? requestRef((item as FunderNewReadyPlan).rent_request_id) : null;
 
   return (
     <article
       data-card-id={cardId}
       data-testid="fv3-card"
+      data-unchecked={unchecked ? 'true' : undefined}
       data-highlighted={highlighted ? 'true' : undefined}
+      data-demote-checked={demoteMode && demoteChecked ? 'true' : undefined}
       onPointerEnter={onHoverChange ? () => onHoverChange(true) : undefined}
       onPointerLeave={onHoverChange ? () => onHoverChange(false) : undefined}
       className={cn(
         'fv3-card @container relative min-w-0 scroll-mt-24 overflow-hidden rounded-2xl border border-border/70 bg-card text-card-foreground',
         selected && 'border-primary ring-1 ring-primary',
+        demoteMode && demoteChecked && 'border-destructive ring-2 ring-destructive/50',
       )}
     >
       <div className="fv3-photo relative w-full overflow-hidden bg-muted">
@@ -107,22 +136,16 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
           )}
         </button>
 
+        {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
+        {boardTagsOn || unchecked ? null : (
         <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 fv3-t-2xs font-semibold text-foreground shadow-sm ring-1 ring-border">
-          {isEmpty ? (
-            <>
-              <Clock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-              Pending verification
-            </>
-          ) : (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#8024D1" stroke="#8024D1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden>
-                <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-                <path d="m9 12 2 2 4-4" stroke="white" />
-              </svg>
-              Verified tenant
-            </>
-          )}
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#8024D1" stroke="#8024D1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden>
+            <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
+            <path d="m9 12 2 2 4-4" stroke="white" />
+          </svg>
+          {isEmpty ? 'Verified House' : 'Verified tenant'}
         </span>
+        )}
 
         <button
           type="button"
@@ -145,14 +168,39 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
       </div>
 
       <div className="flex flex-col gap-3 p-3.5 @[420px]:p-4">
+        {/* COO/CEO: what is still missing, above the demote control. */}
+        {category === 'ready' ? <FundersIncompleteChip items={incomplete} /> : null}
+        {demoteMode ? (
+          <label
+            data-testid="fv3-demote-check"
+            className={cn(
+              'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl px-3 fv3-t-sm font-semibold ring-1 transition-colors',
+              demoteChecked ? 'bg-destructive/10 text-destructive ring-destructive/40' : 'bg-muted/50 text-foreground ring-border',
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={demoteChecked}
+              onChange={onDemoteToggle}
+              aria-label={`Select ${title} in ${place} to demote`}
+              className="h-5 w-5 flex-none accent-[hsl(var(--destructive))]"
+            />
+            {demoteChecked ? 'Selected to demote' : 'Select to demote'}
+          </label>
+        ) : null}
+        {boardTagsOn ? <FundersBoardTag kind={tagKindFor(boardTag, category)} /> : null}
         <button
           type="button"
           onClick={onDetail}
           aria-label={`Open full details for ${title} in ${place}`}
           className="-m-1.5 flex flex-col gap-2 rounded-xl p-1.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="min-w-0 break-words fv3-t-base font-bold leading-snug text-foreground">
-            {title} <span className="font-medium text-muted-foreground">in</span> {place}
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="min-w-0 break-words fv3-t-base font-bold leading-snug text-foreground">
+              {title} <span className="font-medium text-muted-foreground">in</span> {place}
+            </span>
+            {/* Rent requests only: lets staff match the card to its desk row. */}
+            {ref ? <span data-testid="fv3-ref" className="fv3-t-2xs font-medium tabular-nums tracking-wide text-muted-foreground">{ref}</span> : null}
           </span>
 
           {distance ? (
@@ -191,6 +239,8 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
               <span className="sr-only">Open in Google Maps</span>
             </a>
           ) : null}
+          {/* Not checked by Welile yet: no Fund button and no action line. */}
+          {unchecked ? null : (
           <button
             type="button"
             data-testid="fv3-fund-button"
@@ -204,8 +254,9 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
             )}
           >
             {selected ? <Check className="h-4 w-4 flex-none" aria-hidden /> : <Sprout className="h-4 w-4 flex-none" aria-hidden />}
-            <span className="truncate">{selected ? 'Selected' : isEmpty ? 'Pending verification' : 'Fund this House'}</span>
+            <span className="truncate">{selected ? 'Selected' : 'Fund this House'}</span>
           </button>
+          )}
         </div>
       </div>
     </article>

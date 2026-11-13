@@ -5,10 +5,19 @@ import type { ReactNode } from 'react';
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn(), ranges: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from } }));
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: { id: 'cfo-1' },
+    session: { user: { id: 'cfo-1' }, access_token: 'token', expires_at: Math.floor(Date.now() / 1000) + 3600 },
+    loading: false,
+    roles: ['cfo'],
+  }),
+}));
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useReceivablesTotal } from '@/hooks/useReceivables';
 import { cfoReportRetry } from '@/hooks/cfoReportRetry';
+import { financeReportErrorMessage, HEAVY_REPORT_SLOW_MESSAGE } from '@/lib/heavyFinanceReportQueue';
 
 function deferred<T>() {
   let resolve: (value: T) => void = () => {};
@@ -68,7 +77,7 @@ describe('CFO independent loading and unchanged reconciliation', () => {
     expect(result.current.data).toEqual({
       mtn: 1000, airtel: 2000, cashAtHand: 800, custodyNotConfirmedBanked: 800,
       // Money We Have = MTN + Airtel + email-derived bank balance (700), not the cumulative banked deposits (350).
-      bankedCash: 350, bankReconciliation: 700, bankBalance: 700, total: 3700,
+      bankedCash: 350, bankReconciliation: 700, bankBalance: 700, bankAnchored: false, bankAnchorNote: null, total: 3700,
       bankedCashCount: 2, bankedComputedAt: '2026-10-23T07:05:00Z', bankedLastMovementAt: '2026-10-23T07:00:00Z',
       finOpsBankedCash: 350, finOpsBankedCount: 2, bankedDifference: 0, bankedInSync: true,
       agentFloatHeld: 6789, outsideBankHeld: 3800,
@@ -83,6 +92,26 @@ describe('CFO independent loading and unchanged reconciliation', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mocks.ranges.mock.calls).toEqual([[0, 999], [1000, 1999]]);
     expect(result.current.data).toMatchObject({ total: 3700, finOpsBankedCash: 400, finOpsBankedCount: 3, bankedDifference: 50, bankedInSync: false });
+    unmount(); client.clear();
+  });
+
+  it('marks the bank line anchored when a confirmed balance exists at the bank-email start date', async () => {
+    const original = mocks.rpc.getMockImplementation();
+    mocks.rpc.mockImplementation((name: string) => {
+      if (name === 'fin_bank_anchor') {
+        return Promise.resolve({ data: { anchor_at: '2026-10-06T21:00:00+00:00', balance: 0, source: 'cfo_confirmation' }, error: null });
+      }
+      if (name === 'get_money_at_bank_reconciliation') {
+        return Promise.resolve({ data: { banked_cash_reference: 350, money_at_bank_total: 700, banked_cash_reference_count: 2,
+          computed_at: '2026-10-23T07:05:00Z', email_cutoff_at: '2026-10-06T21:00:00+00:00' }, error: null });
+      }
+      return original?.(name);
+    });
+    const { result, unmount, client } = setup(() => useActualMoneyHeld());
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.bankAnchored).toBe(true);
+    expect(result.current.data?.bankAnchorNote).toBe('opening balance UGX 0 on 07 Oct 2026, confirmed by the CFO');
+    expect(result.current.data?.total).toBe(3700);
     unmount(); client.clear();
   });
 
@@ -132,5 +161,22 @@ describe('CFO independent loading and unchanged reconciliation', () => {
     expect(cfoReportRetry(0, { code: '42501' })).toBe(false);
     expect(cfoReportRetry(1, { message: 'gateway' })).toBe(true);
     expect(cfoReportRetry(2, { message: 'gateway' })).toBe(false);
+  });
+
+  it('does not retry the statement of financial position after a timeout or a 5xx', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: 3, retryDelay: 0, gcTime: 0 } } });
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    mocks.rpc.mockImplementation(async (name: string) => {
+      if (name === 'get_statement_of_financial_position') {
+        return { data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } };
+      }
+      return { data: null, error: null };
+    });
+    const { result, unmount } = renderHook(() => useCFOOverviewData({ cashVisible: true }), { wrapper });
+    await waitFor(() => expect(result.current.positionError).toBeTruthy());
+    expect(mocks.rpc.mock.calls.filter((call) => call[0] === 'get_statement_of_financial_position')).toHaveLength(1);
+    expect(financeReportErrorMessage(result.current.positionError)).toBe(HEAVY_REPORT_SLOW_MESSAGE);
+    unmount();
+    client.clear();
   });
 });

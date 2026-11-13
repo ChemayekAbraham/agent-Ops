@@ -132,7 +132,7 @@ export default function ROITrendsPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold truncate">ROI Payout Trends</h1>
+            <h1 className="text-lg font-bold truncate">Rent profit share payout Trends</h1>
             <p className="text-xs text-muted-foreground">Daily distribution history & 30-day projection</p>
           </div>
           <Badge variant="secondary" className="gap-1 text-xs">
@@ -188,7 +188,7 @@ export default function ROITrendsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" />
-              Daily ROI Payouts — Last 60 Days + 30-Day Projection
+              Daily Rent profit share payouts — Last 60 Days + 30-Day Projection
             </CardTitle>
           </CardHeader>
           <CardContent>

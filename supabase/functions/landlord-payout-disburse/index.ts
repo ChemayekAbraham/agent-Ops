@@ -2,6 +2,8 @@
 // Phase 2: deduct float and route to Financial Ops queue. No MoMo gateway calls.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSystemEvent } from "../_shared/eventLogger.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
+import { canSelfPayLandlords } from "../_shared/landlordSelfPayAgents.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +31,7 @@ Deno.serve(async (req) => {
       });
     }
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
     if (userErr || !userData?.user) {
       return new Response(JSON.stringify({ error: "Invalid token" }), {
         status: 401,
@@ -207,6 +209,67 @@ Deno.serve(async (req) => {
       payout.id,
       { amount, landlord_id },
     );
+
+    // ── Self-pay (allow-listed agents only) ─────────────────────────────
+    // The agent sends the money to the landlord himself. Only his Landlord
+    // Float is debited (deduct_agent_float_for_payout touches
+    // agent_landlord_float, never the wallet). No merchant queue row is
+    // created; the payout waits for his transaction ID and receipt.
+    if (canSelfPayLandlords(agentId)) {
+      const fail = async (msg: string, status = 400) => {
+        await adminClient.from("landlord_payouts").update({ status: "failed", last_error: msg }).eq("id", payout.id);
+        return new Response(JSON.stringify({ error: msg, payout_id: payout.id }), {
+          status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      };
+      const { data: assignment, error: asgErr } = await adminClient
+        .from("agent_landlord_assignments")
+        .select("id")
+        .eq("agent_id", agentId)
+        .eq("landlord_id", landlord_id)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle();
+      if (asgErr) return await fail(`Could not confirm the landlord is assigned to you: ${asgErr.message}`);
+      if (!assignment) return await fail("You can pay only landlords assigned to you.", 403);
+
+      const { error: deductErr } = await adminClient.rpc("deduct_agent_float_for_payout", { p_payout_id: payout.id });
+      if (deductErr) return await fail(`Landlord Float debit failed: ${deductErr.message}`);
+
+      const nowIso = new Date().toISOString();
+      const { error: updErr } = await adminClient
+        .from("landlord_payouts")
+        .update({ status: "awaiting_agent_receipt", disbursed_at: nowIso } as any)
+        .eq("id", payout.id);
+      if (updErr) {
+        // Float already debited: surface loudly, do not mark failed (that would re-open it as payable).
+        console.error("[landlord-payout-disburse] self-pay status update failed:", updErr);
+        return new Response(JSON.stringify({ error: `Float debited but payout status not saved: ${updErr.message}`, payout_id: payout.id }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      await logSystemEvent(adminClient, "landlord_payout_self_paid", agentId, "landlord_payout", payout.id, {
+        amount, landlord_id, landlord_phone: verifiedPhone, mobile_money_provider,
+      });
+      try {
+        await adminClient.from("notifications").insert({
+          user_id: agentId,
+          type: "landlord_payout_self_pay",
+          title: "Pay the landlord now",
+          message: `UGX ${Number(amount).toLocaleString()} was taken from your Landlord Float for ${verifiedName} (${verifiedPhone}). Send it to the landlord, then upload the transaction ID and receipt.`,
+          metadata: { payout_id: payout.id, amount },
+        });
+      } catch { /* non-blocking */ }
+
+      return new Response(JSON.stringify({
+        ok: true,
+        payout_id: payout.id,
+        status: "awaiting_agent_receipt",
+        self_pay: true,
+        message: `Taken from your Landlord Float. Send UGX ${Number(amount).toLocaleString()} to ${verifiedName} (${verifiedPhone}), then upload the transaction ID and receipt.`,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // Route the landlord payout into the merchant Cash / Mobile Money / Bank
     // payout queue for Financial Ops. The Agent Landlord Payout Float is NOT

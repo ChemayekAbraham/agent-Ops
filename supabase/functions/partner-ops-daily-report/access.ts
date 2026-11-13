@@ -10,6 +10,7 @@
 //   deny - a user token that does not verify (401), a signed-in user who is not partner staff (403), or
 //          partner staff whose session lacks the two-step sign-in staff_mfa_ok() would require (403).
 import { PARTNER_STAFF_ROLES } from "../_shared/partnerReturnPolicy.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 // deno-lint-ignore no-explicit-any
 type Client = any;
@@ -117,7 +118,7 @@ export async function reportAccess(
     // two-step rule (staff_mfa_ok) on the verified token's aal.
     let userId: string;
     try {
-      const { data, error } = await admin.auth.getUser(bearer);
+      const { data, error } = await (bearerHasSub(bearer) ? admin.auth.getUser(bearer) : noUserResult());
       if (error || !data?.user?.id) return { mode: "deny", status: 401 };
       userId = data.user.id;
     } catch {

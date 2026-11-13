@@ -2,26 +2,11 @@ import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { CheckCircle, Home, Loader2, MapPin, HandCoins, Clock } from 'lucide-react';
+import { CheckCircle, Home, Loader2, MapPin, Clock } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { excludePartnerReservedPlans } from '@/lib/partnerReservedPlans';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
-import { useToast } from '@/hooks/use-toast';
-import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import { CollapsibleAgentSection } from '@/components/agent/CollapsibleAgentSection';
 
 interface ApprovedRequest {
@@ -55,15 +40,18 @@ const CATEGORY_LABELS: Record<string, string> = {
   'commercial': 'Other Commercial Premises',
 };
 
+export const NEEDS_FUNDER_PICK = "Needs a funder's pick on the funders' dashboard";
+
+/**
+ * Approved requests not yet funded. This used to offer a fund button paid from
+ * Welile money (the CFO float-funding function); the database now refuses any
+ * move into funded without a funder's pick (E60_FUNDERS_ONLY), so the list is
+ * read-only and each request says what it needs. Plans a partner self-funds are
+ * paid by Partner Ops approval and stay out of it, as before.
+ */
 export function ApprovedRequestsFundingWidget() {
   const [requests, setRequests] = useState<ApprovedRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [fundingId, setFundingId] = useState<string | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingRequest, setPendingRequest] = useState<ApprovedRequest | null>(null);
-  const [transactionIdInput, setTransactionIdInput] = useState('');
-  const [confirmed, setConfirmed] = useState(false);
-  const { toast } = useToast();
 
   const fetchApproved = async () => {
     const { data, error } = await supabase
@@ -79,8 +67,7 @@ export function ApprovedRequestsFundingWidget() {
       return;
     }
 
-    // Partner self-funded plans are released by Partner Ops approval, not from
-    // company float — never offer them here.
+    // Partner self-funded plans are released by Partner Ops approval — not listed here.
     const rows = await excludePartnerReservedPlans(data);
 
     const tenantIds = [...new Set(rows.map(r => r.tenant_id))];
@@ -132,65 +119,9 @@ export function ApprovedRequestsFundingWidget() {
     };
   }, []);
 
-  const openFundConfirm = (request: ApprovedRequest) => {
-    setPendingRequest(request);
-    setTransactionIdInput('');
-    setConfirmed(false);
-    setConfirmOpen(true);
-  };
-
-  const handleFundTenant = async () => {
-    if (!pendingRequest) return;
-
-    const txDigits = transactionIdInput.replace(/\D/g, '');
-    if (txDigits.length < 5) {
-      toast({
-        title: 'Transaction ID required',
-        description: 'Enter at least 5 digits from the payment Transaction ID.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const transactionId = `TID${txDigits}`;
-    setFundingId(pendingRequest.id);
-
-    try {
-      const { data, error } = await supabase.functions.invoke('fund-agent-landlord-float', {
-        body: {
-          rent_request_id: pendingRequest.id,
-          notes: `Manager funded – TID: ${transactionId}`,
-        },
-      });
-
-      if (error) throw new Error(await extractFromErrorObject(error, 'Failed to fund agent float'));
-      if (data?.error) throw new Error(data.error);
-
-      toast({
-        title: '✅ Float Funded!',
-        description: `${formatUGX(data.float_funded)} credited to ${data.message}. Agent must pay landlord & submit receipt.`,
-      });
-
-      setRequests(prev => prev.filter(r => r.id !== pendingRequest.id));
-      setConfirmOpen(false);
-      setPendingRequest(null);
-      setTransactionIdInput('');
-      setConfirmed(false);
-      window.dispatchEvent(new CustomEvent('pool-funded'));
-    } catch (err: any) {
-      toast({
-        title: 'Funding failed',
-        description: err?.message || 'Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setFundingId(null);
-    }
-  };
-
   if (loading) {
     return (
-      <CollapsibleAgentSection icon={CheckCircle} label="Approved — Ready to Fund" iconColor="text-emerald-600">
+      <CollapsibleAgentSection icon={CheckCircle} label="Approved — waiting for a funder" iconColor="text-emerald-600">
         <div className="flex justify-center py-6">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
@@ -198,24 +129,24 @@ export function ApprovedRequestsFundingWidget() {
     );
   }
 
-  const txDigits = transactionIdInput.replace(/\D/g, '');
-  const normalizedTransactionId = txDigits ? `TID${txDigits}` : '';
-  const canConfirmFunding = !!pendingRequest && confirmed && txDigits.length >= 5 && !fundingId;
-
   return (
     <>
       <CollapsibleAgentSection
         icon={CheckCircle}
-        label={`Approved — Ready to Fund${requests.length > 0 ? ` (${requests.length})` : ''}`}
+        label={`Approved — waiting for a funder${requests.length > 0 ? ` (${requests.length})` : ''}`}
         iconColor="text-emerald-600"
         isOpen={true}
       >
         {requests.length === 0 ? (
           <div className="text-center py-6 text-sm text-muted-foreground">
-            No approved requests awaiting funding
+            No approved requests waiting for a funder
           </div>
         ) : (
           <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Welile does not fund tenants directly (E60). A tenant is paid once a funder, or Welile&rsquo;s own funder
+              account, selects them on the funders&rsquo; dashboard.
+            </p>
             {requests.map((req, i) => (
               <motion.div
                 key={req.id}
@@ -264,79 +195,15 @@ export function ApprovedRequestsFundingWidget() {
                   <p className="text-[10px] text-muted-foreground">
                     → Landlord: <span className="font-semibold text-foreground">{req.landlord_name}</span>
                   </p>
-                  <Button
-                    size="sm"
-                    onClick={() => openFundConfirm(req)}
-                    disabled={!!fundingId}
-                    className="h-9 px-4 rounded-xl font-bold text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white touch-manipulation"
-                  >
-                    {fundingId === req.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <HandCoins className="h-3.5 w-3.5" />
-                    )}
-                    Fund this Tenant
-                  </Button>
+                  <span className="text-[11px] font-medium text-muted-foreground text-right" data-needs-pick={req.id}>
+                    {NEEDS_FUNDER_PICK}
+                  </span>
                 </div>
               </motion.div>
             ))}
           </div>
         )}
       </CollapsibleAgentSection>
-
-      <AlertDialog
-        open={confirmOpen}
-        onOpenChange={(open) => {
-          setConfirmOpen(open);
-          if (!open) {
-            setPendingRequest(null);
-            setTransactionIdInput('');
-            setConfirmed(false);
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Tenant Funding</AlertDialogTitle>
-            <AlertDialogDescription>
-              Enter the payment Transaction ID and confirm before funds are deployed.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="fund-tenant-transaction-id">Transaction ID</Label>
-              <Input
-                id="fund-tenant-transaction-id"
-                value={transactionIdInput}
-                onChange={(e) => setTransactionIdInput(e.target.value.replace(/\D/g, ''))}
-                placeholder="e.g. 1234567890"
-                inputMode="numeric"
-                maxLength={20}
-                className="font-mono"
-              />
-              <p className="text-xs text-muted-foreground">
-                Saved as: <span className="font-semibold">{normalizedTransactionId || 'TID'}</span>
-              </p>
-              {transactionIdInput.length > 0 && txDigits.length < 5 && (
-                <p className="text-xs text-destructive">Transaction ID must have at least 5 digits.</p>
-              )}
-            </div>
-
-            <label className="flex items-start gap-2 text-sm text-muted-foreground">
-              <Checkbox checked={confirmed} onCheckedChange={(v) => setConfirmed(v === true)} className="mt-0.5" />
-              I confirm this funding is verified and should proceed.
-            </label>
-          </div>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={!!fundingId}>Cancel</AlertDialogCancel>
-            <Button onClick={handleFundTenant} disabled={!canConfirmFunding}>
-              {fundingId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm & Fund'}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

@@ -44,12 +44,12 @@ function OptionCards({ onSelect }: { onSelect: (pool: PoolType) => void }) {
           </div>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Fund verified rent requests, earn monthly Returns
+          Fund verified rent requests, earn monthly Rent profit share
         </p>
         <div className="space-y-2 flex-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground flex items-center gap-1.5">
-              <TrendingUp className="h-3 w-3" /> Monthly Returns (new partners)
+              <TrendingUp className="h-3 w-3" /> Monthly Rent profit share (new partners)
             </span>
             <span className="font-bold text-success">{newRatePct ?? '—'}</span>
           </div>

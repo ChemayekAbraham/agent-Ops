@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { SELF_SUPPORT_PORTFOLIO_STATUS } from '@/lib/selfSupportDirect';
 import { Building2, Clock, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
@@ -42,6 +43,7 @@ const STATE_LABEL: Record<string, string> = {
   paused: 'Paused',
   locked: 'Locked',
   withdrawn: 'Withdrawn',
+  ...SELF_SUPPORT_PORTFOLIO_STATUS,
 };
 
 function usePrefersReducedMotion() {
@@ -161,7 +163,7 @@ export function PortfolioCardStack({
   const a = accruals[front.id];
   const isActive = a.state === 'active';
   const progressPct = Math.round(a.cycleProgress * 100);
-  const period = a.isMonthlyCycle ? 'Monthly Returns' : `${a.cycleDays}-day Returns`;
+  const period = a.isMonthlyCycle ? 'Monthly Rent profit share' : `${a.cycleDays}-day Rent profit share`;
   const isCompounding = front.roi_mode === 'monthly_compounding' || front.auto_reinvest === true;
   const remaining = remainingLabel(a.daysToPayout);
 

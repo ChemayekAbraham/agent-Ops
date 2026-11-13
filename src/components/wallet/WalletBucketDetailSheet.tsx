@@ -116,7 +116,7 @@ const CATEGORY_REASON: Record<string, string> = {
   agent_bonus: 'A bonus credited to your wallet.',
   approval_bonus: 'Reward for an approval milestone.',
   referral_bonus: 'Reward for a referral that signed up.',
-  roi_wallet_credit: 'Returns from your support portfolio.',
+  roi_wallet_credit: 'Rent profit share from your support portfolio.',
 
   withdrawal: 'Money you sent out of your wallet.',
   agent_wallet_withdrawal: 'Cash-out you requested from your wallet.',

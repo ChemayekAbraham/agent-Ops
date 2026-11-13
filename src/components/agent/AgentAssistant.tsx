@@ -1,6 +1,7 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import claraAvatar from '@/assets/clara-avatar.png';
 import { Button } from '@/components/ui/button';
 import { AssistantChatSurface } from '@/components/ai-chat/AssistantChatSurface';
@@ -14,11 +15,6 @@ import { FLOATING_NAV_Z } from '@/components/ui/floating-nav';
  */
 const LAUNCHER_Z = FLOATING_NAV_Z + 5;
 const BUBBLE_Z = LAUNCHER_Z + 1;
-
-/** How long the hello bubble stays up before it starts fading away. */
-const GREETING_MS = 20_000;
-/** The fade itself; the node is taken out only once this has run. */
-const GREETING_FADE_MS = 600;
 
 /**
  * Mounted once by FloatingToolbar; every page can open it without creating another chat.
@@ -34,7 +30,6 @@ export function AgentAssistant({ hideLauncher = false, compact = false }: {
   // mounted by tests with no provider, where useAuth() would throw.
   const user = useContext(AuthContext)?.user ?? null;
   const [phase, setPhase] = useState<'in' | 'out' | 'done'>('in');
-  const greetedRef = useRef(false);
 
   useEffect(() => {
     // The chat holds personal account history, so a page with no active
@@ -44,17 +39,10 @@ export function AgentAssistant({ hideLauncher = false, compact = false }: {
     return () => window.removeEventListener('open-welile-assistant', show);
   }, [user]);
 
-  // One hello per page load: it appears beside the launcher, then fades away
-  // on its own. It is never re-shown after a route change or a modal closing.
-  // While the launcher is hidden (a dialog is open) the countdown has not
-  // started yet, so the greeting is not spent on a screen that cannot show it.
-  useEffect(() => {
-    if (greetedRef.current || !user || hideLauncher) return;
-    greetedRef.current = true;
-    const fadeAt = setTimeout(() => setPhase('out'), GREETING_MS);
-    const offAt = setTimeout(() => setPhase('done'), GREETING_MS + GREETING_FADE_MS);
-    return () => { clearTimeout(fadeAt); clearTimeout(offAt); };
-  }, [user, hideLauncher]);
+  // One hello per page load: it appears beside the launcher and stays up until
+  // the agent taps it (which opens the chat) or dismisses it. It never comes
+  // back on its own after that, and while the launcher is hidden (a dialog is
+  // open) it is not shown at all.
 
   const fullName = String(user?.user_metadata?.full_name ?? '').trim();
   const firstName = fullName.split(/\s+/)[0] || (user?.email ?? '').split('@')[0] || 'there';
@@ -64,7 +52,7 @@ export function AgentAssistant({ hideLauncher = false, compact = false }: {
   const bubbleBottom = 'calc(var(--fab-above-nav) + 4.25rem)';
 
   return <>
-    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" style={{ zIndex: LAUNCHER_Z }} className={`gradient-assistant fixed bottom-[var(--fab-above-nav)] right-4 ${compact ? 'h-12 w-12' : 'h-14 w-14'} overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`} data-testid="assistant-launcher"><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
+    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Nexa" aria-haspopup="dialog" style={{ zIndex: LAUNCHER_Z }} className={`gradient-assistant fixed bottom-[var(--fab-above-nav)] right-4 ${compact ? 'h-12 w-12' : 'h-14 w-14'} overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`} data-testid="assistant-launcher"><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
     {!open && !hideLauncher && !compact && !!user && phase !== 'done' && createPortal(
       <AnimatePresence>
         {phase === 'in' && (
@@ -78,14 +66,25 @@ export function AgentAssistant({ hideLauncher = false, compact = false }: {
             className="fixed right-4"
             style={{ bottom: bubbleBottom, maxWidth: 'min(19rem, calc(100vw - 5rem))', zIndex: BUBBLE_Z }}
           >
-            <button
-              type="button"
-              onClick={() => { setPhase('done'); setOpen(true); }}
-              className="relative block w-full rounded-2xl border border-border bg-card px-3.5 py-2 text-left text-sm font-medium text-card-foreground shadow-lg"
-            >
-              Hi 👋 {firstName}, need help?
-              <span aria-hidden className="absolute right-7 h-2.5 w-2.5 rotate-45 border-b border-r border-border bg-card" style={{ bottom: -5 }} />
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => { setPhase('done'); setOpen(true); }}
+                className="relative block w-full rounded-2xl border border-border bg-card px-3.5 py-2 pr-9 text-left text-sm font-medium text-card-foreground shadow-lg"
+              >
+                Hi 👋 {firstName}, need help?
+                <span aria-hidden className="absolute right-7 h-2.5 w-2.5 rotate-45 border-b border-r border-border bg-card" style={{ bottom: -5 }} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPhase('done')}
+                aria-label="Dismiss this greeting"
+                title="Dismiss this greeting"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>,

@@ -7,6 +7,7 @@
  * consent — the holder must still answer Yes in the app.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
     const admin = createClient(url, serviceKey);
 
     const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
-    const { data: userData } = await admin.auth.getUser(token);
+    const { data: userData } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     const uid = userData?.user?.id;
     if (!uid) return json({ error: "Please sign in again." }, 401);
 

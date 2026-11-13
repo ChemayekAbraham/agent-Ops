@@ -73,6 +73,8 @@ const STATUS: Record<string, { label: string; tag: string }> = {
   awaiting_partner_details: { label: 'Awaiting Details', tag: 'tag-awaiting' },
   locked: { label: 'Locked', tag: 'tag-awaiting' },
   pending_ops_approval: { label: 'Processing', tag: 'tag-awaiting' },
+  // self-support: the rent is with the agent; the portfolio activates once the landlord is paid
+  awaiting_landlord_payment: { label: 'Waiting for landlord', tag: 'tag-awaiting' },
 };
 const statusOf = (s: string) => STATUS[s] ?? {
   label: s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
@@ -168,7 +170,7 @@ function portfolioEntry(p: StatementPortfolio, hasAccountPayouts: boolean): stri
 
   const foot = [
     returnsAdded > 0
-      ? `<tr><td colspan="4" class="text-right font-bold" style="text-transform: uppercase;">Total Compounded Returns:</td><td class="text-right num font-bold text-primary">${ugx(returnsAdded)}</td></tr>`
+      ? `<tr><td colspan="4" class="text-right font-bold" style="text-transform: uppercase;">Total Compounded Rent profit share:</td><td class="text-right num font-bold text-primary">${ugx(returnsAdded)}</td></tr>`
       : '',
     paidOut > 0
       ? `<tr><td colspan="4" class="text-right font-bold" style="text-transform: uppercase;">Total Payouts:</td><td class="text-right num font-bold">${ugx(paidOut)}</td></tr>`
@@ -308,7 +310,7 @@ export function buildPartnerStatementHtml(d: StatementData): string {
     branch: '<Welile Partner Portfolio Division>',
     summary: [
       { label: 'Opening / Capital Supported:', valueHtml: esc(ugx(totalPrincipal)) },
-      { label: 'Total Credit (Compounded Returns):', valueHtml: esc(ugx(totalCompounded)) },
+      { label: 'Total Credit (Compounded Rent profit share):', valueHtml: esc(ugx(totalCompounded)) },
       { label: 'Total Debit (Payouts to Date):', valueHtml: esc(ugx(d.payouts_total.amount)) },
       { label: 'Closing / Total Portfolio Value:', valueHtml: esc(ugx(totalValue)), closing: true },
       {

@@ -14,6 +14,7 @@ import {
   readConfirmedLoginEmails,
   storedRate,
 } from "../_shared/partnerReturnPolicy.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,7 +58,7 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data: authData, error: authErr } = await admin.auth.getUser(token);
+    const { data: authData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     const caller = authData?.user;
     if (authErr || !caller) return json({ error: "Not authenticated" }, 401);
 

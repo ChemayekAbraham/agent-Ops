@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import MonthlyProjectPlans from './MonthlyProjectPlans';
-import { monthlyPlansKey, readMonthlyPlans } from './monthlyProjectPlans';
+import { monthlyPlansKey, readMonthlyPlans } from './monthlyProjectPlans.data';
 
 beforeEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 describe('Recording monthly plans', () => {

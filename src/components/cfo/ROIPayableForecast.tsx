@@ -63,12 +63,12 @@ export function ROIPayableForecast() {
   return (
     <div className="rounded-lg border border-border bg-card shadow-sm">
       <div className="flex items-center justify-between gap-2 px-4 py-3">
-        <p className="text-sm font-bold tracking-tight">ROI Payable Forecast</p>
+        <p className="text-sm font-bold tracking-tight">Rent profit share Payable Forecast</p>
         <button
           type="button"
           onClick={() => setExpanded((o) => !o)}
           aria-expanded={expanded}
-          aria-label={`${expanded ? 'Collapse' : 'Expand'} ROI Payable Forecast`}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} Rent profit share Payable Forecast`}
           className="text-muted-foreground hover:text-foreground shrink-0"
         >
           <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />

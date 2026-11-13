@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { PlanDetail, RepaymentPlanRow } from '@/lib/tenantRepaymentTracker';
+import { useAuth } from '@/hooks/useAuth';
 
 // The tracker's database functions (migration 20261108090000) are newer than the generated types.
 const db = supabase as any;
@@ -29,28 +30,48 @@ export function normaliseRow(r: Record<string, unknown>): RepaymentPlanRow {
 }
 
 /** The register: one row per funded Rent Plan. Read-only; loaded on demand and cached for 5 minutes. */
+export async function loadTenantRepaymentRegister(signal?: AbortSignal) {
+  const rows: RepaymentPlanRow[] = [];
+  const ids = new Set<string>();
+  const size = 500;
+  for (let offset = 0; ; offset += size) {
+    if (signal?.aborted) throw new DOMException('Request aborted', 'AbortError');
+    let request = db.rpc('get_cfo_tenant_repayment_register').range(offset, offset + size - 1);
+    if (signal) request = request.abortSignal(signal);
+    const { data, error } = await request;
+    if (error) throw error;
+    if (!Array.isArray(data)) throw new Error('The register returned an invalid page. Refresh to try again.');
+    for (const raw of data) {
+      const row = normaliseRow(raw);
+      if (ids.has(row.rent_request_id)) throw new Error('The register changed while loading. Refresh to load a complete register.');
+      ids.add(row.rent_request_id);
+      rows.push(row);
+    }
+    if (data.length < size) return { asAt: new Date(), rows };
+  }
+}
+
 export function useTenantRepaymentRegister() {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ['cfo-tenant-repayment-register'],
+    queryKey: ['cfo-tenant-repayment-register', user?.id, 'complete-v2'],
+    enabled: !!user?.id,
     staleTime: 5 * 60_000,
     retry: false,
-    queryFn: async () => {
-      const { data, error } = await db.rpc('get_cfo_tenant_repayment_register');
-      if (error) throw error;
-      return { asAt: new Date(), rows: ((data ?? []) as Record<string, unknown>[]).map(normaliseRow) };
-    },
+    queryFn: ({ signal }) => loadTenantRepaymentRegister(signal),
   });
 }
 
 /** One plan: receipts, repayment records, balance adjustments and ledger entries. */
 export function useTenantRepaymentDetail(rentRequestId: string | null) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ['cfo-tenant-repayment-detail', rentRequestId],
-    enabled: !!rentRequestId,
+    queryKey: ['cfo-tenant-repayment-detail', user?.id, rentRequestId, 'evidence-v2'],
+    enabled: !!user?.id && !!rentRequestId,
     staleTime: 60_000,
     retry: false,
-    queryFn: async () => {
-      const { data, error } = await db.rpc('get_cfo_tenant_repayment_detail', { p_rent_request_id: rentRequestId });
+    queryFn: async ({ signal }) => {
+      const { data, error } = await db.rpc('get_cfo_tenant_repayment_detail', { p_rent_request_id: rentRequestId }).abortSignal(signal);
       if (error) throw error;
       const d = data as PlanDetail;
       return { ...d, money_in: d.money_in ?? [], plan: normaliseRow(d.plan as unknown as Record<string, unknown>) } as PlanDetail;

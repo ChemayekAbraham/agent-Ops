@@ -42,13 +42,15 @@ import {
   formatSignageStatus,
   canPaySignage,
 } from '@/lib/welileSignages';
-import { useSignageCfoQueue, useCfoDisburseSignage } from '@/hooks/useWelileSignages';
+import { useSignageCfoQueue, useCfoDisburseSignage, useCfoApproveSignage } from '@/hooks/useWelileSignages';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { toast } from 'sonner';
 
 export function CFOSignagesDesk() {
   const { data: signages = [], isLoading, isError, error, refetch } = useSignageCfoQueue();
   const disburseMutation = useCfoDisburseSignage();
+  const approveMutation = useCfoApproveSignage();
+  const [approvalModal, setApprovalModal] = useState<SignageListRecord | null>(null);
 
   const [search, setSearch] = useState('');
   const [filterTab, setFilterTab] = useState<'pending_payout' | 'active' | 'pipeline' | 'disbursed' | 'all'>('all');
@@ -62,7 +64,7 @@ export function CFOSignagesDesk() {
   const [batchPending, setBatchPending] = useState(false);
   const paymentLock = useRef(false);
 
-  // COO-approved applications are payable; paying both initial amounts activates the signage.
+  // CFO approval activates without paying the owner; payout eligibility is server-owned.
   const approvedSignages = signages.filter((s) =>
     ['approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'awaiting_cfo', 'active'].includes(s.status)
   );
@@ -198,7 +200,7 @@ export function CFOSignagesDesk() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              COO-approved applications. Paying both initial amounts makes the signage Active.
+              CFO approval makes the signage Active. Owner payouts start at least 30 days after submission.
             </p>
           </div>
         </div>
@@ -236,7 +238,7 @@ export function CFOSignagesDesk() {
           </div>
           <div className="text-2xl font-bold text-foreground">{totalActive}</div>
           <p className="text-[10px] text-muted-foreground mt-1">
-            {totalApprovedAwaitingInstall} awaiting CFO payment
+            {totalApprovedAwaitingInstall} awaiting CFO approval
           </p>
         </div>
 
@@ -320,7 +322,7 @@ export function CFOSignagesDesk() {
           <Megaphone className="h-10 w-10 text-muted-foreground/30 mx-auto" />
           <h4 className="text-sm font-semibold">No Signages in this Queue</h4>
           <p className="text-xs text-muted-foreground">
-            Applications appear here after COO approval. Paying both initial amounts makes the signage Active.
+            Applications appear here after COO approval. Owner payouts wait at least 30 days from submission.
           </p>
         </div>
       ) : (
@@ -352,6 +354,11 @@ export function CFOSignagesDesk() {
                     </div>
 
                     <div className="flex items-center gap-2 self-start sm:self-center">
+                      {item.status === 'awaiting_cfo' && item.coo_approved_at && (
+                        <Button size="sm" disabled={approveMutation.isPending} onClick={() => setApprovalModal(item)}>
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Approve & Activate
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -436,10 +443,10 @@ export function CFOSignagesDesk() {
                             className="rounded-xl text-xs h-8 font-bold border-primary text-primary hover:bg-primary/10 gap-1"
                           >
                             <Send className="h-3 w-3" />
-                            <span>Pay Owner</span>
+                            <span>Monthly payout</span>
                           </Button>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground italic">{item.owner_rent_due_at ? `Due ${new Date(item.owner_rent_due_at).toLocaleDateString()}` : 'Awaiting first payment'}</span>
+                          <span className="text-[10px] text-muted-foreground italic">{item.owner_rent_due_at ? `Due ${new Date(item.owner_rent_due_at).toLocaleDateString()}` : 'No owner payout in the first 30 days'}</span>
                         )}
                       </div>
                     </div>
@@ -464,6 +471,25 @@ export function CFOSignagesDesk() {
           })}
         </div>
       )}
+
+      <Dialog open={!!approvalModal} onOpenChange={(open) => { if (!open && !approveMutation.isPending) setApprovalModal(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve & Activate signage</DialogTitle>
+            <DialogDescription>{approvalModal?.property_name}. This approval activates the signage without paying the owner. Owner payments start at least 30 days after submission.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" disabled={approveMutation.isPending} onClick={() => setApprovalModal(null)}>Cancel</Button>
+            <Button disabled={approveMutation.isPending} onClick={async () => {
+              if (!approvalModal || paymentLock.current) return;
+              paymentLock.current = true;
+              try { await approveMutation.mutateAsync(approvalModal.id); setApprovalModal(null); }
+              catch { /* The mutation reports the refusal. */ }
+              finally { paymentLock.current = false; }
+            }}><CheckCircle2 className="h-4 w-4" />Confirm approval</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── MODAL 1: INSPECTION & PHOTO EVIDENCE ── */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>

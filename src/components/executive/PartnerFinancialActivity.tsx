@@ -152,7 +152,7 @@ export function PartnerFinancialActivity() {
       if (type === 'Payout' && (op as any).source_id) {
         const portfolioRef = meta.portfolio_code || (op as any).source_id?.slice(0, 8);
         if (portfolioRef) {
-          description = `ROI payout · Portfolio: ${portfolioRef}`;
+          description = `Rent profit share payout · Portfolio: ${portfolioRef}`;
         }
       }
 

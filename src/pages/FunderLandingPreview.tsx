@@ -1,9 +1,11 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { AlertTriangle, Crosshair, Home, Loader2, Search } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { FEATURE_FUNDERS_BOARD_TAGS, useFeaturePreview } from '@/hooks/useFeaturePreview';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useMountedOnce } from '@/hooks/useMountedOnce';
 import type { AppRole } from '@/hooks/useAuth';
@@ -74,10 +76,13 @@ type FeedEntry = FunderPreviewEntry;
  * shown on the landing; the balance is read only for the review step.
  */
 export default function FunderLandingPreview() {
+  // Agent Care: partner amounts use pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
   const emptyHousesAllowed = useFunderEmptyHousesAllowed();
   const reduceMotion = useReducedMotion() ?? false;
   const navigate = useNavigate();
   const { user, roles, signOut, switchRole } = useAuth();
+  const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
   const summary = useFunderNewMarketSummary();
@@ -339,7 +344,7 @@ export default function FunderLandingPreview() {
   const detailHouse = detail?.category === 'empty' ? (detail.item as FunderNewEmptyHouse) : null;
 
   const toggleSelect = useCallback((nextCategory: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
-    const next = toSelectionItem(nextCategory, item);
+    const next = toSelectionItem(nextCategory, item, partnerPay);
     setSelectedCategory((current) => (current && current !== nextCategory ? nextCategory : current ?? nextCategory));
     setSelectedItems((current) => {
       const sameCategory = current.filter((entry) => entry.category === nextCategory);
@@ -348,7 +353,7 @@ export default function FunderLandingPreview() {
       if (nextList.length === 0) setSelectedCategory(null);
       return nextList;
     });
-  }, []);
+  }, [partnerPay]);
 
   const removeSelected = (item: FunderNewSelectionItem) => {
     setSelectedItems((current) => {
@@ -407,14 +412,14 @@ export default function FunderLandingPreview() {
     }
     if (!best) return null;
     const found = best.entry;
-    const view = toSelectionItem(found.category, found.item);
+    const view = toSelectionItem(found.category, found.item, partnerPay);
     return {
       title: view.title,
       distanceLabel: best.label,
       amount: view.amount,
       onAdd: () => toggleSelect(found.category, found.item),
     };
-  }, [selectedItems, entries, toggleSelect]);
+  }, [partnerPay, selectedItems, entries, toggleSelect]);
 
   // ── Support: balance, submit, top-up ────────────────────────────────────
   const queryClient = useQueryClient();
@@ -708,6 +713,7 @@ export default function FunderLandingPreview() {
                       onSave={() => toggleSave(entry.category, id)}
                       onSelect={() => toggleSelect(entry.category, entry.item)}
                       onDetail={() => openDetail(entry.category, entry.item)}
+                      boardTagsOn={boardTagsOn}
                     />
                   </motion.div>
                 );

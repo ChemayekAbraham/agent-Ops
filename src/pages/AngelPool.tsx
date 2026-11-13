@@ -186,7 +186,7 @@ export default function AngelPool() {
                   <p className="text-sm font-black leading-none text-primary-foreground truncate">
                     {monthlyReturn === null ? '—' : formatAmountCompact(monthlyReturn)}
                   </p>
-                  <p className="text-[8px] uppercase tracking-[0.14em] font-bold text-primary-foreground/50 mt-1.5">Returns/mo</p>
+                  <p className="text-[8px] uppercase tracking-[0.14em] font-bold text-primary-foreground/50 mt-1.5">Rent profit share/mo</p>
                 </div>
 
                 <div className="portfolio-stat-cell-v2 rounded-xl px-1.5 py-3 text-center overflow-hidden">
@@ -246,7 +246,7 @@ export default function AngelPool() {
               className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-card border-2 border-border/60 text-foreground font-bold text-sm shadow-sm active:scale-[0.96] transition-transform touch-manipulation min-h-[48px]"
             >
               <Calculator className="h-4.5 w-4.5 text-primary" />
-              Returns
+              Rent profit share
             </button>
 
             <button

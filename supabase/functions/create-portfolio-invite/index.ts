@@ -29,6 +29,7 @@ import {
   typedRate,
   typedRateNeedsReload,
 } from "../_shared/partnerReturnPolicy.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,7 +76,7 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user: caller }, error: authErr } = await userClient.auth.getUser();
+    const { data: { user: caller }, error: authErr } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (authErr || !caller) return json({ error: "Unauthorized" }, 401);
 
     let body: any;
@@ -107,7 +108,9 @@ Deno.serve(async (req) => {
       return json({ error: "Invalid Returns mode" }, 400);
     }
 
-    const admin = createClient(supabaseUrl, serviceKey);
+    const admin = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
 
     // A screen that typed a rate without seeing the switch on is stale once the switch is on (409).
     if (await typedRateNeedsReload(admin, typed !== null, body?.policy_enabled_seen)) {

@@ -3,6 +3,7 @@
 // the portfolio is ready to review, and confirms to the partner.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,7 +66,7 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user: caller }, error: authErr } = await userClient.auth.getUser();
+    const { data: { user: caller }, error: authErr } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (authErr || !caller) return json({ error: "Sign-in expired — please sign in again." }, 401);
 
     let body: any;

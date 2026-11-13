@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+// The screen pulls hooks that import the Supabase client; this test needs no network.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: () => Promise.resolve({ data: null, error: null }), from: () => ({ select: () => ({ eq: () => Promise.resolve({ data: [], error: null }), in: () => Promise.resolve({ data: [], error: null }) }) }), auth: { getSession: () => Promise.resolve({ data: { session: null }, error: null }) } } }));
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

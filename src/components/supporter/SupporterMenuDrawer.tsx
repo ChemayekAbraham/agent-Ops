@@ -150,9 +150,9 @@ export function SupporterMenuDrawer({
         ...(onOpenPortfolios ? [{ icon: TrendingUp, label: 'My Portfolios', description: 'View active and past portfolios', onClick: onOpenPortfolios }] : []),
         ...(onShowSupportedHouses ? [{ icon: Home, label: 'Houses I Support', description: 'Track funded houses and tenants', onClick: onShowSupportedHouses }] : []),
         ...(onShowAngelPool ? [{ icon: Zap, label: 'Angel Pool', description: 'View Welile share opportunities', onClick: onShowAngelPool }] : []),
-        { icon: TrendingUp, label: 'Returns Analytics', description: 'Earnings & projections', path: '/supporter-earnings' },
+        { icon: TrendingUp, label: 'Rent profit share Analytics', description: 'Earnings & projections', path: '/supporter-earnings' },
         { icon: History, label: 'Reinvestment History', description: 'Compounding growth timeline', path: '/reinvestment-history' },
-        { icon: Calculator, label: 'Returns Calculator', description: 'Project your returns', onClick: onOpenCalculator },
+        { icon: Calculator, label: 'Rent profit share Calculator', description: 'Project your Rent profit share', onClick: onOpenCalculator },
       ]
     },
     {

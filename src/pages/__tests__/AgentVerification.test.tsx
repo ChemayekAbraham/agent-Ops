@@ -6,6 +6,9 @@ import { parseAgentVetting } from '@/lib/agentVetting';
 
 const state = vi.hoisted(() => ({ value: {} as Record<string, any> }));
 vi.mock('@/hooks/useAgentVetting', () => ({ useAgentVetting: () => state.value }));
+const v2 = vi.hoisted(() => ({ value: {} as Record<string, any> }));
+vi.mock('@/hooks/useAgentVettingV2', () => ({ useAgentVettingV2: () => v2.value }));
+vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 vi.mock('@/hooks/useIdentityPhotos', () => ({ identityPhotoUrl: vi.fn().mockResolvedValue(null) }));
 vi.mock('@/hooks/useMyIdPhotos', () => ({ useMyIdPhotos: () => ({ data: { front: '/test-front.png', back: '/test-back.png' } }) }));
 vi.mock('@/components/wallet/IdentityPhotoCapture', () => ({ default: () => null }));
@@ -23,6 +26,8 @@ beforeEach(() => {
     confirmEmailCode: vi.fn().mockResolvedValue(undefined), refresh: vi.fn(),
     submit: vi.fn().mockResolvedValue({ success: false, message: 'Finish these steps', missing: ['Confirm your email', 'Capture your location'] }),
   };
+  // v2 defaults: nothing else missing, so the LC1 step counts as done.
+  v2.value = { missing: [], missingFailed: false, gate: null, saveHomeLc1: vi.fn().mockResolvedValue({}), savingHomeLc1: false, homeLc1Saved: false };
   window.scrollTo = vi.fn();
 });
 
@@ -121,6 +126,7 @@ describe('Agent KYC navigation and existing actions', () => {
   });
 
   it('flags a step that is already filled so it only needs checking', () => {
+    v2.value.missing = [{ text: 'LC1 letter for your home', kind: 'home_lc1', step: 'home_lc1', href: null }];
     state.value.vetting.phone.verified_at = new Date().toISOString();
     state.value.vetting.email.verified_at = new Date().toISOString();
     mount();
@@ -135,9 +141,9 @@ describe('Agent KYC navigation and existing actions', () => {
   it('puts live location last, just before review, so its reading is still fresh at submit', () => {
     state.value.vetting.residence.district = 'Wakiso';
     mount();
-    // Opens at Contact; Contact -> Where you stay -> Identity -> Selfie -> Next of kin -> Live location
+    // Opens at Contact; Contact -> Where you stay -> Identity -> Selfie -> Next of kin -> LC1 letter -> Live location
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Contact');
-    for (let step = 0; step < 5; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Live location');
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Review and submit');
@@ -173,7 +179,7 @@ describe('Agent KYC navigation and existing actions', () => {
     completeAll();
     state.value.vetting.next_of_kin.name = null;
     mount(); // every step is shown, so walk all the way to review
-    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    for (let step = 0; step < 7; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Review and submit');
     expect(screen.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Next of kin' }));
@@ -184,7 +190,7 @@ describe('Agent KYC navigation and existing actions', () => {
     completeAll();
     state.value.vetting.next_of_kin.name = null;
     mount();
-    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    for (let step = 0; step < 7; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Review and submit');
     const locationCard = screen.getByRole('heading', { level: 2, name: 'Live location' });
     const stillNeeded = screen.getByText('Still needed before you can submit');
@@ -196,7 +202,7 @@ describe('Agent KYC navigation and existing actions', () => {
     completeAll();
     state.value.submit = vi.fn().mockResolvedValue({ success: true, message: 'Sent for review' });
     mount();
-    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    for (let step = 0; step < 7; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
     expect(state.value.submit).toHaveBeenCalledTimes(1);
   });
@@ -204,7 +210,7 @@ describe('Agent KYC navigation and existing actions', () => {
   it('still shows the server list when it refuses a record the wizard considers complete', async () => {
     completeAll();
     mount();
-    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    for (let step = 0; step < 7; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
     const dialog = await screen.findByRole('dialog');
     expect(state.value.submit).toHaveBeenCalledTimes(1);
@@ -260,12 +266,102 @@ describe('Agent KYC navigation and existing actions', () => {
   it('shows the review contact details as primary-coloured tel/mailto links', () => {
     state.value.vetting.residence.district = 'Wakiso';
     mount();
-    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    for (let step = 0; step < 7; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     const phone = screen.getByRole('link', { name: '+256700000001' });
     const email = screen.getByRole('link', { name: 'agent@example.com' });
     expect(phone).toHaveAttribute('href', 'tel:+256700000001');
     expect(email).toHaveAttribute('href', 'mailto:agent@example.com');
     expect(phone).toHaveClass('text-primary');
     expect(email).toHaveClass('text-primary');
+  });
+});
+
+describe('Agent verification v2 (E78)', () => {
+  const lc1Step = () => {
+    state.value.vetting.residence.district = 'Wakiso';
+    mount();
+    for (let step = 0; step < 5; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('LC1 letter for your home');
+  };
+
+  it('asks for the home LC1 letter, previews it, then saves it', async () => {
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:lc1');
+    URL.revokeObjectURL = vi.fn();
+    v2.value.missing = [{ text: 'LC1 letter for your home', kind: 'home_lc1', step: 'home_lc1', href: null }];
+    lc1Step();
+    expect(screen.getByText('Step 6 of 8')).toBeInTheDocument();
+    const file = new File(['letter'], 'lc1.jpg', { type: 'image/jpeg' });
+    const input = screen.getByLabelText('LC1 letter photo') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [file] });
+    fireEvent.change(input);
+    expect(screen.getByRole('img', { name: 'New LC1 letter' })).toHaveAttribute('src', 'blob:lc1');
+    expect(v2.value.saveHomeLc1).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Use this photo' }));
+    await waitFor(() => expect(v2.value.saveHomeLc1).toHaveBeenCalledWith(file));
+  });
+
+  it('shows the server error from saving the LC1 letter as it is', async () => {
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:lc1');
+    URL.revokeObjectURL = vi.fn();
+    v2.value.missing = [{ text: 'LC1 letter for your home', kind: 'home_lc1', step: 'home_lc1', href: null }];
+    v2.value.saveHomeLc1 = vi.fn().mockRejectedValue(new Error('LC1_INVALID: path must start with your user id'));
+    lc1Step();
+    const input = screen.getByLabelText('LC1 letter photo') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [new File(['x'], 'lc1.jpg', { type: 'image/jpeg' })] });
+    fireEvent.change(input);
+    fireEvent.click(screen.getByRole('button', { name: 'Use this photo' }));
+    expect(await screen.findByText('LC1_INVALID: path must start with your user id')).toBeInTheDocument();
+  });
+
+  it('keeps Submit disabled while the server still lists the LC1 letter', () => {
+    Object.assign(state.value.vetting.phone, { verified_at: new Date().toISOString() });
+    Object.assign(state.value.vetting.email, { verified_at: new Date().toISOString() });
+    Object.assign(state.value.vetting.residence, { district: 'Wakiso', village: 'Kigungu' });
+    Object.assign(state.value.vetting.national_id, { ok: true, source: 'own', has_front: true, has_back: true });
+    Object.assign(state.value.vetting.passport_photo, { path: 'kyc/passport.png' });
+    Object.assign(state.value.vetting.next_of_kin, { name: 'Kin Person', phone: '+256700000009' });
+    Object.assign(state.value.vetting.gps, { lat: 0.35, lng: 32.58, accuracy_m: 20, captured_at: new Date().toISOString() });
+    v2.value.missing = [{ text: 'LC1 letter for your home', kind: 'home_lc1', step: 'home_lc1', href: null }];
+    mount();
+    for (let step = 0; step < 7; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'LC1 letter for your home' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('LC1 letter for your home');
+  });
+
+  it('lists what is missing with links to the agent agreement and the mobile money settings', () => {
+    state.value.vetting.status = 'verified';
+    v2.value.missing = [
+      { text: 'Signed agent agreement', kind: 'agreement', step: null, href: '/agent-agreement' },
+      { text: 'Mobile money in your own name', kind: 'mobile_money', step: null, href: '/settings?section=account&tab=withdrawal' },
+      { text: 'LC1 letter for your home', kind: 'home_lc1', step: 'home_lc1', href: null },
+    ];
+    mount();
+    expect(screen.getByText('Still missing for your verification')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Signed agent agreement' })).toHaveAttribute('href', '/agent-agreement');
+    expect(screen.getByRole('link', { name: 'Mobile money in your own name' })).toHaveAttribute('href', '/settings?section=account&tab=withdrawal');
+    // A verified agent confirms before the LC1 step opens for editing.
+    fireEvent.click(screen.getByRole('button', { name: 'LC1 letter for your home' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('LC1 letter for your home');
+  });
+
+  it('shows "Verified until" from the gate status', () => {
+    state.value.vetting.status = 'verified';
+    v2.value.gate = { enforced: true, status: 'verified', blocked: false, reason: null, expires_at: '2027-11-11T09:00:00Z' };
+    mount();
+    expect(screen.getByText('Verified until 11 Nov 2027')).toBeInTheDocument();
+  });
+
+  it('shows the re-verify message as it is when the verification has expired', () => {
+    state.value.vetting.status = 'verified';
+    const reason = 'Your verification expired on 1 Nov 2026. Upload your LC1 letter and confirm your details to verify again.';
+    v2.value.gate = { enforced: true, status: 'expired', blocked: true, reason, expires_at: '2026-11-01T00:00:00Z' };
+    mount();
+    expect(screen.getByText(reason)).toBeInTheDocument();
+    expect(screen.queryByText(/^Verified until/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Verify again/ }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Contact');
+    expect(screen.getByText(reason)).toBeInTheDocument();
   });
 });

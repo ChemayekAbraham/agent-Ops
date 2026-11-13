@@ -1064,12 +1064,12 @@ export function SmartphoneOrderApprovalQueue({
                               <p className="text-xs font-semibold">{formatUGX(partnership.amount)}</p>
                             </div>
                             <div className="rounded-md bg-muted/50 px-2 py-1.5">
-                              <p className="text-[10px] text-muted-foreground">Monthly returns</p>
+                              <p className="text-[10px] text-muted-foreground">Monthly Rent profit share</p>
                               <p className="text-xs font-semibold">{partnership.rate.toFixed(1)}%</p>
                               <p className="text-[10px] text-muted-foreground">{formatUGX(Math.round(partnership.monthly))}</p>
                             </div>
                             <div className="rounded-md bg-muted/50 px-2 py-1.5">
-                              <p className="text-[10px] text-muted-foreground">Returns earned</p>
+                              <p className="text-[10px] text-muted-foreground">Rent profit share earned</p>
                               <p className="text-xs font-semibold">{formatUGX(partnership.earned)}</p>
                             </div>
                           </div>

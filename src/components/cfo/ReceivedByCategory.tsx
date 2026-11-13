@@ -441,7 +441,7 @@ export function ReceivedByCategory() {
           their recorded ledger category (never by description). Only Fees and Other Income are genuine income;
           Partner money is capital owed back to Supporters, Rent Plan and agent repayments are recoveries of money
           already paid out. Wallet transfers, float cycles, cash in transit, bank deposits, compounding and
-          Returns credits are internal movements and are excluded, so nothing is counted twice.
+          Rent profit share credits are internal movements and are excluded, so nothing is counted twice.
         </p>
       </div>
     </div>

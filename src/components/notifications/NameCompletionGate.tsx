@@ -24,6 +24,7 @@ const SNOOZE_KEY = "welile:name-completion:snoozed-until";
 // Shorter snooze than the phone gate — we really do need a real name so payouts,
 // receipts and legal documents don't ship with "jd" or "hshseh" on them.
 const SNOOZE_MS = 6 * 60 * 60 * 1000;
+const PROMPT_CHECK_DELAY_MS = 3000;
 
 export default function NameCompletionGate() {
   const { user } = useAuth();
@@ -63,8 +64,10 @@ export default function NameCompletionGate() {
       }
       setChecked(true);
     }
-    void check();
-    return () => { cancelled = true; };
+    // A prompt, not a gate: wait until the dashboard's own requests have gone
+    // out, instead of competing with them right after sign-in.
+    const timer = window.setTimeout(() => { void check(); }, PROMPT_CHECK_DELAY_MS);
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [user?.id]);
 
   const handleSave = async () => {

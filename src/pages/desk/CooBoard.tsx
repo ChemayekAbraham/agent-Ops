@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fmt } from './format';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
-import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu, rowLayout, RowCard, atLeast, useBreakpoint, daysShort, moneyCard, moneyFull } from './ui';
+import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu, rowLayout, RowCard, atLeast, useBreakpoint, daysShort, moneyCard, moneyFull, stackLayout } from './ui';
 import { readableError, rpc } from './reviewApi';
 import { hoursUntil, ownerLabel, type BoardWaiting } from './boardApi';
 import { timeLeftText } from './waitOn';
@@ -12,6 +12,13 @@ import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
 import { concernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
 import type { ChipModel } from './boardRowModel';
 import { AgentSheet } from './agents/AgentSheet';
+import { SendBackSheet } from './sendBack';
+import { KindChip, type RequestKind } from './KindChip';
+import { AT_COO, DeskSearchBox, SearchResults } from './deskSearch';
+import { MissingLine, SendBackIncompleteSheet } from './incomplete';
+import { missingChip } from './boardRowModel';
+import { awaitingRentRequestIds } from '@/lib/fundersBoard';
+import { useCooDemoted } from './fundersBoard/DemotedPanel';
 
 /**
  * The COO's "Ready for your push": approved requests graded A–D from the three
@@ -34,6 +41,10 @@ export type CooRatings = {
 
 export type CooRow = {
   id: string;
+  /** E73: New, Renewal or Self-applied. */
+  kind?: RequestKind | null;
+  /** E82: what is still missing; the server already marks such a row not pushable. */
+  incomplete?: string[] | null;
   req: string;
   tenant: string | null;
   agent: string | null;
@@ -53,6 +64,10 @@ export type CooRow = {
   pushable?: boolean | null;
   /** Frozen rows go back to Agent Ops on the given date; they are never pushed. */
   frozen?: { reason: string | null; since: string | null; returns_to_agent_ops_at: string | null } | null;
+  /** E62: a serious concern is open on this request; the server will not push it. */
+  concern_block?: boolean | null;
+  /** E58: demoted from the funders board and waiting for the COO to choose its level; never pushed from here. */
+  demoted_awaiting?: boolean;
 };
 
 export type CooCounts = { A?: number; B?: number; C?: number; D?: number; unrated?: number; waiting?: number; pushable?: number; frozen?: number };
@@ -133,10 +148,18 @@ export function byRank(rows: CooRow[]): CooRow[] {
   return [...rows].sort((a, b) => (a.rank ?? Number.POSITIVE_INFINITY) - (b.rank ?? Number.POSITIVE_INFINITY));
 }
 
-/** True when the server would push this row: not frozen, not on hold, not marked unpushable. */
+/** E58: the hold the server sets on a request it took off the funders board. */
+export const DEMOTED_HOLD = 'FUNDERS_BOARD_DEMOTED';
+/** Waiting for a level on the "Demoted from the funders board" panel above. */
+export const isDemotedAwaiting = (r: CooRow): boolean => r.demoted_awaiting === true || r.waiting?.reason_code === DEMOTED_HOLD;
+
+/** True when the server would push this row: not frozen, not blocked by a serious concern, not on hold, not marked unpushable, not waiting for a level. */
 export function isPushable(r: CooRow): boolean {
-  return !r.waiting && !r.frozen && r.pushable !== false;
+  return !r.waiting && !r.frozen && r.concern_block !== true && r.pushable !== false && !isDemotedAwaiting(r);
 }
+
+/** E62: the line under a row with an open serious concern. */
+export const CONCERN_BLOCK_LINE = 'Blocked: a serious concern is open — resolve it in the review, or hold';
 
 /** What "Push top N" would send, as the confirm sheet lists it: the best N pushable rows, and their total rent. */
 export function pushPlan(rows: CooRow[], n: number): { rows: CooRow[]; totalUgx: number } {
@@ -190,15 +213,34 @@ export function frozenText(f: NonNullable<CooRow['frozen']>): string {
  */
 export function cooChips(row: CooRow, concerns?: ConcernSummary): ChipModel[] {
   const out: ChipModel[] = [];
+  const m = missingChip(row.incomplete);
+  if (m) out.push(m);
   const c = concernsChip(concerns);
   if (c) out.push({ key: 'concerns', text: c.text, tone: c.tone, title: c.title, strong: c.tone === 'bad' });
+  if (isDemotedAwaiting(row)) out.push({ key: 'demoted', text: 'Demoted: choose level above', tone: 'warn', strong: true, title: row.waiting?.note ?? undefined });
   if (row.frozen) out.push({ key: 'frozen', text: 'Frozen', tone: 'idle', title: frozenText(row.frozen) });
   const w = row.waiting;
-  if (w) {
+  // The demotion hold already has its own chip.
+  if (w && w.reason_code !== DEMOTED_HOLD) {
     const up = w.expired || (hoursUntil(w.until_at) ?? 1) <= 0;
     out.push({ key: 'hold', text: up ? 'On hold · time up' : 'On hold', tone: up ? 'bad' : 'idle', title: w.note ?? undefined });
   }
   if (row.ratings?.partly_rated) out.push({ key: 'partly', text: 'partly rated', tone: 'idle' });
+  return out;
+}
+
+/** The sentences under a row, most important first: serious concern, then frozen or held. */
+/** A concern the server raised itself ("System (E77): …"): shown under a blocked row word for word. */
+export const isSystemConcern = (note: string | null | undefined): note is string => /^System \(E\d+\)/.test(note ?? '');
+
+export function cooLines(row: CooRow, concerns?: ConcernSummary): string[] {
+  const out: string[] = [];
+  if (row.concern_block === true) {
+    out.push(CONCERN_BLOCK_LINE);
+    if (isSystemConcern(concerns?.latest)) out.push(concerns!.latest as string);
+  }
+  const l = cooLine(row);
+  if (l) out.push(l);
   return out;
 }
 
@@ -226,6 +268,8 @@ function CooRowLine({
   onOpen,
   onPush,
   onAgent,
+  onSendBack,
+  onSendBackAgentOps,
   concerns,
 }: {
   row: CooRow;
@@ -236,11 +280,16 @@ function CooRowLine({
   onPush: (row: CooRow) => void;
   /** Opens the agent's sheet (the Agents desk's): from the agent name or the Frozen chip. */
   onAgent: (row: CooRow) => void;
+  /** Opens "Send back…" to a chosen office (E63). */
+  onSendBack: (row: CooRow) => void;
+  /** E82 / E89: "Send back…" for a row that misses something (Agent Ops, Service Centre or agent). */
+  onSendBackAgentOps?: (row: CooRow) => void;
   /** Concerns any desk logged on this request. */
   concerns?: ConcernSummary;
 }) {
   const frozen = row.frozen;
-  const chips = cooChips(row, concerns).map((c) =>
+  const kindChip = row.kind ? [<KindChip key="kind" kind={row.kind} />] : [];
+  const chips = [...kindChip, ...cooChips(row, concerns).map((c) =>
     c.key === 'frozen' ? (
       <button
         key={c.key}
@@ -260,12 +309,12 @@ function CooRowLine({
         {c.text}
       </Chip>
     ),
-  );
+  )];
   const menu = (close: () => void) => (
     <>
       <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
       <MenuItem onClick={() => { close(); onOpen(row.id, 'wait'); }}>Hold (Wait on…)</MenuItem>
-      <MenuItem onClick={() => { close(); onOpen(row.id, 'send_back'); }}>Send back…</MenuItem>
+      <MenuItem onClick={() => { close(); onSendBack(row); }}>Send back…</MenuItem>
     </>
   );
   const title = (
@@ -298,7 +347,10 @@ function CooRowLine({
     </span>
   );
 
-  const line = cooLine(row);
+  const lines = cooLines(row, concerns);
+  // E82: what is missing, with the shortcut back to Agent Ops (the server already keeps the row from the push).
+  const missingEl = <MissingLine list={row.incomplete} onSendBack={onSendBackAgentOps ? () => onSendBackAgentOps(row) : undefined} />;
+  const missing = (row.incomplete ?? []).filter(Boolean).length > 0;
 
   if (layout === 'card') {
     return (
@@ -308,7 +360,18 @@ function CooRowLine({
           title={title}
           subtitle={agent}
           chips={chips}
-          why={line ?? undefined}
+          why={
+            lines.length || missing ? (
+              <>
+                {missing && missingEl}
+                {lines.map((l) => (
+                  <span key={l} style={{ display: 'block' }} data-row-line={l === CONCERN_BLOCK_LINE ? 'concern' : undefined}>
+                    {l}
+                  </span>
+                ))}
+              </>
+            ) : undefined
+          }
           meta={
             <>
               <span title={moneyFull(row.rent)}>{moneyCard(row.rent)}</span>
@@ -361,11 +424,12 @@ function CooRowLine({
         <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>{menu}</MoreMenu>
       </span>
       {layout === 'md' && chips.length > 0 && <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 6 }}>{chips}</div>}
-      {line && (
-        <div className={LABEL} style={{ gridColumn: '1 / -1', minWidth: 0 }}>
-          {line}
+      {missing && <div style={{ gridColumn: '1 / -1', minWidth: 0 }}>{missingEl}</div>}
+      {lines.map((l) => (
+        <div key={l} className={LABEL} style={{ gridColumn: '1 / -1', minWidth: 0 }} data-row-line={l === CONCERN_BLOCK_LINE ? 'concern' : undefined}>
+          {l}
         </div>
-      )}
+      ))}
     </li>
   );
 }
@@ -525,14 +589,43 @@ function PushSheet({ plan, n, onClose }: { plan: { rows: CooRow[]; totalUgx: num
   );
 }
 
+/**
+ * The COO board with its search box on top (E72): any name, phone or request
+ * id across the pipeline. A result at the COO opens the drawer; any other
+ * shows read-only where it is. The results replace the list while searching.
+ */
 export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
+  const [query, setQuery] = useState('');
+  const searching = query.trim().length > 0;
+  return (
+    <div style={stackLayout(12)}>
+      <DeskSearchBox desk="coo" value={query} onChange={setQuery} />
+      {searching && <SearchResults desk="coo" query={query} showDesk onOpen={(id) => onOpen(id)} openWhen={(r) => r.status === AT_COO} />}
+      <div hidden={searching}>
+        <CooList board={board} onOpen={onOpen} />
+      </div>
+    </div>
+  );
+}
+
+function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
   const q = useCooBoard();
   const [n, setN] = useState(COO_PUSH_DEFAULT);
   const [confirm, setConfirm] = useState(false);
   const [pushRow, setPushRow] = useState<CooRow | null>(null);
   const [agentRow, setAgentRow] = useState<CooRow | null>(null);
   const closeAgent = useCallback(() => setAgentRow(null), []);
-  const rows = useMemo(() => byRank(q.data?.rows ?? []), [q.data]);
+  const [sendBackRow, setSendBackRow] = useState<CooRow | null>(null);
+  const closeSendBack = useCallback(() => setSendBackRow(null), []);
+  // E89: a row that misses something goes back to Agent Ops, the Service Centre or the agent.
+  const [agentOpsRow, setAgentOpsRow] = useState<CooRow | null>(null);
+  const closeAgentOps = useCallback(() => setAgentOpsRow(null), []);
+  // Requests demoted from the funders board wait for a level on the panel above; mark them so they are never pushed.
+  const demoted = useCooDemoted();
+  const rows = useMemo(() => {
+    const awaiting = awaitingRentRequestIds(demoted.data ?? undefined);
+    return byRank(q.data?.rows ?? []).map((r) => (awaiting.has(r.id) ? { ...r, demoted_awaiting: true } : r));
+  }, [q.data, demoted.data]);
   const plan = useMemo(() => pushPlan(rows, n), [rows, n]);
   // One batch call per board load: the concerns logged on every row.
   const concerns = useConcernsSummary(rows.map((r) => r.id));
@@ -600,13 +693,17 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
       ) : (
         <ol style={{ display: 'flex', flexDirection: 'column', gap: card ? 12 : 0, margin: 0, padding: 0 }}>
           {rows.map((r) => (
-            <CooRowLine key={r.id} row={r} board={board} layout={layout} onOpen={onOpen} onPush={setPushRow} onAgent={setAgentRow} concerns={concerns.data?.[r.id]} />
+            <CooRowLine key={r.id} row={r} board={board} layout={layout} onOpen={onOpen} onPush={setPushRow} onAgent={setAgentRow} onSendBack={setSendBackRow} onSendBackAgentOps={setAgentOpsRow} concerns={concerns.data?.[r.id]} />
           ))}
         </ol>
       )}
 
       {confirm && valid && <PushSheet plan={plan} n={n} onClose={() => setConfirm(false)} />}
       {pushRow && <RowPushConfirm row={pushRow} onClose={() => setPushRow(null)} />}
+      {sendBackRow && <SendBackSheet requestId={sendBackRow.id} stage="coo" tenant={sendBackRow.tenant} onClose={closeSendBack} />}
+      {agentOpsRow && (
+        <SendBackIncompleteSheet requestId={agentOpsRow.id} tenant={agentOpsRow.tenant} missing={agentOpsRow.incomplete} onClose={closeAgentOps} />
+      )}
       {agentRow && (
         <AgentSheet target={{ kind: 'request', requestId: agentRow.id, name: agentRow.agent, grade: agentRow.agent_grade }} onClose={closeAgent} />
       )}

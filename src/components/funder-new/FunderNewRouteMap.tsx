@@ -9,6 +9,7 @@ import type { FunderNewEmptyHouse } from './types';
 import { emptyHouseTitle, itemAmount } from './utils';
 import './funderNewMap.css';
 import { viewportFromCenter } from './viewportMath';
+import { loadGoogleMapsWith } from '@/lib/googleMapsScript';
 
 const SERVICE_AREA_ZOOM = 7;
 const LOCATED_ZOOM = 13;
@@ -16,8 +17,6 @@ const KAMPALA_CENTRE = { lat: 0.3476, lng: 32.5825 };
 const KAMPALA_ZOOM = 12;
 /** How long the first data request waits for a location fix before loading Kampala instead. */
 const HOLD_FOR_LOCATION_MS = 4000;
-
-let mapsPromise: Promise<typeof google.maps> | null = null;
 
 // The Maps key is never cached in browser storage. The referrer-restricted
 // connector browser key is used directly when present; otherwise the key is
@@ -35,51 +34,9 @@ async function resolveMapsKey(): Promise<string> {
   throw new Error('Google Maps is not connected.');
 }
 
-async function ensureMapsReady(): Promise<typeof google.maps> {
-  const maps = window.google?.maps as (typeof google.maps & { importLibrary?: (n: string) => Promise<unknown> }) | undefined;
-  if (!maps) throw new Error('Google Maps did not initialise.');
-  // With loading=async the namespace can exist before Map/Marker are attached.
-  if (typeof maps.Map !== 'function' && typeof maps.importLibrary === 'function') {
-    await maps.importLibrary('maps');
-    await maps.importLibrary('marker');
-  }
-  if (typeof window.google?.maps?.Map !== 'function') throw new Error('Google Maps did not initialise.');
-  return window.google.maps;
-}
-
+/** The shared loader (src/lib/googleMapsScript.ts) with this app's key: the connector key, else the backend's. */
 export function loadGoogleMaps(): Promise<typeof google.maps> {
-  if (typeof window.google?.maps?.Map === 'function') return Promise.resolve(window.google.maps);
-  if (mapsPromise) return mapsPromise;
-  if (window.google?.maps) {
-    mapsPromise = ensureMapsReady();
-    mapsPromise.catch(() => { mapsPromise = null; });
-    return mapsPromise;
-  }
-
-  const channel = import.meta.env['VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID'] as string | undefined;
-
-  mapsPromise = resolveMapsKey().then(
-    (key) =>
-      new Promise<typeof google.maps>((resolve, reject) => {
-        const callbackName = '__initFunderNewGoogleMap';
-        window[callbackName] = () => {
-          ensureMapsReady().then(resolve, reject);
-          delete window[callbackName];
-        };
-
-        const script = document.createElement('script');
-        const params = new URLSearchParams({ key, loading: 'async', callback: callbackName, libraries: 'geometry' });
-        if (channel) params.set('channel', channel);
-        script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
-        script.async = true;
-        script.onerror = () => reject(new Error('Google Maps could not be loaded.'));
-        document.head.appendChild(script);
-      }),
-  );
-  mapsPromise.catch(() => {
-    mapsPromise = null;
-  });
-  return mapsPromise;
+  return loadGoogleMapsWith(resolveMapsKey);
 }
 
 // Eagerly preload Google Maps script in the background so tiles start resolving immediately
@@ -239,6 +196,7 @@ export function FunderNewRouteMap({
   loadedNote,
   onExpandedChange,
   expandRequest,
+  collapseRequest,
   reserveTopForSearch = false,
   focus,
   notice,
@@ -262,6 +220,8 @@ export function FunderNewRouteMap({
   onExpandedChange?: (expanded: boolean) => void;
   /** Bumped by the page to open the full screen map (e.g. from the hero card). */
   expandRequest?: number;
+  /** Bumped by the page to close the full screen map (e.g. a back button). */
+  collapseRequest?: number;
   /** Full screen only: leave room under a search bar floated at the top by the page. */
   reserveTopForSearch?: boolean;
   /** Bumped by the page (new token) to move the map to a set of points, e.g. search results. */
@@ -298,6 +258,9 @@ export function FunderNewRouteMap({
   useEffect(() => {
     if (expandRequest) setFullscreen(true);
   }, [expandRequest]);
+  useEffect(() => {
+    if (collapseRequest) setFullscreen(false);
+  }, [collapseRequest]);
   const [moved, setMoved] = useState<FunderNewViewport | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const expandRef = useRef<HTMLButtonElement | null>(null);

@@ -458,7 +458,7 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Monthly Returns (%)</Label>
+              <Label className="text-xs">Monthly Rent profit share (%)</Label>
               <Input type="number" min={0} max={100} value={form.roi_percentage} onChange={e => set('roi_percentage', e.target.value)} className="h-9" />
               <PartnerRateCfoNote policyEnabled={rate.policyEnabled} personRate={rate.personRate} typedRate={rate.value} />
             </div>
@@ -477,7 +477,7 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Returns Mode</Label>
+              <Label className="text-xs">Rent profit share Mode</Label>
               <Select value={form.roi_mode} onValueChange={v => set('roi_mode', v)}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -701,7 +701,7 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
                     <span>{form.duration_months} months</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Monthly Returns (%)</span>
+                    <span className="text-muted-foreground">Monthly Rent profit share (%)</span>
                     <span>{formatRatePct(rateOrNull(form.roi_percentage)) ?? (rate.edited ? '—' : "the partner's rate")} ({form.roi_mode === 'monthly_payout' ? 'monthly payout' : 'compounding'})</span>
                   </div>
                   {existingPortfolioCount != null && existingPortfolioCount > 0 && (

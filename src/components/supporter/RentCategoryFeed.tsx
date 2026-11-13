@@ -226,7 +226,7 @@ function ViewDetailsDialog({
           </div>
           {ownRatePct && (
             <Badge className="bg-emerald-500/20 text-emerald-200 border-emerald-400/30 text-[10px] font-bold">
-              {ownRatePct} Monthly Reward
+              {ownRatePct} Monthly Rent profit share
             </Badge>
           )}
         </div>
@@ -255,7 +255,7 @@ function ViewDetailsDialog({
             <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3">
               <div className="flex items-center gap-1.5 mb-1">
                 <CircleDollarSign className="h-3 w-3 text-emerald-600" />
-                <span className="text-[9px] text-emerald-600 font-semibold uppercase tracking-wider">Monthly Reward</span>
+                <span className="text-[9px] text-emerald-600 font-semibold uppercase tracking-wider">Monthly Rent profit share</span>
               </div>
               <p className="text-sm font-black text-emerald-600">{monthlyReward === null ? '—' : formatAmount(monthlyReward)}</p>
             </div>
@@ -279,7 +279,7 @@ function ViewDetailsDialog({
               'Welile pays rent upfront for tenants — never in arrears. Your funds are deployed immediately.',
               'Welile Agents hold tenant placement rights — if a tenant defaults, the agent replaces them with a paying tenant.',
               'Defaults do not affect supporters. Welile\'s operational model absorbs and mitigates all default risk.',
-              'Your monthly reward is a platform service reward — not an investment return.'].
+              'Your monthly Rent profit share is a platform service reward — not an investment return.'].
               map((text, i) =>
               <div key={i} className="flex items-start gap-2">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />

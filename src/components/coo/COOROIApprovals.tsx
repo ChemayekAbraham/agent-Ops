@@ -156,8 +156,8 @@ export function COOROIApprovals() {
         await supabase.from('notifications').insert(
           cfoUsers.map(c => ({
             user_id: c.user_id,
-            title: `${ids.length} ROI Payout(s) COO-Approved`,
-            message: `${ids.length} ROI payout(s) totalling ${formatUGX(totalAmount)} have been approved by COO and are ready for disbursement.`,
+            title: `${ids.length} Rent profit share payout(s) COO-Approved`,
+            message: `${ids.length} Rent profit share payout(s) totalling ${formatUGX(totalAmount)} have been approved by COO and are ready for disbursement.`,
             type: 'approval_required',
             metadata: { count: ids.length, total: totalAmount },
           }))
@@ -197,7 +197,7 @@ export function COOROIApprovals() {
         metadata: { amount: op?.amount, reason },
       });
 
-      toast.success('ROI payout rejected');
+      toast.success('Rent profit share payout rejected');
       setRejecting(null);
       setRejectionReason('');
       queryClient.invalidateQueries({ queryKey: ['coo-roi-approvals'] });
@@ -214,7 +214,7 @@ export function COOROIApprovals() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <TrendingUp className="h-5 w-5 text-primary" />
-            ROI Return Approvals
+            Rent profit share Return Approvals
             {operations.length > 0 && (
               <Badge variant="destructive">{operations.length}</Badge>
             )}
@@ -258,7 +258,7 @@ export function COOROIApprovals() {
           </div>
         ) : operations.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-6">
-            No ROI payouts pending COO approval.
+            No Rent profit share payouts pending COO approval.
           </p>
         ) : (
           operations.map(op => {

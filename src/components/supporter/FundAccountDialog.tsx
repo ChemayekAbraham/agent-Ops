@@ -240,7 +240,7 @@ export function FundAccountDialog({
                       <div className="flex items-center justify-between pt-1.5 border-t border-success/15">
                         <span className="text-[10px] text-success/70 flex items-center gap-1">
                           <Sparkles className="h-3 w-3" />
-                          Projected Returns{formatRatePct(ownRate) ? ` (${formatRatePct(ownRate)}/mo)` : ''}
+                          Projected Rent profit share{formatRatePct(ownRate) ? ` (${formatRatePct(ownRate)}/mo)` : ''}
                         </span>
                         <span className="text-xs font-bold text-success">{formatUGXOrDash(monthlyReturn)}/mo</span>
                       </div>

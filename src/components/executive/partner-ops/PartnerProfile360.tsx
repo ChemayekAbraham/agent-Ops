@@ -186,7 +186,7 @@ const PORTFOLIO_COLS: Col[] = [
   { key: 'status', label: 'Status' },
   { key: 'investment_amount', label: 'Principal', align: 'right', render: (r) => money(r.investment_amount) },
   { key: 'roi_percentage', label: 'Rate %', align: 'right', render: (r) => `${Number(r.roi_percentage) || 0}%` },
-  { key: 'total_roi_earned', label: 'Returns earned', align: 'right', render: (r) => money(r.total_roi_earned) },
+  { key: 'total_roi_earned', label: 'Rent profit share earned', align: 'right', render: (r) => money(r.total_roi_earned) },
   { key: 'duration_months', label: 'Term (months)', align: 'right', render: (r) => String(r.duration_months ?? '—') },
   { key: 'created_at', label: 'Created', render: (r) => fmtDate(r.created_at) },
   { key: 'next_roi_date', label: 'Next payout', render: (r) => fmtDate(r.next_roi_date) },
@@ -703,7 +703,7 @@ export function PartnerProfile360() {
       { label: 'Status', value: (r) => r.status || '' },
       { label: 'Contribution date', value: (r) => (r.created_at ? fmtDate(r.created_at) : '') },
       { label: 'Principal', align: 'right', value: (r) => (r.investment_amount == null ? '' : money(r.investment_amount)) },
-      { label: 'Rate (Returns)', align: 'right', value: (r) => (r.roi_percentage == null ? '' : `${Number(r.roi_percentage)}% monthly`) },
+      { label: 'Rate (Rent profit share)', align: 'right', value: (r) => (r.roi_percentage == null ? '' : `${Number(r.roi_percentage)}% monthly`) },
       {
         label: 'Computed monthly return',
         align: 'right',
@@ -715,7 +715,7 @@ export function PartnerProfile360() {
         },
       },
       {
-        label: 'Returns earned',
+        label: 'Rent profit share earned',
         align: 'right',
         value: (r) => {
           const a = returnsByPortfolio.get(String(r.portfolio_code || ''));
@@ -724,7 +724,7 @@ export function PartnerProfile360() {
         },
       },
       {
-        label: 'Returns reinvested',
+        label: 'Rent profit share reinvested',
         align: 'right',
         value: (r) => {
           const a = returnsByPortfolio.get(String(r.portfolio_code || ''));
@@ -732,7 +732,7 @@ export function PartnerProfile360() {
         },
       },
       {
-        label: 'Returns paid out',
+        label: 'Rent profit share paid out',
         align: 'right',
         value: (r) => {
           const a = returnsByPortfolio.get(String(r.portfolio_code || ''));
@@ -849,9 +849,9 @@ export function PartnerProfile360() {
         ['Active portfolios', String(totals?.active_count ?? 0)],
         ['Total principal', money(totals?.total_principal)],
         ['Active principal', money(totals?.active_principal)],
-        ['Total returns', money(reinvested + paidOut || totals?.total_returns)],
-        ...(reinvested ? [['Returns reinvested (compounded)', money(reinvested)] as [string, string]] : []),
-        ...(paidOut ? [['Returns paid out', money(paidOut)] as [string, string]] : []),
+        ['Total Rent profit share', money(reinvested + paidOut || totals?.total_returns)],
+        ...(reinvested ? [['Rent profit share reinvested (compounded)', money(reinvested)] as [string, string]] : []),
+        ...(paidOut ? [['Rent profit share paid out', money(paidOut)] as [string, string]] : []),
 
         ['First support', fmtDate(totals?.first_portfolio_at)],
         ['Latest support', fmtDate(totals?.last_portfolio_at)],
@@ -1061,7 +1061,7 @@ export function PartnerProfile360() {
                     <Metric label="Portfolios" value={String(totals?.portfolio_count ?? 0)} hint={`${totals?.active_count ?? 0} active`} />
                     <Metric label="Total principal" value={money(totals?.total_principal)} />
                     <Metric label="Active principal" value={money(totals?.active_principal)} />
-                    <Metric label="Returns earned" value={money(totals?.total_returns)} />
+                    <Metric label="Rent profit share earned" value={money(totals?.total_returns)} />
                     <Metric label="First support" value={fmtDate(totals?.first_portfolio_at)} />
                     <Metric label="Latest support" value={fmtDate(totals?.last_portfolio_at)} />
                   </div>
@@ -1149,7 +1149,7 @@ export function PartnerProfile360() {
                     <Metric label="Money in" value={money((data.ledger || []).filter((l) => l.direction === 'cash_in').reduce((s, l) => s + Number(l.amount || 0), 0))} />
                     <Metric label="Money out" value={money((data.ledger || []).filter((l) => l.direction === 'cash_out').reduce((s, l) => s + Number(l.amount || 0), 0))} />
                     <Metric label="Entries" value={String((data.ledger || []).length)} hint="latest 300" />
-                    <Metric label="Returns paid" value={money((data.ledger || []).filter((l) => String(l.category || '').startsWith('roi_')).reduce((s, l) => s + Number(l.amount || 0), 0))} />
+                    <Metric label="Rent profit share paid" value={money((data.ledger || []).filter((l) => String(l.category || '').startsWith('roi_')).reduce((s, l) => s + Number(l.amount || 0), 0))} />
                   </div>
                   <TabPanel name="Financial History" empty="No wallet movements recorded." />
                   <TabPanel name="Pending Portfolios" empty="No pending portfolio commitments." />
@@ -1252,8 +1252,8 @@ export function PartnerProfile360() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <Metric label="Principal" value={money(openPortfolio.investment_amount)} />
-                <Metric label="Rate" value={`${Number(openPortfolio.roi_percentage) || 0}%`} hint="monthly returns rate" />
-                <Metric label="Returns earned" value={money(openPortfolio.total_roi_earned)} />
+                <Metric label="Rate" value={`${Number(openPortfolio.roi_percentage) || 0}%`} hint="monthly Rent profit share rate" />
+                <Metric label="Rent profit share earned" value={money(openPortfolio.total_roi_earned)} />
                 <Metric label="Term" value={`${openPortfolio.duration_months ?? '—'} months`} />
                 <Metric label="Next payout" value={fmtDate(openPortfolio.next_roi_date)} />
                 <Metric label="Maturity" value={fmtDate(openPortfolio.maturity_date)} />

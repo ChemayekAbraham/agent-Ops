@@ -1,5 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  financeReportErrorMessage,
+  heavyFinanceReportQueryKey,
+  heavyFinanceReportQueryOptions,
+  isSlowFinanceReportError,
+  rememberHeavyReportResult,
+  runHeavyFinanceReport,
+  HEAVY_REPORT_SLOW_MESSAGE,
+} from '@/lib/heavyFinanceReportQueue';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -8,10 +18,11 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
-  expandLandlordFloat, CARRIED_FORWARD_LABEL, UNMATCHED_HISTORIC_POSTINGS_LABEL,
+  expandLandlordFloat, assetSourceLabel, CARRIED_FORWARD_LABEL, UNMATCHED_HISTORIC_POSTINGS_LABEL,
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
+import DailyTieoutCard from '@/components/cfo/DailyTieoutCard';
 import { useReceivablesBreakdown } from '@/hooks/useReceivables';
 import { format, endOfDay } from 'date-fns';
 import {
@@ -344,7 +355,33 @@ const ALWAYS_SHOWN_PRODUCTS: Record<string, { key: string; label: string; from: 
 };
 
 
-function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
+/**
+ * The ledger accounts that make up a receivables line, each with its plain source name and account code. They add up
+ * exactly to the Balance Sheet figure; zero balances are left out.
+ */
+function LedgerSources({ lines, total }: { lines: PositionLine[]; total: number }) {
+  const shown = lines.filter(l => Math.round(l.value) !== 0);
+  if (shown.length === 0) return null;
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Recorded in the ledger</p>
+      <div className="rounded-md border border-border/60 p-2 space-y-1.5">
+        {shown.map(l => (
+          <div key={`${l.label}-${l.source ?? ''}`} className="flex items-start justify-between gap-3">
+            <span className="text-[11px] text-foreground">{assetSourceLabel(l)}</span>
+            <span className={cn('font-mono text-[11px] shrink-0', l.value < 0 ? 'text-destructive' : '')}>{fmtAmount(l.value)}</span>
+          </div>
+        ))}
+        <div className="flex items-start justify-between gap-3 border-t border-border/60 pt-1.5">
+          <span className="text-[11px] font-semibold">Total on the Balance Sheet</span>
+          <span className="font-mono text-[11px] font-semibold shrink-0">{fmtAmount(total)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReceivablesDetail({ categoryKey, ledgerTotal }: { categoryKey: string; ledgerTotal?: number }) {
   const { data, isLoading, error } = useReceivablesBreakdown(true);
   const category = (data?.categories ?? []).find(c => c.key === categoryKey);
 
@@ -401,6 +438,13 @@ function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
                   </div>
                 </div>
               ))}
+              {ledgerTotal !== undefined && Math.round(total - ledgerTotal) !== 0 && (
+                <p className="border-t border-border/60 pt-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                  Differs from the ledger by {fmtAmount(total - ledgerTotal)}. The Balance Sheet uses the ledger figure
+                  above; the operational records can still show items the ledger has settled, reversed or not yet
+                  recognised.
+                </p>
+              )}
             </div>
           )}
       </div>
@@ -575,11 +619,14 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
               )}
 
               {receivablesKey && (
+                <LedgerSources lines={drill.lines ?? []} total={drill.value} />
+              )}
+              {receivablesKey && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Breakdown
+                    Operational records (comparison)
                   </p>
-                   <ReceivablesDetail categoryKey={receivablesKey} />
+                   <ReceivablesDetail categoryKey={receivablesKey} ledgerTotal={drill.value} />
                 </div>
               )}
               {drill.note && (
@@ -667,51 +714,62 @@ function DriftNote({ drift, of }: { drift: number; of: string }) {
 
 export default function BalanceSheetPanel() {
   const [asAt, setAsAt] = useState<Date>(new Date());
-  const [data, setData] = useState<StatementOfFinancialPosition | null>(null);
-  const [loading, setLoading] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [exporting, setExporting] = useState(false);
-  /** Presentation-only breakdown of the existing Landlord Float. */
-  const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
   /** Line or total the user tapped, shown as a modal breakdown. */
   const [drill, setDrill] = useState<Drilldown | null>(null);
-  /**
-   * Statutory payroll obligations (PAYE / NSSF / LST) withheld on payroll that
-   * has actually been paid, net of recorded remittances. No ledger account
-   * exists for taxes, so this is a payroll-derived disclosure: it prints on the
-   * Taxes Payable line but is NOT added to Total Liabilities, which stays the
-   * ledger's own figure so the balance check remains a real assertion.
-   */
-  const [statutory, setStatutory] = useState<StatutoryLiabilityRow[] | null>(null);
+  const asAtIso = endOfDay(asAt).toISOString();
 
-  const load = useCallback(async (date: Date) => {
-    setLoading(true);
-    try {
-      const asAtIso = endOfDay(date).toISOString();
-      // fin_balance_sheet = the same statement as get_statement_of_financial_position, plus sub-ledger ties.
-      const { data: res, error } = await (supabase as any).rpc('fin_balance_sheet', {
-        p_as_at: asAtIso,
-      });
-      if (error) throw error;
-      setData(res as StatementOfFinancialPosition);
-
+  // fin_balance_sheet = the same statement as get_statement_of_financial_position, plus sub-ledger ties.
+  // The float split and the payroll statutory disclosure are lighter reads and stay outside the queue.
+  // Statutory (PAYE / NSSF / LST) is withheld on payroll that has actually been paid, net of recorded
+  // remittances. No ledger account exists for taxes, so it prints on Taxes Payable but is NOT added to
+  // Total Liabilities — that total stays the ledger's own figure so the balance check remains a real assertion.
+  const report = useQuery({
+    queryKey: heavyFinanceReportQueryKey('fin_balance_sheet', { p_as_at: asAtIso }),
+    ...heavyFinanceReportQueryOptions,
+    placeholderData: keepPreviousData,
+    queryFn: async ({ signal, client, queryKey }) => {
+      const statement = await runHeavyFinanceReport<StatementOfFinancialPosition>(
+        'fin_balance_sheet',
+        { p_as_at: asAtIso },
+        { active: true, signal },
+      );
       const { data: split, error: splitError } = await (supabase as any).rpc('get_landlord_float_management_split', {
         p_as_at: asAtIso,
       });
       if (splitError) console.warn('Landlord float split unavailable:', splitError.message);
-      setFloatSplit((split as LandlordFloatSplit) ?? null);
-
       const { data: stat, error: statError } = await (supabase as any).rpc('hr_pay_statutory_liability');
       if (statError) console.warn('Statutory payroll obligations unavailable:', statError.message);
-      setStatutory((stat as StatutoryLiabilityRow[]) ?? null);
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to generate the statement of financial position');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      const payload = {
+        statement,
+        floatSplit: (splitError ? null : (split as LandlordFloatSplit | null)) ?? null,
+        statutory: (statError ? null : (stat as StatutoryLiabilityRow[] | null)) ?? null,
+      };
+      return rememberHeavyReportResult(client, queryKey, signal, payload);
+    },
+  });
 
-  useEffect(() => { load(asAt); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const data = report.data?.statement ?? null;
+  const floatSplit = report.data?.floatSplit ?? null;
+  const statutory = report.data?.statutory ?? null;
+  const loading = report.isFetching;
+  const reportError = report.error
+    ? (isSlowFinanceReportError(report.error)
+      ? HEAVY_REPORT_SLOW_MESSAGE
+      : financeReportErrorMessage(report.error) || 'Failed to generate the statement of financial position')
+    : null;
+
+  const toastedAt = useRef<number | null>(null);
+  useEffect(() => {
+    if (!report.isError || !report.errorUpdatedAt) return;
+    if (toastedAt.current === report.errorUpdatedAt) return;
+    // A failure remembered from an earlier visit is shown inline. Toast only a fresh failure.
+    if (Date.now() - report.errorUpdatedAt > 1500) return;
+    toastedAt.current = report.errorUpdatedAt;
+    if (report.error instanceof Error && report.error.name === 'AbortError') return;
+    toast.error(reportError ?? 'Failed to generate the statement of financial position');
+  }, [report.isError, report.error, report.errorUpdatedAt, reportError]);
 
   const title = `WELILE — BALANCE SHEET — As at ${format(asAt, 'dd MMMM yyyy')}`;
   const assetGroups = data
@@ -1010,15 +1068,15 @@ export default function BalanceSheetPanel() {
             <CalendarPicker
               mode="single"
               selected={asAt}
-              onSelect={(d) => { if (d) { setAsAt(d); load(d); } }}
+              onSelect={(d) => { if (d) setAsAt(d); }}
               initialFocus
               className="p-3 pointer-events-auto"
             />
           </PopoverContent>
         </Popover>
-        <Button size="sm" className="h-7 text-xs gap-1" onClick={() => load(asAt)} disabled={loading}>
+        <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { void report.refetch(); }} disabled={loading}>
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          {data ? 'Refresh' : 'Generate'}
+          {data ? 'Refresh' : reportError ? 'Try again' : 'Generate'}
         </Button>
         <Button
           size="sm"
@@ -1034,6 +1092,13 @@ export default function BalanceSheetPanel() {
         <div className="py-10 text-center text-muted-foreground text-xs">
           <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
           Building the statement from the general ledger…
+        </div>
+      )}
+
+      {reportError && !data && (
+        <div role="alert" className="flex items-start gap-2 rounded-md border border-destructive/40 p-3 text-xs text-destructive">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{reportError}</span>
         </div>
       )}
 
@@ -1197,6 +1262,8 @@ export default function BalanceSheetPanel() {
               />
             </div>
           </div>
+
+          <DailyTieoutCard />
 
           {data.subledger_ties && data.subledger_ties.length > 0 && (
             <div className="rounded-lg border border-border p-3 space-y-2">

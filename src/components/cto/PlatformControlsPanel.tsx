@@ -35,7 +35,7 @@ interface ControlDef {
 const AUTOMATION_CONTROLS: ControlDef[] = [
   { key: 'auto_commissions', label: 'Auto commissions', description: 'Automatically credit agent commissions as transactions settle.' },
   { key: 'auto_advances', label: 'Auto advances', description: 'Allow the engine to auto-issue eligible agent advances.' },
-  { key: 'auto_roi', label: 'Auto returns (ROI)', description: 'Run the automated supporter returns payout cycle.' },
+  { key: 'auto_roi', label: 'Auto returns (Rent profit share)', description: 'Run the automated supporter returns payout cycle.' },
   { key: 'auto_salaries', label: 'Auto salaries', description: 'Run automated payroll batches on schedule.' },
 ];
 

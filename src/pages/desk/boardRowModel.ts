@@ -21,8 +21,16 @@ export type ChipModel = { key: string; text: string; tone: Status; title?: strin
  *   3. the checks ("5/5 ✓")
  *   then the August batch and "3 tries today".
  */
+/** E82: the red "Missing: …" chip, first on any row that still lacks something. */
+export function missingChip(list: string[] | null | undefined): ChipModel | null {
+  const l = (list ?? []).filter(Boolean);
+  return l.length ? { key: 'missing', text: `Missing: ${l.join(', ')}`, tone: 'bad', strong: true } : null;
+}
+
 export function rowChips(row: BoardRow, stage: Stage, health?: TenantHealth, concerns?: ConcernSummary): ChipModel[] {
   const out: ChipModel[] = [];
+  const m = missingChip(row.incomplete);
+  if (m) out.push(m);
   if (stage === 'agent_ops') {
     const e = eligibilityChip(row.eligibility);
     if (e) out.push({ key: 'elig', text: e.text, tone: e.tone });
@@ -84,6 +92,8 @@ export function groupHeading(d: BoardDecision, stage: Stage): string {
       return stage === 'service_centre' || stage === 'agent_ops' ? 'Call and fill' : 'Finish checks';
     case 'call':
       return stage === 'landlord_ops' ? 'Call landlord' : 'Call tenant';
+    case 'assign_agent':
+      return 'Assign an agent';
     default:
       return GROUP_LABEL[d];
   }
@@ -107,3 +117,81 @@ export function groupRows(rows: BoardRow[]): { decision: BoardDecision; rows: Bo
 
 /** Phones page the list 20 at a time. */
 export const PHONE_PAGE = 20;
+
+/* ───────────── Landlord Ops phone card (≤ 430 px and the card layout) ───────────── */
+
+/** The active Landlord Ops checklist (pipeline_check_catalog, stage landlord_ops): eight call checks. */
+export const LANDLORD_CHECKS_TOTAL = 8;
+
+/** "N days here": amber over 2 days, red over 5. */
+export function daysHere(days: number | null | undefined): { text: string; tone: Status } {
+  const d = Number(days ?? 0);
+  const n = Math.max(0, Math.floor(Number.isFinite(d) ? d : 0));
+  const text = n === 0 ? 'Today' : `${n} ${n === 1 ? 'day' : 'days'} here`;
+  return { text, tone: d > 5 ? 'bad' : d > 2 ? 'warn' : 'idle' };
+}
+
+/** The last four digits of a phone number, or null. */
+export function phoneLast4(phone: string | null | undefined): string | null {
+  const digits = String(phone ?? '').replace(/\D/g, '');
+  return digits.length >= 4 ? digits.slice(-4) : null;
+}
+
+/**
+ * How many of the eight landlord checks are settled. The board knows it three ways:
+ * a decided row carries the results in its push; a "complete" row says
+ * "finish N check(s)"; a row still waiting for an answered call has none.
+ */
+export function landlordChecks(row: BoardRow): { done: number | null; total: number } {
+  const total = LANDLORD_CHECKS_TOTAL;
+  const settled = (row.push?.results ?? []).filter((r) => r.code.startsWith('lo_') && (r.result === 'pass' || r.result === 'fail')).length;
+  if (settled > 0) return { done: Math.min(settled, total), total };
+  if (row.decision === 'complete') {
+    const m = /finish (\d+) check/i.exec(row.why ?? '');
+    return { done: m ? Math.max(0, total - Number(m[1])) : null, total };
+  }
+  if (row.decision === 'call' || row.decision === 'call_again') return { done: 0, total };
+  return { done: null, total };
+}
+
+const LC1_NOTE = /LC1 not (yet )?confirmed/i;
+
+/**
+ * The Landlord Ops card's one chip row:
+ *   Landlord checks X/8 · Tenant OK (or the failing flag) · LC1 not confirmed
+ *   · Repaid before: N% / First plan · Agent grade C / New agent
+ */
+export function landlordOpsChips(row: BoardRow, health?: TenantHealth): ChipModel[] {
+  const out: ChipModel[] = [];
+  const m = missingChip(row.incomplete);
+  if (m) out.push(m);
+  const c = landlordChecks(row);
+  out.push({
+    key: 'checks',
+    text: `Landlord checks ${c.done ?? '–'}/${c.total}`,
+    tone: c.done === c.total ? 'ok' : c.done ? 'warn' : 'idle',
+  });
+
+  const f = row.flags;
+  if (f.passes >= f.total) out.push({ key: 'tenant', text: 'Tenant OK', tone: 'ok' });
+  else {
+    const first = f.flags.find((x) => !x.ok && x.level !== 'info') ?? f.flags.find((x) => !x.ok);
+    out.push({ key: 'tenant', text: first?.label ?? f.failing[0] ?? 'Tenant check failed', tone: f.hard_fail ? 'bad' : 'warn', title: first?.detail ?? undefined });
+  }
+
+  const lc1 = f.notes.find((n) => LC1_NOTE.test(n));
+  if (lc1) out.push({ key: 'lc1', text: 'LC1 not confirmed', tone: 'warn', title: lc1 });
+
+  if (health) {
+    const pct = health.completed_repaid_pct;
+    if ((health.completed_plans ?? 0) > 0 && pct !== null && pct !== undefined) {
+      const p = Math.round(Number(pct));
+      out.push({ key: 'repaid', text: `Repaid before: ${p}%`, tone: p >= 90 ? 'ok' : p >= 60 ? 'warn' : 'bad', title: health.summary ?? undefined });
+    } else out.push({ key: 'repaid', text: 'First plan', tone: 'idle', title: health.summary ?? undefined });
+  }
+
+  const g = row.agent_grade;
+  if (g) out.push({ key: 'grade', text: `Agent grade ${g}`, tone: g === 'A' || g === 'B' ? 'ok' : g === 'C' ? 'warn' : 'bad' });
+  else out.push({ key: 'grade', text: 'New agent', tone: 'idle' });
+  return out;
+}

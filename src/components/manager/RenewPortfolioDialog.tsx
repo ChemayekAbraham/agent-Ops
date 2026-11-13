@@ -93,7 +93,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
 
     const newRoi = parseFloat(roiPercentage);
     if (isNaN(newRoi) || newRoi <= 0 || newRoi > 100) {
-      toast({ title: 'Monthly Returns rate must be between 0.1% and 100%', variant: 'destructive' });
+      toast({ title: 'Monthly Rent profit share rate must be between 0.1% and 100%', variant: 'destructive' });
       return;
     }
 
@@ -263,7 +263,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
             <RefreshCw className="h-5 w-5 text-amber-600" /> Renew Portfolio
           </DialogTitle>
           <DialogDescription>
-            Renew <strong>{displayName}</strong> — resets the cycle, Returns earned to zero, and sets the portfolio to active.
+            Renew <strong>{displayName}</strong> — resets the cycle, Rent profit share earned to zero, and sets the portfolio to active.
           </DialogDescription>
         </DialogHeader>
 
@@ -271,7 +271,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
           {/* Current summary */}
           <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-1 text-xs">
             <p><span className="text-muted-foreground">Current Amount:</span> <strong>{formatUGX(portfolio?.investment_amount || 0)}</strong></p>
-            <p><span className="text-muted-foreground">Current Monthly Returns (%):</span> <strong>{formatRatePct(rateOrNull(portfolio?.roi_percentage)) ?? '—'}</strong></p>
+            <p><span className="text-muted-foreground">Current Monthly Rent profit share (%):</span> <strong>{formatRatePct(rateOrNull(portfolio?.roi_percentage)) ?? '—'}</strong></p>
             <p><span className="text-muted-foreground">Duration:</span> <strong>{portfolio?.duration_months || 12} months</strong></p>
             <p><span className="text-muted-foreground">Started:</span> <strong>{portfolio?.created_at ? format(new Date(portfolio.created_at), 'PPP') : '—'}</strong></p>
           </div>
@@ -318,7 +318,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">New Monthly Returns (%)</Label>
+              <Label className="text-xs font-medium">New Monthly Rent profit share (%)</Label>
               <Input
                 type="number"
                 min={0.1}

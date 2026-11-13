@@ -135,7 +135,7 @@ export const TX_SERVICE_OPTIONS: { value: TxServiceFilter; label: string }[] = [
   { value: "requisition", label: "Requisition" },
   { value: "transfer", label: "Transfer" },
   { value: "rent", label: "Rent" },
-  { value: "returns", label: "Returns" },
+  { value: "returns", label: "Rent profit share" },
 ];
 
 export const TX_METHOD_OPTIONS: { value: TxMethodFilter; label: string }[] = [
@@ -190,6 +190,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   wallet_deduction: "Wallet Deduction",
   wallet_transfer: "Wallet Transfer",
   agent_advance_credit: "Advance",
+  special_advance_credit: "Special Advance Received",
+  special_advance_wallet_repayment: "Special Advance Repayment",
   debt_recovery: "Advance Recovery",
   agent_commission_earned: "Commission",
   agent_commission_used_for_rent: "Commission Used For Rent",
@@ -204,8 +206,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   agent_float_used_for_rent: "Float Used For Rent",
   access_fee_collected: "Access Fee",
   registration_fee_collected: "Registration Fee",
-  roi_wallet_credit: "Returns Payout",
-  roi_reinvestment: "Returns Reinvested",
+  roi_wallet_credit: "Rent profit share Payout",
+  roi_reinvestment: "Rent profit share Reinvested",
   interest_expense: "Interest",
 };
 

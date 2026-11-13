@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 // The sales sheet prices its worked example at the viewer's own rate (15 while the switch is off).
+vi.mock('@/hooks/useFunderSavedTabs', () => ({
+  useFunderFloatHolds: () => ({ line: null, tab: null, breakdown: null, isLoading: false, error: null }),
+}));
 vi.mock('@/hooks/usePartnerQuoteRate', () => ({
   useOwnNewPortfolioRate: () => ({ rate: 15, isLoading: false }),
 }));
@@ -51,18 +54,19 @@ describe('FunderNewReviewDialog', () => {
     ).toBeInTheDocument();
 
     // Stats
-    expect(screen.getByText(/Total Support/i)).toBeInTheDocument();
+    expect(screen.getByText('You support')).toBeInTheDocument();
     expect(screen.getAllByText('UGX 450,000')).toHaveLength(2); // once in total card, once in item row
 
-    expect(screen.getByText(/Monthly Returns \(15%\)/i)).toBeInTheDocument();
+    expect(screen.getByText('You earn monthly')).toBeInTheDocument();
+    expect(screen.getByText('at 15% a month')).toBeInTheDocument();
     expect(screen.getByText('UGX 67,500')).toBeInTheDocument();
 
-    expect(screen.getByText(/Available Balance/i)).toBeInTheDocument();
+    expect(screen.getByText('Your float')).toBeInTheDocument();
     expect(screen.getByText('UGX 450,000 short')).toBeInTheDocument();
 
-    // House item details
-    expect(screen.getByText('Shop')).toBeInTheDocument();
-    expect(screen.getByText('Wakiso Town Council, KKONA')).toBeInTheDocument();
+    // House item details (title and place show twice: hero card + item row)
+    expect(screen.getAllByText('Shop')).toHaveLength(2);
+    expect(screen.getAllByText('Wakiso Town Council, KKONA')).toHaveLength(2);
     expect(screen.getByText('Tenant ready')).toBeInTheDocument();
 
     // CTA Button for shortfall
@@ -91,6 +95,45 @@ describe('FunderNewReviewDialog', () => {
 
     expect(screen.getByText('Fully covered')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Fund this plan/i })).toBeInTheDocument();
+  });
+
+  it('shows the agent release receipt without tenant or agent phone numbers', async () => {
+    const onFund = vi.fn().mockResolvedValue({
+      submitted: true,
+      reference: 'ref-1',
+      releasedToAgent: true,
+      landlordNames: ['Lou'],
+      rentRequestIds: ['h1'],
+    });
+    render(
+      <FunderNewReviewDialog
+        open
+        onOpenChange={vi.fn()}
+        items={[{
+          ...sampleItems[0],
+          landlordName: 'Lou',
+          tenantPhone: '0759 229 748',
+          agentPhone: '+256772123456',
+        }]}
+        available={500000}
+        walletLoading={false}
+        walletError={null}
+        onRemove={vi.fn()}
+        onFund={onFund}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Fund this plan/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirm and support/i }));
+    const sentences = await screen.findAllByText('Your rent has gone to the agent, who will pay the landlord within 24 hours.');
+    expect(sentences.length).toBeGreaterThan(0);
+    const receipt = sentences[0].closest('[role="dialog"]');
+    expect(receipt).not.toBeNull();
+    expect(receipt?.textContent).toContain('Lou');
+    expect(receipt?.textContent).toContain('ref-1');
+    expect(screen.getByRole('button', { name: /Download receipt/i })).toBeInTheDocument();
+    expect(receipt?.textContent || '').not.toContain('0759 229 748');
+    expect(receipt?.textContent || '').not.toContain('+256772123456');
+    expect(receipt?.textContent || '').not.toMatch(/\u2014/);
   });
 });
 

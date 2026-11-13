@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render as rtlRender, cleanup } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 
 // The live hero reads the empty-houses switch from auth; pin it on for both sides.
 vi.mock('@/hooks/useFunderEmptyHousesSwitch', () => ({ useFunderEmptyHousesAllowed: () => true }));
@@ -7,6 +9,10 @@ vi.mock('@/hooks/useFunderEmptyHousesSwitch', () => ({ useFunderEmptyHousesAllow
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn(), from: vi.fn(), functions: { invoke: vi.fn() }, auth: { onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })), getSession: vi.fn() } } }));
 
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
+
+// The live card's co-support button reads React Query; no fetching in these tests.
+const render = (ui: ReactElement) =>
+  rtlRender(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, enabled: false } } })}>{ui}</QueryClientProvider>);
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
 import { FunderV3HouseCard } from './FunderV3HouseCard';
 import { FunderV3Hero } from './FunderV3Hero';
@@ -17,6 +23,18 @@ import { launcherHidden, isFunderRoute } from '@/components/FloatingToolbar';
 import { FIXTURE_DEVICE, FIXTURE_SUMMARY, makeFeed } from './__fixtures__/funderV3Fixtures';
 import { itemCoordinates } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
+
+// Agent Care switch OFF (the default): amounts equal the rent, no query client needed.
+vi.mock('@/hooks/useSelfSupportFeePolicy', () => ({
+  useSelfSupportFeePolicy: () => ({
+    policy: { enabled: false, rate: 0, roundTo: 100 },
+    enabled: false,
+    ratePct: 0,
+    pay: (rent: number) => rent,
+    fee: () => 0,
+    isLoading: false,
+  }),
+}));
 
 /**
  * Every number in a rendered block, in reading order: money, counts, distances,

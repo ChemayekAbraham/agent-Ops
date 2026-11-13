@@ -50,6 +50,8 @@ interface Props {
   loadError?: unknown;
   onRetry?: () => void;
   reconciliationReady?: boolean;
+  /** Shown when the Balance Sheet comparison could not be loaded. */
+  reconciliationNote?: string | null;
   totalCash: number;
   a1: number;
   a5: number;
@@ -162,7 +164,7 @@ function formatPercent(n: number) {
   return `${n.toFixed(1)}%`;
 }
 
-export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increases, decreases, positions = [], loading = false, loadError, onRetry, reconciliationReady = true }: Props) {
+export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increases, decreases, positions = [], loading = false, loadError, onRetry, reconciliationReady = true, reconciliationNote = null }: Props) {
   const [selected, setSelected] = useState<CashSourceLine | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -418,7 +420,11 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                 <span className="text-base font-bold">Money We Have</span>
                 <span className="text-xl font-bold font-mono">{formatUGX(grossIn - grossOut)}</span>
               </div>
-              {!reconciliationReady && <p role="status" className="text-[11px] text-muted-foreground">Balance Sheet comparison unavailable until the statement is loaded.</p>}
+              {!reconciliationReady && (
+                <p role={reconciliationNote ? 'alert' : 'status'} className={reconciliationNote ? 'text-[11px] text-destructive' : 'text-[11px] text-muted-foreground'}>
+                  {reconciliationNote ?? 'Balance Sheet comparison unavailable until the statement is loaded.'}
+                </p>
+              )}
               {reconciliationReady && Math.abs(reconciliationGap) > 1 && (
                 <p className="text-[11px] text-warning bg-warning/10 rounded-lg px-3 py-2">
                   Reconciliation gap vs Balance Sheet cash: {formatUGX(reconciliationGap)}

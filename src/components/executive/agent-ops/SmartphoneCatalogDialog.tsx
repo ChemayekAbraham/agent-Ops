@@ -936,7 +936,7 @@ export function SmartphoneCatalogDialog() {
                     {previewAmount(editAmount) > 0 && (
                       <div className="rounded-md border border-border bg-background/60 p-2">
                         <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground mb-1.5">
-                          <span>Receivables &amp; Returns preview (28%/month reducing)</span>
+                          <span>Receivables &amp; Rent profit share preview (28%/month reducing)</span>
                           <span className="font-semibold text-foreground">{formatUGX(previewAmount(editAmount))} down payment</span>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
@@ -1088,7 +1088,7 @@ export function SmartphoneCatalogDialog() {
                       >
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                           <span className="font-semibold text-foreground">
-                            Recovery Projections &amp; Returns
+                            Recovery Projections &amp; Rent profit share
                           </span>
                           <span>28%/mo reducing balance</span>
                         </div>

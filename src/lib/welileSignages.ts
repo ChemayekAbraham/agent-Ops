@@ -3,8 +3,8 @@
  *
  * Business Rules:
  *  - Eligible: Busy houses and shops / business premises.
- *  - Property Owner: UGX 10,000 per active signage per month (commences on verified activation date).
- *  - Agent Reward: UGX 3,000 once per qualifying installation (paid by the CFO after COO approval; payment activates the signage).
+ *  - Property Owner: UGX 10,000 monthly; server enforces at least 30 days from submission before the first payout.
+ *  - Agent Reward: UGX 3,000 once after COO approval; separate CFO approval activates without an owner payment.
  *  - Mandatory Live GPS: Required before submission (accuracy <= 25m recommended).
  *  - Administrative Location: Dataset-driven (UgLocationPicker: District -> Village).
  */

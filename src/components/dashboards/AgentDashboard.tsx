@@ -96,7 +96,6 @@ import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkD
 import { TenantInviteLinkDialog } from '@/components/agent/TenantInviteLinkDialog';
 import SavedRentDraftsPanel from '@/components/agent/SavedRentDraftsPanel';
 import { useBusinessAdvanceCommissionListener } from '@/hooks/useBusinessAdvanceCommissionListener';
-import { useAgentUnblockToast } from '@/hooks/useAgentUnblockToast';
 import { useRecruiterOverrideToast } from '@/hooks/useRecruiterOverrideToast';
 import { useAgentNudges } from '@/hooks/useAgentNudges';
 import { useAgentEarnings } from '@/hooks/useAgentEarnings';
@@ -132,6 +131,7 @@ import { useAgentHasRepayingTenant } from '@/hooks/useAgentHasRepayingTenant';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
+import { LandlordPaymentStatusList } from '@/components/self-support/LandlordPaymentStatusList';
 import { useTrackSection } from '@/hooks/useTrackSection';
 import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { AgentConvertToFloatCard } from '@/components/agent/AgentConvertToFloatCard';
@@ -286,9 +286,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const queryClient = useQueryClient();
   const { profile, loading: profileLoading } = useProfile();
   const { data: hasRepayingTenant, isLoading: repayingTenantLoading } = useAgentHasRepayingTenant(user?.id);
-  // Celebratory toast the moment the agent crosses today's 50% eligibility
-  // threshold (fires once per Kampala day, on mount or via realtime).
-  useAgentUnblockToast(user?.id);
+  // E100: posting is never blocked, so the old "You're unblocked" toast is gone.
   // Success / error toast when a UGX 2,000 recruiter override payout is created
   // for this agent (a verified sub-agent listing / landlord / LC1 chairperson).
   useRecruiterOverrideToast(user?.id);
@@ -1534,7 +1532,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                     bg: 'bg-[#9234EA]/10',
                     onClick: () => {
                       hapticTap();
-                      if (landlordFloatLocked) { toast.error(landlordFloatGate?.blockReason ?? 'Landlord float is locked: your collection rate is under 50%.'); return; }
+                      if (landlordFloatLocked) { toast.error(landlordFloatGate?.blockReason ?? 'Landlord float is locked: your collection rate is under the minimum.'); return; }
                       setFloatAllocationsOpen(true);
                     },
                   },
@@ -1589,6 +1587,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               onOpenOtpAudit={() => { hapticTap(); setOtpAuditOpen(true); }}
             />
             )}
+            {!isMerchant && <LandlordPaymentStatusList role="agent" title="Partner-funded Rent Plans to pay" />}
             {!isMerchant && isLandlordReceiptConfirmationEffective() && (
               <button
                 onClick={() => { hapticTap(); setReceiptCheckOpen(true); }}
@@ -2017,8 +2016,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             const { formatRatePct } = await import('@/lib/partnerReturnPolicy');
             const newRatePct = formatRatePct(await getPublicPartnerRate());
             const shareText = newRatePct
-              ? `🤝 Partner with Welile and earn ${newRatePct} monthly Returns! Register here: ${partnerFormLink}`
-              : `🤝 Partner with Welile and earn monthly Returns! Register here: ${partnerFormLink}`;
+              ? `🤝 Partner with Welile and earn ${newRatePct} monthly Rent profit share! Register here: ${partnerFormLink}`
+              : `🤝 Partner with Welile and earn monthly Rent profit share! Register here: ${partnerFormLink}`;
             if (navigator.share) {
               navigator.share({ title: 'Partner Registration', text: shareText, url: partnerFormLink }).catch(() => {});
             } else {

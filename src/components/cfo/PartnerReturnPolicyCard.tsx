@@ -50,7 +50,7 @@ export function PartnerReturnPolicyCard() {
     try {
       const next = await setPolicy.mutateAsync({ enabled: target, note });
       const nextRate = formatRatePct(rateOrNull(next.new_contract_rate));
-      toast.success(next.enabled ? 'Partner Returns switch is on' : 'Partner Returns switch is off', {
+      toast.success(next.enabled ? 'Partner Rent profit share switch is on' : 'Partner Rent profit share switch is off', {
         description: nextRate ? `New contracts now earn ${nextRate}.` : undefined,
       });
       setTarget(null); setNote('');
@@ -63,7 +63,7 @@ export function PartnerReturnPolicyCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Percent className="h-4 w-4 text-primary" /> Partner Returns rate for new contracts
+          <Percent className="h-4 w-4 text-primary" /> Partner Rent profit share rate for new contracts
         </CardTitle>
         <CardDescription>
           While the switch is on, new partners earn the new-partner rate; existing partners keep their own rate, employees earn 20% and renewals keep their rate.
@@ -71,7 +71,7 @@ export function PartnerReturnPolicyCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {policy.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading the partner Returns policy…</p>
+          <p className="text-sm text-muted-foreground">Loading the partner Rent profit share policy…</p>
         ) : policy.isError || !p ? (
           <div role="alert" className="space-y-2">
             <p className="text-sm text-destructive">{policy.isError ? partnerRateErrorText(policy.error) : 'Policy unavailable.'}</p>
@@ -87,7 +87,7 @@ export function PartnerReturnPolicyCard() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Label htmlFor="partner-returns-switch" className="text-sm">Partner Returns switch</Label>
+                <Label htmlFor="partner-returns-switch" className="text-sm">Partner Rent profit share switch</Label>
                 <Switch
                   id="partner-returns-switch"
                   checked={p.enabled}
@@ -119,7 +119,7 @@ export function PartnerReturnPolicyCard() {
       <AlertDialog open={target != null} onOpenChange={(open) => { if (!open) close(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{target ? 'Turn the partner Returns switch on?' : 'Turn the partner Returns switch off?'}</AlertDialogTitle>
+            <AlertDialogTitle>{target ? 'Turn the partner Rent profit share switch on?' : 'Turn the partner Rent profit share switch off?'}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               {target ? (
                 <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">

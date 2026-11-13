@@ -1,11 +1,10 @@
 import { withUuidIds } from '@/lib/isUuid';
-import { useState, useMemo, useEffect, Fragment } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,9 +17,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Loader2, CheckCircle2, Banknote, TrendingUp, Users, Wallet, AlertTriangle, XCircle, Search, MapPin, Filter, Eye, ArrowRight, ShieldCheck, RefreshCw, MoreHorizontal, ChevronLeft, ChevronRight, Download, Send, Building2 } from 'lucide-react';
+import { Loader2, CheckCircle2, TrendingUp, Users, Wallet, AlertTriangle, XCircle, Search, MapPin, Filter, Eye, RefreshCw, MoreHorizontal, ChevronLeft, ChevronRight, Download, Send, Building2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { TenantPaymentHistoryCard } from '@/components/executive/TenantPaymentHistoryCard';
 import {
   fetchPartnerReservedStages,
@@ -50,7 +49,6 @@ import { AboveSuggestionToggle } from '@/components/rent/AboveSuggestionToggle';
 import { useAboveSuggestionFilter } from '@/hooks/useAboveSuggestionFilter';
 import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus } from '@/hooks/useLandlordFloatBudget';
 import { landlordFloatErrorText, landlordFloatExcess } from '@/lib/landlordFloatBudget';
-import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import { LandlordFloatExcessBanner } from '@/components/shared/LandlordFloatBudgetPosition';
 import { useRentRequestTiming } from '@/hooks/useRentRequestTiming';
 import { RentTimingRow } from '@/components/rent-desk/RentTimingRow';
@@ -149,7 +147,10 @@ interface RentDisbursementQueueProps {
    * exactly the same as the normal General Payout queue.
    */
   restrictToIds?: string[];
-  /** Optional: tick these rows on mount (same checkboxes as usual). */
+  /**
+   * Kept for callers; no longer used. Nothing is ticked for payment here since
+   * Welile stopped funding tenants directly (E60).
+   */
   autoSelectIds?: string[];
   /** When true, the district and town/city filter controls are hidden. */
   /**
@@ -160,8 +161,7 @@ interface RentDisbursementQueueProps {
   locationProvisionsOnly?: boolean;
 }
 
-export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationProvisionsOnly = false }: RentDisbursementQueueProps = {}) {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+export function RentDisbursementQueue({ restrictToIds, locationProvisionsOnly = false }: RentDisbursementQueueProps = {}) {
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [countryFilter, setCountryFilter] = useState<string>('all');
   const [districtFilter, setDistrictFilter] = useState<string>('all');
@@ -170,8 +170,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   const [catValue, setCatValue] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<'all' | '7d' | '30d'>('all');
   const [search, setSearch] = useState('');
-  const [batchRef, setBatchRef] = useState('');
-  const [bulkReviewOpen, setBulkReviewOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<ApprovedRentItem | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [reviewTarget, setReviewTarget] = useState<ApprovedRentItem | null>(null);
@@ -280,7 +278,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
 
   // Good-paying tenants first for payouts: the server ranks the loaded requests by each tenant's payment score (best payers
   // first by default; newest / oldest are one click away) and says which match the paying-label and arrival filters. Display
-  // order and visibility only: what can be selected and every payment step below are unchanged. Sort and filters live in the URL.
+  // order and visibility only. Sort and filters live in the URL.
   const deskUrl = useRentDeskUrlState();
   const { only: aboveOnly, setOnly: setAboveOnly } = useAboveSuggestionFilter();
   const itemIds = useMemo(() => items.map(i => i.id), [items]);
@@ -298,15 +296,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     />
   );
 
-  const selectedItems = useMemo(() => items.filter(i => selected.has(i.id)), [items, selected]);
-
-  // Pre-tick rows handed over by the location/category recipient picker.
-  useEffect(() => {
-    if (!autoSelectIds?.length) return;
-    const reserved = new Set(items.filter(i => i.partner_reserved_stage).map(i => i.id));
-    setSelected(new Set(autoSelectIds.filter(id => !reserved.has(id))));
-  }, [autoSelectIds?.join(','), items]);
-
   const effectiveRestrictIds = useMemo(
     () => (restrictToIds && restrictToIds.length ? restrictToIds : null),
     [restrictToIds?.join(',')],
@@ -315,17 +304,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     () => (effectiveRestrictIds && effectiveRestrictIds.length ? new Set(effectiveRestrictIds) : null),
     [effectiveRestrictIds?.join(',')],
   );
-  const totalRent = useMemo(() => selectedItems.reduce((s, i) => s + i.rent_amount, 0), [selectedItems]);
-  const totalRevenue = useMemo(() => selectedItems.reduce((s, i) => s + i.access_fee + i.request_fee, 0), [selectedItems]);
-  const totalRepaymentExpected = useMemo(() => selectedItems.reduce((s, i) => s + i.total_repayment, 0), [selectedItems]);
-
-  const toggle = (id: string) => {
-    // Partner-claimed plans are never fundable from company float.
-    if (items.find(i => i.id === id)?.partner_reserved_stage) return;
-    const next = new Set(selected);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setSelected(next);
-  };
 
   // Date-window + text-search filter: which requests are within the chosen
   // lookback and match the CFO's search (tenant, landlord, or agent name).
@@ -432,100 +410,8 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     [countryFilteredGroups, agentFilter],
   );
   const visibleItems = useMemo(() => visibleGroups.flatMap(g => g.rows), [visibleGroups]);
-  /** Rows the CFO may actually fund (partner-claimed plans excluded). */
-  const selectableItems = useMemo(
-    () => visibleItems.filter(i => !i.partner_reserved_stage),
-    [visibleItems],
-  );
-  const selectedVisibleCount = useMemo(
-    () => selectableItems.filter(i => selected.has(i.id)).length,
-    [selectableItems, selected],
-  );
-  const selectAllForPayment = () => {
-    if (selectableItems.length === 0) return;
-    // Tenants already ticked: review exactly those — never widen the
-    // selection to every eligible row. Only pick all when nothing is ticked.
-    if (selectedVisibleCount === 0) {
-      setSelected(new Set(selectableItems.map(i => i.id)));
-    }
-    setBulkReviewOpen(true);
-  };
-
-  const batchDisburse = useMutation({
-    mutationFn: async () => {
-      if (!batchRef.trim()) throw new Error('Enter a batch reference');
-      const requestedIds = Array.from(selected);
-      if (requestedIds.length === 0) throw new Error('Select at least one tenant');
-
-      // Safety re-check: selection may be several minutes old by confirmation.
-      // Refuse the whole batch if any request is no longer COO-approved or has
-      // since been reserved for partner funding. This read happens before any
-      // payment function is invoked, so a stale review cannot partially pay.
-      const { data: latestRequests, error: latestError } = await supabase
-        .from('rent_requests')
-        .select('id, status')
-        .in('id', requestedIds);
-      if (latestError) throw latestError;
-
-      const latestApprovedIds = new Set(
-        (latestRequests || []).filter(request => request.status === 'coo_approved').map(request => request.id),
-      );
-      const latestReserved = await fetchPartnerReservedStages(requestedIds);
-      const stillEligible = requestedIds.filter(id => latestApprovedIds.has(id) && !latestReserved.has(id));
-      if (stillEligible.length !== requestedIds.length) {
-        throw new Error('The payment queue changed. Close this review and select eligible tenants again.');
-      }
-
-      const errors: string[] = [];
-      // Send payments in parallel with a small concurrency cap: sequential calls
-      // made large batches very slow; each request is funded independently server-side.
-      const CONCURRENCY = 5;
-      let cursor = 0;
-      const worker = async () => {
-        while (cursor < stillEligible.length) {
-          const id = stillEligible[cursor++];
-          const { error } = await supabase.functions.invoke('fund-agent-landlord-float', {
-            body: { rent_request_id: id, notes: `Batch: ${batchRef}` },
-          });
-          if (error) {
-            errors.push(`${id.slice(0, 8)}: ${await extractFromErrorObject(error, 'Funding failed')}`);
-          }
-        }
-      };
-      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, stillEligible.length) }, worker));
-      if (errors.length) throw new Error(`${errors.length} failed: ${errors[0]}`);
-    },
-    onSuccess: () => {
-      toast.success(`Funded ${selected.size} agent float${selected.size === 1 ? '' : 's'} — agents will complete the MoMo payouts.`);
-      setBulkReviewOpen(false);
-      setSelected(new Set());
-      setBatchRef('');
-      qc.invalidateQueries({ queryKey: ['rent-disbursement-queue'] });
-      qc.invalidateQueries({ queryKey: ['batch-payout-pending'] });
-      qc.invalidateQueries({ queryKey: ['treasury-cash-snapshot'] });
-      qc.invalidateQueries({ queryKey: ['cfo-overview'] });
-    },
-    onError: (e: any) => toast.error(e.message || 'Batch disbursement failed'),
-  });
-
-  const singleDisburse = useMutation({
-    mutationFn: async (id: string) => {
-      const { error, data } = await supabase.functions.invoke('fund-agent-landlord-float', {
-        body: { rent_request_id: id, notes: 'Single CFO disbursement' },
-      });
-      if (error) throw new Error(await extractFromErrorObject(error, 'Disbursement failed'));
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: () => {
-      toast.success('Funded agent float — agent will complete the MoMo payout.');
-      qc.invalidateQueries({ queryKey: ['rent-disbursement-queue'] });
-      qc.invalidateQueries({ queryKey: ['treasury-cash-snapshot'] });
-      qc.invalidateQueries({ queryKey: ['cfo-overview'] });
-    },
-    onError: (e: any) => toast.error(e.message || 'Disbursement failed'),
-  });
-
+  /** Rows still waiting for a funder's pick (partner-claimed plans are already picked). */
+  const needsPickCount = useMemo(() => visibleItems.filter(i => !i.partner_reserved_stage).length, [visibleItems]);
   // Landlord float budget cap: a CFO rejection here returns the request to the COO step (not the agent) and gives
   // its amount back to the budget. landlordFloatOver.any drives the "exceeds budget by UGX X" banner (UI: Gemini).
   const landlordFloatBudget = useLandlordFloatBudgetStatus();
@@ -577,7 +463,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     setCountryFilter('all');
     setDateFilter('all');
     clearLocation();
-    setSelected(new Set());
+   
     setPage(1);
   };
 
@@ -635,7 +521,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               )}
             </div>
             <p className="text-sm text-slate-500 dark:text-muted-foreground mt-0.5">
-              Review COO-approved rent requests, select tenants, and disburse payouts into landlord wallets or agent float.
+              Review COO-approved rent requests. Welile does not fund tenants directly (E60): a tenant is paid once a funder, or Welile's own funder account, selects them on the funders' dashboard.
             </p>
           </div>
         </div>
@@ -721,7 +607,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           </p>
         </div>
 
-        {/* Card 4: Selected for Disbursement */}
+        {/* Card 4: Waiting for a funder's pick */}
         <div className="rounded-2xl border border-purple-100 bg-[#FAF5FF] dark:bg-purple-950/20 dark:border-purple-900/40 p-5 flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F3E8FF] text-[#9333EA] dark:bg-purple-900/50 dark:text-purple-400">
@@ -730,18 +616,18 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           </div>
           <div className="mt-3 min-w-0">
             <p className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-foreground truncate">
-              {selectedVisibleCount} / {selectableItems.length}
+              {needsPickCount} / {visibleItems.length}
             </p>
-            <p className="text-sm font-medium text-slate-500 dark:text-muted-foreground mt-1">Selected for Disbursement</p>
+            <p className="text-sm font-medium text-slate-500 dark:text-muted-foreground mt-1">Waiting for a funder's pick</p>
           </div>
-          <p className="text-xs font-medium text-slate-400 dark:text-muted-foreground mt-4">
-            {selected.size > 0 ? fmt(totalRent) : 'Select tenants to proceed'}
+          <p className="text-xs font-medium text-slate-400 dark:text-muted-foreground mt-4" data-needs-pick-note>
+            Needs a funder's pick on the funders' dashboard
           </p>
         </div>
       </div>
 
-      {/* Revenue summary — only while no tenants are ticked for payment and location scoped */}
-      {locationScoped && selected.size === 0 && (
+      {/* Revenue summary — while the queue is scoped by location */}
+      {locationScoped && (
         <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
@@ -756,23 +642,23 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
             <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
               <p className="text-[11px] font-medium text-muted-foreground">Rent Out (Principal)</p>
               <p className="font-bold text-base text-orange-600 dark:text-orange-400 mt-0.5">
-                {fmt(selected.size > 0 ? totalRent : queueTotalRent)}
+                {fmt(queueTotalRent)}
               </p>
             </div>
             <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
               <p className="text-[11px] font-medium text-muted-foreground">Platform Earnings (Fees)</p>
               <p className="font-bold text-base text-emerald-600 dark:text-emerald-400 mt-0.5">
-                {fmt(selected.size > 0 ? totalRevenue : queueTotalRevenue)}
+                {fmt(queueTotalRevenue)}
               </p>
             </div>
             <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
               <p className="text-[11px] font-medium text-muted-foreground">Total Repayment Expected</p>
               <p className="font-bold text-base text-primary mt-0.5">
-                {fmt(selected.size > 0 ? totalRepaymentExpected : queueTotalRepaymentExpected)}
+                {fmt(queueTotalRepaymentExpected)}
               </p>
             </div>
           </div>
-          <TreasuryImpactBanner payoutAmount={selected.size > 0 ? totalRent : queueTotalRent} />
+          <TreasuryImpactBanner payoutAmount={queueTotalRent} />
         </div>
       )}
 
@@ -793,31 +679,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {selectedVisibleCount > 0 ? (
-              <Button
-                type="button"
-                size="sm"
-                className="h-9 rounded-xl gap-2 font-semibold shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 text-xs px-4"
-                onClick={() => setBulkReviewOpen(true)}
-              >
-                <Banknote className="h-4 w-4" />
-                Review &amp; Pay {selectedVisibleCount} Selected ({fmt(totalRent)})
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9 rounded-xl gap-1.5 font-semibold text-xs border border-blue-600 text-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 px-4"
-                disabled={selectableItems.length === 0}
-                onClick={selectAllForPayment}
-              >
-                <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                Select All for Disbursement
-              </Button>
-            )}
-
             <Button
               type="button"
               variant="outline"
@@ -847,7 +708,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   <p className="text-xs font-semibold text-muted-foreground">District</p>
                   <Select
                     value={districtFilter}
-                    onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setSelected(new Set()); setPage(1); }}
+                    onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setPage(1); }}
                   >
                     <SelectTrigger className="h-9 rounded-lg text-sm">
                       <SelectValue placeholder="All districts" />
@@ -865,7 +726,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
 
                 <div className="space-y-1.5">
                   <p className="text-xs font-semibold text-muted-foreground">Municipality / Town</p>
-                  <Select value={cityFilter} onValueChange={(v) => { setCityFilter(v); setSelected(new Set()); setPage(1); }}>
+                  <Select value={cityFilter} onValueChange={(v) => { setCityFilter(v); setPage(1); }}>
                     <SelectTrigger className="h-9 rounded-lg text-sm">
                       <SelectValue placeholder="All municipalities/towns" />
                     </SelectTrigger>
@@ -883,7 +744,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 {!locationProvisionsOnly && (
                   <div className="space-y-1.5">
                     <p className="text-xs font-semibold text-muted-foreground">Category type</p>
-                    <Select value={catField} onValueChange={(v) => { setCatField(v as CatFieldKey); setCatValue('all'); setSelected(new Set()); setPage(1); }}>
+                    <Select value={catField} onValueChange={(v) => { setCatField(v as CatFieldKey); setCatValue('all'); setPage(1); }}>
                       <SelectTrigger className="h-9 rounded-lg text-sm">
                         <SelectValue />
                       </SelectTrigger>
@@ -899,7 +760,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 {!locationProvisionsOnly && (
                   <div className="space-y-1.5">
                     <p className="text-xs font-semibold text-muted-foreground">{CAT_FIELD_LABELS[catField]}</p>
-                    <Select value={catValue} onValueChange={(v) => { setCatValue(v); setSelected(new Set()); setPage(1); }}>
+                    <Select value={catValue} onValueChange={(v) => { setCatValue(v); setPage(1); }}>
                       <SelectTrigger className="h-9 rounded-lg text-sm">
                         <SelectValue />
                       </SelectTrigger>
@@ -970,7 +831,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setSelected(new Set()); setPage(1); }}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder="Search Tenant..."
               className="h-10 rounded-xl text-sm pl-9 pr-8 bg-slate-50/70 dark:bg-muted/30 border-slate-200 dark:border-border/70 shadow-xs focus-visible:ring-primary/20"
             />
@@ -988,7 +849,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           {/* District Filter */}
           <Select
             value={districtFilter}
-            onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setSelected(new Set()); setPage(1); }}
+            onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setPage(1); }}
           >
             <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-slate-50/70 dark:bg-muted/30 border-slate-200 dark:border-border/70 shadow-xs">
               <MapPin className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
@@ -1031,7 +892,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           {/* Municipality/Town Filter */}
           <Select
             value={cityFilter}
-            onValueChange={(v) => { setCityFilter(v); setSelected(new Set()); setPage(1); }}
+            onValueChange={(v) => { setCityFilter(v); setPage(1); }}
           >
             <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-slate-50/70 dark:bg-muted/30 border-slate-200 dark:border-border/70 shadow-xs">
               <MapPin className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
@@ -1051,7 +912,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           {!locationProvisionsOnly ? (
             <Select
               value={catValue}
-              onValueChange={(v) => { setCatValue(v); setSelected(new Set()); setPage(1); }}
+              onValueChange={(v) => { setCatValue(v); setPage(1); }}
             >
               <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-slate-50/70 dark:bg-muted/30 border-slate-200 dark:border-border/70 shadow-xs">
                 <Building2 className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
@@ -1086,8 +947,8 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
         <div className="flex flex-wrap items-center gap-3">
           <RentDeskControls
             filters={deskUrl.filters}
-            onFiltersChange={(f) => { deskUrl.setFilters(f); setSelected(new Set()); setPage(1); }}
-            onClear={() => { deskUrl.clearFilters(); setSelected(new Set()); setPage(1); }}
+            onFiltersChange={(f) => { deskUrl.setFilters(f); setPage(1); }}
+            onClear={() => { deskUrl.clearFilters(); setPage(1); }}
             sort={deskUrl.sort}
             onSortChange={(v) => { deskUrl.setSort(v as RentDeskSort); setPage(1); }}
             sortOptions={RENT_DESK_SORTS.map((value) => ({ value, label: RENT_DESK_SORT_LABELS[value] }))}
@@ -1098,7 +959,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           <AboveSuggestionToggle
             className="pt-0"
             on={aboveOnly}
-            onChange={(on) => { setAboveOnly(on); setSelected(new Set()); setPage(1); }}
+            onChange={(on) => { setAboveOnly(on); setPage(1); }}
             count={items.filter((i) => i.renewal_above_suggestion).length}
           />
         </div>
@@ -1176,23 +1037,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 <table className="w-full text-sm min-w-[68rem]">
                   <thead>
                     <tr className="border-b border-slate-200/70 dark:border-border/60 bg-slate-50/80 dark:bg-muted/30 text-xs text-slate-700 dark:text-slate-300 font-bold">
-                      <th className="w-12 px-4 py-3.5 text-center">
-                        <Checkbox
-                          aria-label="Select all on this page"
-                          checked={pageItems.length > 0 && pageItems.filter(i => !i.partner_reserved_stage).every(i => selected.has(i.id))}
-                          onCheckedChange={(v) =>
-                            setSelected(prev => {
-                              const n = new Set(prev);
-                              pageItems.forEach(i => {
-                                if (i.partner_reserved_stage) return;
-                                if (v) n.add(i.id);
-                                else n.delete(i.id);
-                              });
-                              return n;
-                            })
-                          }
-                        />
-                      </th>
                       <th className="w-10 px-3 py-3.5 text-center">#</th>
                       <th className="px-4 py-3.5 text-left">Tenant</th>
                       <th className="px-3 py-3.5 text-left">Property</th>
@@ -1226,7 +1070,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                       </tr>
                     )}
                     {pageItems.map((item, index) => {
-                      const isSel = selected.has(item.id);
                       const reserved = item.partner_reserved_stage;
                       const locationLabel = [item.request_city, item.request_country].filter(Boolean).join(', ');
                       const propertyLabel = [item.loc_village || item.loc_parish, item.loc_house_category].filter(Boolean).join(' · ');
@@ -1235,19 +1078,8 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                         <tr
                           key={item.id}
                           onClick={() => setReviewTarget(item)}
-                          className={cn(
-                            'cursor-pointer transition-colors',
-                            isSel ? 'bg-primary/[0.05] hover:bg-primary/[0.08]' : 'hover:bg-slate-50/60 dark:hover:bg-muted/40'
-                          )}
+                          className="cursor-pointer transition-colors hover:bg-slate-50/60 dark:hover:bg-muted/40"
                         >
-                          <td className="px-4 py-3.5 align-middle text-center" onClick={e => e.stopPropagation()}>
-                            <Checkbox
-                              aria-label={`Select ${item.tenant_name}`}
-                              disabled={!!reserved}
-                              checked={isSel}
-                              onCheckedChange={() => toggle(item.id)}
-                            />
-                          </td>
                           <td className="px-3 py-3.5 align-middle text-center text-xs font-mono font-bold text-slate-900 dark:text-foreground">{rowNumber}</td>
                           <td className="px-4 py-3.5 align-middle">
                             <p className="font-bold text-slate-900 dark:text-foreground text-sm truncate max-w-[13rem]">{item.tenant_name}</p>
@@ -1286,6 +1118,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                                 <Send className="h-3 w-3 -rotate-45 fill-current" />Agent Float
                               </span>
                             )}
+                            {!reserved && (
+                              <span className="mt-1 block text-[11px] font-medium text-slate-500 dark:text-muted-foreground whitespace-normal" data-needs-pick={item.id}>
+                                Needs a funder's pick on the funders' dashboard
+                              </span>
+                            )}
                           </td>
                           <td className="px-3 py-3.5 align-middle text-sm text-slate-500 dark:text-slate-400 whitespace-nowrap">
                             {format(new Date(item.created_at), 'dd MMM yyyy')}
@@ -1301,11 +1138,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                                 <DropdownMenuItem onClick={() => setReviewTarget(item)} className="gap-2 cursor-pointer">
                                   <Eye className="h-4 w-4 text-primary" />Review Details
                                 </DropdownMenuItem>
-                                {!reserved && (
-                                  <DropdownMenuItem onClick={() => toggle(item.id)} className="gap-2 cursor-pointer">
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />{isSel ? 'Unselect' : 'Select for disbursement'}
-                                  </DropdownMenuItem>
-                                )}
                                 <DropdownMenuItem
                                   onClick={() => {
                                     setRejectTarget(item);
@@ -1383,118 +1215,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           </div>
         )}
       </Card>
-
-      <Sheet open={bulkReviewOpen} onOpenChange={setBulkReviewOpen}>
-        <SheetContent side="center" className="max-h-[88vh] w-[94vw] max-w-3xl sm:max-w-3xl lg:max-w-3xl xl:max-w-3xl overflow-y-auto rounded-xl p-0">
-          <div className="space-y-5 p-5 sm:p-6">
-            <SheetHeader>
-              <SheetTitle className="text-xl">Review bulk payment</SheetTitle>
-              <SheetDescription>
-                Review every selected tenant before authorising the payment.
-              </SheetDescription>
-            </SheetHeader>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Users className="h-4 w-4 text-primary" />
-                  Tenants selected
-                </div>
-                <p className="mt-2 text-3xl font-bold text-foreground">{selectedItems.length}</p>
-              </div>
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Banknote className="h-4 w-4 text-primary" />
-                  Total payment
-                </div>
-                <p className="mt-2 text-3xl font-bold text-primary">{fmt(totalRent)}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <div className="rounded-lg border border-border/70 p-3">
-                <p className="text-xs text-muted-foreground">Landlord Wallet</p>
-                <p className="mt-1 font-semibold">
-                  {selectedItems.filter(item => item.payout_target === 'landlord_wallet').length} tenant(s)
-                </p>
-              </div>
-              <div className="rounded-lg border border-border/70 p-3">
-                <p className="text-xs text-muted-foreground">Agent Float</p>
-                <p className="mt-1 font-semibold">
-                  {selectedItems.filter(item => item.payout_target === 'agent_float').length} tenant(s)
-                </p>
-              </div>
-              <div className="rounded-lg border border-border/70 p-3">
-                <p className="text-xs text-muted-foreground">Expected repayment</p>
-                <p className="mt-1 font-semibold">{fmt(totalRepaymentExpected)}</p>
-              </div>
-            </div>
-
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold">Payment details</p>
-                <Badge variant="outline">Fees: {fmt(totalRevenue)}</Badge>
-              </div>
-              <div className="max-h-64 overflow-y-auto rounded-lg border border-border/70 divide-y divide-border/60">
-                {selectedItems.map(item => (
-                  <label key={item.id} className="flex cursor-pointer items-center gap-3 px-3 py-3 hover:bg-muted/30">
-                    <Checkbox
-                      checked={selected.has(item.id)}
-                      onCheckedChange={() => toggle(item.id)}
-                      aria-label={`Remove ${item.tenant_name} from payment`}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{item.tenant_name}</span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {item.agent_name} · {item.payout_target === 'landlord_wallet' ? 'Landlord Wallet' : 'Agent Float'}
-                      </span>
-                      <span className="block">{weekChip(item)}</span>
-                    </span>
-                    <span className="shrink-0 text-sm font-bold">{fmt(item.rent_amount)}</span>
-                  </label>
-                ))}
-                {selectedItems.length === 0 && (
-                  <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                    No tenants selected. Close this review and select eligible tenants again.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="bulk-payment-reference" className="text-sm font-semibold">Batch reference</label>
-              <Input
-                id="bulk-payment-reference"
-                value={batchRef}
-                onChange={event => setBatchRef(event.target.value)}
-                placeholder="Enter the payment batch reference"
-                autoComplete="off"
-              />
-              <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                No payment is made until you click Confirm &amp; Pay Selected.
-              </p>
-            </div>
-
-            <SheetFooter className="border-t border-border/70 pt-4">
-              <Button type="button" variant="outline" onClick={() => setBulkReviewOpen(false)} disabled={batchDisburse.isPending}>
-                Back to list
-              </Button>
-              <CfoApprovalGate>
-                <Button
-                  type="button"
-                  onClick={() => batchDisburse.mutate()}
-                  disabled={batchDisburse.isPending || selectedItems.length === 0 || !batchRef.trim()}
-                >
-                  {batchDisburse.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
-                  Confirm &amp; Pay Selected
-                </Button>
-              </CfoApprovalGate>
-            </SheetFooter>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       <Sheet open={!!reviewTarget} onOpenChange={(o) => { if (!o) setReviewTarget(null); }}>
         <SheetContent side="center" className="max-h-[80vh] w-[92vw] max-w-md sm:max-w-md lg:max-w-md xl:max-w-md overflow-y-auto rounded-xl p-5">
@@ -1590,30 +1310,18 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 </div>
               </div>
 
-              {reviewTarget.partner_reserved_stage && (
+              {reviewTarget.partner_reserved_stage ? (
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                   {PARTNER_RESERVED_HINT[reviewTarget.partner_reserved_stage]}
+                </p>
+              ) : (
+                <p className="text-xs font-medium text-foreground leading-relaxed" data-needs-pick-review>
+                  Needs a funder's pick on the funders' dashboard
                 </p>
               )}
 
               <CfoApprovalGate>
               <div className="flex flex-col sm:flex-row gap-2">
-                <Button
-                  className="flex-1 h-10 rounded-xl font-semibold"
-                  onClick={() => {
-                    singleDisburse.mutate(reviewTarget.id);
-                    setReviewTarget(null);
-                  }}
-                  disabled={singleDisburse.isPending || !!reviewTarget.partner_reserved_stage}
-                  title={
-                    reviewTarget.partner_reserved_stage
-                      ? PARTNER_RESERVED_HINT[reviewTarget.partner_reserved_stage]
-                      : `Fund this tenant on ${reviewTarget.agent_name}'s float`
-                  }
-                >
-                  {singleDisburse.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Banknote className="h-3.5 w-3.5 mr-1" />}
-                  Fund this float
-                </Button>
                 <Button
                   variant="outline"
                   className="flex-1 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"

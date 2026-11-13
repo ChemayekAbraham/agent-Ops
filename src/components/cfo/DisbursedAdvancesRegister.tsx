@@ -605,12 +605,12 @@ function DisbursementDetailDrawer({
         ['Access Fee', formatUGX(Number(advance.access_fee || 0))],
         ['Registration Fee', formatUGX(Number(advance.registration_fee || 0))],
         ['Total Payable', formatUGX(totalPayable)],
-        ['Recovery Source', 'ROI'],
-        ['ROI Recovery %', `${Number(advance.roi_recovery_percent || 0)}%`],
-        ['Total Recovered from ROI', formatUGX(totalDeducted)],
+        ['Recovery Source', 'Rent profit share'],
+        ['Rent profit share Recovery %', `${Number(advance.roi_recovery_percent || 0)}%`],
+        ['Total Recovered from Rent profit share', formatUGX(totalDeducted)],
         ['Remaining Outstanding', formatUGX(outstanding)],
-        ['Last ROI Recovery', lastRecovery ? format(new Date(lastRecovery.date), 'dd MMM yyyy') : 'None yet'],
-        ['Next Recovery', 'On next successful ROI payout'],
+        ['Last Rent profit share Recovery', lastRecovery ? format(new Date(lastRecovery.date), 'dd MMM yyyy') : 'None yet'],
+        ['Next Recovery', 'On next successful Rent profit share payout'],
         ['Monthly Rate', `${Math.round(Number(advance.monthly_rate || 0) * 100)}%`],
         ['Fee Status', advance.access_fee_status || '—'],
       ]
@@ -648,7 +648,7 @@ function DisbursementDetailDrawer({
             <div className="rounded-lg border p-3 space-y-2">
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">
-                  {isRoi ? `Recovered from ROI ${formatUGX(repaid)}` : `Repaid ${formatUGX(repaid)}`}
+                  {isRoi ? `Recovered from Rent profit share ${formatUGX(repaid)}` : `Repaid ${formatUGX(repaid)}`}
                 </span>
                 <span className="font-semibold">{progress}%</span>
               </div>
@@ -657,7 +657,7 @@ function DisbursementDetailDrawer({
               </div>
               <p className="text-[10px] text-muted-foreground">
                 {isRoi
-                  ? `of ${formatUGX(progressBase)} — advances only on ROI recoveries`
+                  ? `of ${formatUGX(progressBase)} — advances only on Rent profit share recoveries`
                   : `of ${formatUGX(totalPayable)} total payable`}
               </p>
             </div>
@@ -694,14 +694,14 @@ function DisbursementDetailDrawer({
             {/* Repayment ledger */}
             <div className="space-y-2">
               <p className="text-xs font-bold flex items-center gap-1.5">
-                <Percent className="h-3.5 w-3.5 text-primary" /> {isRoi ? 'ROI Recovery History' : 'Repayment History'}
+                <Percent className="h-3.5 w-3.5 text-primary" /> {isRoi ? 'Rent profit share Recovery History' : 'Repayment History'}
                 {ledger.length > 0 && <Badge variant="outline" className="text-[10px]">{formatUGX(totalDeducted)} recovered</Badge>}
               </p>
               {isLoading ? (
                 <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
               ) : ledger.length === 0 ? (
                 <p className="text-[11px] text-muted-foreground py-2">
-                  {isRoi ? 'No ROI recoveries yet. Recovery happens on the next ROI payout.' : 'No repayment entries recorded yet.'}
+                  {isRoi ? 'No Rent profit share recoveries yet. Recovery happens on the next Rent profit share payout.' : 'No repayment entries recorded yet.'}
                 </p>
               ) : (
                 <div className="rounded-md border overflow-hidden">
@@ -709,7 +709,7 @@ function DisbursementDetailDrawer({
                     <TableHeader>
                       <TableRow>
                         <TableHead className="text-[10px]">Date</TableHead>
-                        {isRoi && <TableHead className="text-[10px] text-right">ROI</TableHead>}
+                        {isRoi && <TableHead className="text-[10px] text-right">Rent profit share</TableHead>}
                         {isRoi && <TableHead className="text-[10px] text-right">%</TableHead>}
                         <TableHead className="text-[10px] text-right">{isRoi ? 'Recovered' : 'Deducted'}</TableHead>
                         <TableHead className="text-[10px] text-right">{isRoi ? 'Outstanding' : 'Balance'}</TableHead>

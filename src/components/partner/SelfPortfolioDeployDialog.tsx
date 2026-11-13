@@ -18,6 +18,7 @@ import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { monthlyReturnFor, rateOrNull } from '@/lib/partnerReturnPolicy';
 import { toast } from 'sonner';
+import { supportOutcome, supportSubmittedCopy, type SupportResultPayload } from '@/lib/selfSupportDirect';
 import { CalendarClock, CheckCircle2, HandCoins, Info, Loader2, PlusCircle, Sparkles, Star } from 'lucide-react';
 
 
@@ -181,8 +182,11 @@ export function SelfPortfolioDeployDialog({
           p_promised_deposit_date: depositDate || null,
         });
         if (error) throw error;
-        const payload = (data ?? {}) as { funding_mode?: string; from_float?: number };
-        if (payload.funding_mode === 'receivable') {
+        const payload = (data ?? {}) as SupportResultPayload;
+        if (supportOutcome(payload) === 'awaiting_landlord') {
+          const copy = supportSubmittedCopy(payload, total);
+          toast.success(copy.title, { description: copy.description, duration: 9000 });
+        } else if (payload.funding_mode === 'receivable') {
           toast.success('Support pledged', {
             description: `Recorded as a landlord float receivable of ${formatDynamic(total)}. Deposit it into your wallet by ${new Date(depositDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} and it releases to the landlord float.`,
             duration: 9000,
@@ -437,7 +441,7 @@ export function SelfPortfolioDeployDialog({
             <div className="flex items-start gap-2 rounded-xl bg-muted/30 px-2.5 py-2">
               <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
               <p className="text-[10px] text-muted-foreground">
-                Returns pay monthly into your withdrawable balance and are never compounded
+                Rent profit share pay monthly into your withdrawable balance and are never compounded
                 automatically. At the end of the 12-month term, principal is returned over the
                 standard settlement window.
               </p>

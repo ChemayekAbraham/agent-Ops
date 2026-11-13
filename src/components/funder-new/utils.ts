@@ -88,6 +88,15 @@ export function placeCase(raw?: string | null): string {
  * repeats the place line below it, so the clean room type wins. The shared
  * formatHouseCategory appends "House"; the compact browse row does not need it.
  */
+/**
+ * An empty house whose house_listings.verified is false. It cannot be funded
+ * from a card, and it never reads "Pending verification": that words belongs
+ * to the amber board tag (its agent fell below the collection bar).
+ */
+export function isUncheckedEmptyHouse(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan): boolean {
+  return category === 'empty' && (item as FunderNewEmptyHouse).verified === false;
+}
+
 export function emptyHouseTitle(house: FunderNewEmptyHouse): string {
   return (
     placeCase(house.house_category) ||
@@ -152,10 +161,29 @@ export function itemId(category: FunderNewCategory, item: FunderNewEmptyHouse | 
     : (item as FunderNewReadyPlan).rent_request_id;
 }
 
-export function itemAmount(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan): number {
-  return category === 'empty'
+/**
+ * "Ref 3F2A9C1B": the first 8 characters of a rent request id, upper case, so
+ * staff can match a funder card to its desk row (desk search matches the same
+ * 8 characters, case-insensitively). Null without an id. Rent requests only.
+ */
+export function requestRef(id: string | null | undefined): string | null {
+  const code = (id ?? '').replace(/-/g, '').slice(0, 8);
+  return code ? `Ref ${code.toUpperCase()}` : null;
+}
+
+/** Rent-to-partner-amount mapper: useSelfSupportFeePolicy().pay. Identity by default (sorting, filters, pins). */
+export type PartnerPay = (rent: number) => number;
+const IDENTITY_PAY: PartnerPay = (rent) => rent;
+
+export function itemAmount(
+  category: FunderNewCategory,
+  item: FunderNewEmptyHouse | FunderNewReadyPlan,
+  pay: PartnerPay = IDENTITY_PAY,
+): number {
+  const rent = category === 'empty'
     ? toNumber((item as FunderNewEmptyHouse).monthly_rent)
     : toNumber((item as FunderNewReadyPlan).funding_amount);
+  return rent > 0 ? pay(rent) : rent;
 }
 
 /**
@@ -166,16 +194,18 @@ export function itemAmount(category: FunderNewCategory, item: FunderNewEmptyHous
 export function itemMonthlyReturn(
   category: FunderNewCategory,
   item: FunderNewEmptyHouse | FunderNewReadyPlan,
+  pay: PartnerPay = IDENTITY_PAY,
 ): number | null {
   if (category === 'empty') {
     const house = item as FunderNewEmptyHouse;
-    const provided = toNumber(house.partner_monthly_return);
-    if (provided > 0) return provided;
     const rent = toNumber(house.monthly_rent);
-    return rent > 0 ? Math.round(rent * MONTHLY_RETURN_RATE) : null;
+    const provided = toNumber(house.partner_monthly_return);
+    // The listed figure is on the plain rent; once Agent Care applies, the partner earns on pay(rent).
+    if (provided > 0 && !(rent > 0 && pay(rent) !== rent)) return provided;
+    return rent > 0 ? Math.round(pay(rent) * MONTHLY_RETURN_RATE) : null;
   }
   const amount = toNumber((item as FunderNewReadyPlan).funding_amount);
-  return amount > 0 ? Math.round(amount * MONTHLY_RETURN_RATE) : null;
+  return amount > 0 ? Math.round(pay(amount) * MONTHLY_RETURN_RATE) : null;
 }
 
 export function firstPhoto(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan): string | null {
@@ -198,6 +228,7 @@ export function isHouseVerified(category: FunderNewCategory, item: FunderNewEmpt
 export function toSelectionItem(
   category: FunderNewCategory,
   item: FunderNewEmptyHouse | FunderNewReadyPlan,
+  pay: PartnerPay = IDENTITY_PAY,
 ): FunderNewSelectionItem {
   return {
     id: itemId(category, item),
@@ -206,8 +237,8 @@ export function toSelectionItem(
       category === 'empty' ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan),
     place:
       category === 'empty' ? emptyHousePlace(item as FunderNewEmptyHouse) : readyPlanPlace(item as FunderNewReadyPlan),
-    amount: itemAmount(category, item),
-    monthlyReturn: itemMonthlyReturn(category, item),
+    amount: itemAmount(category, item, pay),
+    monthlyReturn: itemMonthlyReturn(category, item, pay),
     termLabel: category === 'empty' ? '1 month house support' : readyPlanTerm(item as FunderNewReadyPlan),
     imageUrl: firstPhoto(category, item),
     ...contactFields(category, item),

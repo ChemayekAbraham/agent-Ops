@@ -1,11 +1,9 @@
-import { useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo, useState } from 'react';
 import { ImageOff, MapPin } from 'lucide-react';
-import { FOCUS, LABEL, PANEL, statusText } from '../deskTheme';
+import { FOCUS, LABEL, PANEL } from '../deskTheme';
 import { clockTime } from '../deskPrefs';
 import {
   Chip,
-  DecisionButton,
   ErrorLine,
   GradeBadge,
   LoadingRows,
@@ -20,8 +18,11 @@ import {
 import { DataList, OneLine, type DataColumn } from '../ui/DataList';
 import { stackLayout } from '../ui/layout';
 import { readableError } from '../reviewApi';
-import { FUNDERS_KEY, PERIODS, fundOne, useFundersDashboard, type FundersRow, type Period } from './cfoApi';
-import { canFundRow, fundedSplitText, fundersLead, heldLabel, isWelileDue, rating, sortRows, ugx, type Rank } from './fundersView';
+import { PERIODS, useFundersDashboard, type FundersRow, type Period } from './cfoApi';
+import { UNSOLD_7D_LABEL, fundedSplitText, fundersLead, heldLabel, isUnsold7d, rating, sortRows, ugx, type Rank } from './fundersView';
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
+import { funderLine, refText, useBoardFacts, type BoardFacts } from './planDrawerApi';
+import { FundersPlanDrawer } from './FundersPlanDrawer';
 
 /** The listing's main photo: the first of the house photos the funders see. */
 export function mainPhoto(r: Pick<FundersRow, 'photos'>): string | null {
@@ -34,12 +35,12 @@ const photoCount = (r: FundersRow) => (Array.isArray(r.photos) ? r.photos.length
 /** `xs` inside a table row (the kit's size for data rows), `sm` on a card. */
 function StatusChips({ r, size = 'sm' }: { r: FundersRow; size?: 'xs' | 'sm' }) {
   const held = heldLabel(r);
-  if (!isWelileDue(r) && !held) return null;
+  if (!isUnsold7d(r) && !held) return null;
   return (
     <span className="flex flex-wrap gap-1" style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4 }}>
-      {isWelileDue(r) && (
-        <Chip tone="bad" size={size} strong>
-          Welile to fund
+      {isUnsold7d(r) && (
+        <Chip tone="idle" size={size}>
+          {UNSOLD_7D_LABEL}
         </Chip>
       )}
       {held && (
@@ -86,8 +87,26 @@ function Ratings({ r }: { r: FundersRow }) {
   );
 }
 
-/** Below md: one listing as a card — photo, who, where, how much, and the one action. */
-function FundersCard({ r, fund, busy, board }: { r: FundersRow; fund: (() => void) | null; busy: boolean; board: boolean }) {
+/** "Self-contained in Kampala · UGX 650,000": what funders see, under the rent. */
+function FunderSees({ line, oneLine = false }: { line: string | null; oneLine?: boolean }) {
+  if (!line) return null;
+  if (oneLine) {
+    // In a table cell: one line under the rent, the whole of it on hover.
+    return (
+      <OneLine className="text-xs text-muted-foreground" title={`What funders see: ${line}`}>
+        <span data-funder-line>{line}</span>
+      </OneLine>
+    );
+  }
+  return (
+    <span className="block text-xs text-muted-foreground" data-funder-line title="What funders see on their card">
+      {line}
+    </span>
+  );
+}
+
+/** Below md: one listing as a card — photo, who, where, how much. */
+function FundersCard({ r, board, line, onOpen }: { r: FundersRow; board: boolean; line: string | null; onOpen: () => void }) {
   const photo = mainPhoto(r);
   return (
     <article className="desk-tile" style={{ ...stackLayout(8), padding: 12 }} data-funders-card={r.id}>
@@ -115,8 +134,13 @@ function FundersCard({ r, fund, busy, board }: { r: FundersRow; fund: (() => voi
         )}
         <div style={{ ...stackLayout(2), minWidth: 0, flex: '1 1 auto' }}>
           <h4 className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`} style={{ margin: 0, overflowWrap: 'anywhere' }}>
-            {r.tenant ?? '—'}
+            <button type="button" onClick={onOpen} className={`text-left underline-offset-2 hover:underline ${FOCUS}`} aria-label={`Open the plan for ${r.tenant ?? refText(r.id)}`}>
+              {r.tenant ?? '—'}
+            </button>
           </h4>
+          <span className="font-mono text-xs text-muted-foreground" data-ref>
+            {refText(r.id)}
+          </span>
           {r.tenant_location && (
             <p
               className="text-sm text-muted-foreground"
@@ -136,6 +160,9 @@ function FundersCard({ r, fund, busy, board }: { r: FundersRow; fund: (() => voi
           {moneyCard(r.rent)}
         </span>
         <GradeBadge grade={r.grade} />
+        <span style={{ flexBasis: '100%' }}>
+          <FunderSees line={line} />
+        </span>
         <span className="tabular-nums text-muted-foreground">{daysShort(r.days_on_board)} on board</span>
         <StatusChips r={r} />
       </div>
@@ -143,84 +170,19 @@ function FundersCard({ r, fund, busy, board }: { r: FundersRow; fund: (() => voi
         <GpsPhotos r={r} />
         <span title="Agent / Tenant / Landlord ratings">Ratings {ratingsText(r)}</span>
       </div>
-      {fund && (
-        <DecisionButton variant="primary" size="md" disabled={busy} onClick={fund} style={{ width: '100%' }}>
-          Fund with Welile money
-        </DecisionButton>
-      )}
     </article>
-  );
-}
-
-type Outcome = { id: string; ok: boolean; text: string };
-
-function ConfirmFund({
-  row,
-  busy,
-  outcome,
-  onConfirm,
-  onClose,
-}: {
-  row: FundersRow;
-  busy: boolean;
-  outcome: Outcome | null;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const amount = row.funding_amount ?? row.rent;
-  const done = !!outcome;
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-6" role="presentation">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="funders-confirm-title"
-        className={`${PANEL} w-full max-w-md space-y-3 bg-[hsl(var(--background))] p-4 sm:p-5`}
-      >
-        <h2 id="funders-confirm-title" className="text-lg font-semibold text-foreground">
-          Fund with Welile money
-        </h2>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-muted-foreground">Request</dt>
-          <dd className="font-mono text-foreground">{row.req ?? row.id.slice(0, 8)}</dd>
-          <dt className="text-muted-foreground">Tenant</dt>
-          <dd className="text-foreground">{row.tenant ?? '—'}</dd>
-          <dt className="text-muted-foreground">Landlord</dt>
-          <dd className="text-foreground">{row.landlord ?? '—'}</dd>
-          <dt className="text-muted-foreground">Amount</dt>
-          <dd className="tabular-nums text-foreground">{ugx(amount)}</dd>
-        </dl>
-        {!done && (
-          <p className="text-xs text-muted-foreground">
-            This funds the agent&rsquo;s landlord float from Welile&rsquo;s money now. The request leaves the funders&rsquo;
-            board.
-          </p>
-        )}
-        {outcome && (
-          <p role={outcome.ok ? 'status' : 'alert'} className={`text-sm ${outcome.ok ? statusText.ok : statusText.bad}`}>
-            {outcome.text}
-          </p>
-        )}
-        <div className="flex justify-end gap-2" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <DecisionButton size="md" onClick={onClose} disabled={busy}>
-            {done ? 'Close' : 'Cancel'}
-          </DecisionButton>
-          {!done && (
-            <DecisionButton size="md" variant="primary" onClick={onConfirm} disabled={busy}>
-              {busy ? 'Funding…' : `Fund ${ugx(amount)}`}
-            </DecisionButton>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
 
 /**
  * The Funders Dashboard (desk id `cfo`): what funders can take today, what
- * they hold, what was funded, and — where the CFO is allowed — a way to fund a
- * request with Welile money, one at a time.
+ * they hold and what was funded. It has no funding action: the database
+ * refuses funding without a funder who selected the request (E59), so Welile
+ * funds through its own funder account, by selecting on the funders' dashboard
+ * like any funder.
  */
+export const WELILE_FUNDS_NOTE = "Welile funds through its own funder account, by selecting on the funders' dashboard.";
+
 export function FundersDashboard({
   board,
   period: periodProp,
@@ -231,48 +193,25 @@ export function FundersDashboard({
   period?: Period;
   onPeriodChange?: (p: Period) => void;
 }) {
-  const qc = useQueryClient();
   const [ownPeriod, setOwnPeriod] = useState<Period>('today');
   const controlled = periodProp !== undefined;
   const period = controlled ? periodProp : ownPeriod;
   const setPeriod = (p: Period) => (onPeriodChange ? onPeriodChange(p) : setOwnPeriod(p));
   const [rank, setRank] = useState<Rank>('grade');
-  const [target, setTarget] = useState<FundersRow | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const closeDrawer = useCallback(() => setOpenId(null), []);
+  const facts = useBoardFacts();
+  const { pay } = useSelfSupportFeePolicy();
+  const factsFor = (id: string): BoardFacts | null => facts.data?.get(id) ?? null;
+  const lineFor = (id: string): string | null => {
+    const f = factsFor(id);
+    return f ? funderLine(f, pay) : null;
+  };
 
   const q = useFundersDashboard(period);
   const d = q.data;
   const rows = useMemo(() => sortRows(d?.rows ?? [], rank), [d?.rows, rank]);
   const updatedMs = d?.generated_at ? Date.parse(d.generated_at) : q.dataUpdatedAt;
-
-  const confirm = async () => {
-    if (!target) return;
-    setBusy(true);
-    try {
-      const res = await fundOne(target.id);
-      setOutcome(
-        res.ok
-          ? { id: target.id, ok: true, text: 'Funded. The agent will complete the payout to the landlord.' }
-          : { id: target.id, ok: false, text: res.reason ?? 'Funding failed' },
-      );
-    } catch (e) {
-      setOutcome({ id: target.id, ok: false, text: readableError(e) });
-    } finally {
-      setBusy(false);
-      qc.invalidateQueries({ queryKey: FUNDERS_KEY });
-      qc.invalidateQueries({ queryKey: ['desk-feed'] });
-      qc.invalidateQueries({ queryKey: ['rent-disbursement-queue'] });
-      qc.invalidateQueries({ queryKey: ['treasury-cash-snapshot'] });
-      qc.invalidateQueries({ queryKey: ['cfo-overview'] });
-    }
-  };
-
-  const close = () => {
-    if (busy) return;
-    setTarget(null);
-    setOutcome(null);
-  };
 
   const avg = d?.funded.avg_days_coo_to_funded;
   // On a phone the explainer and the refresh time go under the list, so the first listing is in view.
@@ -288,32 +227,20 @@ export function FundersDashboard({
       Rent Plans approved by the COO, graded on the three ops reviews. Funded or claimed requests leave this list on their own.
     </p>
   );
-  const canFund = d?.can_fund_welile === true;
-  const fundFor = (r: FundersRow) =>
-    canFundRow(r, canFund)
-      ? () => {
-          setOutcome(null);
-          setTarget(r);
-        }
-      : null;
-
   /*
-   * The table keeps Request · Tenant · Agent · Grade · Days · Rent · Status
-   * (and Fund for approvers); Landlord, GPS · photos and the three ratings sit
+   * The table keeps Request · Tenant · Agent · Grade · Days · Rent · Status;
+   * Landlord, GPS · photos and the three ratings sit
    * in priority 3, so on a narrower list they open in the row's details. The
    * list decides by its own width (ui/DataList).
    */
-  const anyFundable = canFund && rows.some((r) => canFundRow(r, canFund));
   const columns: DataColumn<FundersRow>[] = [
     {
       key: 'req',
       label: 'Request',
-      // For approvers the Fund column needs the room: Request opens in the row's details instead,
-      // so Agent, Grade and Days stay visible at ~950 px.
-      priority: anyFundable ? 3 : 2,
+      priority: 2,
       kind: 'code',
-      render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.req ?? r.id.slice(0, 8)}</span>,
-      text: (r) => r.req ?? r.id.slice(0, 8),
+      render: (r) => <span className="font-mono text-xs text-muted-foreground" data-ref>{refText(r.id)}</span>,
+      text: (r) => refText(r.id),
     },
     {
       key: 'tenant',
@@ -322,7 +249,11 @@ export function FundersDashboard({
       kind: 'name',
       render: (r) => (
         <>
-          <OneLine className="text-foreground" title={r.tenant}>{r.tenant ?? '—'}</OneLine>
+          <OneLine className="text-foreground" title={r.tenant}>
+            <button type="button" onClick={() => setOpenId(r.id)} className={`text-left underline-offset-2 hover:underline ${FOCUS}`} aria-label={`Open the plan for ${r.tenant ?? refText(r.id)}`}>
+              {r.tenant ?? '—'}
+            </button>
+          </OneLine>
           {r.tenant_location && (
             <OneLine className="text-xs text-muted-foreground" title={r.tenant_location}>
               {r.tenant_location}
@@ -335,43 +266,28 @@ export function FundersDashboard({
     { key: 'agent', label: 'Agent', priority: 2, kind: 'name', render: (r) => r.agent ?? '—' },
     { key: 'grade', label: 'Grade', priority: 2, kind: 'number', render: (r) => <GradeBadge grade={r.grade} />, text: (r) => r.grade ?? '' },
     { key: 'days', label: 'Days', priority: 2, kind: 'number', align: 'right', render: (r) => (r.days_on_board === null ? '—' : String(r.days_on_board)) },
-    { key: 'rent', label: 'Rent (UGX)', priority: 1, kind: 'money', align: 'right', render: (r) => (r.rent === null ? '—' : Math.round(r.rent).toLocaleString('en')) },
+    {
+      key: 'rent',
+      label: 'Rent (UGX)',
+      priority: 1,
+      kind: 'money',
+      align: 'right',
+      render: (r) => (
+        <>
+          {r.rent === null ? '—' : Math.round(r.rent).toLocaleString('en')}
+          <FunderSees line={lineFor(r.id)} oneLine />
+        </>
+      ),
+      text: (r) => [r.rent === null ? '—' : Math.round(r.rent).toLocaleString('en'), lineFor(r.id)].filter(Boolean).join(' · '),
+    },
     {
       key: 'status',
       label: 'Status',
       priority: 1,
       kind: 'chips',
       render: (r) => <StatusChips r={r} size="xs" />,
-      text: (r) => [isWelileDue(r) ? 'Welile to fund' : '', heldLabel(r) ?? ''].filter(Boolean).join(' · '),
+      text: (r) => [isUnsold7d(r) ? UNSOLD_7D_LABEL : '', heldLabel(r) ?? ''].filter(Boolean).join(' · '),
     },
-    ...(anyFundable
-      ? [
-          {
-            key: 'action',
-            label: 'Action',
-            priority: 1 as const,
-            kind: 'action' as const,
-            minWidth: 84,
-            align: 'right' as const,
-            render: (r: FundersRow) => {
-              const fund = fundFor(r);
-              // "Fund" in the table; the whole action in the tooltip, the accessible name and the confirm sheet.
-              return fund ? (
-                <DecisionButton
-                  variant="primary"
-                  disabled={busy || !!target}
-                  onClick={fund}
-                  title="Fund with Welile money"
-                  aria-label={`Fund with Welile money: ${r.tenant ?? r.req ?? 'this request'}`}
-                >
-                  Fund
-                </DecisionButton>
-              ) : null;
-            },
-            text: () => '',
-          },
-        ]
-      : []),
     {
       key: 'landlord',
       label: 'Landlord',
@@ -435,6 +351,9 @@ export function FundersDashboard({
             <h3 id="funders-list-title" className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`}>
               On the funders&rsquo; board
             </h3>
+            <p className="max-w-3xl text-sm leading-snug text-foreground" style={{ margin: 0 }} data-welile-funds-note>
+              {WELILE_FUNDS_NOTE}
+            </p>
             {wide && explainer}
           </div>
           <Segmented
@@ -458,8 +377,9 @@ export function FundersDashboard({
           error={q.error && !d ? readableError(q.error) : undefined}
           emptyText="Nothing is on the funders’ board right now."
           board={board}
-          rowAttrs={(r) => ({ 'data-welile-due': isWelileDue(r) ? '' : undefined })}
-          card={(r) => <FundersCard r={r} fund={fundFor(r)} busy={busy || !!target} board={board} />}
+          rowAttrs={(r) => ({ 'data-unsold-7d': isUnsold7d(r) ? '' : undefined })}
+          card={(r) => <FundersCard r={r} board={board} line={lineFor(r.id)} onOpen={() => setOpenId(r.id)} />}
+          onRowOpen={(r) => setOpenId(r.id)}
         />
         {!wide && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -469,7 +389,9 @@ export function FundersDashboard({
         )}
       </section>
 
-      {target && <ConfirmFund row={target} busy={busy} outcome={outcome} onConfirm={confirm} onClose={close} />}
+      {openId && rows.find((r) => r.id === openId) && (
+        <FundersPlanDrawer row={rows.find((r) => r.id === openId) as FundersRow} facts={factsFor(openId)} onClose={closeDrawer} />
+      )}
     </div>
   );
 }

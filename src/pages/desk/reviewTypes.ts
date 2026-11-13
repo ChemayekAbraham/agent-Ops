@@ -50,11 +50,14 @@ export const STAGE_DECISIONS: Record<Stage, Decision[]> = {
 };
 
 /**
- * Decisions the desks no longer offer, though the server still accepts them:
+ * Decisions the desks no longer offer, though the server still accepts them.
+ * `reject` became "Send back" to the agent in the field (E64), which rejects
+ * through `pipeline_send_back_to` with an office and a reason on record.
+ * Older ones:
  * `fund` was the COO's budget path (retired 5 Nov — the COO pushes top N to
  * the funders instead); `attach_funder` and `to_coo_bucket` were Partner Ops'.
  */
-export const HIDDEN_DECISIONS: Decision[] = ['fund', 'attach_funder', 'to_coo_bucket'];
+export const HIDDEN_DECISIONS: Decision[] = ['fund', 'attach_funder', 'to_coo_bucket', 'reject'];
 
 /** The decisions a desk's drawer and board menus offer. */
 export function visibleDecisions(stage: Stage): Decision[] {
@@ -75,7 +78,7 @@ export const DECISION_LABEL: Record<Decision, string> = {
 };
 
 export const DECISION_HELP: Partial<Record<Decision, string>> = {
-  send_back: 'Returns the request to the agent to correct and resend.',
+  send_back: 'Returnsthe request to the agent to correct and resend.',
   call_again: 'Keeps the request here. Log the attempt first.',
   to_coo_bucket: 'Forwards to the COO without a proxy partner — not published to the Funder dashboard.',
   hold: 'Leaves the request in the COO queue for a later decision.',

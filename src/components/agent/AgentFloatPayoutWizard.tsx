@@ -1,4 +1,5 @@
 import { landlordPayoutNumberState } from '@/lib/landlordPayoutNumberState';
+import { supportErrorMessage } from '@/lib/selfSupportDirect';
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { LandlordFloatPerformanceNotice } from '@/components/agent/LandlordFloatPerformanceNotice';
 import { useLandlordFloatPerformance } from '@/hooks/useLandlordFloatPerformance';
 import { useCaptureLocation } from '@/hooks/useCaptureLocation';
+import { canSelfPayLandlords } from '@/lib/landlordSelfPayAgents';
 import { useLandlordOtp } from '@/hooks/useLandlordOtp';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -382,7 +384,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   const handleSendOtp = async (source: 'auto' | 'manual' = 'manual') => {
     setSendOtpError(null);
     if (performanceBlocked) {
-      const msg = floatPerformance?.message ?? 'Your collection rate is under the 50% minimum, so landlord float cannot be withdrawn yet.';
+      const msg = floatPerformance?.message ?? 'Your collection rate is under the landlord float minimum, so landlord float cannot be withdrawn yet.';
       toast.error(msg);
       setSendOtpError(msg);
       return;
@@ -431,10 +433,14 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
       // leave getCurrentPosition pending indefinitely when the permission sheet
       // is dismissed. Continue after 8 seconds; payout verification still keeps
       // the landlord/property coordinates already stored on the request.
-      const loc = await Promise.race([
-        geo.captureLocation().catch(() => null),
-        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000)),
-      ]);
+      // Direct-pay agents (Alpha Ssema) pay landlords remotely: no location
+      // is asked for; the landlord's one-time code is still required.
+      const loc = canSelfPayLandlords(user.id)
+        ? null
+        : await Promise.race([
+            geo.captureLocation().catch(() => null),
+            new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000)),
+          ]);
       const r = selectedRequest;
       const propLat = r.landlord?.latitude ?? null;
       const propLng = r.landlord?.longitude ?? null;
@@ -467,14 +473,14 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
           landlordOtp.getLastError() ||
           'Could not send the OTP. Check your connection and tap Send OTP again.';
         setSendOtpError(reason);
-        toast.error(reason);
+        toast.error(supportErrorMessage(reason) ?? reason);
       }
     } catch (error) {
       const reason = error instanceof Error
         ? error.message
         : 'Could not prepare the OTP request. Tap Send OTP to try again.';
       setSendOtpError(reason);
-      toast.error(reason);
+      toast.error(supportErrorMessage(reason) ?? reason);
     } finally {
       setPreparingOtp(false);
       // A successful send is represented by otpSent/challengeId. The ref is
@@ -485,7 +491,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   };
 
   const sendBlockedReason = performanceBlocked
-    ? (floatPerformance?.message ?? 'Your collection rate is under the 50% minimum, so landlord float cannot be withdrawn yet.')
+    ? (floatPerformance?.message ?? 'Your collection rate is under the landlord float minimum, so landlord float cannot be withdrawn yet.')
     : !payoutState.canSendOtp
     ? `${payoutState.title}. ${payoutState.detail}`
     : !phoneValid
@@ -659,7 +665,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
       toast.success('Disbursement retried');
     } catch (e: any) {
       setDisburseError(e?.message || 'Retry failed');
-      toast.error(e?.message || 'Retry failed');
+      toast.error(supportErrorMessage(e?.message) ?? (e?.message || 'Retry failed'));
     } finally {
       setIsRetryingDisburse(false);
     }

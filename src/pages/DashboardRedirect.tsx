@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import ScreenLoader from '@/components/common/ScreenLoader';
 import { toast } from 'sonner';
 import { FALLBACK_ROUTE, NO_ROLES_ROUTE } from '@/lib/roleFallback';
+import { preloadLandingRoles } from '@/lib/preloadRoleDashboards';
 import { PROXY_DASHBOARD_ROUTE, isPersonaLanding, resolveProxyLanding } from '@/lib/proxyLanding';
 
 /**
@@ -108,6 +109,7 @@ export default function DashboardRedirect() {
             ? 'Followed the role hint in your link.'
             : 'Matches your chosen home screen in Settings.';
       explain(explicitHonored, why);
+      preloadLandingRoles([explicitHonored]);
       navigate(roleToSlug(explicitHonored), { replace: true });
       return;
     }
@@ -135,6 +137,36 @@ export default function DashboardRedirect() {
     // rent request (as agent_id), default them to the agent dashboard.
     // Cached per-user in localStorage so we only hit the DB once.
     const cacheKey = `welile_has_posted_rent_request_${user.id}`;
+    let cachedAgentRule: string | null = null;
+    try { cachedAgentRule = localStorage.getItem(cacheKey); } catch {}
+    const agentRuleApplies = roles.includes('agent') && !isAgentAutoDefaultDisabled();
+
+    // Start downloading the dashboard this person will most likely land on now,
+    // while the lookups below run, instead of after the redirect.
+    const likelyFallback = role && roles.includes(role) ? role : roles[0];
+    preloadLandingRoles([
+      agentRuleApplies && cachedAgentRule !== '0' ? 'agent' : likelyFallback,
+      likelyFallback,
+    ]);
+
+    // On a device with no cached answer, ask the database now, in parallel with
+    // the server routing-prefs read below (they used to run one after the other,
+    // up to 1.2s + 1.5s on a slow connection).
+    const agentLookup: Promise<boolean | null> | null =
+      agentRuleApplies && cachedAgentRule !== '1' && cachedAgentRule !== '0'
+        ? Promise.resolve(
+            supabase
+              .from('rent_requests')
+              .select('id', { head: true, count: 'exact' })
+              .eq('agent_id', user.id)
+              .limit(1),
+          ).then(({ count, error }) => {
+            if (error) return null;
+            const has = (count ?? 0) > 0;
+            try { localStorage.setItem(cacheKey, has ? '1' : '0'); } catch {}
+            return has;
+          }, () => null)
+        : null;
 
     // Proxy agents who have never collected rent land on the proxy dashboard instead of the agent, funder, tenant
     // or landlord one (see proxyLanding). Asked now so it runs alongside the lookups below; every landing that is
@@ -210,32 +242,27 @@ export default function DashboardRedirect() {
     return cancel;
 
     function runAgentAutoRule() {
+    // Re-read: the server prefs above may have run while the lookup finished,
+    // or turned the agent rule off on another device.
     if (roles.includes('agent') && !isAgentAutoDefaultDisabled()) {
       let cached: string | null = null;
       try { cached = localStorage.getItem(cacheKey); } catch {}
       if (cached === '1') { goAgent(); return; }
       if (cached === '0') { fallback(); return; }
 
-      // Unknown — check once, then route. Don't block UI longer than 1.5s.
+      // Unknown — wait for the lookup started above. Don't block UI longer than 1.5s.
       let settled = false;
       const timeout = setTimeout(() => {
         if (settled) return;
         settled = true;
         fallback();
       }, 1500);
-      supabase
-        .from('rent_requests')
-        .select('id', { head: true, count: 'exact' })
-        .eq('agent_id', user.id)
-        .limit(1)
-        .then(({ count, error }) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timeout);
-          const has = !error && (count ?? 0) > 0;
-          try { localStorage.setItem(cacheKey, has ? '1' : '0'); } catch {}
-          if (has) goAgent(); else fallback();
-        });
+      (agentLookup ?? Promise.resolve(null)).then((has) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        if (has) goAgent(); else fallback();
+      });
       return;
     }
 

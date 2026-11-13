@@ -39,7 +39,7 @@ export function UnlockPortfolioDialog({ open, onOpenChange, portfolio, onSuccess
       const next = (data as { next_roi_date?: string } | null)?.next_roi_date;
       toast.success(`Portfolio ${portfolio.portfolio_code} unlocked`, {
         description: next
-          ? `It is active again. Returns resume from ${new Date(next + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}.`
+          ? `It is active again. Rent profit share resume from ${new Date(next + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}.`
           : 'It is active again.',
       });
       onOpenChange(false);
@@ -60,8 +60,8 @@ export function UnlockPortfolioDialog({ open, onOpenChange, portfolio, onSuccess
             Unlock Portfolio {portfolio?.portfolio_code}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            The portfolio becomes active and starts earning Returns again from the next payout day.
-            No Returns are paid for the time it was locked.
+            The portfolio becomes active and starts earning Rent profit share again from the next payout day.
+            No Rent profit share is paid for the time it was locked.
           </DialogDescription>
         </DialogHeader>
 

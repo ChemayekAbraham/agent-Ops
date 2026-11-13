@@ -26,11 +26,13 @@ import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
-import { promissoryFulfilmentError } from '@/lib/promissoryNoteDraft';
+import { noteDueByMessage, promissoryFulfilmentError } from '@/lib/promissoryNoteDraft';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { PromissoryPlanMatcher } from '@/components/agent/PromissoryPlanMatcher';
 import { normalizeWa } from '@/lib/whatsapp';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
+import { afterColon } from '@/lib/selfSupportFeeMessages';
 import { reconcilePromissoryPendingCount } from '@/components/executive/partner-ops/promissoryPendingCount';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 
@@ -59,11 +61,14 @@ const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 type StepKey = 'who' | 'contact' | 'promise' | 'tenants' | 'review';
 
-export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self', initialAmount, initialHouse }: PromissoryNoteDialogProps) {
+export function PromissoryNoteDialog({ open, onOpenChange, supportMode: requestedSupportMode = 'self', initialAmount, initialHouse }: PromissoryNoteDialogProps) {
+  // While Agent Care is on, notes are self-support only (server: COMPANY_MANAGED_NOTES_CLOSED).
+  const { enabled: selfSupportOnly } = useSelfSupportFeePolicy();
+  const supportMode: 'self' | 'auto' = selfSupportOnly ? 'self' : requestedSupportMode;
   const queryClient = useQueryClient();
   // Agent screen: quote the PUBLIC new-partner rate (15 while the switch has never been on), never a
   // per-person rate. The note itself is stamped by the database (stamp_promissory_note_return_rate).
-  const { newContractRate } = usePartnerReturnPolicy();
+  const { newContractRate, noteDueBy } = usePartnerReturnPolicy();
   const newRatePct = formatRatePct(newContractRate);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -182,13 +187,13 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
 
     if (!(Number(amount) > 0)) errs.promise.push('Promised amount');
     if (!recordedOn) errs.promise.push('Date recorded');
-    const fulfilmentError = promissoryFulfilmentError(recordedOn, fulfilmentDueOn);
+    const fulfilmentError = promissoryFulfilmentError(recordedOn, fulfilmentDueOn, noteDueBy);
     if (fulfilmentError) errs.promise.push(fulfilmentError);
 
     if (supportMode === 'self' && selectedPlanIds.length === 0 && selectedHouseIds.length === 0) errs.tenants.push('At least one house or tenant rent plan');
 
     return errs;
-  }, [nameValidation, whatsappNumber, phoneNumber, email, amount, recordedOn, fulfilmentDueOn, supportMode, selectedPlanIds, selectedHouseIds]);
+  }, [nameValidation, whatsappNumber, phoneNumber, email, amount, recordedOn, fulfilmentDueOn, noteDueBy, supportMode, selectedPlanIds, selectedHouseIds]);
 
   const currentStepHasErrors = stepErrors[currentStep.key].length > 0;
   const showStepErrors = attemptedStep === stepIndex && currentStepHasErrors;
@@ -273,7 +278,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
     if (submitting) return;
     setErrorMsg(null);
     setAttemptedStep(stepIndex);
-    const fulfilmentError = promissoryFulfilmentError(recordedOn, fulfilmentDueOn);
+    const fulfilmentError = promissoryFulfilmentError(recordedOn, fulfilmentDueOn, noteDueBy);
     if (currentStepHasErrors || fulfilmentError) {
       const msg = fulfilmentError && !currentStepHasErrors
         ? fulfilmentError
@@ -327,6 +332,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
         note?: Record<string, unknown>;
         attached_count?: number;
         attached_amount?: number;
+        attached_partner_pays?: number;
         house_count?: number;
         houses_monthly_rent?: number;
       };
@@ -341,7 +347,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
         .invoke('notify-promissory-note-pledge', { body: { note_id: noteId } })
         .catch(() => {});
       const attachedCount = useHouses ? Number(result.house_count || 0) : Number(result.attached_count || 0);
-      const attachedAmount = useHouses ? Number(result.houses_monthly_rent || 0) : Number(result.attached_amount || 0);
+      const attachedAmount = useHouses ? Number(result.houses_monthly_rent || 0) : Number(result.attached_partner_pays ?? result.attached_amount ?? 0);
       setAttached({ count: attachedCount, amount: attachedAmount, kind: useHouses ? 'houses' : 'plans' });
       toast.success(
         attachedCount > 0
@@ -358,13 +364,25 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
         'Failed to create note',
       );
       console.error('[PromissoryNoteDialog] create failed:', err);
-      if (raw.includes('PLANS_UNAVAILABLE')) {
+      if (noteDueByMessage(raw)) {
+        const msg = noteDueByMessage(raw) as string;
+        setErrorMsg(msg);
+        toast.error(msg);
+      } else if (raw.includes('PLANS_UNAVAILABLE')) {
         setSelectedPlanIds([]);
         const msg = 'Some selected plans are no longer available. Selection cleared — try again or create the note without plans.';
         setErrorMsg(msg);
         toast.error(msg);
       } else if (raw.includes('PLANS_EXCEED_AMOUNT')) {
-        const msg = 'Attached plans total more than the promised amount.';
+        const msg = 'The promised amount must cover the selected plans, Agent Care included.';
+        setErrorMsg(msg);
+        toast.error(msg);
+      } else if (raw.includes('COMPANY_MANAGED_NOTES_CLOSED')) {
+        const msg = afterColon(raw, 'COMPANY_MANAGED_NOTES_CLOSED') || 'Promissory notes are self-support only. Select the tenant rent plans the partner will support.';
+        setErrorMsg(msg);
+        toast.error(msg);
+      } else if (raw.includes('PSM_TOPUP_WINDOW_CLOSED')) {
+        const msg = afterColon(raw, 'PSM_TOPUP_WINDOW_CLOSED') || 'Self-support portfolios are not topped up. Support more tenants or houses with a new portfolio.';
         setErrorMsg(msg);
         toast.error(msg);
       } else if (raw.includes('SELF_SUPPORT_PLANS_REQUIRED')) {
@@ -407,8 +425,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
       void 0;
     }
     const shareText = newRatePct
-      ? `Hi ${partnerName}, activate your Welile funding account and start earning ${newRatePct} Returns! ${activationLink}`
-      : `Hi ${partnerName}, activate your Welile funding account and start earning monthly Returns! ${activationLink}`;
+      ? `Hi ${partnerName}, activate your Welile funding account and start earning ${newRatePct} Rent profit share! ${activationLink}`
+      : `Hi ${partnerName}, activate your Welile funding account and start earning monthly Rent profit share! ${activationLink}`;
     if (navigator.share) {
       navigator.share({ title: 'Welile Funding', text: shareText, url: activationLink }).catch(() => {});
     } else {
@@ -680,12 +698,13 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
               onChange={(e) => setFulfilmentDueOn(e.target.value)}
               type="date"
               min={recordedOn || todayIso}
+              max={noteDueBy ?? undefined}
               className="h-11 text-xs"
             />
           </div>
         </div>
-        {showStepErrors && promissoryFulfilmentError(recordedOn, fulfilmentDueOn) && (
-          <p className="text-[11px] text-destructive">{promissoryFulfilmentError(recordedOn, fulfilmentDueOn)}</p>
+        {showStepErrors && promissoryFulfilmentError(recordedOn, fulfilmentDueOn, noteDueBy) && (
+          <p className="text-[11px] text-destructive">{promissoryFulfilmentError(recordedOn, fulfilmentDueOn, noteDueBy)}</p>
         )}
 
         {parsedAmount > 0 && (
@@ -695,7 +714,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
               Earnings preview
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">{newRatePct ? `Your Partner earns ${newRatePct} per month` : 'Your Partner earns monthly Returns'}</span>
+              <span className="text-muted-foreground">{newRatePct ? `Your Partner earns ${newRatePct} per month` : 'Your Partner earns monthly Rent profit share'}</span>
               <span className="font-medium">{formatUGXOrDash(previewMonthlyReturn)}</span>
             </div>
           </div>

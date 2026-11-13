@@ -12,6 +12,7 @@ vi.mock('@/hooks/useWelileSignages', () => ({
     { id: 'awaiting-coo', status: 'awaiting_coo', property_name: 'Not yet approved', reference_no: 'SGN-2' },
   ], isLoading: false, refetch: vi.fn() }),
   useCfoDisburseSignage: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCfoApproveSignage: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 afterEach(cleanup);

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, FileText, MapPin, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,7 +6,14 @@ import { fmt } from './format';
 import { CALM, FIGURE, FOCUS, LABEL, PANEL, statusGlass, statusText, type Status } from './deskTheme';
 import { Skeleton } from './Skeleton';
 import { CallLog } from './CallLog';
-import { isRecordOnly, needsNote, runMove } from './deskActions';
+import { asIs, isRecordOnly, needsNote, passMovesOnServer, rejectMovesOnServer, runMove, transferThenPass } from './deskActions';
+import { passBlock } from './passBlock';
+import { IdentityBanner, IdentityPanel } from './identityPhotos';
+import { DeskHistory } from './deskHistory';
+import { answeredCallOnFile, awarenessCallsKey, callTime, stageSince, useAwarenessCalls } from './callOnFile';
+import { toast } from 'sonner';
+import { afterServerPass } from './boardApi';
+import { SEND_BACK_STAGES, SUGGESTED_OFFICE, SendBackForm, parseSendBackNote } from './sendBack';
 import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { WaitOnForm, useWaitingList, waitDeskForStage } from './waitOn';
@@ -242,8 +249,10 @@ export function ReviewDrawer({
   const reasons = useReasonCodes();
 
   const [entries, setEntries] = useState<Record<string, CheckEntry>>({});
+  // E64: Reject is now "Send back" to the agent in the field; a reject start opens it with that office picked.
+  const fromReject = initial === 'reject' && SEND_BACK_STAGES.has(stage);
   const [decision, setDecision] = useState<Decision | null>(() =>
-    initial && visibleDecisions(stage).includes(initial as Decision) ? (initial as Decision) : null,
+    fromReject ? 'send_back' : initial && visibleDecisions(stage).includes(initial as Decision) ? (initial as Decision) : null,
   );
   const [reasonCode, setReasonCode] = useState<string>('');
   const cooReason = useCooReasonPicker();
@@ -257,7 +266,15 @@ export function ReviewDrawer({
   // "Wait on…" is not a review decision: it parks the request here and never calls runMove.
   const [waitMode, setWaitMode] = useState(initial === 'wait');
   // Agent Ops has a second tab for the house photos.
-  const [tab, setTab] = useState<'review' | 'photos'>(initial === 'photos' ? 'photos' : 'review');
+  // Review, Agent Ops' Photos, and (E79) the request's Desk history on every desk.
+  const [tab, setTab] = useState<'review' | 'photos' | 'history'>(initial === 'photos' ? 'photos' : 'review');
+  // Opened from a card's "Log a concern…": bring the concerns section into view.
+  const concernRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (initial !== 'concern') return;
+    const t = window.setTimeout(() => concernRef.current?.scrollIntoView({ block: 'start' }), 120);
+    return () => window.clearTimeout(t);
+  }, [initial]);
   const photosTab = stage === 'agent_ops';
   const showIntake = stage === 'agent_ops' && (initial === 'complete' || (ctx?.itemsMissing?.length ?? 0) > 0);
   // A company call to the tenant/landlord that ended answered pre-selects "Answered" in the call log.
@@ -279,6 +296,8 @@ export function ReviewDrawer({
   const req = sheet.data?.request;
   const recommended = sheet.data?.recommendation?.recommended ?? null;
   const against = !!decision && !!recommended && decision !== recommended;
+  // E63: these desks send back to a chosen office in one server call (pipeline_send_back_to).
+  const sendBackTo = decision === 'send_back' && SEND_BACK_STAGES.has(stage);
 
   // A request whose LC1 letter is missing must carry a written phone confirmation instead.
   const lc1NeedsText = !req?.lc_letter;
@@ -300,10 +319,31 @@ export function ReviewDrawer({
     (!!decision && needsNote(decision)) ||
     (against && (reasonCode === 'OTHER' || reasonCode === 'RISK_JUDGEMENT' || !!chosenReason?.requires_text));
 
-  const canPass = !callDesk || callAnswered;
+  // An answered call already on file counts, as it does on the server: the board's word when opened
+  // from the board, the request's own call history otherwise; a call logged here counts too.
+  const awareness = useAwarenessCalls(requestId, !!callDesk);
+  const onFile = useMemo(
+    () => (callDesk ? answeredCallOnFile(awareness.data ?? [], callDesk, stageSince(sheet.data, stage)) : null),
+    [awareness.data, callDesk, sheet.data, stage],
+  );
+  const canPass = !callDesk || callAnswered || ctx?.callAnswered === true || !!onFile;
+  // Why Pass cannot go yet, in the desk's short words ("Answer 5 more checks").
+  const passAgainst = !!recommended && recommended !== 'pass';
+  const passWhy = passBlock({
+    incomplete: ctx?.incomplete ?? null,
+    callDesk,
+    callAnswered: canPass,
+    items,
+    entries,
+    against: passAgainst,
+    reasonCode,
+    noteRequired: passAgainst && (reasonCode === 'OTHER' || reasonCode === 'RISK_JUDGEMENT' || !!chosenReason?.requires_text),
+    note,
+    lc1NeedsText,
+  });
   const blockedReason =
-    decision === 'pass' && !canPass
-      ? `Log an answered ${callDesk} call before passing.`
+    decision === 'pass'
+      ? passWhy
       : missingRequired.length > 0
         ? `Tick every item first — still open: ${missingRequired.join(', ')}.`
         : against && !reasonCode
@@ -331,6 +371,35 @@ export function ReviewDrawer({
       .filter((e) => !!e.result)
       .map((e) => (e.value === undefined || e.value === null || e.value === '' ? { code: e.code, result: e.result } : e));
 
+    // Transfer (Agent Ops): the transfer call, then the pass that moves the request (server).
+    if (decision === 'transfer') {
+      const target = suggested.data?.find((a) => a.agent_id === targetAgentId) ?? null;
+      const out = await transferThenPass({
+        requestId,
+        results,
+        targetAgentId,
+        note: note.trim(),
+        reasonCode: against ? reasonCode : reasonCode || null,
+        targetName: target?.agent_name ?? null,
+      });
+      setBusy(false);
+      if (out.kind === 'transfer_failed') {
+        setError(out.message);
+        return;
+      }
+      if (out.kind === 'pass_failed') {
+        // The tenant is with the new agent; only the pass is left to retry.
+        mark(requestId, { kind: 'move_failed', message: out.message, decision });
+        setError(`${RETRY_LABEL}. ${out.message}`);
+        return;
+      }
+      clear(requestId);
+      mark(requestId, { kind: 'moved', message: out.message });
+      afterServerPass(queryClient, stage, requestId, out.message);
+      onClose();
+      return;
+    }
+
     try {
       // 1. Record the review. This is the step that must never be repeated.
       const { error: recErr } = await rpc('pipeline_record_review', {
@@ -340,7 +409,7 @@ export function ReviewDrawer({
         p_decision: decision,
         p_reason_code: against ? reasonCode : reasonCode || null,
         p_note: note.trim() || null,
-        p_target_agent_id: decision === 'transfer' ? targetAgentId : null,
+        p_target_agent_id: null, // a transfer went through transferThenPass above
       });
       if (recErr) throw recErr;
 
@@ -367,11 +436,21 @@ export function ReviewDrawer({
 
       clear(requestId);
       mark(requestId, { kind: 'moved', message: moved.message });
+      if (passMovesOnServer(stage, decision) || rejectMovesOnServer(stage, decision)) {
+        // E64 / E69: the review moved it. The card leaves the board; the toast says where.
+        afterServerPass(queryClient, stage, requestId, moved.message);
+        onClose();
+        return;
+      }
       setOutcome(moved.message);
       queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
-      if (!isRecordOnly(stage, decision)) window.setTimeout(onClose, 900);
+      if (!isRecordOnly(stage, decision)) {
+        toast.success(moved.message);
+        window.setTimeout(onClose, 900);
+      }
     } catch (e) {
-      setError(readableError(e));
+      // The server's message, as-is.
+      setError(asIs(e));
     } finally {
       setBusy(false);
     }
@@ -393,6 +472,10 @@ export function ReviewDrawer({
       reasonCode: against ? reasonCode : reasonCode || null,
       askReason: cooReason.askReason,
       reasonMeaning: cooReason.meaningOf,
+      results: Object.values(entries)
+        .filter((e) => !!e.result)
+        .map((e) => (e.value === undefined || e.value === null || e.value === '' ? { code: e.code, result: e.result } : e)),
+      targetName: suggested.data?.find((a) => a.agent_id === targetAgentId)?.agent_name ?? null,
     });
     setBusy(false);
     if (!moved.ok) {
@@ -401,7 +484,13 @@ export function ReviewDrawer({
     }
     clear(requestId);
     mark(requestId, { kind: 'moved', message: moved.message });
+    if (decision === 'transfer' || passMovesOnServer(stage, decision) || rejectMovesOnServer(stage, decision)) {
+      afterServerPass(queryClient, stage, requestId, moved.message);
+      onClose();
+      return;
+    }
     setOutcome(moved.message);
+    toast.success(moved.message);
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
     window.setTimeout(onClose, 900);
   };
@@ -426,6 +515,12 @@ export function ReviewDrawer({
       {busy ? 'Saving…' : 'Record the review and act'}
     </button>
   );
+  // Right under the button it disables: why it cannot go yet.
+  const whyLine = decision && blockedReason && !recordedButStuck && (
+    <p data-blocked-why className={`text-sm ${statusText.warn}`} role="status" style={{ margin: 0 }}>
+      {blockedReason}
+    </p>
+  );
   const retryButton = recordedButStuck && (
     <button
       type="button"
@@ -437,7 +532,7 @@ export function ReviewDrawer({
       Retry the move only
     </button>
   );
-  const showActionBar = phone && !!req && !waitMode && (!photosTab || tab === 'review');
+  const showActionBar = phone && !!req && !waitMode && !sendBackTo && tab === 'review';
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Review this request">
@@ -484,9 +579,9 @@ export function ReviewDrawer({
             </p>
           )}
 
-          {req && photosTab && (
+          {req && (
             <div role="tablist" aria-label="Review views" className="flex gap-1.5">
-              {(['review', 'photos'] as const).map((t) => (
+              {(photosTab ? (['review', 'photos', 'history'] as const) : (['review', 'history'] as const)).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -499,17 +594,21 @@ export function ReviewDrawer({
                       : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  {t === 'review' ? 'Review' : 'Photos'}
+                  {t === 'review' ? 'Review' : t === 'photos' ? 'Photos' : 'Desk history'}
                 </button>
               ))}
             </div>
           )}
 
           {req && photosTab && tab === 'photos' && <PhotoReview requestId={requestId} />}
+          {req && tab === 'history' && <DeskHistory requestId={requestId} />}
 
           {req && (
             // Hidden rather than unmounted on the Photos tab, so ticks and notes survive a tab switch.
-            <div className={photosTab && tab !== 'review' ? 'hidden' : 'space-y-5'}>
+            <div className={tab !== 'review' ? 'hidden' : 'space-y-5'}>
+              {/* ── E77: who the tenant and the agent are, before anything else ── */}
+              <IdentityPanel requestId={requestId} />
+
               {/* ── The facts, as the agent recorded them ── */}
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">What the agent sent</h3>
@@ -633,14 +732,21 @@ export function ReviewDrawer({
                   subject={callDesk}
                   subjectUserId={callDesk === 'tenant' ? req.tenant?.id : null}
                   defaultPhone={callDesk === 'tenant' ? (req.tenant?.phone ?? null) : (req.landlord?.phone ?? null)}
-                  onLogged={(answered) => setCallAnswered((prev) => prev || answered)}
+                  onLogged={(answered) => {
+                    setCallAnswered((prev) => prev || answered);
+                    void queryClient.invalidateQueries({ queryKey: awarenessCallsKey(requestId) });
+                  }}
                   answeredHint={liveAnswered}
                 />
               )}
 
               <RequestCallHistory requestId={requestId} />
 
-              {concernDesk && <ConcernsSection requestId={requestId} desk={concernDesk} />}
+              {concernDesk && (
+                <div ref={concernRef}>
+                  <ConcernsSection requestId={requestId} desk={concernDesk} />
+                </div>
+              )}
 
               {/* ── The checklist ── */}
               <section className={`${PANEL} space-y-1 p-4`}>
@@ -696,6 +802,17 @@ export function ReviewDrawer({
               {/* ── The decision ── */}
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">Your decision</h3>
+                {/* E77: the server's identity flags, red, above the buttons. */}
+                <IdentityBanner requestId={requestId} />
+                {callDesk && canPass && (
+                  <p data-call-on-file className={`text-sm ${statusText.ok}`} style={{ margin: 0 }}>
+                    {onFile
+                      ? `Answered call on file — ${callTime(onFile.at)}${onFile.by ? `, ${onFile.by}` : ''}`
+                      : callAnswered
+                        ? 'Answered call logged just now'
+                        : 'Answered call on file'}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {visibleDecisions(stage).map((d) => {
                     const on = decision === d;
@@ -742,6 +859,12 @@ export function ReviewDrawer({
                     </button>
                   )}
                 </div>
+                {/* Why Pass cannot go yet, right under the buttons: the call, open checks, a reason code. */}
+                {visibleDecisions(stage).includes('pass') && !!passWhy && (!canPass || decision === 'pass') && (
+                  <p data-pass-why className={`text-sm ${statusText.warn}`} style={{ margin: 0 }}>
+                    Pass: {passWhy}
+                  </p>
+                )}
                 {waitMode && waitDesk && (
                   <>
                     <WaitOnForm
@@ -750,13 +873,27 @@ export function ReviewDrawer({
                       deskTag={DESK_TAG[stage]}
                       onDone={(message) => {
                         setOutcome(message);
+                        toast.success(message);
                         window.setTimeout(onClose, 1200);
                       }}
                     />
                     {outcome && <p className={`text-sm ${statusText.ok}`}>{outcome}</p>}
                   </>
                 )}
-                {!waitMode && (
+                {!waitMode && sendBackTo && (
+                  <SendBackForm
+                    key={`${requestId}:send-back`}
+                    requestId={requestId}
+                    stage={stage}
+                    initial={fromReject ? { to: SUGGESTED_OFFICE } : undefined}
+                    onDone={(message) => {
+                      clear(requestId);
+                      mark(requestId, { kind: 'moved', message });
+                      window.setTimeout(onClose, 1200);
+                    }}
+                  />
+                )}
+                {!waitMode && !sendBackTo && (
                 <>
                 {decision && DECISION_HELP[decision] && (
                   <p className="text-xs text-muted-foreground">{DECISION_HELP[decision]}</p>
@@ -848,9 +985,6 @@ export function ReviewDrawer({
                   />
                 </label>
 
-                {decision && blockedReason && !recordedButStuck && (
-                  <p className={`text-sm ${statusText.warn}`}>{blockedReason}</p>
-                )}
                 {error && (
                   <p className={`text-sm ${statusText.bad}`} role="alert">
                     {error}
@@ -859,9 +993,12 @@ export function ReviewDrawer({
                 {outcome && !error && <p className={`text-sm ${statusText.ok}`}>{outcome}</p>}
 
                 {!phone && (
-                  <div className="flex flex-wrap gap-2">
-                    {submitButton}
-                    {retryButton}
+                  <div style={stackLayout(6)}>
+                    <div className="flex flex-wrap gap-2">
+                      {submitButton}
+                      {retryButton}
+                    </div>
+                    {whyLine}
                   </div>
                 )}
                 </>
@@ -873,16 +1010,29 @@ export function ReviewDrawer({
                 <section className={`${PANEL} space-y-2 p-4`}>
                   <h3 className="text-sm font-semibold text-foreground">What the desks before this one decided</h3>
                   <ul className="space-y-1.5">
-                    {(sheet.data?.history ?? []).map((h, i) => (
-                      <li key={`${h.stage}-${h.at}-${i}`} className={LABEL}>
-                        <span className="text-foreground">{STAGE_NAME[h.stage] ?? h.stage}</span>: {DECISION_LABEL[h.decision] ?? h.decision}
-                        {h.followed === false ? ' (went against the system)' : ''}
-                        {h.reason_code ? ` · ${h.reason_code}` : ''}
-                        {h.by ? ` · ${h.by}` : ''}
-                        {h.staff_ref ? ` (${h.staff_ref})` : ''}
-                        {h.note ? ` — ${h.note}` : ''}
-                      </li>
-                    ))}
+                    {(sheet.data?.history ?? []).map((h, i) => {
+                      // E64: a send-back names the office it went to and the reason in words.
+                      const sent = h.decision === 'send_back' ? parseSendBackNote(h.note) : null;
+                      const meaning = h.reason_code ? (reasons.data ?? []).find((r) => r.code === h.reason_code)?.meaning ?? null : null;
+                      return (
+                        <li key={`${h.stage}-${h.at}-${i}`} className={LABEL} data-history={h.decision}>
+                          <span className="text-foreground">{STAGE_NAME[h.stage] ?? h.stage}</span>: {DECISION_LABEL[h.decision] ?? h.decision}
+                          {sent && (
+                            <>
+                              {' → '}
+                              <span className="font-medium text-foreground" data-sent-to>
+                                {sent.office}
+                              </span>
+                            </>
+                          )}
+                          {h.followed === false ? ' (went against the system)' : ''}
+                          {h.reason_code ? ` · ${meaning ?? h.reason_code}` : ''}
+                          {h.by ? ` · ${h.by}` : ''}
+                          {h.staff_ref ? ` (${h.staff_ref})` : ''}
+                          {sent ? (sent.why && sent.why !== meaning ? ` — ${sent.why}` : '') : h.note ? ` — ${h.note}` : ''}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </section>
               )}
@@ -894,14 +1044,17 @@ export function ReviewDrawer({
           <div
             data-action-bar
             className="shrink-0 border-t border-[var(--desk-line-color)] bg-[hsl(var(--background))]"
-            style={{ display: 'flex', gap: 8, padding: 12, paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 12, paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
           >
-            {submitButton}
-            {retryButton || (
-              <DecisionButton variant="quiet" size="md" onClick={onClose} style={{ minHeight: 44 }}>
-                Close
-              </DecisionButton>
-            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              {submitButton}
+              {retryButton || (
+                <DecisionButton variant="quiet" size="md" onClick={onClose} style={{ minHeight: 44 }}>
+                  Close
+                </DecisionButton>
+              )}
+            </div>
+            {whyLine}
           </div>
         )}
       </div>

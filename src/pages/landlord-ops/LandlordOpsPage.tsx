@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, Suspense } from 'react';
-import { useLocation, useNavigate, useSearchParams, Outlet } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams, Outlet, Navigate } from 'react-router-dom';
 import { Loader2, UserCheck } from 'lucide-react';
 import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
 import { LandlordOpsTopBar } from '@/components/executive/landlord-ops/LandlordOpsTopBar';
@@ -33,10 +33,11 @@ export default function LandlordOpsPage() {
   // Path relative to /landlord-ops — '' on the index route.
   const path = location.pathname.replace(/^\/landlord-ops\/?/, '').toLowerCase();
 
-  // The home page opens on the one-figure receivables summary. Anything else —
-  // a named destination, or a link carrying any extra parameter — opens in full.
+  // The home page opens on the one-figure receivables summary when Today is selected.
+  // Accessing /landlord-ops directly opens Rent Requests first as the default tab.
   const isHome = path === '';
   const hasExtraParams = Array.from(searchParams.keys()).length > 0;
+  const stayOnToday = Boolean((location.state as { stayOnToday?: boolean } | null)?.stayOnToday);
   const [homeOpen, setHomeOpen] = useState(false);
 
   const destinationView = (
@@ -78,13 +79,19 @@ export default function LandlordOpsPage() {
       next.delete('view');
       next.delete('decide');
       const qs = next.toString();
-      navigate(`/landlord-ops${clean ? `/${clean}` : ''}${qs ? `?${qs}` : ''}`);
+      navigate(`/landlord-ops${clean ? `/${clean}` : ''}${qs ? `?${qs}` : ''}`, {
+        state: clean === '' ? { stayOnToday: true } : undefined,
+      });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     [navigate, searchParams],
   );
 
   const hasDecisionDrawer = !!searchParams.get('decide');
+
+  if (isHome && !stayOnToday && !hasExtraParams) {
+    return <Navigate to="/landlord-ops/pipeline/rent-requests" replace />;
+  }
 
   return (
     <div ref={shellRef} className="landlord-ops-shell flex h-screen flex-col overflow-hidden overflow-x-clip bg-background">
@@ -100,9 +107,7 @@ export default function LandlordOpsPage() {
           />
         </aside>
 
-        <main className="min-w-0 flex-1 overflow-x-clip overflow-y-auto overscroll-contain p-2.5 pb-28 sm:p-4 sm:pb-24 lg:p-6">
-          <V360StaffPricingBanner />
-          <TutorialVideosButton />
+        <main className="min-w-0 flex-1 overflow-x-clip overflow-y-auto overscroll-contain p-2.5 pb-28 sm:p-4 sm:pb-24 lg:p-6 space-y-4">
           {isHome ? (
             <ReceivablesSummaryGate startOpen={hasExtraParams} onVisibilityChange={setHomeOpen}>
               {destinationView}
@@ -110,11 +115,13 @@ export default function LandlordOpsPage() {
           ) : (
             destinationView
           )}
+          <V360StaffPricingBanner sticky={false} />
+          <TutorialVideosButton />
         </main>
 
-        {/* The phone shortcut to the verification queue is part of the dashboard,
-            so it stays out of the way while only the figure is showing. */}
-        {(!isHome || homeOpen) && (
+        {/* The phone shortcut to the verification queue is part of the Today dashboard,
+            so it stays out of the way on sub-views and while only the figure is showing. */}
+        {isHome && homeOpen && (
           <div className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-[70] flex justify-center lg:hidden">
             <Button
               type="button"

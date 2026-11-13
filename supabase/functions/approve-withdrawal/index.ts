@@ -22,6 +22,7 @@ import {
 } from "../_shared/smsDeliveryLog.ts";
 import { parsePayoutConfirmationSms } from "./smsParser.ts";
 import { extractProofFieldsFromImage } from "./proofVision.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 /** Digit-tail normalizer: collapses carrier prefixes (MP/AT) + separators so
  *  "MP40781351736", "40781351736" and "40781351-736" all compare equal.
@@ -338,7 +339,7 @@ Deno.serve(async (req) => {
       const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
         global: { headers: { Authorization: authHeader } },
       });
-      const { data: { user: u }, error: authErr } = await userClient.auth.getUser();
+      const { data: { user: u }, error: authErr } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
       if (authErr || !u) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
@@ -4135,7 +4136,7 @@ Deno.serve(async (req) => {
         sendReceiptEmail("primary channel");
       }
 
-      // WhatsApp proof of payment (best-effort, no-op if Twilio WhatsApp
+      // WhatsApp proof of payment (best-effort, no-op if the Meta WhatsApp
       // sender is not configured). Carries the same secure receipt link.
       if (profile?.phone) {
         const customerFirstNameWa = (profile?.full_name || "").toString().trim().split(/\s+/)[0] || "Customer";

@@ -12,6 +12,12 @@ type Line = {
   location: string | null;
   daily: number;
   counterparty: string | null;
+  /** To landlord float (tenant) or operational funding (house). principal = rentAmount + proxyFee. */
+  rentAmount: number;
+  /** Agent facilitation fee: paid once to the proxy agent at approval (0 when none). */
+  proxyFee: number;
+  /** null = no fee; pending | paid | kept (no proxy agent) | cancelled. */
+  proxyFeeStatus: string | null;
 };
 
 /**
@@ -39,6 +45,9 @@ export function CommitmentLines({ portfolioId }: { portfolioId: string }) {
         location: r.location || null,
         daily: Number(r.daily_repayment) || 0,
         counterparty: r.counterparty_name || null,
+        rentAmount: Number(r.rent_amount ?? r.principal) || 0,
+        proxyFee: Number(r.proxy_fee) || 0,
+        proxyFeeStatus: r.proxy_fee_status ?? null,
       }));
     },
   });
@@ -92,6 +101,17 @@ export function CommitmentLines({ portfolioId }: { portfolioId: string }) {
             </div>
             <div className="text-right shrink-0">
               <p className="text-xs font-black text-foreground tabular-nums">{formatUGX(l.principal)}</p>
+              {l.proxyFee > 0 && (
+                <>
+                  <p className="text-[10px] text-muted-foreground tabular-nums">
+                    {l.kind === 'house' ? 'Operational funding' : 'To landlord float'}: {formatUGX(l.rentAmount)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground tabular-nums">
+                    Agent facilitation fee: {formatUGX(l.proxyFee)}
+                    {proxyFeeStatusLabel(l.proxyFeeStatus) ? `, ${proxyFeeStatusLabel(l.proxyFeeStatus)}` : ''}
+                  </p>
+                </>
+              )}
               {l.daily > 0 && (
                 <p className="text-[10px] text-muted-foreground tabular-nums">{formatUGX(l.daily)} / day</p>
               )}
@@ -101,4 +121,14 @@ export function CommitmentLines({ portfolioId }: { portfolioId: string }) {
       </div>
     </div>
   );
+}
+
+function proxyFeeStatusLabel(status: string | null): string | null {
+  switch (status) {
+    case 'pending': return 'paid on approval';
+    case 'paid': return 'paid to the proxy agent';
+    case 'kept': return 'no proxy agent, kept as partner capital';
+    case 'cancelled': return 'cancelled';
+    default: return null;
+  }
 }

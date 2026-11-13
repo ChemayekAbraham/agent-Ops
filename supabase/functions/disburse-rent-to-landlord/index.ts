@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { logSystemEvent } from "../_shared/eventLogger.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { guardCfoApprover } from "../_shared/cfoApprovalGate.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,7 +27,7 @@ Deno.serve(async (req) => {
     const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } },
     })
-    const { data: { user }, error: authErr } = await anonClient.auth.getUser()
+    const { data: { user }, error: authErr } = await (bearerHasSub(authHeader) ? anonClient.auth.getUser() : noUserResult())
     if (authErr || !user) throw new Error('Unauthorized')
 
     // Verify CFO role
@@ -267,7 +268,7 @@ Deno.serve(async (req) => {
         const durationDays = request.duration_days || 'N/A'
 
         const emailSubject = `✅ Landlord Funded – Please Collect Receipt | ${landlordName}`
-        const emailBody = `Hi ${agentName},\n\nGreat news! The rent of ${rentFormatted} has been successfully disbursed to ${landlordName}.\n\n📋 ACTION REQUIRED:\nPlease visit ${landlordName} physically to collect a signed receipt confirming they received the rent payment.\n\n📞 Landlord Contact: ${landlordPhone}\n💳 Payout Method: ${method}\n🔖 Transaction Ref: ${transaction_reference}\n\n📊 TENANT REPAYMENT SCHEDULE:\n💵 Daily Repayment: ${dailyRepayment}/day\n📅 Duration: ${durationDays} days\n\n💰 Your Bonus: UGX ${RENT_FUNDED_BONUS.toLocaleString()} (already credited)\n\nRemember: You will also earn 10% commission on every repayment this tenant makes!\n\nThank you for your service.\n— Welile Team`
+        const emailBody = `Hi ${agentName},\n\nGreat news! The rent of ${rentFormatted} has been successfully disbursed to ${landlordName}.\n\n📋 ACTION REQUIRED:\nPlease visit ${landlordName} physically to collect a signed receipt confirming they received the rent payment.\n\n📞 Landlord Contact: ${landlordPhone}\n💳 Payout Method: ${method}\n🔖 Transaction Ref: ${transaction_reference}\n\n📊 TENANT REPAYMENT SCHEDULE:\n💵 Daily Repayment: ${dailyRepayment}/day\n📅 Duration: ${durationDays} days\n\n💰 Your Bonus: UGX ${RENT_FUNDED_BONUS.toLocaleString()} (already credited)\n\nRemember: You will also earn 8% commission on every repayment this tenant makes!\n\nThank you for your service.\n- Welile Team`
 
         try {
           await serviceClient.rpc("enqueue_email" as any, {

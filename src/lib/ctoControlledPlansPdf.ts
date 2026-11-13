@@ -131,7 +131,7 @@ export async function generateCtoControlledPlansPdf(opts: {
     split.map((x) => [x.label, fmtUgx(x.amount), `${pct(x.amount, splitTotal)}%`]),
     { totalsRow: ['Recovered cash', fmtUgx(splitTotal), '100%'] },
   );
-  heading('Expected against earned (Returns)');
+  heading('Expected against earned (Rent profit share)');
   drawTable(
     [
       { label: '', w: 90, align: 'left' },

@@ -160,7 +160,7 @@ export function COOPartnerBroadcast() {
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               maxLength={200}
-              placeholder="e.g. Q3 Partnership Update — Strong Returns Ahead"
+              placeholder="e.g. Q3 Partnership Update — Strong Rent profit share Ahead"
             />
             <p className="text-[11px] text-muted-foreground text-right">{subject.length}/200</p>
           </div>

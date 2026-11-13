@@ -12,6 +12,8 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 vi.mock('@/lib/imageOptimizer', () => ({ optimizeImage: vi.fn(async (file: File) => ({ file })) }));
 vi.mock('@/components/agent/EditTenantDialog', () => ({ EditTenantDialog: () => null }));
+// The data hook waits for a signed-in session (useAuthenticatedAudience); this test is always signed in.
+vi.mock('@/hooks/useAuthenticatedPoll', () => ({ useAuthenticatedAudience: () => true, requireUserSession: async () => {} }));
 
 import { AgentCompleteRequestsCard } from '@/components/agent/AgentCompleteRequestsCard';
 

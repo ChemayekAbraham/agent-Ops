@@ -55,7 +55,7 @@ const LABELS: Record<string, string> = {
   deposit: 'Wallet deposit', wallet_deposit: 'Wallet deposit', withdrawal: 'Withdrawal',
   wallet_withdrawal: 'Withdrawal', wallet_transfer: 'Wallet transfer', transfer_in: 'Transfer in',
   transfer_out: 'Transfer out', agent_commission: 'Agent commission', agent_commission_earned: 'Commission earned',
-  salary_payout: 'Salary', roi_wallet_credit: 'Returns', roi_payout: 'Returns', partner_funding: 'Supporter portfolio',
+  salary_payout: 'Salary', roi_wallet_credit: 'Rent profit share', roi_payout: 'Rent profit share', partner_funding: 'Supporter portfolio',
   rent_repayment: 'Rent repayment', referral_bonus: 'Referral bonus', share_capital: 'Angel Pool shares',
 };
 

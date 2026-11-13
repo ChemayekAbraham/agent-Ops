@@ -7,6 +7,7 @@
 // re-running after a partial failure only retries the ones that did not go.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { sendSMS, formatPhoneInternational } from "../_shared/sendSmsMultiProvider.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,7 +45,7 @@ Deno.serve(async (req) => {
   try {
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "").trim();
     if (!token) return json({ error: "Unauthorized" }, 401);
-    const { data: userRes, error: userErr } = await admin.auth.getUser(token);
+    const { data: userRes, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
     const caller = userRes?.user;
     if (userErr || !caller) return json({ error: "Unauthorized" }, 401);
 

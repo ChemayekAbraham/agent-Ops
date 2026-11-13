@@ -259,7 +259,7 @@ export async function generateNearingPayoutsPdf(input: NearingPayoutPdfInput): P
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.text(
-    `Principal: ${formatUGX(totalPrincipal)}   ·   Returns Due: ${formatUGX(totalReturns)}   ·   Overdue: ${overdueCount}   ·   Due Today: ${todayCount}`,
+    `Principal: ${formatUGX(totalPrincipal)}   ·   Rent profit share Due: ${formatUGX(totalReturns)}   ·   Overdue: ${overdueCount}   ·   Due Today: ${todayCount}`,
     margin,
     y,
   );
@@ -321,7 +321,7 @@ export async function generateNearingPayoutsPdf(input: NearingPayoutPdfInput): P
 
   // Body table — only the columns the COO needs for nearing payouts.
   const head = [[
-    '#', 'Partner', 'Returns Due', 'Due', 'Payment Details',
+    '#', 'Partner', 'Rent profit share Due', 'Due', 'Payment Details',
   ]];
   const buildRow = (r: NearingPayoutPdfRow, idx: number) => {
     // Prefer FRESH database values over the row payload supplied by the
@@ -380,7 +380,7 @@ export async function generateNearingPayoutsPdf(input: NearingPayoutPdfInput): P
     }, 0);
     body.push([
       {
-        content: `${label.toUpperCase()}   ·   ${groupRows.length} portfolio${groupRows.length === 1 ? '' : 's'}   ·   Returns Due: ${formatUGX(groupTotal)}`,
+        content: `${label.toUpperCase()}   ·   ${groupRows.length} portfolio${groupRows.length === 1 ? '' : 's'}   ·   Rent profit share Due: ${formatUGX(groupTotal)}`,
         colSpan: 5,
         styles: {
           fillColor: THEME_PRIMARY_DARK,

@@ -26,7 +26,9 @@ type Factory = () => Promise<unknown>;
  */
 const PRELOADABLE: Partial<Record<AppRole, Factory>> = {
   tenant: () => import("@/components/dashboards/TenantDashboard"),
-  agent: () => import("@/components/dashboards/AgentDashboard"),
+  // /dashboard/agent renders AgentDashboardBk (see Dashboard.tsx `AgentView`);
+  // warming AgentDashboard downloaded a big chunk nobody opens.
+  agent: () => import("@/components/dashboards/AgentDashboardBk"),
   supporter: () => import("@/components/dashboards/SupporterDashboard"),
   landlord: () => import("@/components/dashboards/LandlordDashboard"),
   manager: () => import("@/components/dashboards/ManagerDashboard"),
@@ -64,6 +66,37 @@ export function preloadRole(role: AppRole): void {
       }
     }),
   );
+}
+
+let shellWarmed = false;
+
+/**
+ * Warm the two route chunks every sign-in passes through (/dashboard →
+ * DashboardRedirect, then /dashboard/<persona> → Dashboard), so they are in
+ * memory by the time the session lands instead of downloading one after the
+ * other. Same specifiers as the lazy routes in App.tsx. Idempotent.
+ */
+export function preloadDashboardShell(): void {
+  if (shellWarmed) return;
+  shellWarmed = true;
+  Promise.all([
+    import("@/pages/DashboardRedirect"),
+    import("@/pages/Dashboard"),
+  ]).catch(() => {
+    // The real lazy route still loads (with retries) if this warm fails.
+    shellWarmed = false;
+  });
+}
+
+/**
+ * Warm the persona dashboards this sign-in is likely to land on, most likely
+ * first. Unlike `preloadOtherRoles` this is not speculative (the user is about
+ * to see one of them), so it ignores the save-data / 2G skip.
+ */
+export function preloadLandingRoles(candidates: Array<AppRole | null | undefined>): void {
+  for (const role of candidates) {
+    if (role) preloadRole(role);
+  }
 }
 
 /**

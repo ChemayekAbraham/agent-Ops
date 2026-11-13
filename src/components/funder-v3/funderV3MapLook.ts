@@ -44,6 +44,28 @@ export const FUNDER_V3_MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#7f9db5' }] },
 ];
 
+/**
+ * Pin tone. `plain` = white pill (tags off). With E59 board tags on, pins take
+ * their tag colour: `empty` (Empty house) grey, `verified` (Verified) purple.
+ */
+export type PinTone = 'plain' | 'empty' | 'verified' | 'booked' | 'funded' | 'pending_verification';
+
+/** Map pins are cells of house_listings (empty houses); a cell that carries a verified tenant would be purple. */
+export function pinToneFor(tagsOn: boolean, kind: Exclude<PinTone, 'plain'>): PinTone {
+  return tagsOn ? kind : 'plain';
+}
+
+const SLATE = '#4b5563';
+const TONES: Record<PinTone, { fill: string; ink: string; stroke: string; selFill: string }> = {
+  plain: { fill: '#ffffff', ink: '#1f2328', stroke: 'rgba(17,24,39,0.10)', selFill: WELILE_PURPLE },
+  // E72b colours (funders_board_items.tags): Empty grey, Verified green, Booked blue, Funded purple, Pending amber.
+  empty: { fill: '#6B7280', ink: '#ffffff', stroke: 'rgba(255,255,255,0.9)', selFill: '#374151' },
+  verified: { fill: '#16A34A', ink: '#ffffff', stroke: 'rgba(255,255,255,0.9)', selFill: '#15803D' },
+  booked: { fill: '#2563EB', ink: '#ffffff', stroke: 'rgba(255,255,255,0.9)', selFill: '#1D4ED8' },
+  funded: { fill: WELILE_PURPLE, ink: '#ffffff', stroke: 'rgba(255,255,255,0.9)', selFill: '#4c0099' },
+  pending_verification: { fill: '#D97706', ink: '#ffffff', stroke: 'rgba(255,255,255,0.9)', selFill: '#B45309' },
+};
+
 /** Pill label: the live pin's own text (unknown amounts fall back as live does). */
 export function pinLabel(amount: number): string {
   return formatDynamicCompact(amount > 0 ? amount : 100000);
@@ -57,9 +79,9 @@ function textWidth(text: string): number {
 const pillCache = new Map<string, google.maps.Icon>();
 
 /** Raster maps: a crisp white price pill with a soft shadow; selected = purple and slightly larger. */
-export function pricePillIcon(amount: number, selected: boolean): google.maps.Icon {
+export function pricePillIcon(amount: number, selected: boolean, tone: PinTone = 'plain'): google.maps.Icon {
   const text = pinLabel(amount);
-  const key = `${text}|${selected}`;
+  const key = `${text}|${selected}|${tone}`;
   const cached = pillCache.get(key);
   if (cached) return cached;
   const scale = selected ? 1.12 : 1;
@@ -69,9 +91,10 @@ export function pricePillIcon(amount: number, selected: boolean): google.maps.Ic
   const shadow = 6;
   const W = width + shadow * 2;
   const H = height + shadow * 2 + 2;
-  const fill = selected ? WELILE_PURPLE : '#ffffff';
-  const ink = selected ? '#ffffff' : '#1f2328';
-  const stroke = selected ? '#ffffff' : 'rgba(17,24,39,0.10)';
+  const palette = TONES[tone];
+  const fill = selected ? palette.selFill : palette.fill;
+  const ink = selected ? '#ffffff' : palette.ink;
+  const stroke = selected ? '#ffffff' : palette.stroke;
   const fontSize = (11.5 * scale).toFixed(1);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <defs><filter id="s" x="-30%" y="-40%" width="160%" height="200%"><feDropShadow dx="0" dy="1.5" stdDeviation="2.2" flood-color="#0f172a" flood-opacity="0.22"/></filter></defs>
@@ -102,9 +125,11 @@ export function countText(count: number): string {
 }
 
 /** Raster maps: purple circle with a count (clusters and multi-home areas). */
-export function countBubbleIcon(count: number): google.maps.Icon {
+export function countBubbleIcon(count: number, neutral = false): google.maps.Icon {
   const text = countText(count);
-  const cached = bubbleCache.get(text);
+  const colour = neutral ? SLATE : WELILE_PURPLE;
+  const cacheKeyText = `${text}|${neutral}`;
+  const cached = bubbleCache.get(cacheKeyText);
   if (cached) return cached;
   const d = bubbleSize(count);
   const ring = 4;
@@ -112,8 +137,8 @@ export function countBubbleIcon(count: number): google.maps.Icon {
   const c = W / 2;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${W}" viewBox="0 0 ${W} ${W}">
 <defs><filter id="s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.25"/></filter></defs>
-<circle cx="${c}" cy="${c}" r="${d / 2 + ring}" fill="${WELILE_PURPLE}" fill-opacity="0.18"/>
-<circle cx="${c}" cy="${c}" r="${d / 2}" fill="${WELILE_PURPLE}" stroke="#ffffff" stroke-width="2" filter="url(#s)"/>
+<circle cx="${c}" cy="${c}" r="${d / 2 + ring}" fill="${colour}" fill-opacity="0.18"/>
+<circle cx="${c}" cy="${c}" r="${d / 2}" fill="${colour}" stroke="#ffffff" stroke-width="2" filter="url(#s)"/>
 <text x="${c}" y="${c}" fill="#ffffff" font-size="${d >= 44 ? 13 : 12}" font-weight="700" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" text-anchor="middle" dominant-baseline="central">${text}</text>
 </svg>`;
   const icon: google.maps.Icon = {
@@ -121,23 +146,23 @@ export function countBubbleIcon(count: number): google.maps.Icon {
     scaledSize: new google.maps.Size(W, W),
     anchor: new google.maps.Point(c, c),
   };
-  bubbleCache.set(text, icon);
+  bubbleCache.set(cacheKeyText, icon);
   return icon;
 }
 
 /** Vector maps (AdvancedMarkerElement): the same pill as HTML. */
-export function pricePillElement(amount: number, selected: boolean): HTMLElement {
+export function pricePillElement(amount: number, selected: boolean, tone: PinTone = 'plain'): HTMLElement {
   const el = document.createElement('div');
-  el.className = selected ? 'fv3-pin fv3-pin--selected' : 'fv3-pin';
+  el.className = `fv3-pin fv3-pin--${tone}${selected ? ' fv3-pin--selected' : ''}`;
   el.textContent = pinLabel(amount);
   return el;
 }
 
 /** Vector maps: the purple count bubble as HTML. */
-export function countBubbleElement(count: number): HTMLElement {
+export function countBubbleElement(count: number, neutral = false): HTMLElement {
   const el = document.createElement('div');
   const d = bubbleSize(count);
-  el.className = 'fv3-bubble';
+  el.className = neutral ? 'fv3-bubble fv3-bubble--neutral' : 'fv3-bubble';
   el.style.width = `${d}px`;
   el.style.height = `${d}px`;
   el.textContent = countText(count);

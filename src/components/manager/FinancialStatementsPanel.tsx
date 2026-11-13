@@ -1,13 +1,18 @@
-import { useRef, useState, useEffect, createContext, useContext, useMemo } from 'react';
+import { useRef, useState, useEffect, useCallback, createContext, useContext, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import { FileText, TrendingUp, Wallet, BarChart3, Download, FileSpreadsheet, RefreshCw, Loader2, Calendar, ArrowUpRight, ArrowDownRight, Minus, GitCompareArrows, Activity, ClipboardList } from 'lucide-react';
+import {
+  FileText, TrendingUp, Wallet, BarChart3, Download, FileSpreadsheet,
+  RefreshCw, Loader2, Calendar, ArrowUpRight, ArrowDownRight, Minus,
+  GitCompareArrows, Activity, ClipboardList, ShieldCheck, ChevronDown, ChevronRight,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { exportToCSV } from '@/lib/exportUtils';
-import { useFinancialStatements, type StatementPeriod, type FinancialStatementsData, type ComparisonMode, type ComparisonMetrics, type DeltaValue } from '@/hooks/useFinancialStatements';
+import { useFinancialStatements, type StatementFilters, type StatementPeriod, type FinancialStatementsData, type ComparisonMode, type ComparisonMetrics, type DeltaValue, getPreviousPeriodDates, generateStatementsRaw } from '@/hooks/useFinancialStatements';
 import { Progress } from '@/components/ui/progress';
 import { ComprehensiveCashMovement } from '@/components/cfo/ComprehensiveCashMovement';
 import { LedgerDrillDownDialog } from '@/components/cfo/LedgerDrillDownDialog';
@@ -20,7 +25,7 @@ import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 import BalanceSheetPanel from '@/components/cfo/BalanceSheetPanel';
 import FinIncomeStatementSection from '@/components/cfo/FinIncomeStatementSection';
-import { useFinIncomeStatement, buildFinIncomeRows } from '@/hooks/useFinIncomeStatement';
+import { useFinIncomeStatement, buildFinIncomeRows, convertToFinIncomeStatement } from '@/hooks/useFinIncomeStatement';
 import BudgetApprovalPanel from '@/components/cfo/BudgetApprovalPanel';
 import {
   useStatementOfCashFlows,
@@ -635,15 +640,15 @@ function FacilitatedVolumeSection({ d, cm }: { d: FinancialStatementsData['facil
 // Main Panel
 // ─────────────────────────────────────────────────────────────
 
-type Tab = 'income' | 'cashflow' | 'movement' | 'balance' | 'volume' | 'budget';
+type Tab = 'balance' | 'income' | 'cashflow' | 'movement' | 'volume' | 'budget';
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'movement', label: 'Cash Movement', icon: <Activity className="h-3.5 w-3.5" /> },
-  { id: 'income', label: 'Income', icon: <TrendingUp className="h-3.5 w-3.5" /> },
-  { id: 'cashflow', label: 'Cash Flow', icon: <Wallet className="h-3.5 w-3.5" /> },
-  { id: 'balance', label: 'Balance Sheet', icon: <FileText className="h-3.5 w-3.5" /> },
-  { id: 'volume', label: 'Facilitated Volume', icon: <BarChart3 className="h-3.5 w-3.5" /> },
-  { id: 'budget', label: 'Department Budgets', icon: <ClipboardList className="h-3.5 w-3.5" /> },
+  { id: 'balance', label: 'Balance Sheet', icon: <FileText className="h-4 w-4" /> },
+  { id: 'income', label: 'Income Statement', icon: <TrendingUp className="h-4 w-4" /> },
+  { id: 'cashflow', label: 'Cash Flow', icon: <Wallet className="h-4 w-4" /> },
+  { id: 'movement', label: 'Cash Movement', icon: <Activity className="h-4 w-4" /> },
+  { id: 'volume', label: 'Facilitated Volume', icon: <BarChart3 className="h-4 w-4" /> },
+  { id: 'budget', label: 'Department Budgets', icon: <ClipboardList className="h-4 w-4" /> },
 ];
 
 export function FinancialStatementsPanel() {
@@ -651,14 +656,11 @@ export function FinancialStatementsPanel() {
 }
 
 /**
- * Reconciliation strip — proves the three statements tie back to the ledger.
+ * Executive Reconciliation Banner — proves the financial statements tie back to the ledger.
  * Read-only: every figure comes from the same `general_ledger` rows.
  */
 function ReconciliationCard({ r, cf }: { r: import('@/hooks/useFinancialStatements').ReconciliationCheck; cf?: StatementOfCashFlows | null }) {
-  // When the ledger-derived statement of cash flows is available it is the
-  // authoritative cash reconciliation: it resolves every leg through the same
-  // resolver the balance sheet uses, so its closing cash is the balance sheet's
-  // cash. The legacy client-side figures are only used as a fallback.
+  const [expanded, setExpanded] = useState(false);
   const cash = cf
     ? {
         openingCash: cf.opening_cash,
@@ -679,45 +681,61 @@ function ReconciliationCard({ r, cf }: { r: import('@/hooks/useFinancialStatemen
         unclassifiedNet: r.unclassifiedNet,
       };
   const ok = r.balanced && cash.cashTied;
-  return (
-    <Card className={cn('border', ok ? 'border-success/40' : 'border-destructive/40')}>
-      <CardContent className="py-3 space-y-2">
-        <div className="flex items-center gap-2">
-          {ok ? <CheckCircle2 className="h-4 w-4 text-success" /> : <AlertTriangle className="h-4 w-4 text-destructive" />}
-          <p className={cn('text-xs font-semibold', ok ? 'text-success' : 'text-destructive')}>
-            {ok ? 'Reconciled to the general ledger' : 'Reconciliation gap — review below'}
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 text-[11px]">
-          <div className="rounded-md border border-border/60 p-2">
-            <p className="uppercase tracking-wider text-muted-foreground">Assets = Liabilities + Equity</p>
-            <p className="font-mono text-foreground">{formatUGX(r.totalAssets)} = {formatUGX(r.totalLiabilities)} + {formatUGX(r.totalEquity)}</p>
-            <p className={cn('font-mono', r.balanced ? 'text-muted-foreground' : 'text-destructive')}>
-              Difference {formatUGX(r.balanceDifference)}
-            </p>
-          </div>
-          <div className="rounded-md border border-border/60 p-2">
-            <p className="uppercase tracking-wider text-muted-foreground">Closing cash vs balance sheet cash</p>
-            <p className="font-mono text-foreground">{formatUGX(cash.closingCash)} vs {formatUGX(cash.balanceSheetCash)}</p>
-            <p className={cn('font-mono', cash.cashTied ? 'text-muted-foreground' : 'text-destructive')}>
-              Difference {formatUGX(cash.cashDifference)}
-            </p>
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-[11px]">
-          <Figure label="Opening cash" value={cash.openingCash} />
-          <Figure label="Net cash movement" value={cash.netMovement} />
-          <Figure label="Closing cash" value={cash.closingCash} />
-        </div>
-        {Math.abs(cash.unclassifiedNet) >= 1 && (
-          <p className="text-[10px] text-muted-foreground">
-            {formatUGX(Math.abs(cash.unclassifiedNet))} of single-sided historic ledger movement is shown on
-            its own line — closing cash still ties to the ledger and the balance sheet.
-          </p>
-        )}
 
-      </CardContent>
-    </Card>
+  return (
+    <div className={cn(
+      "rounded-lg border px-3 py-2 text-xs transition-colors",
+      ok ? "border-emerald-500/30 bg-emerald-500/[0.03]" : "border-amber-500/40 bg-amber-500/[0.04]"
+    )}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {ok ? (
+            <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          ) : (
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          )}
+          <span className="font-semibold text-foreground">
+            {ok ? "General Ledger Integrity: Balanced" : "Ledger Audit Gap"}
+          </span>
+          <span className="text-muted-foreground hidden sm:inline">·</span>
+          <span className="text-muted-foreground hidden sm:inline font-mono">
+            Assets ({formatUGX(r.totalAssets)}) = Liab + Equity ({formatUGX(r.totalLiabilities + r.totalEquity)})
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="text-[11px] font-medium text-primary hover:underline flex items-center gap-1 ml-auto"
+        >
+          <span>{expanded ? "Hide Breakdown" : "Audit Details"}</span>
+          {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="mt-2 pt-2 border-t border-border/40 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+          <div className="p-2 rounded bg-background/60 border border-border/50">
+            <span className="text-muted-foreground block text-[10px] uppercase tracking-wide">Balance Check</span>
+            <span className="font-mono text-foreground font-medium">
+              Diff: {formatUGX(r.balanceDifference)}
+            </span>
+          </div>
+          <div className="p-2 rounded bg-background/60 border border-border/50">
+            <span className="text-muted-foreground block text-[10px] uppercase tracking-wide">Cash Reconciliation</span>
+            <span className="font-mono text-foreground font-medium">
+              Closing: {formatUGX(cash.closingCash)} vs BS: {formatUGX(cash.balanceSheetCash)}
+            </span>
+          </div>
+          <div className="p-2 rounded bg-background/60 border border-border/50">
+            <span className="text-muted-foreground block text-[10px] uppercase tracking-wide">Net Cash Movement</span>
+            <span className="font-mono text-foreground font-medium">
+              {formatUGX(cash.netMovement)}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -731,10 +749,10 @@ function Figure({ label, value }: { label: string; value: number }) {
 }
 
 function FinancialStatementsPanelInner() {
-  const { data, previousData, loading, filters, generate, updatePeriod, setFilters, comparisonMode, updateComparisonMode, comparisonMetrics, loadingComparison } = useFinancialStatements();
+  const { data, previousData, loading, filters, generate, setFilters, comparisonMode, updateComparisonMode, comparisonMetrics, loadingComparison } = useFinancialStatements();
   const [customStart, setCustomStart] = useState<Date | undefined>();
   const [customEnd, setCustomEnd] = useState<Date | undefined>();
-  const [activeTab, setActiveTab] = useState<Tab>('movement');
+  const [activeTab, setActiveTab] = useState<Tab>('balance');
   const [sharing, setSharing] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -745,17 +763,100 @@ function FinancialStatementsPanelInner() {
   );
   const drillCtx = useMemo<DrillContextValue>(() => ({ open: setDrillLabel }), []);
 
-  const { data: cashFlow, error: cashFlowError } = useStatementOfCashFlows(drillDates.start, drillDates.end);
+  // fin_cash_flow scans the whole ledger: load it only while the Cash Flow tab is open.
+  const { data: cashFlow, error: cashFlowError } = useStatementOfCashFlows(drillDates.start, drillDates.end, { enabled: activeTab === 'cashflow' });
+  // The income statements resolve ledger legs the same way the balance sheet does, so running
+  // them while the Balance Sheet tab loads makes both compete for the database. Start them the
+  // first time the Income tab is opened (and keep them afterwards).
+  const [incomeOpened, setIncomeOpened] = useState(activeTab === 'income');
+  useEffect(() => { if (activeTab === 'income') setIncomeOpened(true); }, [activeTab]);
   // Income Statement from the revenue and expense accounts (fin_income_statement); replaces the browser P&L.
-  const { data: finIncome, error: finIncomeError, loading: finIncomeLoading } = useFinIncomeStatement(drillDates.start, drillDates.end);
+  const { data: finIncome, error: finIncomeError, loading: finIncomeLoading } = useFinIncomeStatement(drillDates.start, drillDates.end, incomeOpened);
+
+  const comparisonDates = useMemo(() => {
+    if (comparisonMode === 'none' || !drillDates.start || !drillDates.end) return null;
+    return getPreviousPeriodDates(drillDates.start, drillDates.end, comparisonMode);
+  }, [comparisonMode, drillDates.start, drillDates.end]);
+
+  const isComparisonActive = comparisonMode !== 'none' && !!drillDates.start && !!drillDates.end;
+  const { data: compFinIncome } = useFinIncomeStatement(
+    comparisonDates?.start ?? null,
+    comparisonDates?.end ?? null,
+    isComparisonActive && incomeOpened
+  );
+
+  const [multiYearData, setMultiYearData] = useState<{ label: string; statement: import('@/hooks/useFinIncomeStatement').FinIncomeStatement }[] | null>(null);
 
   useEffect(() => {
-    generate();
-  }, []);
+    // Only load multi-year comparison if user is actively viewing the Income Statement
+    if (activeTab !== 'income' || multiYearData) return;
+
+    let active = true;
+    async function loadYears() {
+      try {
+        const fetchYear = async (year: number) => {
+          try {
+            const { data: rpcData, error } = await supabase.rpc('fin_income_statement', {
+              p_from: `${year}-01-01T00:00:00+03:00`,
+              p_to: `${year}-12-31T23:59:59+03:00`,
+            });
+            if (!error && rpcData) return rpcData as unknown as import('@/hooks/useFinIncomeStatement').FinIncomeStatement;
+          } catch {
+            // Fallback to client-side compilation if fin_income_statement RPC is unavailable
+          }
+          const raw = await generateStatementsRaw({
+            period: 'custom',
+            startDate: new Date(`${year}-01-01T00:00:00.000Z`),
+            endDate: new Date(`${year}-12-31T23:59:59.999Z`),
+          });
+          return convertToFinIncomeStatement(raw.incomeStatement);
+        };
+
+        const [stmt2024, stmt2025, stmt2026] = await Promise.all([
+          fetchYear(2024),
+          fetchYear(2025),
+          fetchYear(2026),
+        ]);
+        if (!active) return;
+        setMultiYearData([
+          { label: '2024', statement: stmt2024 },
+          { label: '2025', statement: stmt2025 },
+          { label: '2026', statement: stmt2026 },
+        ]);
+      } catch (e) {
+        console.warn('Could not load multi-year statements:', e);
+      }
+    }
+    void loadYears();
+    return () => { active = false; };
+  }, [activeTab, multiYearData]);
+
+  // Each tab loads only its own report, when it is selected. The general statements run (ledger sums, platform
+  // cash, comparison period) feeds only Facilitated Volume and the exports' period label, so it no longer starts when
+  // the panel opens: through the one-at-a-time report queue it held up whichever report was chosen (the Balance Sheet
+  // could not appear until it finished). It runs when the Volume tab is opened (again when the period or comparison
+  // changes while it is open) or when Generate is pressed.
+  const statementsKey = JSON.stringify([
+    filters.period, filters.startDate?.toISOString() ?? null, filters.endDate?.toISOString() ?? null, comparisonMode,
+  ]);
+  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+  const runGenerate = useCallback((next?: StatementFilters) => {
+    setGeneratedKey(next
+      ? JSON.stringify([next.period, next.startDate?.toISOString() ?? null, next.endDate?.toISOString() ?? null, comparisonMode])
+      : statementsKey);
+    return generate(next);
+  }, [generate, statementsKey, comparisonMode]);
+  useEffect(() => {
+    if (activeTab !== 'volume' || loading || generatedKey === statementsKey) return;
+    runGenerate().catch(() => { /* the Volume tab offers Generate again */ });
+  }, [activeTab, loading, generatedKey, statementsKey, runGenerate]);
+  const periodLabel = data?.incomeStatement.period ?? (drillDates.start && drillDates.end
+    ? `${format(drillDates.start, 'dd MMM yyyy')} — ${format(drillDates.end, 'dd MMM yyyy')}`
+    : 'All time');
 
   const handleGenerate = async () => {
     try {
-      await generate();
+      await runGenerate();
       toast.success('Financial statements generated');
     } catch {
       toast.error('Failed to generate statements');
@@ -767,7 +868,8 @@ function FinancialStatementsPanelInner() {
       setFilters({ period: 'custom', startDate: customStart ? startOfDay(customStart) : null, endDate: customEnd ? endOfDay(customEnd) : null });
       return;
     }
-    updatePeriod(period);
+    // The open tab's own report reloads for the new period; the general run only follows on the Volume tab.
+    setFilters({ ...filters, period, startDate: null, endDate: null });
   };
 
   const applyCustomRange = () => {
@@ -781,7 +883,6 @@ function FinancialStatementsPanelInner() {
     }
     const next = { period: 'custom' as StatementPeriod, startDate: startOfDay(customStart), endDate: endOfDay(customEnd) };
     setFilters(next);
-    generate(next);
   };
 
   const getTabLabel = () => {
@@ -796,17 +897,18 @@ function FinancialStatementsPanelInner() {
   };
 
   const handleExportCSV = () => {
-    if (!data) { toast.error('Generate statements first'); return; }
+    if (!data && activeTab === 'volume') { toast.error('Generate statements first'); return; }
 
     const rows: (string | number)[][] = [];
-    const period = data.incomeStatement.period;
+    const period = periodLabel;
 
     if (activeTab === 'income') {
-      if (!finIncome || finIncomeLoading) { toast.error('Income statement is still loading'); return; }
+      const activeFinIncome = finIncome || (data ? convertToFinIncomeStatement(data.incomeStatement) : null);
+      if (!activeFinIncome) { toast.error('Income statement is still loading'); return; }
       rows.push(['WELILE — Income Statement', period, '']);
       rows.push(['All amounts in UGX; revenue and expense accounts of the General Ledger', '', '']);
       rows.push(['', '', '']);
-      buildFinIncomeRows(finIncome).forEach(row => {
+      buildFinIncomeRows(activeFinIncome).forEach(row => {
         rows.push([row.kind === 'section' ? row.label.toUpperCase() : row.kind === 'line' ? `  ${row.label}` : row.label, '', row.amount ?? '']);
       });
     } else if (activeTab === 'cashflow') {
@@ -873,7 +975,7 @@ function FinancialStatementsPanelInner() {
   };
 
   const handleExportPDF = async () => {
-    if (!data) { toast.error('Generate statements first'); return; }
+    if (!data && activeTab === 'volume') { toast.error('Generate statements first'); return; }
     setSharing(true);
     try {
       const { jsPDF } = await import('jspdf');
@@ -900,8 +1002,8 @@ function FinancialStatementsPanelInner() {
       pdf.setFontSize(9);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(100, 100, 100);
-      pdf.text(`Period: ${data.incomeStatement.period}`, margin, y);
-      pdf.text(`Generated: ${format(data.generatedAt, 'dd MMM yyyy, HH:mm')}`, pw - margin - 60, y);
+      pdf.text(`Period: ${periodLabel}`, margin, y);
+      pdf.text(`Generated: ${format(data?.generatedAt ?? new Date(), 'dd MMM yyyy, HH:mm')}`, pw - margin - 60, y);
       y += 6;
       pdf.setDrawColor(220, 220, 220);
       pdf.line(margin, y, pw - margin, y);
@@ -933,12 +1035,13 @@ function FinancialStatementsPanelInner() {
       };
 
       if (activeTab === 'income') {
-        if (!finIncome || finIncomeLoading) { toast.error('Income statement is still loading'); setSharing(false); return; }
+        const activeFinIncome = finIncome || (data ? convertToFinIncomeStatement(data.incomeStatement) : null);
+        if (!activeFinIncome) { toast.error('Income statement is still loading'); setSharing(false); return; }
         pdf.setFontSize(7);
         pdf.setTextColor(120, 120, 120);
         pdf.text('Revenue and expense accounts of the General Ledger (fin_income_statement). All amounts in UGX.', margin, y);
         y += 6;
-        buildFinIncomeRows(finIncome).forEach(row => {
+        buildFinIncomeRows(activeFinIncome).forEach(row => {
           if (y > 190) { pdf.addPage(); y = 18; }
           const strong = row.kind !== 'line';
           pdf.setFont('helvetica', strong ? 'bold' : 'normal');
@@ -1037,8 +1140,8 @@ function FinancialStatementsPanelInner() {
         pdf.save(fileName);
         toast.success('PDF downloaded!');
       }
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') { toast.error('PDF export failed'); console.error(err); }
+    } catch (err: unknown) {
+      if ((err as Error)?.name !== 'AbortError') { toast.error('PDF export failed'); console.error(err); }
     } finally {
       setSharing(false);
     }
@@ -1047,161 +1150,216 @@ function FinancialStatementsPanelInner() {
   return (
     <DrillContext.Provider value={drillCtx}>
     <div className="space-y-4">
-      {/* Period Selector */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-        {PERIODS.map(p => (
-          <Button
-            key={p.value}
-            size="sm"
-            variant={filters.period === p.value ? 'default' : 'outline'}
-            className="text-xs h-7"
-            onClick={() => handleChangePeriod(p.value)}
-          >
-            {p.label}
-          </Button>
-        ))}
-      </div>
-
-      {/* Custom Range Pickers */}
-      {filters.period === 'custom' && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                {customStart ? format(customStart, 'dd MMM yyyy') : 'Start date'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 z-[200]" align="start">
-              <CalendarPicker mode="single" selected={customStart} onSelect={setCustomStart} initialFocus className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                {customEnd ? format(customEnd, 'dd MMM yyyy') : 'End date'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 z-[200]" align="start">
-              <CalendarPicker mode="single" selected={customEnd} onSelect={setCustomEnd} initialFocus className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-          <Button size="sm" className="h-7 text-xs" onClick={applyCustomRange} disabled={loading}>
-            Apply range
-          </Button>
+      {/* 1. Institutional CFO Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold tracking-tight text-foreground">
+              Financial Statements
+            </h1>
+            <Badge variant="outline" className="text-[10px] font-mono border-primary/30 bg-primary/5 text-primary">
+              CFO Office
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Consolidated general ledger financial reports, balance sheet positions, and statutory disclosures.
+          </p>
         </div>
-      )}
 
-      {/* Comparison Mode Selector */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <GitCompareArrows className="h-4 w-4 text-muted-foreground shrink-0" />
-        {COMPARISON_MODES.map(m => (
-          <Button
-            key={m.value}
-            size="sm"
-            variant={comparisonMode === m.value ? 'default' : 'outline'}
-            className="text-xs h-7"
-            onClick={() => updateComparisonMode(m.value)}
-          >
-            {m.short}
-          </Button>
-        ))}
-        {loadingComparison && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+        {/* Global Export for Income / Cashflow / Volume when applicable */}
+        {activeTab !== 'balance' && activeTab !== 'budget' && activeTab !== 'movement' && data && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportCSV}
+              className="h-8 text-xs gap-1.5 shadow-xs"
+            >
+              <Download className="h-3.5 w-3.5 text-muted-foreground" />
+              CSV
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportPDF}
+              disabled={sharing}
+              className="h-8 text-xs gap-1.5 shadow-xs"
+            >
+              {sharing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5 text-muted-foreground" />}
+              PDF
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Generate Button */}
-      <Button
-        onClick={handleGenerate}
-        disabled={loading}
-        className="w-full gap-2"
-        size="lg"
-      >
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-        {loading ? 'Generating Statements…' : data ? 'Regenerate Statements' : 'Generate Financial Statements'}
-      </Button>
+      {/* 2. Top-Level Sleek Tab Navigation (Institutional Style) */}
+      <div className="border-b border-border">
+        <nav className="flex space-x-1 sm:space-x-3 overflow-x-auto scrollbar-none" aria-label="Statements">
+          {TABS.map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "flex items-center gap-2 py-2.5 px-3 border-b-2 text-xs whitespace-nowrap transition-all font-medium",
+                  isActive
+                    ? "border-primary text-primary font-semibold"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                )}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
 
-      {/* Generated Timestamp */}
-      {data && (
-        <p className="text-xs text-center text-muted-foreground">
-          Generated {format(data.generatedAt, 'dd MMM yyyy, HH:mm')} · Period: {data.incomeStatement.period}
-        </p>
-      )}
-
-      {/* Statement Tabs + Content */}
-      {data && (
+      {/* 3. Reconciliation Strip (Compact Audit Confirmation) */}
+      {data && activeTab !== 'movement' && activeTab !== 'budget' && (
         <ReconciliationCard r={data.reconciliation} cf={cashFlow} />
       )}
 
-      {(data || activeTab === 'budget') && (
-        <Card ref={contentRef}>
-          <CardContent className="pt-4 pb-6">
-            {/* Tab Switcher */}
-            <div className="grid grid-cols-2 gap-2 mb-6">
-              {TABS.map(tab => (
+      {/* 4. Statement-Specific Period Controls (Only for statements that use the period model) */}
+      {(activeTab === 'income' || activeTab === 'cashflow' || activeTab === 'volume') && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded-xl border border-border bg-card shadow-xs">
+          {/* Period selector */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1 flex items-center gap-1">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              Period:
+            </span>
+            <div className="inline-flex p-0.5 rounded-lg bg-muted/60 border border-border/50 gap-0.5">
+              {PERIODS.map(p => (
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  key={p.value}
+                  type="button"
+                  onClick={() => handleChangePeriod(p.value)}
                   className={cn(
-                    'flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors',
-                    activeTab === tab.id
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-secondary border-border text-muted-foreground hover:text-foreground hover:border-primary/50'
+                    "px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                    filters.period === p.value
+                      ? "bg-background text-foreground shadow-xs font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {tab.icon}
-                  {tab.label}
+                  {p.label}
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Statement Title */}
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
-              <h3 className="text-sm font-semibold">{getTabLabel()}</h3>
-              <div className="flex items-center gap-2">
-                {data && <Badge variant="outline" className="text-xs">{data.incomeStatement.period}</Badge>}
-                {data && comparisonMode !== 'none' && comparisonMetrics && (
-                  <Badge variant="secondary" className="text-[10px]">
-                    vs {COMPARISON_MODES.find(m => m.value === comparisonMode)?.label}
-                  </Badge>
-                )}
+          {/* Comparison Mode & Refresh */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">
+                Compare:
+              </span>
+              <div className="inline-flex p-0.5 rounded-lg bg-muted/60 border border-border/50 gap-0.5">
+                {COMPARISON_MODES.map(m => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => updateComparisonMode(m.value)}
+                    className={cn(
+                      "px-2 py-1 text-xs font-medium rounded-md transition-all",
+                      comparisonMode === m.value
+                        ? "bg-background text-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {m.short}
+                  </button>
+                ))}
               </div>
+              {loadingComparison && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-1" />}
             </div>
 
-            {/* Active Statement */}
-            {activeTab === 'income' && <FinIncomeStatementSection d={finIncome} error={finIncomeError} />}
-            {activeTab === 'cashflow' && data && <CashFlowSection d={cashFlow} error={cashFlowError} />}
-            {activeTab === 'movement' && <ComprehensiveCashMovement />}
-            {activeTab === 'balance' && <BalanceSheetPanel />}
-            {activeTab === 'volume' && data && <FacilitatedVolumeSection d={data.facilitatedVolume} cm={comparisonMetrics} />}
-            {activeTab === 'budget' && <BudgetApprovalPanel />}
+            <Button
+              onClick={handleGenerate}
+              disabled={loading}
+              size="sm"
+              className="h-8 text-xs font-medium gap-1.5 shadow-xs"
+            >
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              {loading ? "Compiling…" : data ? "Refresh" : "Generate Statements"}
+            </Button>
+          </div>
 
-            {/* Export Actions */}
-            {data && activeTab !== 'balance' && activeTab !== 'budget' && (
-            <div className="flex gap-2 mt-6 pt-4 border-t border-border">
-              <Button variant="outline" size="sm" className="flex-1 gap-2 text-xs" onClick={handleExportCSV}>
-                <FileSpreadsheet className="h-3.5 w-3.5" />
-                Export CSV
-              </Button>
-              <Button variant="outline" size="sm" className="flex-1 gap-2 text-xs" onClick={handleExportPDF} disabled={sharing}>
-                {sharing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                PDF / Share
+          {/* Custom Date Range Popovers if Custom is active */}
+          {filters.period === 'custom' && (
+            <div className="w-full flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
+              <span className="text-xs text-muted-foreground font-medium">Custom Window:</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5">
+                    <Calendar className="h-3 w-3 text-primary" />
+                    {customStart ? format(customStart, 'dd MMM yyyy') : 'Start date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[200]" align="start">
+                  <CalendarPicker mode="single" selected={customStart} onSelect={setCustomStart} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              <span className="text-muted-foreground text-xs">→</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5">
+                    <Calendar className="h-3 w-3 text-primary" />
+                    {customEnd ? format(customEnd, 'dd MMM yyyy') : 'End date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[200]" align="start">
+                  <CalendarPicker mode="single" selected={customEnd} onSelect={setCustomEnd} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              <Button size="sm" className="h-7 text-xs" onClick={applyCustomRange} disabled={loading}>
+                Apply Window
               </Button>
             </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Empty state */}
-      {!data && !loading && activeTab !== 'budget' && (
-        <div className="text-center py-12 text-muted-foreground">
-          <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Select a period and generate statements</p>
-          <p className="text-xs mt-1">Data is pulled live from the financial ledger</p>
+          )}
         </div>
       )}
+
+      {/* 5. Statement Body Area */}
+      <div ref={contentRef} className="pt-1">
+        {activeTab === 'balance' && <BalanceSheetPanel />}
+
+        {activeTab === 'income' && (
+          <FinIncomeStatementSection
+            d={finIncome}
+            error={finIncomeError}
+            fallbackD={data?.incomeStatement}
+            fallbackComparisonD={previousData?.incomeStatement}
+            comparisonD={comparisonMode !== 'none' ? compFinIncome : null}
+            comparisonLabel={comparisonMode !== 'none' ? COMPARISON_MODES.find(m => m.value === comparisonMode)?.short : undefined}
+            multiYearColumns={multiYearData ?? undefined}
+          />
+        )}
+
+        {activeTab === 'cashflow' && <CashFlowSection d={cashFlow} error={cashFlowError} />}
+
+        {activeTab === 'movement' && <ComprehensiveCashMovement />}
+
+        {activeTab === 'volume' && (
+          data ? (
+            <FacilitatedVolumeSection d={data.facilitatedVolume} cm={comparisonMetrics} />
+          ) : (
+            <div className="rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground">
+              <BarChart3 className="h-10 w-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-medium text-foreground">Facilitated Volume</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">Click below to compile facilitated volume metrics from active Rent Plans.</p>
+              <Button size="sm" onClick={handleGenerate} disabled={loading}>
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+                Generate Metrics
+              </Button>
+            </div>
+          )
+        )}
+
+        {activeTab === 'budget' && <BudgetApprovalPanel />}
+      </div>
 
       <LedgerDrillDownDialog
         open={!!drillLabel}

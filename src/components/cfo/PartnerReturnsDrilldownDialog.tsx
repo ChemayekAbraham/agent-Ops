@@ -14,8 +14,8 @@ export type DrilldownMetric =
   | 'compounding';
 
 export const METRIC_LABELS: Record<DrilldownMetric, string> = {
-  forecast: 'Returns payable forecast',
-  actual: 'Returns actually paid',
+  forecast: 'Rent profit share payable forecast',
+  actual: 'Rent profit share actually paid',
   receivable: 'Receivable from partners',
   topups: 'Top-ups received',
   promissory: 'Promissory notes receivable',

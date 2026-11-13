@@ -48,6 +48,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   transfer_out: 'Wallet Transfer',
   transfer_in: 'Wallet Transfer',
   wallet_transfer: 'Wallet Transfer',
+  special_advance_credit: 'Special Advance Received',
+  special_advance_wallet_repayment: 'Special Advance Repayment',
 };
 
 function labelFor(category: string, description?: string | null): string {

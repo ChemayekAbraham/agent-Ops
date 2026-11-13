@@ -12,8 +12,11 @@ export function FunderV3MapControls({
   location,
   fullscreen,
   onToggleFullscreen,
+  onLocate,
 }: {
   location: FunderNewLocationController;
+  /** Tells the map to recentre on the device once the fix is in. */
+  onLocate?: () => void;
   /** Omit onToggleFullscreen to hide that button (desktop split view). */
   fullscreen?: boolean;
   onToggleFullscreen?: () => void;
@@ -22,9 +25,10 @@ export function FunderV3MapControls({
   const locating = location.status === 'locating';
   const handleLocate = useCallback(() => {
     if (location.permission === 'denied') return;
+    onLocate?.();
     if (device) location.refresh();
     else location.request();
-  }, [device, location]);
+  }, [device, location, onLocate]);
 
   const button =
     'pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-card text-foreground shadow-[0_2px_8px_hsl(var(--foreground)/0.18)] ring-1 ring-border/50 transition-colors hover:bg-muted active:scale-95';

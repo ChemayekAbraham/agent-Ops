@@ -57,7 +57,7 @@ function explainCategory(cat: string): string {
     agent_commission_withdrawal: 'Agent withdrawing earned commission to mobile money',
     wallet_withdrawal: 'User withdrawing wallet balance to mobile money',
     pending_portfolio_topup: 'Portfolio top-up parked into supporter wallet',
-    roi_wallet_credit: 'ROI returns credited into supporter wallet',
+    roi_wallet_credit: 'Rent profit share returns credited into supporter wallet',
     agent_advance_credit: 'Agent cash advance credited to advance bucket',
     debt_recovery: 'Recovery of unauthorized payout from wallet balance',
     wallet_deduction: 'Direct deduction from wallet (admin or system)',

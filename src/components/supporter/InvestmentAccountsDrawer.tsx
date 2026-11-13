@@ -87,7 +87,7 @@ function NextRoiIndicator({ nextRoiDate }: { nextRoiDate: string | null | undefi
   return (
     <span className={`text-[10px] font-semibold flex items-center gap-1 ${isUrgent ? 'text-destructive' : 'text-success'}`}>
       <Calendar className={`h-2.5 w-2.5 ${isUrgent ? 'animate-pulse' : ''}`} />
-      {days <= 0 ? 'Due today' : `${days}d to Returns`}
+      {days <= 0 ? 'Due today' : `${days}d to Rent profit share`}
     </span>
   );
 }
@@ -323,7 +323,7 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
       }
       if (data?.error) throw new Error(data.error);
       setLocalAutoReinvest(!!data?.auto_reinvest);
-      toast.success(`Auto-Support ${data?.auto_reinvest ? 'ON — Returns now compound' : 'OFF — Returns paid monthly'}`);
+      toast.success(`Auto-Support ${data?.auto_reinvest ? 'ON — Rent profit share now compound' : 'OFF — Rent profit share paid monthly'}`);
       onRenamed(); // triggers refetch
     } catch (e: any) {
       toast.error(e?.message || 'Failed to update Auto-Support');
@@ -339,7 +339,7 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
       `📊 *Support Portfolio: ${displayName}*`,
       ``,
       `💰 Capital: ${formatUGX(amount)}`,
-      `📈 Returns Rate: ${roiPct}% per month`,
+      `📈 Rent profit share Rate: ${roiPct}% per month`,
       `💵 Monthly Return: ${formatUGX(monthlyROI)}`,
       `📅 Duration: ${portfolio.duration_months || '—'} months`,
       `🔄 Mode: ${portfolio.roi_mode === 'monthly_compounding' ? 'Compounding' : 'Monthly Payout'}`,
@@ -504,10 +504,10 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
           {/* Detail Rows */}
           <p className="px-1 pt-1 text-xs font-semibold text-muted-foreground">Details</p>
           <div className="divide-y divide-border/60 overflow-hidden rounded-[20px] bg-card">
-            <DetailRow label="Returns Rate" value={`${roiPct}% / month`} icon={TrendingUp} />
-            <DetailRow label="Total Returns Earned" value={formatUGX(totalEarned)} icon={Wallet} />
+            <DetailRow label="Rent profit share Rate" value={`${roiPct}% / month`} icon={TrendingUp} />
+            <DetailRow label="Total Rent profit share Earned" value={formatUGX(totalEarned)} icon={Wallet} />
             {portfolio.roi_mode && (
-              <DetailRow label="Returns Mode" value={portfolio.roi_mode} icon={RefreshCw} />
+              <DetailRow label="Rent profit share Mode" value={portfolio.roi_mode} icon={RefreshCw} />
             )}
             {(() => {
               const running = runningDurationLabel(portfolio.funded_at);
@@ -530,7 +530,7 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
             )}
             {portfolio.next_roi_date && (
               <DetailRow
-                label="Next Returns Date"
+                label="Next Rent profit share Date"
                 value={formatDateOnlyForDisplay(portfolio.next_roi_date)}
                 icon={Calendar}
                 valueClassName={roiUrgent ? 'text-destructive font-black' : 'text-success'}
@@ -557,7 +557,7 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
                   <RefreshCw className={cn('h-[18px] w-[18px] shrink-0', autoReinvestValue ? 'text-primary' : 'text-muted-foreground')} />
                   <span>
                     <span className="block text-sm font-medium">Auto-Support</span>
-                    <span className="block text-xs text-muted-foreground">Automatically compound your returns</span>
+                    <span className="block text-xs text-muted-foreground">Automatically compound your Rent profit share</span>
                   </span>
                 </span>
                 {togglingReinvest
@@ -621,7 +621,7 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
                     Statement
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    What has actually happened: top-ups, Returns added, payouts and
+                    What has actually happened: top-ups, Rent profit share added, payouts and
                     changes. PDF.
                   </p>
                 </button>
@@ -633,7 +633,7 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
           <div className="flex items-start gap-2 px-1">
             <TrendingUp className="h-4 w-4 text-primary mt-0.5 shrink-0" />
             <p className="text-[11px] text-muted-foreground">
-              Your capital earns <strong className="text-foreground">{roiPct}% monthly</strong>. Returns are credited automatically each cycle. Top up anytime to grow your portfolio.
+              Your capital earns <strong className="text-foreground">{roiPct}% monthly</strong>. Rent profit share is credited automatically each cycle. Top up anytime to grow your portfolio.
             </p>
           </div>
         </div>

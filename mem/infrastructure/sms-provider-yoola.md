@@ -49,10 +49,10 @@ blocked on one provider.
   rejects. OTP senders now Yoola-first:
   - `sms-otp` (login + phone verification) → Yoola → AT → LANA
   - `password-reset-sms` → Yoola → AT → LANA
-  - `issue-landlord-payout-otp` → Yoola → AT → Twilio
+  - `issue-landlord-payout-otp` → Yoola → AT
   - `agent-cash-deposit-create` / `agent-cash-deposit-resend` → Yoola → AT
   - `self-update-phone` reuses `sms-otp` to send (no separate sender).
-- Sender ID is `WELILE` on every SMS path (AT `from`, Twilio `From`). Yoola uses
+- Sender ID is `WELILE` on every SMS path (AT `from`). Yoola uses
   the account-registered sender (WELILE).
 - Non-OTP notification SMS may still use Africa's Talking directly.
 - All providers charge per message — monitor balances/credits.

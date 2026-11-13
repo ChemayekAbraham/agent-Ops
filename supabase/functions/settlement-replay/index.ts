@@ -7,6 +7,7 @@
 //
 // Actions: "classify" (read-only), "attach_evidence", "replay" (dry_run first).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,7 +58,7 @@ Deno.serve(async (req) => {
 
     if (!isSystemCall) {
       if (!token) return json({ error: "Missing authorization" }, 401);
-      const { data: userData, error: userErr } = await admin.auth.getUser(token);
+      const { data: userData, error: userErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
       if (userErr || !userData?.user) return json({ error: "Invalid token" }, 401);
       actorId = userData.user.id;
       const { data: roles } = await admin

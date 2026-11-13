@@ -72,7 +72,7 @@ export function formatNeexaVolume(amount: number): string {
 export function neexaErrorMessage(payload: { error?: string; message?: string; term?: string }, status?: number) {
   if (status === 403 || payload.error === 'not_authorized') return "You don't have access to the inbox.";
   if (status === 502) return "Neexa couldn't deliver this right now.";
-  if (payload.error === 'banned_term') return `Use 'Rent Plan', 'Supporter' and 'Returns' — '${payload.term || 'This term'}' isn't allowed in customer messages.`;
+  if (payload.error === 'banned_term') return `Use 'Rent Plan', 'Supporter' and 'Rent profit share' — '${payload.term || 'This term'}' isn't allowed in customer messages.`;
   if (payload.error === 'neexa_error') return payload.message || "Neexa couldn't deliver this right now.";
   return payload.message || 'Could not complete this request. Please try again.';
 }

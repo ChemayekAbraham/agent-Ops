@@ -35,12 +35,13 @@ import { captureOAuthRedirectError } from '@/lib/oauthErrorLog';
 import { getStoredAttributionToken, restoreAttributionFromToken } from '@/lib/campaignAttribution';
 import ScreenLoader from '@/components/common/ScreenLoader';
 import PersonNameFields from '@/components/shared/PersonNameFields';
+import { preloadDashboardShell } from '@/lib/preloadRoleDashboards';
 
 const VALID_SIGNUP_ROLES = ['tenant', 'agent', 'landlord', 'supporter'] as const;
 
 const ROLE_OPTIONS = [
   { role: 'tenant' as const, emoji: '🏠', label: 'I need rent help', desc: 'Get funded instantly', gradient: 'from-blue-500 to-indigo-600' },
-  { role: 'supporter' as const, emoji: '💰', label: 'I want to earn', desc: 'Monthly Returns', gradient: 'from-emerald-500 to-teal-600' },
+  { role: 'supporter' as const, emoji: '💰', label: 'I want to earn', desc: 'Monthly Rent profit share', gradient: 'from-emerald-500 to-teal-600' },
   { role: 'agent' as const, emoji: '⚡', label: 'I want to earn and learn', desc: 'Register & earn cash', gradient: 'from-amber-500 to-orange-600' },
   { role: 'landlord' as const, emoji: '🏢', label: 'Guaranteed rent', desc: 'Never chase tenants', gradient: 'from-purple-500 to-violet-600' },
 ];
@@ -183,7 +184,41 @@ export default function Auth() {
   const needsRoleSelection = isSignUp && !hasValidRole;
   const [pendingRole, setPendingRole] = useState<string>('tenant');
 
+  // Tenants and funders have their own onboarding pages. Choosing either role
+  // here sends them there through the short links, after the same 5-second
+  // "Redirecting you" notice as the welcome screen (WelcomeNew.tsx): /n/tenants
+  // -> /tenants-onboarding, /n/partner -> /funder-onboarding (lead_links). The
+  // 2026-10-13 redesign gave /auth its own role picker without this, so anyone
+  // who started sign-up here skipped those pages. Landlords and agents stay on
+  // this form, as before.
+  const ROLE_ONBOARDING_LINK: Record<string, { to: string; label: string }> = {
+    tenant: { to: '/n/tenants', label: 'Welile for Tenants' },
+    supporter: { to: '/n/partner', label: 'Welile for Partners' },
+  };
+  const [roleRedirect, setRoleRedirect] = useState<{ to: string; label: string } | null>(null);
+  const [roleRedirectCount, setRoleRedirectCount] = useState(5);
+
+  useEffect(() => {
+    if (!roleRedirect) return;
+    if (roleRedirectCount <= 0) { navigate(roleRedirect.to); return; }
+    const t = setTimeout(() => setRoleRedirectCount((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [roleRedirect, roleRedirectCount, navigate]);
+
+  useEffect(() => {
+    if (!roleRedirect) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setRoleRedirect(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [roleRedirect]);
+
   const handleSelectRole = (role: string) => {
+    const onboarding = ROLE_ONBOARDING_LINK[role];
+    if (onboarding) {
+      setRoleRedirectCount(5);
+      setRoleRedirect(onboarding);
+      return;
+    }
     const newParams = new URLSearchParams(searchParams);
     newParams.set('role', role);
     setSearchParams(newParams, { replace: true });
@@ -196,8 +231,25 @@ export default function Auth() {
     landlord: '🏢 Landlord',
   };
 
+  // While the person types their details, fetch the dashboard route code so
+  // signing in does not then wait on two more downloads (DashboardRedirect,
+  // then Dashboard). Once the browser is idle, so the form itself stays snappy.
+  useEffect(() => {
+    const ric = (window as unknown as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    });
+    if (typeof ric.requestIdleCallback === 'function') {
+      const handle = ric.requestIdleCallback(preloadDashboardShell, { timeout: 2000 });
+      return () => ric.cancelIdleCallback?.(handle);
+    }
+    const timer = window.setTimeout(preloadDashboardShell, 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     if (!authLoading && user) {
+      preloadDashboardShell(); // no-op when the idle warm already ran
       // An explicit ?redirect= (in-app paths only) wins.
       const redirectParam = safeInternalPath(searchParams.get('redirect'));
       if (redirectParam) {
@@ -598,6 +650,31 @@ export default function Auth() {
               </button>
               <button type="button" className="btn-link-muted" onClick={() => setIsSignUp(false)}>Back</button>
             </div>
+            {/* Same notice as the welcome screen; styling is Gemini's to match WelcomeNew. */}
+            {roleRedirect && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                onClick={() => setRoleRedirect(null)}
+              >
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="auth-role-redirect-h"
+                  className="w-full max-w-sm space-y-3 rounded-2xl bg-background p-6 text-center shadow-lg"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h2 id="auth-role-redirect-h" className="text-xl font-semibold" aria-live="polite">
+                    Redirecting you in {roleRedirectCount}s
+                  </h2>
+                  <p className="text-sm text-muted-foreground">Taking you to {roleRedirect.label}.</p>
+                  <button type="button" className="btn btn-primary w-full" autoFocus onClick={() => navigate(roleRedirect.to)}>
+                    <span>Go now</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                  <button type="button" className="btn-link-muted" onClick={() => setRoleRedirect(null)}>Back</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

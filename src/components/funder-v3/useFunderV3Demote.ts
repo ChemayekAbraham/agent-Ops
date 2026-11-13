@@ -1,0 +1,31 @@
+import { useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { demoteItems } from '@/lib/fundersBoard';
+import { useFundersBoardCanDemote } from '@/hooks/useFundersBoardCanDemote';
+import type { FunderV3DemoteApi } from './FunderV3HousesScreen';
+
+/**
+ * E59: demote is offered only when funders_board_can_demote() is true for the
+ * caller (the server decides; any error means no controls). After a demote the
+ * board reads ('funder-new' lists, the headline summary, map pins) refresh.
+ */
+export function useFunderV3Demote(userId: string | null | undefined): FunderV3DemoteApi | null {
+  const queryClient = useQueryClient();
+  const canDemote = useFundersBoardCanDemote(userId);
+
+  return useMemo<FunderV3DemoteApi | null>(() => {
+    if (!canDemote) return null;
+    return {
+      submit: async (items, reason, note) => {
+        const result = await demoteItems(items, reason, note);
+        await Promise.all([
+          // Lists, recommendations and the headline (useFunderNewMarketSummary) all live under 'funder-new'.
+          queryClient.invalidateQueries({ queryKey: ['funder-new'] }),
+          queryClient.invalidateQueries({ queryKey: ['empty-house-map-cells'] }),
+          queryClient.invalidateQueries({ queryKey: ['empty-house-map-cells-near'] }),
+        ]);
+        return result;
+      },
+    };
+  }, [canDemote, queryClient]);
+}

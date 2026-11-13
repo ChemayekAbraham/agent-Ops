@@ -45,6 +45,8 @@ import {
   type StaffCompensationHistoryRow,
 } from '@/hr/pay/api/enrollment';
 import { listComponents, type PayComponentRow } from '@/hr/pay/api/config';
+import { listCurrentPayrollExclusions, type PayrollExclusionRow } from '@/hr/pay/api/calculate';
+import { supabase } from '@/hr/api/client';
 import { listAdvances, type AdvanceRow } from '@/hr/pay/api/advances';
 import {
   addCompensation,
@@ -241,9 +243,26 @@ export default function PayrollEnrollment() {
   const [histLoading, setHistLoading] = useState(false);
   const [histError, setHistError] = useState('');
 
+  // Payroll exclusion ("On payroll" switch) state
+  const [exclusionByStaff, setExclusionByStaff] = useState<Map<string, PayrollExclusionRow>>(
+    new Map(),
+  );
+  const [canPrepare, setCanPrepare] = useState(false);
+  const [exclRow, setExclRow] = useState<EnrollmentRow | null>(null);
+  const [exclExclude, setExclExclude] = useState(true);
+  const [exclReason, setExclReason] = useState('');
+  const [exclError, setExclError] = useState('');
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      try {
+        const excl = await listCurrentPayrollExclusions();
+        setExclusionByStaff(new Map(excl.map((e) => [e.staff_id, e])));
+      } catch (exclusionError) {
+        setExclusionByStaff(new Map());
+        toast.error(`Payroll exclusions could not be loaded: ${rawError(exclusionError)}`);
+      }
       const result = await listEnrollment();
       setRows(result.rows);
       setPeriodCode(result.openPeriodCode);
@@ -266,6 +285,19 @@ export default function PayrollEnrollment() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Only a holder of payroll prepare authority may switch someone on or off payroll.
+  // The database enforces this too; this only decides whether the switch is enabled.
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const res = await (supabase.rpc as any)('hr_pay_is_preparer');
+      if (alive) setCanPrepare(res?.data === true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     void listComponents()
@@ -655,6 +687,42 @@ export default function PayrollEnrollment() {
       setStatRow(null);
     } catch (error) {
       setStatError(rawError(error));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openExclusion(row: EnrollmentRow, onPayroll: boolean) {
+    setExclRow(row);
+    setExclExclude(!onPayroll);
+    setExclReason('');
+    setExclError('');
+  }
+
+  async function saveExclusion() {
+    if (!exclRow) return;
+    const reason = exclReason.trim();
+    if (reason.length < 10) {
+      setExclError('The reason must be at least 10 characters.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await (supabase.rpc as any)('hr_pay_set_payroll_exclusion', {
+        _staff_id: exclRow.staffId,
+        _exclude: exclExclude,
+        _reason: reason,
+      });
+      if (res?.error) throw new Error(res.error.message);
+      const out = res?.data as { ok?: boolean; error?: string; message?: string } | null;
+      if (out && out.ok === false) throw new Error(out.error ?? out.message ?? JSON.stringify(out));
+      toast.success(
+        exclExclude ? `${exclRow.name} switched off payroll` : `${exclRow.name} back on payroll`,
+      );
+      await load();
+      setExclRow(null);
+    } catch (error) {
+      setExclError(rawError(error));
     } finally {
       setSaving(false);
     }
@@ -1138,6 +1206,42 @@ export default function PayrollEnrollment() {
                               History
                             </Button>
                           </div>
+                          {(() => {
+                            const excl = exclusionByStaff.get(row.staffId);
+                            return (
+                              <div className="no-print mt-2 max-w-[220px] space-y-1">
+                                {excl ? (
+                                  <span
+                                    className="inline-flex rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive"
+                                    title={excl.reason ?? ''}
+                                  >
+                                    Off payroll
+                                  </span>
+                                ) : null}
+                                {excl?.reason ? (
+                                  <p className="text-[11px] text-muted-foreground">{excl.reason}</p>
+                                ) : null}
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    id={`on-payroll-${row.staffId}`}
+                                    checked={!excl}
+                                    disabled={!canPrepare || saving}
+                                    onCheckedChange={(value) => openExclusion(row, value)}
+                                  />
+                                  <Label
+                                    htmlFor={`on-payroll-${row.staffId}`}
+                                    className="text-[11px]"
+                                  >
+                                    On payroll
+                                  </Label>
+                                </div>
+                                <p className="text-[11px] leading-snug text-muted-foreground">
+                                  Keeps their account and employee role. Advance recovery and
+                                  salary reinvestment pause while off payroll.
+                                </p>
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                       </TableRow>
                         ))}
@@ -1326,6 +1430,55 @@ export default function PayrollEnrollment() {
             <Button onClick={() => void saveIds()} disabled={saving}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={exclRow !== null} onOpenChange={(open) => !open && setExclRow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {exclExclude ? 'Switch off payroll' : 'Put back on payroll'}
+              {exclRow ? ` — ${exclRow.name}` : ''}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              {exclExclude
+                ? 'They will get no payslip on monthly payroll runs until switched back on. '
+                : 'They will get a payslip again from the next calculation of a monthly run. '}
+              Keeps their account and employee role. Advance recovery and salary reinvestment
+              pause while off payroll.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="exclusion-reason">Reason</Label>
+              <Textarea
+                id="exclusion-reason"
+                value={exclReason}
+                onChange={(e) => {
+                  setExclReason(e.target.value);
+                  setExclError('');
+                }}
+                rows={4}
+              />
+              <p className="text-xs text-muted-foreground">
+                Required. Minimum 10 characters. This is the audit record.
+              </p>
+              {exclError ? <p className="text-xs text-destructive">{exclError}</p> : null}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExclRow(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button
+              variant={exclExclude ? 'destructive' : 'default'}
+              onClick={() => void saveExclusion()}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {exclExclude ? 'Switch off payroll' : 'Put back on payroll'}
             </Button>
           </DialogFooter>
         </DialogContent>

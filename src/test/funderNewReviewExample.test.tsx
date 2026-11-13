@@ -3,6 +3,12 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('@/hooks/usePartnerQuoteRate', () => ({
   useOwnNewPortfolioRate: () => ({ rate: 15, isLoading: false }),
 }));
+// The sheet now shows why float is held (co-support, booked houses); those hooks talk to Supabase.
+// This test is about the worked example only, so no client and no holds.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
+vi.mock('@/hooks/useFunderSavedTabs', () => ({
+  useFunderFloatHolds: () => ({ breakdown: null, line: null, tab: null, isLoading: false, error: null }),
+}));
 import { render, screen } from '@testing-library/react';
 import { FunderNewReviewDialog } from '@/components/funder-new/FunderNewSelectionPanel';
 import { supportExampleStepsAt } from '@/lib/supportPlanExample';

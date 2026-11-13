@@ -486,7 +486,7 @@ export function AgentProxyWithdrawalDialog({
                           .filter(([k]) => k !== l.key)
                           .reduce((sum, [, v]) => sum + (v || 0), 0);
                         const cap = Math.max(0, walletBalance - others);
-                        if (raw > cap) toast.warning(`Only ${formatUGX(cap)} of the Returns is left for this number`);
+                        if (raw > cap) toast.warning(`Only ${formatUGX(cap)} of the Rent profit share is left for this number`);
                         return { ...s, [l.key]: Math.min(raw, cap) };
                       });
                     }}
@@ -495,10 +495,10 @@ export function AgentProxyWithdrawalDialog({
                 </div>
               ))}
               <p className="text-[11px] text-muted-foreground">
-                Total {formatUGX(effectiveAmount)} of {formatUGX(walletBalance)} Returns · {formatUGX(Math.max(0, walletBalance - effectiveAmount))} left · each number used must get at least UGX 500. One withdraw request is made per number.
+                Total {formatUGX(effectiveAmount)} of {formatUGX(walletBalance)} Rent profit share · {formatUGX(Math.max(0, walletBalance - effectiveAmount))} left · each number used must get at least UGX 500. One withdraw request is made per number.
               </p>
               {effectiveAmount > walletBalance && (
-                <p className="text-[10px] text-destructive">Total exceeds the Returns available</p>
+                <p className="text-[10px] text-destructive">Total exceeds the Rent profit share available</p>
               )}
             </div>
           ) : (

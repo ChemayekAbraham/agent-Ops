@@ -2,3 +2,9 @@
 # inside a function body changes the md5. Keep these LF on every checkout, whatever core.autocrlf says.
 supabase/rollbacks/*.sql text eol=lf
 supabase/pending/*.sql text eol=lf
+
+# Files that tools write with LF (Vitest snapshots, the sitemap generator). With core.autocrlf=true
+# Windows checks them out as CRLF, so every run showed them as modified with no real change.
+# Keeping them LF in the working copy too stops that line-ending churn.
+*.snap text eol=lf
+public/sitemap*.xml text eol=lf

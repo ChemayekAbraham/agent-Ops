@@ -280,9 +280,9 @@ export function UserProfileDrilldown({ open, onOpenChange, userId, breadcrumbs }
                         </div>
                         <div className="grid grid-cols-2 gap-x-4 mt-2">
                           <Row label="Principal" value={formatUGX(Number(p.investment_amount ?? 0))} />
-                          <Row label="Returns rate" value={p.roi_percentage != null ? `${p.roi_percentage}%` : '—'} />
+                          <Row label="Rent profit share rate" value={p.roi_percentage != null ? `${p.roi_percentage}%` : '—'} />
                           <Row label="Duration" value={p.duration_months ? `${p.duration_months} mo` : '—'} />
-                          <Row label="Returns earned" value={formatUGX(Number(p.total_roi_earned ?? 0))} />
+                          <Row label="Rent profit share earned" value={formatUGX(Number(p.total_roi_earned ?? 0))} />
                           <Row label="Started" value={p.created_at ? format(new Date(p.created_at), 'd MMM yyyy') : '—'} />
                           <Row label="Maturity" value={p.maturity_date ? format(new Date(p.maturity_date), 'd MMM yyyy') : '—'} />
                         </div>

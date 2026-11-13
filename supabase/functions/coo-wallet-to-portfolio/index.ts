@@ -3,6 +3,7 @@ import { buildPartnershipTopupRequest, dispatchTransactionalEmail, resolveManage
 import { rateEmailTarget, rowRateIsPublic, readConfirmedLoginEmails, storedRate } from "../_shared/partnerReturnPolicy.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { withRetry } from "../_shared/rpcRetry.ts";
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,7 +41,7 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
+    const { data: { user }, error: authErr } = await (bearerHasSub(authHeader) ? userClient.auth.getUser() : noUserResult());
     if (authErr || !user) return jsonRes({ error: "Unauthorized" }, 401);
 
     // Verify caller role (COO, manager, super_admin)

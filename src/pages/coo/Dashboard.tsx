@@ -254,8 +254,8 @@ export default function COODashboardPage() {
         return (
           <div className="space-y-3">
             {isMobile && renderBackButton('Overview')}
-            {renderSectionHeader('ROI Return Approvals', TrendingUp)}
-            <p className="text-sm text-muted-foreground -mt-2">Approve partner ROI payouts before they go to CFO for disbursement.</p>
+            {renderSectionHeader('Rent profit share Return Approvals', TrendingUp)}
+            <p className="text-sm text-muted-foreground -mt-2">Approve partner Rent profit share payouts before they go to CFO for disbursement.</p>
             <COOROIApprovals />
             <CancelledProxyWithdrawals />
           </div>

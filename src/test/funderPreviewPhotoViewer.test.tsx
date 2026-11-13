@@ -9,6 +9,18 @@ vi.mock('@/integrations/supabase/client', () => ({
 
 import { FunderPreviewHomeSheet } from '@/components/funder-preview/FunderPreviewHomeSheet';
 
+// Agent Care switch OFF (the default): amounts equal the rent, no query client needed.
+vi.mock('@/hooks/useSelfSupportFeePolicy', () => ({
+  useSelfSupportFeePolicy: () => ({
+    policy: { enabled: false, rate: 0, roundTo: 100 },
+    enabled: false,
+    ratePct: 0,
+    pay: (rent: number) => rent,
+    fee: () => 0,
+    isLoading: false,
+  }),
+}));
+
 const PHOTOS = [
   'https://example.com/room-one.jpg',
   'https://example.com/room-two.jpg',

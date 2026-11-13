@@ -376,7 +376,7 @@ export function InvestmentBreakdownSheet({ open, onOpenChange }: InvestmentBreak
                         {/* Tags */}
                         <div className="px-4 pb-3 flex items-center gap-1.5 flex-wrap">
                           <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-primary/8 text-[9px] font-semibold text-primary">
-                            {entry.roi_percentage}% Returns
+                            {entry.roi_percentage}% Rent profit share
                           </span>
                           <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-muted text-[9px] font-semibold text-muted-foreground capitalize">
                             {entry.roi_mode.replace(/_/g, ' ')}

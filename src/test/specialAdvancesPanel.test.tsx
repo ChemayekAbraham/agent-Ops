@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
+import { kampalaLabel } from '@/lib/kampalaDays';
 
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -21,16 +22,18 @@ const position = (outstanding: number, paid = 0) => ({ total_repayable: 940000, 
 const adv = (id: string, status: string, over: Record<string, unknown> = {}) => ({
   id, reference: `SA-00000${id}`, status, borrower_kind: 'welile_user', borrower_user_id: 'u1', borrower_name: `Borrower ${id}`, external_borrower: null,
   principal: 500000, rate_percent: 28, rate_basis: 'monthly', term_days: 90, frequency: 'monthly', access_fee: 420000, registration_fee: 20000,
-  total_repayable: 940000, instalments: 3, purpose: 'Working capital for verified supplier stock', planned_payout_date: null, payout_date: null,
+  total_repayable: 940000, instalments: 3, paid_out: false, outstanding: 0, outstanding_principal: 0, outstanding_access_fee: 0,
+  scheduled_outstanding: 940000, purpose: 'Working capital for verified supplier stock', planned_payout_date: null, payout_date: null,
   payout_method: null, payout_reference: null, decision_reason: null, created_at: '2026-10-27T08:00:00Z', updated_at: `2026-10-27T08:00:0${id}Z`,
   events: [{ event_type: 'created', from_status: null, to_status: 'pending_approval', actor_id: 'c', actor_name: 'CFO', reason: null, details: null, created_at: '2026-10-27T08:00:00Z' }],
-  position: position(940000), repayments: [], ...over,
+  position: position(940000), repayments: [], topups: [] as Array<{ id: string; principal: number; topup_date: string; reversed_by_correction: string | null }>, ...over,
 });
 const ADVANCES: Record<string, ReturnType<typeof adv>> = {
   '1': adv('1', 'pending_approval'),
   '2': adv('2', 'approved'),
   '3': adv('3', 'approved', { borrower_kind: 'external', borrower_name: 'Acme Supplies Ltd' }),
-  '4': adv('4', 'disbursed', { payout_date: '2026-10-20', payout_method: 'wallet', position: position(740000, 200000) }),
+  '4': adv('4', 'disbursed', { payout_date: '2026-10-20', payout_method: 'wallet', paid_out: true, outstanding: 740000,
+    outstanding_principal: 340000, outstanding_access_fee: 400000, scheduled_outstanding: 740000, position: position(740000, 200000) }),
 };
 
 const renderPanel = () => {
@@ -59,6 +62,24 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Special Advances panel', () => {
+  it('reads recorded top-up principal amounts and dates from the existing statement', async () => {
+    const original = ADVANCES['4'].topups;
+    ADVANCES['4'].topups = [
+      { id: 't1', principal: 125000, topup_date: '2026-11-12', reversed_by_correction: null },
+      { id: 't2', principal: 75000, topup_date: '2026-11-11', reversed_by_correction: 'c1' },
+    ];
+    try {
+      renderPanel();
+      const row = (await screen.findByText('SA-000004')).closest('tr');
+      if (!row) throw new Error('Advance row missing');
+      expect(await within(row).findByText('UGX 125,000')).toBeTruthy();
+      expect(within(row).getByText('UGX 75,000')).toBeTruthy();
+      expect(within(row).getByText(kampalaLabel('2026-11-12'))).toBeTruthy();
+      expect(calls('special_advance_statement')).toContainEqual({ p_id: '4' });
+    } finally {
+      ADVANCES['4'].topups = original;
+    }
+  });
   it('lists agreements and shows the reconciliation status in its tab', async () => {
     renderPanel();
     expect(await screen.findByText('SA-000001')).toBeTruthy();
@@ -67,6 +88,23 @@ describe('Special Advances panel', () => {
     expect(await screen.findByText('Reconciled')).toBeTruthy();
     fireEvent.click(btn('special-advance-new'));
     expect(screen.getByText('record modal open')).toBeTruthy();
+  });
+
+  it('shows Outstanding, Date Issued and Period from the server figures on every row', async () => {
+    renderPanel();
+    expect(screen.getByText('Outstanding')).toBeTruthy();
+    expect(screen.getByText('Date Issued')).toBeTruthy();
+    expect(screen.getByText('Period')).toBeTruthy();
+
+    const paid = (await screen.findByText('SA-000004')).closest('tr')!;
+    expect(within(paid).getByText('UGX 740,000')).toBeTruthy(); // the server's outstanding, not the schedule
+    expect(within(paid).getByText(kampalaLabel('2026-10-20'))).toBeTruthy();
+    expect(within(paid).getByText('90 days')).toBeTruthy();
+    expect(within(paid).getByText('3 monthly instalments')).toBeTruthy();
+
+    const waiting = (await screen.findByText('SA-000001')).closest('tr')!;
+    expect(within(waiting).getAllByText('—')).toHaveLength(3); // no outstanding, repayment status or issue date before payout
+    expect(within(waiting).getByText('90 days')).toBeTruthy();
   });
 
   it('highlights a reconciliation difference', async () => {

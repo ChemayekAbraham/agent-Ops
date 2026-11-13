@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { HandHeart, Sparkles, ChevronRight } from 'lucide-react';
+import { HandHeart, ChevronRight } from 'lucide-react';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import { formatRatePct } from '@/lib/partnerReturnPolicy';
 
@@ -37,18 +37,10 @@ export function SupportModeChooserDialog({
       sub: 'Partner funds a specific empty house',
       body: newRatePct
         ? `Opens the empty house opportunities list. Pick the houses, tag the partner, and show them the ${newRatePct} of rent they earn every month for 12 months.`
-        : 'Opens the empty house opportunities list. Pick the houses, tag the partner, and show them the monthly Returns they earn for 12 months.',
+        : 'Opens the empty house opportunities list. Pick the houses, tag the partner, and show them the monthly Rent profit share they earn for 12 months.',
 
       icon: HandHeart,
       tone: 'border-primary/30 bg-primary/5',
-    },
-    {
-      mode: 'auto',
-      title: 'Auto support tenant',
-      sub: 'Company handles supporting the tenant',
-      body: 'Welile matches the partner to tenants as they come through — nothing to choose now, the desk does the placing.',
-      icon: Sparkles,
-      tone: 'border-emerald-500/30 bg-emerald-500/5',
     },
   ];
 

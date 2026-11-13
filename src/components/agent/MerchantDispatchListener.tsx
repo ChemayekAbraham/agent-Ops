@@ -277,7 +277,7 @@ export function MerchantDispatchListener() {
                 </span>
                 <span className="text-sm font-bold uppercase tracking-wide">
                   {card.kind === 'partner_returns'
-                    ? 'New Partner Returns Payout'
+                    ? 'New Partner Rent profit share Payout'
                     : 'New Withdrawal Request'}
                 </span>
               </div>
@@ -290,7 +290,7 @@ export function MerchantDispatchListener() {
             </div>
             {card.kind === 'partner_returns' && (
               <p className="mt-1 text-[11px] font-medium text-white/90">
-                Proxy-initiated · ROI / Partner Returns delivery
+                Proxy-initiated · Rent profit share / Partner Rent profit share delivery
               </p>
             )}
             {queue.length > 1 && (
@@ -317,7 +317,7 @@ export function MerchantDispatchListener() {
                 </div>
                 <p className="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
                   {(card.payoutMethod || 'cash').replace(/_/g, ' ')} payout
-                  {card.kind === 'partner_returns' ? ' · Partner Returns' : ''}
+                  {card.kind === 'partner_returns' ? ' · Partner Rent profit share' : ''}
                 </p>
 
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm">

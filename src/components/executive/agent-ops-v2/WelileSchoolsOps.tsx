@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import SchoolPartnershipReviewQueue from '@/components/welile-schools/SchoolPartnershipReviewQueue';
+import SchoolFeeRequestReviewQueue from '@/components/welile-schools/SchoolFeeRequestReviewQueue';
 import {
   roleGroup, roleLabel, mapLink, osmLink, locationPath, buildSchoolSignupLink, buildSignupMessage, toIntlDigits, markSignupSent,
   computeGateMovementSummary, formatEatTime,
@@ -177,6 +179,8 @@ function Explorer({ schools, profiles, agents, gateLogs }: { schools: SchoolRow[
   return (
     <Tabs defaultValue="geo">
       <TabsList className="flex-wrap h-auto">
+        <TabsTrigger value="partnerships">Partnerships</TabsTrigger>
+        <TabsTrigger value="fee-requests">Fee requests</TabsTrigger>
         <TabsTrigger value="geo">Schools & locations</TabsTrigger>
         <TabsTrigger value="gate">Gate IN / OUT live log</TabsTrigger>
         <TabsTrigger value="profiles">Every profile</TabsTrigger>
@@ -245,6 +249,8 @@ function Explorer({ schools, profiles, agents, gateLogs }: { schools: SchoolRow[
         )}
       </TabsContent>
 
+      <TabsContent value="partnerships"><SchoolPartnershipReviewQueue /></TabsContent>
+      <TabsContent value="fee-requests"><SchoolFeeRequestReviewQueue /></TabsContent>
       <TabsContent value="gate"><GateLogTable gateLogs={gateLogs} schoolMap={schoolMap} /></TabsContent>
       <TabsContent value="profiles"><ProfileTable profiles={profiles} schoolMap={schoolMap} agents={agents} mode="all" /></TabsContent>
       <TabsContent value="links"><ProfileTable profiles={profiles.filter((p) => p.has_smartphone != null)} schoolMap={schoolMap} agents={agents} mode="links" /></TabsContent>

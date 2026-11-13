@@ -12,6 +12,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { timestampToIso } from '@/lib/timestampSafeFetch';
 
 const anyDb = supabase as any;
 
@@ -64,7 +65,7 @@ async function fetchTenantRisk(rentRequestId: string): Promise<TenantRiskData> {
           .select('id')
           .eq('tenant_id', tenantId)
           .eq('registration_type', 'renewal')
-          .gt('created_at', rr.created_at)
+          .gt('created_at', timestampToIso(rr.created_at))
           .limit(1)
       : Promise.resolve({ data: [] }),
   ]);

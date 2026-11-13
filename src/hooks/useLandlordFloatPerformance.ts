@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 /**
- * The signed-in agent's standing for withdrawing landlord float: their collection rate against the 50% minimum.
+ * The signed-in agent's standing for withdrawing landlord float: their collection rate against the minimum set by the server.
  * Read from get_agent_landlord_float_status(), the same answer the database gate uses, so what the agent is told here is exactly what
  * would happen if they tried. The database still enforces it; this only lets the dialogs say so before the agent starts.
  *
@@ -18,7 +18,10 @@ export interface LandlordFloatPerformance {
   collected: number;
   /** null when nothing is expected from the agent: no minimum applies. */
   ratePct: number | null;
+  /** Amount still needed to reach the bar (server column is still named shortfall_to_50; it is NOT a 50% figure). */
   shortfallTo50: number;
+  /** The target rate from the server (e.g. 20), null if not sent. */
+  requiredPct: number | null;
   meetsMinimum: boolean;
   /** Set when management has allowed this agent to withdraw this week despite being under 50%. */
   exceptionReason: string | null;
@@ -52,6 +55,7 @@ export function useLandlordFloatPerformance() {
         collected: num(r.collected),
         ratePct: r.rate_pct == null ? null : Number(r.rate_pct),
         shortfallTo50: num(r.shortfall_to_50),
+        requiredPct: r.required_pct == null ? null : (Number(r.required_pct) <= 1 ? Number(r.required_pct) * 100 : Number(r.required_pct)),
         meetsMinimum: !!r.meets_minimum,
         exceptionReason: r.exception_reason ?? null,
         canWithdraw: r.can_withdraw !== false,

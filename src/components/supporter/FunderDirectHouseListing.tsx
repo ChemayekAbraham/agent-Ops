@@ -1121,7 +1121,7 @@ export function FunderDirectHouseListing() {
                 : 'Review & lock selection'}
             </Button>
             <p className="text-[9px] text-muted-foreground/80 text-center leading-relaxed">
-              You earn monthly Returns on each house's rent while the tenant repays.
+              You earn monthly Rent profit share on each house's rent while the tenant repays.
             </p>
           </motion.div>
         )}

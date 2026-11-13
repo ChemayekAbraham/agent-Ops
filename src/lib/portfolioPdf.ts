@@ -77,7 +77,7 @@ export function sharePortfolioViaWhatsApp(data: PortfolioPdfData) {
     `📊 *Support Portfolio: ${displayName}*`,
     ``,
     `💰 Capital: ${formatUGX(data.investmentAmount)}`,
-    `📈 Returns Rate: ${data.roiPercentage}% per month`,
+    `📈 Rent profit share Rate: ${data.roiPercentage}% per month`,
     `💵 Monthly Return: ${formatUGX(monthlyROI)}`,
     `📅 Duration: ${data.durationMonths} months`,
     `🔄 Mode: ${data.roiMode === 'monthly_compounding' ? 'Compounding' : 'Monthly Payout'}`,

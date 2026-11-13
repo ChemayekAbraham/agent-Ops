@@ -119,7 +119,7 @@ export function ROIPayoutQueue() {
       return data;
     },
     onSuccess: () => {
-      toast.success('ROI payout approved — wallet credited');
+      toast.success('Rent profit share payout approved — wallet credited');
       setReviewTarget(null);
       invalidate();
     },
@@ -148,7 +148,7 @@ export function ROIPayoutQueue() {
       return data;
     },
     onSuccess: () => {
-      toast.success('ROI payout rejected');
+      toast.success('Rent profit share payout rejected');
       setReviewTarget(null);
       invalidate();
     },
@@ -237,7 +237,7 @@ export function ROIPayoutQueue() {
   if (operations.length === 0) {
     return (
       <div className="rounded-lg border py-6 text-center text-sm text-muted-foreground">
-        No COO-approved ROI payouts waiting for CFO approval.
+        No COO-approved Rent profit share payouts waiting for CFO approval.
       </div>
     );
   }
@@ -294,7 +294,7 @@ export function ROIPayoutQueue() {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          {operations.length} ROI payout{operations.length === 1 ? '' : 's'} ready for CFO approval
+          {operations.length} Rent profit share payout{operations.length === 1 ? '' : 's'} ready for CFO approval
           {selectedOps.length > 0 && (
             <span className="ml-2 normal-case tracking-normal text-primary">
               {selectedOps.length} selected · {formatUGX(bulkTotal)}
@@ -416,7 +416,7 @@ export function ROIPayoutQueue() {
         <SheetContent side="center" className="max-h-[88vh] w-[94vw] sm:max-w-3xl overflow-y-auto rounded-xl p-0">
           <div className="space-y-5 p-5 sm:p-6">
             <SheetHeader>
-              <SheetTitle className="text-xl">Review bulk ROI payment</SheetTitle>
+              <SheetTitle className="text-xl">Review bulk Rent profit share payment</SheetTitle>
               <SheetDescription>Review every selected payout before authorising the payment.</SheetDescription>
             </SheetHeader>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -489,7 +489,7 @@ export function ROIPayoutQueue() {
           {reviewTarget && (
             <div className="space-y-4">
               <SheetHeader>
-                <SheetTitle>ROI payout review</SheetTitle>
+                <SheetTitle>Rent profit share payout review</SheetTitle>
                 <SheetDescription>
                   COO-approved payout for {payeeLabel(reviewTarget)}.
                 </SheetDescription>

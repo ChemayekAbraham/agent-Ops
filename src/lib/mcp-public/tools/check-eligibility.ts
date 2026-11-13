@@ -204,7 +204,7 @@ export default defineTool({
     }
     if (matched === "supporter" && declared.support_amount != null) {
       body.push(
-        `You gave a support amount of ${ugx(declared.support_amount)} (minimum ${ugx(MIN_SUPPORT_AMOUNT)}). Ask for a Supporter Returns illustration to see how that could grow.`,
+        `You gave a support amount of ${ugx(declared.support_amount)} (minimum ${ugx(MIN_SUPPORT_AMOUNT)}). Ask for a Supporter Rent profit share illustration to see how that could grow.`,
       );
     }
 

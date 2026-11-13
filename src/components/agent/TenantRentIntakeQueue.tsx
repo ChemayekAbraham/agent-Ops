@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { formatUGX } from '@/lib/rentCalculations';
 import { matchesVettingQuery } from '@/components/agent/service-center/matchesVettingQuery';
-import AgentRentRequestDialog from '@/components/agent/AgentRentRequestDialog';
+import { openT4RentRequest } from '@/lib/t4RentRequest';
 
 type Row = {
   id: string;
@@ -107,7 +107,6 @@ export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: stri
   const [declineFor, setDeclineFor] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [filter, setFilter] = useState<FilterKey>('new');
-  const [raiseFor, setRaiseFor] = useState<Row | null>(null);
 
   const { rows, isLoading, error } = useTenantRentIntakeQueue();
 
@@ -176,6 +175,21 @@ export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: stri
    * anything extra. A failure here is non-fatal: the rent request itself is
    * already created, only the intake link is missing.
    */
+  /** "Raise rent request" opens the T4 form prefilled from the intake; once sent, the plan is linked to it. */
+  const raiseRequest = (intake: Row) => {
+    openT4RentRequest({
+      mode: 'new',
+      entry: 'tenant-intake-queue',
+      prefill: {
+        tenantId: intake.tenant_id ?? null,
+        tenantName: intake.tenant_name ?? null,
+        tenantPhone: intake.tenant_phone ?? null,
+        rentAmount: Math.round(Number(intake.rent_amount)) || null,
+      },
+      onDone: () => { void linkRaisedRequest(intake); },
+    });
+  };
+
   const linkRaisedRequest = async (intake: Row) => {
     try {
       const { data, error } = await supabase
@@ -350,7 +364,7 @@ export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: stri
                 </Button>
               )}
               {r.status === 'approved' && (
-                <Button size="sm" className="text-[11px]" onClick={() => setRaiseFor(r)}>
+                <Button size="sm" className="text-[11px]" onClick={() => raiseRequest(r)}>
                   <FileText className="mr-1.5 h-3.5 w-3.5" />Raise rent request
                 </Button>
               )}
@@ -393,20 +407,6 @@ export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: stri
         </Card>
       ))}
 
-      {raiseFor && (
-        <AgentRentRequestDialog
-          open={!!raiseFor}
-          onOpenChange={(o) => { if (!o) setRaiseFor(null); }}
-          prefillTenantName={raiseFor.tenant_name ?? undefined}
-          prefillTenantPhone={raiseFor.tenant_phone ?? undefined}
-          prefillRentAmount={String(Math.round(Number(raiseFor.rent_amount)))}
-          onSuccess={() => {
-            const intake = raiseFor;
-            setRaiseFor(null);
-            if (intake) void linkRaisedRequest(intake);
-          }}
-        />
-      )}
     </div>
   );
 }

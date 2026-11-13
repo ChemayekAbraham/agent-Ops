@@ -139,7 +139,7 @@ const PARTNER_OPS_SUGGESTIONS: readonly ZoeSuggestion[] = [
   {
     id: 'pops-overview',
     label: 'Supporter portfolio summary',
-    prompt: 'Show the Partner Ops Supporter portfolio and Returns summary.',
+    prompt: 'Show the Partner Ops Supporter portfolio and Rent profit share summary.',
     category: 'partner_ops',
   },
   {

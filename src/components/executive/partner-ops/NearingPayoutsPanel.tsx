@@ -247,7 +247,7 @@ export function NearingPayoutsPanel() {
             {isLoading ? 'Loading…' : `${filtered.length} portfolio${filtered.length === 1 ? '' : 's'}`}
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Expected returns: <span className="font-bold text-foreground">{formatUGX(kpis.expected)}</span>
+            Expected Rent profit share: <span className="font-bold text-foreground">{formatUGX(kpis.expected)}</span>
             {kpis.arrears > 0 && (
               <>
                 {' · '}Company arrears taken on approval: <span className="font-bold text-amber-700">{formatUGX(kpis.arrears)}</span>

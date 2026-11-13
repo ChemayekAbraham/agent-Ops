@@ -423,7 +423,7 @@ export default function HolisticProfile({ publicMode = false }: Props) {
                 <Stat label="Referrals" value={String(profile.network.referrals)} />
                 <Stat label="Sub-agents" value={String(profile.network.sub_agents)} />
                 {typeof profile.supporter_activity?.earning_returns === 'boolean' && (
-                  <Stat label="Earning Returns" value={profile.supporter_activity.earning_returns ? 'Yes' : 'No'} />
+                  <Stat label="Earning Rent profit share" value={profile.supporter_activity.earning_returns ? 'Yes' : 'No'} />
                 )}
                 {profile.permissions.can_see_pii && profile.network.portfolio_value != null && profile.network.portfolio_value > 0 && (
                   <Stat

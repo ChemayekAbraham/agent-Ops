@@ -176,7 +176,7 @@ export function CorrectionCenterPanel() {
               ))}
             </tbody>
           </table>
-          <p className="mt-2 text-xs text-muted-foreground">Partner Returns impact UGX 0. Rows are different views of the same collections and must not be added together. Commission is exposure only; no recovery is assumed.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Partner Rent profit share impact UGX 0. Rows are different views of the same collections and must not be added together. Commission is exposure only; no recovery is assumed.</p>
         </CardContent>
       </Card>
 

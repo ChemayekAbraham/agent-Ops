@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAgentDailyEligibility } from '@/lib/agentDailyEligibilityBatch';
+import { requireUserSession, useAuthenticatedAudience, isUnauthenticatedRpcError } from '@/hooks/useAuthenticatedPoll';
 
 export const ACTIVE_RENT_STATUSES = [
   'pending', 'agent_verified', 'tenant_ops_approved',
@@ -201,7 +202,10 @@ export type AgentCapacity = {
    * app, or the grant is invisible to the agent it was granted to.
    */
   posting_exempt_today: boolean;
-  /** True iff agent may post a new rent request today. */
+  /**
+   * Always true since E100 (COO decision): agents can always post and move requests.
+   * Kept so older screens read "can post"; nothing may block on the daily or weekly result.
+   */
   can_post_rent_today: boolean;
   /**
    * Number of DISTINCT days in the last 7 (from saved eligibility history)
@@ -315,6 +319,7 @@ export function classifyAgent(
  * Returns a Map keyed by agent_id.
  */
 export function useAgentCapacityMap(agentIds: string[]) {
+  const ready = useAuthenticatedAudience();
   const sortedKey = [...agentIds].sort().join(',');
   const queryClient = useQueryClient();
 
@@ -368,13 +373,15 @@ export function useAgentCapacityMap(agentIds: string[]) {
 
   return useQuery({
     queryKey: ['agent-capacity-map', sortedKey],
-    enabled: agentIds.length > 0,
+    enabled: ready && agentIds.length > 0,
+    retry: (count, error) => !isUnauthenticatedRpcError(error) && count < 2,
     // Short stale window + always refetch on mount/focus so navigating back
     // to any agent panel reflects collections made seconds ago.
     staleTime: 15_000,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     queryFn: async (): Promise<Map<string, AgentCapacity>> => {
+      await requireUserSession();
       if (agentIds.length === 0) return new Map();
       const weekAgoISO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -400,6 +407,7 @@ export function useAgentCapacityMap(agentIds: string[]) {
       // rules together.
       const weeklyByAgent = new Map<string, WeeklyPostingResult>();
       let weeklyEnforced = false;
+      await requireUserSession();
       const { data: weeklyRows, error: weeklyErr } = await (supabase.rpc as any)(
         'get_agent_weekly_posting_eligibility',
         { p_agent_ids: agentIds },
@@ -828,9 +836,11 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // exemption and the good-days unlock. Fails open on a failed read, like
         // the daily check: the trigger still refuses what it should refuse.
         const weekly_posting = weeklyByAgent.get(id) ?? null;
-        const can_post_rent_today = weeklyEnforced
-          ? (weeklyErr || !weekly_posting ? true : weekly_posting.passes)
-          : daily_can_post;
+        // E100 (COO decision): agents can ALWAYS post and move requests. The daily and weekly
+        // results above are kept for ratings and reports only; they never block a post. Below
+        // the 50% collection rule a request still moves but waits at the COO desk.
+        void daily_can_post;
+        const can_post_rent_today = true;
         const daily_rating = classifyDailyRating(daily_gate_count, performance_pct, 1);
         out.set(id, {
           used: exp.used,

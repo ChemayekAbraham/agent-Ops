@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { selfSupportFeeErrorMessage } from '@/lib/selfSupportFeeMessages';
 import type { FunderNewSelectionItem } from '@/components/funder-new/types';
+import { useAuth } from '@/hooks/useAuth';
+import { requireUserSession, useAuthenticatedAudience, isUnauthenticatedRpcError } from '@/hooks/useAuthenticatedPoll';
+import { readFunderOperationalFloat } from './funderOperationalFloat';
 
 /** Server floor for house support (partner_support_houses raises below it). */
 export const HOUSE_MIN_FUNDING = 50_000;
@@ -10,13 +14,31 @@ export const HOUSE_MIN_FUNDING = 50_000;
  * Both support RPCs check this figure, never the withdrawable balance, so the
  * pay step must show the same number the server will enforce.
  */
+/** Operational float the direct-release path spends (funder_float_available). */
+export function useFunderFloatAvailable(userId: string | undefined) {
+  const { user } = useAuth();
+  const ready = useAuthenticatedAudience();
+  return useQuery({
+    queryKey: ['funder-float-available', userId],
+    enabled: ready && !!userId && userId === user?.id,
+    staleTime: 15_000,
+    retry: (count, error) => !isUnauthenticatedRpcError(error) && count < 2,
+    queryFn: async () => {
+      await requireUserSession();
+      if (!userId || userId !== user?.id) throw new Error('Sign in again to continue.');
+      return readFunderOperationalFloat(userId);
+    },
+  });
+}
+
 export function useSupportCapacity(userId: string | undefined, enabled: boolean) {
   return useQuery({
     queryKey: ['funder-preview-support-capacity', userId],
     enabled: !!userId && enabled,
     staleTime: 15_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('funder_support_capacity', { p_user_id: userId! });
+      if (!userId) throw new Error('Sign in again to continue.');
+      const { data, error } = await supabase.rpc('funder_support_capacity', { p_user_id: userId });
       if (error) throw error;
       return Number(data ?? 0);
     },
@@ -41,6 +63,8 @@ export class SupportSubmitError extends Error {
 }
 
 function describeSupportError(raw: string): string {
+  const careMsg = selfSupportFeeErrorMessage(raw);
+  if (careMsg) return careMsg;
   if (raw.includes('AGREEMENT_REQUIRED')) return 'Sign your partnership agreement first, then try again.';
   if (raw.includes('HOUSES_UNAVAILABLE') || raw.includes('BOOKING_NOT_FOUND'))
     return 'Some homes in your plan are no longer available. Remove them and try again.';

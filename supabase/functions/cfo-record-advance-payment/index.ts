@@ -22,6 +22,8 @@
 // the diagnostic survives without creating a financial record.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
+import { advancePaymentErrorBody, statusForPgError } from "./statusForPgError.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,18 +35,6 @@ const json = (body: unknown, status: number) =>
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-
-// Postgres SQLSTATE -> HTTP. Anything unrecognised is a 500.
-function statusForPgError(code?: string): number {
-  switch (code) {
-    case '28000': return 401; // not authenticated
-    case '42501': return 403; // wrong role
-    case '22023': return 400; // bad argument
-    case '0A000': return 422; // unsupported payment method
-    case 'P0002': return 404; // advance not found
-    default:      return 500;
-  }
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -62,7 +52,7 @@ Deno.serve(async (req) => {
     if (!authHeader) return json({ error: 'Missing auth' }, 401);
     const token = authHeader.replace('Bearer ', '');
 
-    const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
+    const { data: userData, error: userErr } = await (bearerHasSub(token) ? adminClient.auth.getUser(token) : noUserResult());
     if (userErr || !userData.user) return json({ error: 'Unauthorized' }, 401);
     recordedBy = userData.user.id;
 
@@ -132,10 +122,7 @@ Deno.serve(async (req) => {
       );
 
       console.error('[cfo-record-advance-payment] rejected:', error.code, error.message);
-      return json(
-        { error: error.message, code: error.code ?? null, recorded: false, rolled_back: true },
-        statusForPgError(error.code),
-      );
+      return json(advancePaymentErrorBody(error), statusForPgError(error.code));
     }
 
     return json({ ...(data as Record<string, unknown>), recorded: true }, 200);

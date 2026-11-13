@@ -51,9 +51,9 @@ function categoryLabel(category: string | null, sourceTable: string | null): str
     p2p_transfer: 'P2P Transfer',
     supporter_rent_fund: 'Portfolio Created',
     partner_funding: 'Partner Funding',
-    roi_wallet_credit: 'ROI Payout',
-    roi_payout: 'ROI Payout',
-    roi_accrual: 'ROI Accrual',
+    roi_wallet_credit: 'Rent profit share payout',
+    roi_payout: 'Rent profit share payout',
+    roi_accrual: 'Rent profit share Accrual',
     angel_pool_contribution: 'Angel Pool Contribution',
     angel_pool_refund: 'Angel Pool Refund',
     portfolio_topup: 'Portfolio Top-up',
@@ -101,7 +101,7 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
               <div>
                 <SheetTitle className="text-lg font-semibold">Financial Hub</SheetTitle>
                 <SheetDescription className="text-xs text-muted-foreground">
-                  Withdrawable, deposits, ROI, and recent activity
+                  Withdrawable, deposits, Rent profit share, and recent activity
                 </SheetDescription>
               </div>
               <Button variant="ghost" size="icon" className="rounded-full" onClick={() => onOpenChange(false)}>

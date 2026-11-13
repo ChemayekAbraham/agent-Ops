@@ -192,7 +192,7 @@ const TOOLS: ToolDoc[] = [
     name: 'get_onboarding_steps',
     title: 'Step-by-step Welile onboarding',
     description:
-      "Returns the numbered onboarding walkthrough for a role — what the user does at each step, what to bring (national ID, house photos, mobile money, transaction ID…), and how long each step typically takes — plus the free role-targeted signup link. Pass a step number to expand a single step.",
+      "Returnsthe numbered onboarding walkthrough for a role — what the user does at each step, what to bring (national ID, house photos, mobile money, transaction ID…), and how long each step typically takes — plus the free role-targeted signup link. Pass a step number to expand a single step.",
     params: [
       {
         name: 'role',
@@ -248,9 +248,9 @@ const TOOLS: ToolDoc[] = [
   },
   {
     name: 'estimate_supporter_returns',
-    title: 'Estimate Supporter Returns (illustrative)',
+    title: 'Estimate Supporter Rent profit share (illustrative)',
     description:
-      'Gives a prospective Supporter an illustrative Returns range in UGX for a support amount over time, from simple (Returns paid out) to compounding (Returns reinvested), plus the free Supporter signup link. An illustration only, not a guarantee — actual rates and terms are shown in the app.',
+      'Gives a prospective Supporter an illustrative Rent profit share range in UGX for a support amount over time, from simple (Rent profit share paid out) to compounding (Rent profit share reinvested), plus the free Supporter signup link. An illustration only, not a guarantee — actual rates and terms are shown in the app.',
     params: [
       {
         name: 'amount',
@@ -267,18 +267,18 @@ const TOOLS: ToolDoc[] = [
       REFERRAL_PARAM,
     ],
     prompts: [
-      'If I support Welile with UGX 1,000,000, what Returns could I expect?',
-      'Show Supporter Returns on UGX 2,000,000 over 12 months.',
-      'Compare paying out Returns versus reinvesting them.',
+      'If I support Welile with UGX 1,000,000, what Rent profit share could I expect?',
+      'Show Supporter Rent profit share on UGX 2,000,000 over 12 months.',
+      'Compare paying out Rent profit share versus reinvesting them.',
     ],
     returns:
-      'Per-horizon monthly Returns, simple and compounding earnings, and totals in UGX, plus the Supporter signup link.',
+      'Per-horizon monthly Rent profit share, simple and compounding earnings, and totals in UGX, plus the Supporter signup link.',
   },
   {
     name: 'find_available_houses',
     title: 'Find available houses',
     description:
-      'Returns a small read-only sample of available Welile house listings by district and/or area, plus the free tenant signup link to view details and apply. Only public, non-sensitive fields are exposed — never the exact address, GPS, landlord, or contact details.',
+      'Returnsa small read-only sample of available Welile house listings by district and/or area, plus the free tenant signup link to view details and apply. Only public, non-sensitive fields are exposed — never the exact address, GPS, landlord, or contact details.',
     params: [
       {
         name: 'district',
@@ -444,7 +444,7 @@ export default function PublicToolsDocs() {
               <h3 className="mb-2 text-sm font-semibold">Every entry in estimates.ranges</h3>
               <pre className="overflow-x-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
 {`{
-  "label": "Returns over 6 months",
+  "label": "Rent profit share over 6 months",
   "metric": "returns",
   "unit": "UGX",              // UGX | UGX_per_day | UGX_per_month | count
   "low": 450000,              // low and high are always both present;
@@ -488,7 +488,7 @@ export default function PublicToolsDocs() {
                 </div>
 
                 <div>
-                  <h3 className="mb-2 text-sm font-semibold">Returns</h3>
+                  <h3 className="mb-2 text-sm font-semibold">Rent profit share</h3>
                   <p className="text-sm text-muted-foreground">{tool.returns}</p>
                 </div>
 
@@ -511,7 +511,7 @@ export default function PublicToolsDocs() {
         </div>
 
         <p className="mt-10 text-xs text-muted-foreground">
-          All amounts are in UGX. Rent-access and Supporter Returns figures are illustrative only — they
+          All amounts are in UGX. Rent-access and Supporter Rent profit share figures are illustrative only — they
           are not an approval or a guarantee. Actual plans, rates, and terms are confirmed in the app after
           signup and verification.
         </p>

@@ -107,7 +107,7 @@ export default function WalletOpsMaintenanceCard() {
           <ShieldAlert className="h-3.5 w-3.5 mt-0.5 text-destructive shrink-0" />
           <span>
             <strong>Blocked while active:</strong> wallet-to-wallet transfers,
-            withdrawals to mobile money / bank, ROI cash-outs, partner
+            withdrawals to mobile money / bank, Rent profit share cash-outs, partner
             wallet moves.
           </span>
         </div>

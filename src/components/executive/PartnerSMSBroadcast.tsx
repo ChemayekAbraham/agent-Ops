@@ -19,7 +19,7 @@ const SMS_SEG = 160;
 const SMS_MAX = 800; // 5 segments
 const TEMPLATES: Array<{ label: string; body: string }> = [
   { label: 'Welcome', body: 'Hello {name}, thanks for partnering with Welile. Your portfolio is active and earning. Reply HELP for support.' },
-  { label: 'Returns ready', body: 'Hi {name}, your monthly returns from Welile are ready in your wallet. Open the app to withdraw. Thank you.' },
+  { label: 'Rent profit share ready', body: 'Hi {name}, your monthly Rent profit share from Welile are ready in your wallet. Open the app to withdraw. Thank you.' },
   { label: 'New opportunity', body: 'Hi {name}, a new Welile portfolio is open for top-up at solid returns. Open the app to view. Reply STOP to opt out.' },
   {
     label: 'Weekend payments notice',
@@ -169,7 +169,7 @@ export function PartnerSMSBroadcast() {
                 id="sms-body"
                 value={message}
                 onChange={(e) => setMessage(e.target.value.slice(0, SMS_MAX))}
-                placeholder="Hi {name}, your monthly returns are ready in your wallet. — WELILE"
+                placeholder="Hi {name}, your monthly Rent profit share are ready in your wallet. — WELILE"
                 rows={6}
                 className="resize-none font-mono text-sm leading-relaxed"
               />

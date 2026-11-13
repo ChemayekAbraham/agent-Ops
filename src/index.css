@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Owner-designed co-support invitation: isolated palette and typography. */
+.co-support-page, .co-support-sheet {
+  --success: 142 72% 29%;
+  --co-support-gradient: linear-gradient(137deg, #9234ea 0%, #7616d0 54%, #4a1da5 100%);
+  --co-support-card-shadow: 0 1px 3px hsl(var(--foreground) / .04), 0 4px 12px -2px hsl(var(--foreground) / .06);
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0;
+}
+.co-support-page h1, .co-support-page h2, .co-support-sheet h2, .co-support-heading {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0;
+}
+.co-support-card { box-shadow: var(--co-support-card-shadow); }
+.co-support-success-card { background: var(--co-support-gradient); color: hsl(var(--primary-foreground)); }
+.co-support-sheet .text-success, .co-support-page .text-success { color: hsl(var(--success)); }
+.co-support-amount { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
 /* Sonner toaster — prevent phantom right gutter on mobile */
 /* Hide the sonner notifications section entirely when no toasts are active.
    It re-appears automatically when a toast is rendered inside it. */
@@ -29,6 +46,7 @@ section[aria-label*="Notifications" i]:empty {
   --board-posted: 217 91% 45%;
   --board-sold: 142 72% 29%;
   --board-waiting: 24 90% 40%;
+  --board-selected: 262 60% 47%;
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
@@ -72,10 +90,11 @@ section[aria-label*="Notifications" i]:empty {
 .board-idle, .board-idle * { cursor: none !important; }
 .board-idle .board-fullscreen { opacity: 0; pointer-events: none; }
 
-/* Today: three huge tiles */
-.board-hero { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--u) * 1.2); }
+/* Four huge tiles (E94): posted · sold · selected, waiting · waiting for funder */
+.board-hero { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: calc(var(--u) * 1.2); }
 .board-posted { --board-tone: var(--board-posted); }
 .board-sold { --board-tone: var(--board-sold); }
+.board-selected { --board-tone: var(--board-selected); }
 .board-waiting { --board-tone: var(--board-waiting); }
 .board-tile {
   display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
@@ -90,9 +109,24 @@ section[aria-label*="Notifications" i]:empty {
 .board-tile:focus-visible { outline: 3px solid hsl(var(--board-tone)); outline-offset: 2px; }
 .board-tile-when { display: block; font-size: clamp(10px, calc(var(--u) * 0.85), 24px); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: hsl(var(--muted-foreground)); }
 .board-tile h2 { font-size: clamp(14px, calc(var(--u) * 1.4), 38px); font-weight: 700; margin-top: 0.15em; color: hsl(var(--board-tone)); }
-.board-hero-count { font-size: clamp(48px, calc(var(--u) * 8), 220px); line-height: 1; font-weight: 800; color: hsl(var(--board-tone)); margin: calc(var(--u) * 0.4) 0 calc(var(--u) * 0.2); }
+/* 6u: four tiles across a 16:9 TV still fit "12,345" */
+.board-hero-count { font-size: clamp(48px, calc(var(--u) * 6), 180px); line-height: 1; font-weight: 800; color: hsl(var(--board-tone)); margin: calc(var(--u) * 0.4) 0 calc(var(--u) * 0.2); }
 .board-hero-money { font-size: clamp(18px, calc(var(--u) * 2.2), 60px); font-weight: 700; }
 .board-tile p { font-size: clamp(12px, calc(var(--u) * 1), 26px); line-height: 1.35; color: hsl(var(--muted-foreground)); margin-top: calc(var(--u) * 0.4); }
+
+/* E97 screen switcher on the funders board: Funders · Pipeline · Ops map, and Auto-rotate */
+.board-display .screen-switch { display: flex; align-items: center; gap: calc(var(--u) * 0.5); flex-wrap: wrap; }
+.board-display .screen-tab, .board-display .screen-rotate {
+  font: inherit; font-size: clamp(14px, calc(var(--u) * 1.2), 32px); font-weight: 700; cursor: pointer;
+  min-height: clamp(40px, calc(var(--u) * 2.8), 76px); padding: 0 calc(var(--u) * 1.3); border-radius: 999px;
+  border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--muted-foreground));
+  display: inline-flex; align-items: center; gap: calc(var(--u) * 0.5);
+}
+.board-display .screen-tab[aria-pressed="true"] { background: hsl(var(--foreground)); border-color: hsl(var(--foreground)); color: hsl(var(--card)); }
+.board-display .screen-rotate[aria-pressed="true"] { border-color: hsl(var(--success)); color: hsl(var(--success)); }
+.board-display .screen-rotate-dot { width: 0.55em; height: 0.55em; border-radius: 50%; border: 2px solid currentColor; }
+.board-display .screen-rotate[aria-pressed="true"] .screen-rotate-dot { background: currentColor; }
+.board-display .screen-tab:focus-visible, .board-display .screen-rotate:focus-visible { outline: 3px solid hsl(var(--info)); outline-offset: 2px; }
 
 /* Period toggle: Today | 7 days | 30 days | 90 days | All time */
 .board-periods { display: flex; flex-wrap: wrap; gap: calc(var(--u) * 0.6); }
@@ -134,7 +168,13 @@ section[aria-label*="Notifications" i]:empty {
 .board-list-ref { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: clamp(12px, calc(var(--u) * 0.9), 24px); color: hsl(var(--muted-foreground)); flex-shrink: 0; }
 .board-list-area { flex: 1; min-width: 0; font-size: clamp(14px, calc(var(--u) * 1.15), 30px); font-weight: 600; overflow-wrap: anywhere; }
 .board-list-rent { flex-shrink: 0; font-size: clamp(15px, calc(var(--u) * 1.25), 32px); font-weight: 750; }
-.board-list-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: clamp(12px, calc(var(--u) * 0.95), 26px); color: hsl(var(--muted-foreground)); }
+.board-list-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: 4px; font-size: clamp(12px, calc(var(--u) * 0.95), 26px); color: hsl(var(--muted-foreground)); }
+/* The tenant's name leads the row; the people under it are small. */
+.board-list-tenant { flex: 1; min-width: 0; font-size: clamp(16px, calc(var(--u) * 1.35), 36px); font-weight: 700; overflow-wrap: anywhere; }
+.board-list-people { display: flex; flex-wrap: wrap; gap: 2px 16px; margin-top: 2px; font-size: clamp(12px, calc(var(--u) * 0.95), 26px); color: hsl(var(--muted-foreground)); }
+.board-list-people b { font-weight: 600; color: hsl(var(--foreground)); }
+.board-sort { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px clamp(16px, calc(var(--u) * 1.4), 36px) 0; }
+.board-sort .board-period { font-size: clamp(12px, calc(var(--u) * 0.95), 26px); padding: 4px calc(var(--u) * 1); }
 .board-list-status { color: hsl(var(--board-tone)); font-weight: 650; }
 @media (min-width: 900px) {
   .board-panel-wrap { align-items: stretch; justify-content: flex-end; }
@@ -151,6 +191,7 @@ section[aria-label*="Notifications" i]:empty {
 .board-number-changed { animation: board-value-pulse 800ms ease-out; }
 @keyframes board-value-pulse { 0%, 25% { background: hsl(var(--warning) / 0.35); } 100% { background: transparent; } }
 
+@media (min-width: 761px) and (max-width: 1100px) { .board-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
   .board-topbar { flex-wrap: wrap; }
   .board-brand { flex-basis: 100%; }
@@ -1868,6 +1909,44 @@ body.a11y-large [aria-expanded] { padding-top: 12px; padding-bottom: 12px; }
   }
 }
 
+/* The screen loader must always turn smoothly. The motion-cutting modes below (save-data,
+   lite-mode, reduce-motion, prefers-reduced-data) shorten every animation to ~0.01ms; with
+   save-data that left this infinite spin running thousands of times a second (a frantic spin),
+   and the others froze it. Restore its own timing in every mode: calm by default, slower when
+   the phone asks for less motion. --uib-offset (set by ThreeBodyLoader from the clock) keeps the
+   spin continuous when one loader screen hands over to the next. */
+html .three-body,
+html.save-data .three-body,
+html.lite-mode .three-body,
+html.reduce-motion .three-body {
+  animation: spin78236 calc(var(--uib-speed) * 2.5) linear var(--uib-offset, 0s) infinite !important;
+}
+html.lite-mode .three-body,
+html.reduce-motion .three-body {
+  --uib-speed: 2.4s;
+}
+html .three-body .three-body__dot:nth-child(1)::after,
+html.save-data .three-body .three-body__dot:nth-child(1)::after,
+html.lite-mode .three-body .three-body__dot:nth-child(1)::after,
+html.reduce-motion .three-body .three-body__dot:nth-child(1)::after {
+  animation: wobble1 var(--uib-speed) ease-in-out calc(var(--uib-offset, 0s) + var(--uib-speed) * -0.3) infinite !important;
+}
+html .three-body .three-body__dot:nth-child(2)::after,
+html.save-data .three-body .three-body__dot:nth-child(2)::after,
+html.lite-mode .three-body .three-body__dot:nth-child(2)::after,
+html.reduce-motion .three-body .three-body__dot:nth-child(2)::after {
+  animation: wobble1 var(--uib-speed) ease-in-out calc(var(--uib-offset, 0s) + var(--uib-speed) * -0.15) infinite !important;
+}
+html .three-body .three-body__dot:nth-child(3)::after,
+html.save-data .three-body .three-body__dot:nth-child(3)::after,
+html.lite-mode .three-body .three-body__dot:nth-child(3)::after,
+html.reduce-motion .three-body .three-body__dot:nth-child(3)::after {
+  animation: wobble2 var(--uib-speed) ease-in-out var(--uib-offset, 0s) infinite !important;
+}
+@media (prefers-reduced-data: reduce) {
+  html .three-body { animation: spin78236 calc(var(--uib-speed) * 2.5) linear var(--uib-offset, 0s) infinite !important; }
+}
+
 /* In-app "Reduce motion" choice (Settings → Accessibility → Motion).
    Mirrors the OS-level prefers-reduced-motion behaviour for users whose
    phone setting says otherwise. */
@@ -2354,6 +2433,22 @@ html.reduce-motion *::after {
 }
 .desk-panel { border-radius: var(--desk-radius-card); }
 .desk-tile { border-radius: var(--desk-radius-tile); }
+/* Sticky group headings on the desk boards: a solid surface (the panel's own
+   colour, never see-through) and a soft bottom shadow, so a card scrolling under
+   one is always hidden behind it, never overlapped by it. Not in a dialog: the
+   Android compositor rules strip sticky inside [role="dialog"]. */
+.desk-root .desk-sticky-head {
+  background: #15111f;
+  box-shadow: 0 8px 10px -8px rgba(0, 0, 0, 0.75);
+  /* Low-density screens drop every shadow (index.css "Reduce paint"); the line stays. */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px 6px 0 0;
+}
+.desk-root[data-desk-theme='light'] .desk-sticky-head {
+  background: #ffffff;
+  box-shadow: 0 8px 10px -8px rgba(23, 20, 43, 0.28);
+  border-bottom-color: #e7e4f0;
+}
 .desk-panel.desk-capsule { border-radius: var(--desk-radius-capsule); }
 /* A panel inside an open Fold card is part of that card: no second glass layer. */
 .desk-fold .desk-panel:not(.desk-capsule) {

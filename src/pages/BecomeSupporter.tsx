@@ -41,7 +41,7 @@ const validateSignIn = (data: { phone: string; password: string }) => {
 
 /** The first benefit quotes the public new-partner rate; with no rate known it states no figure. */
 const benefitsFor = (newRatePct: string | null) => [
-  { icon: TrendingUp, title: newRatePct ? `Partner Returns target ${newRatePct} for new partners, not guaranteed` : 'Partner Returns, not guaranteed', description: 'Illustrative Returns on support you provide' },
+  { icon: TrendingUp, title: newRatePct ? `Partner Rent profit share target ${newRatePct} for new partners, not guaranteed` : 'Partner Rent profit share, not guaranteed', description: 'Illustrative Rent profit share on support you provide' },
   { icon: Wallet, title: 'Flexible Withdrawals', description: 'Access your funds anytime' },
   { icon: Users, title: 'Help Tenants', description: 'Support people with rent payments' },
 ];
@@ -267,16 +267,16 @@ export default function BecomeSupporter() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5">
       <Helmet>
-        <title>Become a Supporter — Earn Returns | Welile</title>
+        <title>Become a Supporter — Earn Rent profit share | Welile</title>
         <meta
           name="description"
-          content="Become a Welile Supporter: fund tenants' rent, earn monthly Returns on your capital, and withdraw flexibly while helping people stay housed in Uganda."
+          content="Become a Welile Supporter: fund tenants' rent, earn monthly Rent profit share on your capital, and withdraw flexibly while helping people stay housed in Uganda."
         />
         <link rel="canonical" href="https://welileapp.com/become-supporter" />
-        <meta property="og:title" content="Become a Welile Supporter — Earn Returns" />
+        <meta property="og:title" content="Become a Welile Supporter — Earn Rent profit share" />
         <meta
           property="og:description"
-          content="Fund tenants' rent and earn monthly Returns while helping people stay housed across Uganda."
+          content="Fund tenants' rent and earn monthly Rent profit share while helping people stay housed across Uganda."
         />
         <meta property="og:url" content="https://welileapp.com/become-supporter" />
       </Helmet>
@@ -316,10 +316,10 @@ export default function BecomeSupporter() {
               <span className="text-sm font-medium text-success">Become a Tenant Supporter</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-black mb-3">
-              Support & Earn <span className="text-success">{newRatePct ? `${newRatePct} Monthly` : 'Monthly Returns'}</span>
+              Support & Earn <span className="text-success">{newRatePct ? `${newRatePct} Monthly` : 'Monthly Rent profit share'}</span>
             </h1>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Help tenants pay their rent while growing your support portfolio with steady Returns
+              Help tenants pay their rent while growing your support portfolio with steady Rent profit share
             </p>
           </div>
 
@@ -382,7 +382,7 @@ export default function BecomeSupporter() {
               <div className="grid grid-cols-3 gap-3 mt-6">
                 <div className="p-4 rounded-xl bg-success/5 border border-success/20 text-center">
                   <p className="text-2xl font-black text-success">{newRatePct ?? '—'}</p>
-                  <p className="text-xs text-muted-foreground">Monthly Returns (new partners)</p>
+                  <p className="text-xs text-muted-foreground">Monthly Rent profit share (new partners)</p>
                 </div>
                 <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
                   <p className="text-2xl font-black text-primary">24/7</p>

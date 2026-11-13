@@ -154,7 +154,7 @@ export function CashflowForecastGraphs() {
             Graphic Cashflow Forecast
           </h1>
           <p className="text-sm text-muted-foreground">
-            Amount versus time for every payout category. Forecasted Returns are captured straight from
+            Amount versus time for every payout category. Forecasted Rent profit share is captured straight from
             the portfolios on the Partner Ops dashboard and projected forward per partner, so they shift
             automatically with Partner Ops inputs and outputs.
           </p>
@@ -369,8 +369,8 @@ export function CashflowForecastGraphs() {
               </div>
 
               <p className="text-[11px] text-muted-foreground">
-                Outflow forecasts project every active portfolio&apos;s monthly Returns cycle forward from its
-                next Returns date up to maturity, so Partner Ops approvals, top-ups, compounding and
+                Outflow forecasts project every active portfolio&apos;s monthly Rent profit share cycle forward from its
+                next Rent profit share date up to maturity, so Partner Ops approvals, top-ups, compounding and
                 withdrawals immediately reshape the curve. Inflow forecasts schedule each funded tenant&apos;s
                 remaining receivable at its daily repayment rate and each unpaused agent advance at its daily
                 installment, so receivable cash is projected day by day until the balance clears. Actual panels
@@ -402,7 +402,7 @@ export function CashflowForecastGraphs() {
 
             {partners.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                No partner Returns fall due inside this window.
+                No partner Rent profit share fall due inside this window.
               </p>
             ) : (
               <div className="overflow-x-auto">
@@ -414,7 +414,7 @@ export function CashflowForecastGraphs() {
                       <th className="py-2 pr-3 font-semibold text-right">Committed</th>
                       <th className="py-2 pr-3 font-semibold">Next payout</th>
                       <th className="py-2 pr-3 font-semibold">Cycles</th>
-                      <th className="py-2 font-semibold text-right">Projected Returns</th>
+                      <th className="py-2 font-semibold text-right">Projected Rent profit share</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -438,7 +438,7 @@ export function CashflowForecastGraphs() {
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-border">
-                      <td className="py-2 pr-3 font-bold" colSpan={5}>Total projected Returns</td>
+                      <td className="py-2 pr-3 font-bold" colSpan={5}>Total projected Rent profit share</td>
                       <td className="py-2 text-right font-mono tabular-nums font-bold">
                         {formatUGX(partners.reduce((s, p) => s + Number(p.projected), 0))}
                       </td>

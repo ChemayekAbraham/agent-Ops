@@ -35,8 +35,8 @@ const PAYOUT_ACTIONS = [
 
 const ACTION_LABEL: Record<string, string> = {
   cfo_direct_credit: CFO_PAYOUT_LABELS.credit,
-  cfo_roi_payout_approved: 'ROI Payout',
-  roi_payout: 'ROI Payout',
+  cfo_roi_payout_approved: 'Rent profit share payout',
+  roi_payout: 'Rent profit share payout',
   rent_payout_approved: 'Rent Payout',
   cfo_batch_payout_processed: 'Batch Payout',
   commission_payout: 'Commission',

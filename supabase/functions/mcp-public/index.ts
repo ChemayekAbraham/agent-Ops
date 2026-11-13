@@ -251,7 +251,7 @@ async function enforceRateLimit(tool) {
 var GUIDED_PROMPTS = [
   "Check my rent access",
   "See agent commissions",
-  "See supporter Returns",
+  "See supporter Rent profit share",
   "Get guaranteed rent as a landlord",
   "Check my Welile Trust Score"
 ];
@@ -272,8 +272,8 @@ var FAQS = [
     tags: ["agent", "earn", "commission", "work", "job"]
   },
   {
-    q: "How can I support tenants and earn Returns?",
-    a: "Become a Supporter: your funds help tenants access rent, and you earn periodic Returns. Rates and terms are shown in the app when you sign up. (Terminology: Supporter, not lender; Returns, not interest.)",
+    q: "How can I support tenants and earn Rent profit share?",
+    a: "Become a Supporter: your funds help tenants access rent, and you earn periodic Rent profit share. Rates and terms are shown in the app when you sign up. (Terminology: Supporter, not lender; Rent profit share, not interest.)",
     tags: ["supporter", "invest", "fund", "returns", "earn"]
   },
   {
@@ -293,7 +293,7 @@ var FAQS = [
   },
   {
     q: "How do I check what I personally qualify for?",
-    a: "Personal figures \u2014 your rent access, wallet balance, commissions, or Returns \u2014 are shown once you create a free account and sign in. Ask 'check my rent access' or 'see agent commissions' to get started, and I'll share the right signup link.",
+    a: "Personal figures \u2014 your rent access, wallet balance, commissions, or Rent profit share \u2014 are shown once you create a free account and sign in. Ask 'check my rent access' or 'see agent commissions' to get started, and I'll share the right signup link.",
     tags: ["check", "qualify", "balance", "personal", "account", "my"]
   },
   {
@@ -327,7 +327,7 @@ A: ${f.a}`).join("\n\n");
     return publicToolResult({
       tool: "how_welile_works",
       kind: "info",
-      summary: term ? `How Welile works \u2014 ${faqs.length} answer${faqs.length === 1 ? "" : "s"} about "${term}". All amounts are in UGX.` : "How Welile works: tenants access rent through a flexible Rent Plan, agents serve them in the field, landlords get guaranteed rent, and Supporters earn Returns. All amounts are in UGX.",
+      summary: term ? `How Welile works \u2014 ${faqs.length} answer${faqs.length === 1 ? "" : "s"} about "${term}". All amounts are in UGX.` : "How Welile works: tenants access rent through a flexible Rent Plan, agents serve them in the field, landlords get guaranteed rent, and Supporters earn Rent profit share. All amounts are in UGX.",
       body: [faqText, "", `Try asking:
 ${GUIDED_PROMPTS.map((p) => `\u2022 ${p}`).join("\n")}`],
       assumptions: [
@@ -340,7 +340,7 @@ ${GUIDED_PROMPTS.map((p) => `\u2022 ${p}`).join("\n")}`],
         guided_prompts: GUIDED_PROMPTS
       },
       disclaimers: [
-        "Personal figures (your rent access, wallet, commissions, or Returns) are only visible after you create a free account and sign in."
+        "Personal figures (your rent access, wallet, commissions, or Rent profit share) are only visible after you create a free account and sign in."
       ],
       next_steps: [
         "Create a free account to see what you personally qualify for.",
@@ -373,11 +373,11 @@ var FEATURES = [
   },
   {
     intent: "supporter_returns",
-    prompt: "See supporter Returns",
+    prompt: "See supporter Rent profit share",
     role: "supporter",
-    headline: "Support tenants and earn Returns",
-    explanation: "As a Supporter your funds help tenants access rent, and you earn periodic Returns in UGX. Rates and terms are shown in the app when you sign up. (Terminology: Supporter, not lender; Returns, not interest.)",
-    next_step: "Create a free Supporter account to view current Returns and start supporting tenants."
+    headline: "Support tenants and earn Rent profit share",
+    explanation: "As a Supporter your funds help tenants access rent, and you earn periodic Rent profit share in UGX. Rates and terms are shown in the app when you sign up. (Terminology: Supporter, not lender; Rent profit share, not interest.)",
+    next_step: "Create a free Supporter account to view current Rent profit share and start supporting tenants."
   },
   {
     intent: "landlord_payouts",
@@ -405,7 +405,7 @@ function matchFeature(intent) {
 var explore_welile_default = defineTool2({
   name: "explore_welile",
   title: "Explore Welile (guided prompts)",
-  description: "Answer a prospective user's read-only question about what Welile can do for them (e.g. 'check my rent access', 'see agent commissions', 'supporter Returns', 'landlord payouts', 'Trust Score') and return a role-targeted free signup link so they can act. No sign-in required. Amounts in UGX. If no intent is given, returns the full list of guided prompts to suggest.",
+  description: "Answer a prospective user's read-only question about what Welile can do for them (e.g. 'check my rent access', 'see agent commissions', 'supporter Rent profit share', 'landlord payouts', 'Trust Score') and return a role-targeted free signup link so they can act. No sign-in required. Amounts in UGX. If no intent is given, returns the full list of guided prompts to suggest.",
   inputSchema: {
     intent: z2.string().describe(
       "The user's goal. One of: rent_access, agent_commissions, supporter_returns, landlord_payouts, trust_score \u2014 or free text like 'check my rent access'. Omit to list all guided prompts."
@@ -739,7 +739,7 @@ var estimate_rent_access_default = defineTool3({
           daily: V360_MODEL_A_EXAMPLE.daily,
           partner_monthly: V360_MODEL_A_EXAMPLE.partnerMonthly,
           partner_12_months: V360_MODEL_A_EXAMPLE.partnerTwelveMonths,
-          note: "Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on."
+          note: "Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). A 360-day plan sets aside 15% for Partner Rent profit share; each partner earns their own Rent profit share rate (new partners: the current new-partner rate), not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on."
         },
         plans: plans.map((p) => ({
           duration_days: p.durationDays,
@@ -801,7 +801,8 @@ function parsePublicPolicy(raw) {
     newContractRate: rate,
     cutoffAt: isoOrNull(o.cutoff_at),
     enabledAt: isoOrNull(o.enabled_at),
-    updatedAt: isoOrNull(o.updated_at)
+    updatedAt: isoOrNull(o.updated_at),
+    noteDueBy: typeof o.note_due_by === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.note_due_by) ? o.note_due_by : null
   };
 }
 
@@ -842,8 +843,8 @@ function project(amount, months, rate) {
 }
 var estimate_supporter_returns_default = defineTool4({
   name: "estimate_supporter_returns",
-  title: "Estimate Supporter Returns (illustrative)",
-  description: "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time. Partner Returns target the monthly rate a new Supporter gets (returned in the result), not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
+  title: "Estimate Supporter Rent profit share (illustrative)",
+  description: "Give a prospective Supporter an ILLUSTRATIVE Rent profit share range in UGX for a chosen support amount over time. Partner Rent profit share target the monthly rate a new Supporter gets (returned in the result), not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Rent profit share, not interest.)",
   inputSchema: {
     amount: z4.number().describe("Amount to support in UGX (e.g. 500000). Illustration only."),
     duration_months: z4.number().describe("Optional horizon in months (1-36). Omit to compare 3/6/12-month options.").optional(),
@@ -897,34 +898,34 @@ var estimate_supporter_returns_default = defineTool4({
       return publicToolResult({
         tool: "estimate_supporter_returns",
         kind: "info",
-        summary: "The current monthly Returns rate for new Supporters is not available right now. Sign up free to see it in the app.",
+        summary: "The current monthly Rent profit share rate for new Supporters is not available right now. Sign up free to see it in the app.",
         estimates: {
-          basis: "No figure: the current monthly Returns rate for new Supporters could not be read right now.",
+          basis: "No figure: the current monthly Rent profit share rate for new Supporters could not be read right now.",
           confidence: "illustrative",
           currency: "UGX",
           ranges: []
         },
         data: { amount: roundedAmount, monthly_reward_rate_pct: null, projections: [] },
         disclaimers: [
-          "Partner Returns are not guaranteed. This is an illustration only.",
+          "Partner Rent profit share is not guaranteed. This is an illustration only.",
           "Actual rates and terms are shown in the app after you create a free account.",
           "Supporter withdrawals require a 90-day notice period."
         ],
         next_steps: [
-          "Create a free Supporter account to view current Returns and start supporting tenants."
+          "Create a free Supporter account to view current Rent profit share and start supporting tenants."
         ],
         links
       });
     }
     const projections = months.map((m) => project(roundedAmount, m, ratePct / 100));
     const lines = projections.map(
-      (p) => `\u2022 ${p.durationMonths} month${p.durationMonths === 1 ? "" : "s"}: Returns of ${ugx(p.simpleEarnings)} (paid out) to ${ugx(p.compoundEarnings)} (reinvested)`
+      (p) => `\u2022 ${p.durationMonths} month${p.durationMonths === 1 ? "" : "s"}: Rent profit share of ${ugx(p.simpleEarnings)} (paid out) to ${ugx(p.compoundEarnings)} (reinvested)`
     ).join("\n");
     const ranges = [];
     for (const p of projections) {
       const period = { unit: "months", value: p.durationMonths };
       ranges.push(
-        spanRange(`Returns over ${p.durationMonths} month${p.durationMonths === 1 ? "" : "s"}`, "returns", p.simpleEarnings, p.compoundEarnings, "UGX", period, {
+        spanRange(`Rent profit share over ${p.durationMonths} month${p.durationMonths === 1 ? "" : "s"}`, "returns", p.simpleEarnings, p.compoundEarnings, "UGX", period, {
           paid_out: p.simpleEarnings,
           reinvested: p.compoundEarnings
         }),
@@ -933,20 +934,20 @@ var estimate_supporter_returns_default = defineTool4({
           paid_out_total: p.simpleTotal,
           reinvested_total: p.compoundTotal
         }),
-        pointRange("Monthly reward (first month)", "monthly_reward", p.monthlyReward, "UGX_per_month", period)
+        pointRange("Monthly Rent profit share (first month)", "monthly_reward", p.monthlyReward, "UGX_per_month", period)
       );
     }
     const allReturns = projections.flatMap((p) => [p.simpleEarnings, p.compoundEarnings]);
     return publicToolResult({
       tool: "estimate_supporter_returns",
       kind: "estimate",
-      summary: `Illustrative Returns for supporting ${ugx(roundedAmount)}: ${ugx(Math.min(...allReturns))}\u2013${ugx(
+      summary: `Illustrative Rent profit share for supporting ${ugx(roundedAmount)}: ${ugx(Math.min(...allReturns))}\u2013${ugx(
         Math.max(...allReturns)
-      )} depending on horizon and whether Returns are paid out or reinvested.`,
+      )} depending on horizon and whether Rent profit share is paid out or reinvested.`,
       body: [lines],
       assumptions: [
-        `Partner Returns target ${ratePct}% a month for a new Supporter, not guaranteed. This illustration uses ${ratePct}% a month on the supported amount.`,
-        "Low end of each range = Returns paid out monthly; high end = Returns reinvested (compounding).",
+        `Partner Rent profit share target ${ratePct}% a month for a new Supporter, not guaranteed. This illustration uses ${ratePct}% a month on the supported amount.`,
+        "Low end of each range = Rent profit share paid out monthly; high end = Rent profit share reinvested (compounding).",
         projections.length > 1 ? `No horizon was given, so ${DEFAULT_DURATIONS2.join("/")}-month options are compared.` : `Horizon of ${projections[0].durationMonths} month${projections[0].durationMonths === 1 ? "" : "s"} as requested.`,
         "Principal is assumed to stay in place for the whole horizon, with no withdrawal."
       ],
@@ -969,12 +970,12 @@ var estimate_supporter_returns_default = defineTool4({
         }))
       },
       disclaimers: [
-        `Partner Returns target ${ratePct}% a month for a new Supporter, not guaranteed. This is an illustration only.`,
+        `Partner Rent profit share target ${ratePct}% a month for a new Supporter, not guaranteed. This is an illustration only.`,
         "Actual rates and terms are shown in the app after you create a free account.",
         "Supporter withdrawals require a 90-day notice period."
       ],
       next_steps: [
-        "Create a free Supporter account to view current Returns and start supporting tenants."
+        "Create a free Supporter account to view current Rent profit share and start supporting tenants."
       ],
       links
     });
@@ -1412,8 +1413,8 @@ var ROLE_GUIDES = {
   supporter: {
     role: "supporter",
     signup_role: "supporter",
-    headline: "Support tenants and earn Returns",
-    who_it_is_for: "Someone with funds they can commit for a period, who wants those funds to help Ugandan tenants access rent and to earn periodic Returns in UGX.",
+    headline: "Support tenants and earn Rent profit share",
+    who_it_is_for: "Someone with funds they can commit for a period, who wants those funds to help Ugandan tenants access rent and to earn periodic Rent profit share in UGX.",
     requirements: [
       ...BASE_REQUIREMENTS,
       {
@@ -1432,7 +1433,7 @@ var ROLE_GUIDES = {
       {
         key: "understand_notice",
         label: "Comfort with the notice period",
-        detail: "Exiting requires a notice period, during which Returns stop accruing. The exact notice and terms are shown in the app before you commit.",
+        detail: "Exiting requires a notice period, during which Rent profit share stop accruing. The exact notice and terms are shown in the app before you commit.",
         verified_in_app: false
       }
     ],
@@ -1454,7 +1455,7 @@ var ROLE_GUIDES = {
       {
         step: 3,
         title: "Review the current terms",
-        what_you_do: "Read the Supporter terms in the app: the current reward rate, the cycle on which Returns are paid, and the notice period for exiting.",
+        what_you_do: "Read the Supporter terms in the app: the current reward rate, the cycle on which Rent profit share is paid, and the notice period for exiting.",
         what_to_bring: [],
         typical_duration: "About 10 minutes"
       },
@@ -1470,15 +1471,15 @@ var ROLE_GUIDES = {
       },
       {
         step: 5,
-        title: "Track your portfolio and Returns",
-        what_you_do: "Watch your portfolio in the app: Returns accrue on the stated cycle, and you choose to take them out or reinvest them.",
+        title: "Track your portfolio and Rent profit share",
+        what_you_do: "Watch your portfolio in the app: Rent profit share accrue on the stated cycle, and you choose to take them out or reinvest them.",
         what_to_bring: [],
-        typical_duration: "Returns accrue on the stated cycle"
+        typical_duration: "Rent profit share accrue on the stated cycle"
       }
     ],
     disclaimers: [
-      "Returns are not a guarantee \u2014 rates and terms are shown in the app and can change.",
-      "Terminology: Supporter, not lender; Returns, not interest."
+      "Rent profit share is not a guarantee \u2014 rates and terms are shown in the app and can change.",
+      "Terminology: Supporter, not lender; Rent profit share, not interest."
     ]
   }
 };
@@ -1641,7 +1642,7 @@ ${guide.who_it_is_for}`,
     }
     if (matched === "supporter" && declared.support_amount != null) {
       body.push(
-        `You gave a support amount of ${ugx(declared.support_amount)} (minimum ${ugx(MIN_SUPPORT_AMOUNT)}). Ask for a Supporter Returns illustration to see how that could grow.`
+        `You gave a support amount of ${ugx(declared.support_amount)} (minimum ${ugx(MIN_SUPPORT_AMOUNT)}). Ask for a Supporter Rent profit share illustration to see how that could grow.`
       );
     }
     const ranges = rangesFor(matched, declared);
@@ -1857,7 +1858,7 @@ var mcp_public_default = defineMcp({
   name: "welile-public-mcp",
   title: "Welile Receipts \u2014 Get Started",
   version: "0.1.0",
-  instructions: "Public information about Welile Receipts for prospective users \u2014 no account required. Use `how_welile_works` for FAQs and a free signup link. Use `explore_welile` to answer read-only 'what can I do' questions and offer guided prompts such as 'Check my rent access', 'See agent commissions', 'See supporter Returns', 'Get guaranteed rent as a landlord', and 'Check my Welile Trust Score' \u2014 each returns a role-targeted signup link that turns the question into an account. Use `check_eligibility` for any 'can I / do I qualify' question (tenant, agent, landlord, Supporter): it returns that role's requirement checklist and, if the user has told you facts like their age, whether they hold a national ID or mobile money, their district, their monthly rent (UGX), the amount they can support (UGX), or how many houses they control, marks each requirement met / not_met / to_confirm \u2014 it is a checklist, never an approval. Use `get_onboarding_steps` for any 'how do I start / what are the steps' question: it returns the numbered walkthrough for that role with what to do, what to bring, and typical timings, and accepts a `step` number to expand one step. Use `estimate_rent_access` when a prospective tenant gives a monthly rent (UGX) to return an indicative daily/total repayment ballpark plus the free tenant signup link \u2014 the figure is illustrative only, not an approval. Use `estimate_supporter_returns` when a prospective Supporter gives an amount (UGX) to return an illustrative Returns range (simple to compounding, at the monthly Returns rate a new Supporter gets today) plus the free Supporter signup link \u2014 an illustration only, not a guarantee. Use `find_available_houses` to return a small read-only sample of available house listings by district/area (public, non-sensitive fields only) plus the free tenant signup link to view details and apply. Personal figures require signing in, so always offer the relevant signup link. Every tool returns the same JSON envelope (summary, assumptions, estimates, data, disclaimers, next_steps, links); always pass on the disclaimers. All amounts are in UGX.",
+  instructions: "Public information about Welile Receipts for prospective users \u2014 no account required. Use `how_welile_works` for FAQs and a free signup link. Use `explore_welile` to answer read-only 'what can I do' questions and offer guided prompts such as 'Check my rent access', 'See agent commissions', 'See supporter Rent profit share', 'Get guaranteed rent as a landlord', and 'Check my Welile Trust Score' \u2014 each returns a role-targeted signup link that turns the question into an account. Use `check_eligibility` for any 'can I / do I qualify' question (tenant, agent, landlord, Supporter): it returns that role's requirement checklist and, if the user has told you facts like their age, whether they hold a national ID or mobile money, their district, their monthly rent (UGX), the amount they can support (UGX), or how many houses they control, marks each requirement met / not_met / to_confirm \u2014 it is a checklist, never an approval. Use `get_onboarding_steps` for any 'how do I start / what are the steps' question: it returns the numbered walkthrough for that role with what to do, what to bring, and typical timings, and accepts a `step` number to expand one step. Use `estimate_rent_access` when a prospective tenant gives a monthly rent (UGX) to return an indicative daily/total repayment ballpark plus the free tenant signup link \u2014 the figure is illustrative only, not an approval. Use `estimate_supporter_returns` when a prospective Supporter gives an amount (UGX) to return an illustrative Rent profit share range (simple to compounding, at the monthly Rent profit share rate a new Supporter gets today) plus the free Supporter signup link \u2014 an illustration only, not a guarantee. Use `find_available_houses` to return a small read-only sample of available house listings by district/area (public, non-sensitive fields only) plus the free tenant signup link to view details and apply. Personal figures require signing in, so always offer the relevant signup link. Every tool returns the same JSON envelope (summary, assumptions, estimates, data, disclaimers, next_steps, links); always pass on the disclaimers. All amounts are in UGX.",
   tools: [
     how_welile_works_default,
     explore_welile_default,

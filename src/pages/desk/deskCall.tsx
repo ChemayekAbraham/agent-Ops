@@ -118,15 +118,21 @@ export function DeskCallButton({
   onEnded,
   disabled,
   autoFocus,
+  startActive,
+  onClosed,
 }: {
   target: DeskCallTarget;
   onEnded?: (answered: boolean) => void;
   disabled?: boolean;
   /** Focus the button on mount — the drawer opened from "Call tenant"/"Call landlord". */
   autoFocus?: boolean;
+  /** Start the call on mount (a "Call tenant" item in a card's ⋯ menu). */
+  startActive?: boolean;
+  /** The finished call was closed. */
+  onClosed?: () => void;
 }) {
   const paused = useHumanCallingPaused();
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState(() => !!startActive && !disabled && !!target.phone);
   const [last, setLast] = useState<{ answered: boolean } | null>(null);
 
   const done = (answered: boolean) => {
@@ -144,6 +150,7 @@ export function DeskCallButton({
             onClick={() => {
               setActive(false);
               setLast(null);
+              onClosed?.();
             }}
             className={`${LABEL} rounded underline underline-offset-2 ${FOCUS}`}
           >
