@@ -6,6 +6,7 @@ import type { BoardScreen } from '@/lib/boardDisplay';
  * display.screens (Funders · Pipeline · Ops map), the one on screen
  * highlighted, and the Auto-rotate toggle beside them. Styled by the screen
  * it sits on: light on the funders board, dark on the ops screens.
+ * useBoardScreenControl gives it its state and handlers.
  */
 export function ScreenSwitcher({
   screens,
@@ -27,10 +28,17 @@ export function ScreenSwitcher({
           {s.label}
         </button>
       ))}
-      <button type="button" className="screen-rotate" aria-pressed={rotate} data-screen-rotate onClick={onRotate}>
-        <span className="screen-rotate-dot" aria-hidden="true" />
-        Auto-rotate
-      </button>
+      <AutoRotateButton rotate={rotate} onRotate={onRotate} />
     </div>
+  );
+}
+
+/** The Auto-rotate toggle on its own (inside ScreenSwitcher, or wherever a host wants it). */
+export function AutoRotateButton({ rotate, onRotate }: { rotate: boolean; onRotate: () => void }) {
+  return (
+    <button type="button" className="screen-rotate" aria-pressed={rotate} data-screen-rotate onClick={onRotate}>
+      <span className="screen-rotate-dot" aria-hidden="true" />
+      Auto-rotate
+    </button>
   );
 }
