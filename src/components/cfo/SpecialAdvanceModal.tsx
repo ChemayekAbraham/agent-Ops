@@ -57,7 +57,7 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
   const [externalReg, setExternalReg] = useState('');
   const [externalOrg, setExternalOrg] = useState('');
   const [amount, setAmount] = useState('');
-  const [ratePreset, setRatePreset] = useState<string | null>(null);
+  const [ratePreset, setRatePreset] = useState<string | null>(CUSTOM);
   const [customBasis, setCustomBasis] = useState<RateBasis | null>(null);
   const [customRate, setCustomRate] = useState('');
   const [frequency, setFrequency] = useState<SpecialAdvanceFrequency>('daily');
@@ -90,7 +90,7 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
     setExternalReg('');
     setExternalOrg('');
     setAmount('');
-    setRatePreset(null);
+    setRatePreset(CUSTOM);
     setCustomBasis(null);
     setCustomRate('');
     setFrequency('daily');
@@ -349,14 +349,6 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
 
             <fieldset>
               <legend className="text-sm font-medium">Agreed access fee rate</legend>
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                {SPECIAL_ADVANCE_RATE_PRESETS.map((p) => (
-                  <Chip key={p.id} id={`special-advance-rate-${p.id}`} active={ratePreset === p.id} onClick={() => setRatePreset(p.id)}>
-                    {rateLabel(p.ratePercent, p.basis)}
-                  </Chip>
-                ))}
-                <Chip id="special-advance-rate-custom" active={isCustomRate} onClick={() => setRatePreset(CUSTOM)}>Custom rate</Chip>
-              </div>
               {isCustomRate && (
                 <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-dashed border-border p-3">
                   <div>
