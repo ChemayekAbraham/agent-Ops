@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import type { FunderNewReadyPlan } from '@/components/funder-new/types';
@@ -98,9 +98,15 @@ describe('funders houses list: header totals are COO/CEO only', { timeout: 20_00
     expect(screen.queryByTestId('board-subline')).toBeNull();
     expect(screen.queryByText(/ready to fund ·/)).toBeNull();
     expect(screen.queryByText(/pending verification$/)).toBeNull();
-    // Group headers stay as they are.
-    expect(document.querySelectorAll('[data-board-group]').length).toBe(3);
+    // Three tabs. Verified opens first and carries its Booked plans; Unverified holds pending verification.
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((t) => t.textContent)).toEqual(['Verified4', 'Unverified1', 'Empty houses0']);
+    expect(document.querySelectorAll('[data-board-group]').length).toBe(2);
     expect(screen.getByRole('region', { name: 'Verified, 3' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Booked, 1' })).toBeTruthy();
+    fireEvent.click(tabs[1]);
+    expect(screen.getByRole('region', { name: 'Pending verification, 1' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Verified, 3' })).toBeNull();
   });
 
   it('COO/CEO view: both totals show', async () => {
