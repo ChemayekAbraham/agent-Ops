@@ -1,3 +1,4 @@
+import { readBoardMap, readStages, type BoardMap, type MapStage } from './boardMap';
 export const BOARD_POLL_MS = 30_000;
 export const BOARD_RETRY_MS = 60_000;
 export const BOARD_STALE_MS = 120_000;
@@ -11,9 +12,15 @@ export type BoardMetric = typeof BOARD_METRICS[number];
 /** The tiles whose figure is "right now", whatever the period. */
 export const BOARD_NOW_METRICS: readonly BoardMetric[] = ['selected', 'waiting'];
 export interface BoardTotal { n: number; ugx: number }
+/** E96: which screen a link shows. 'funders' (the default) is the four-tile board; 'map' the ops command map. */
+export type BoardScreen = 'funders' | 'pipeline' | 'map';
 export interface BoardFeed {
-  generated_at: string; display: { label: string };
+  generated_at: string; display: { label: string; screen: BoardScreen };
   headline: Record<BoardPeriod, Record<BoardMetric, BoardTotal>>;
+  /** Only for a 'map' link: feed.map with feed.stages, whitelisted (boardMap.ts). */
+  map: BoardMap | null;
+  /** Only for a 'pipeline' link (screen 2): feed.stages, whitelisted. Absent on the funders board. */
+  stages?: MapStage[];
 }
 export const BOARD_PERIOD_LABELS: Record<BoardPeriod, string> = { today: 'Today', '7d': '7 days', '30d': '30 days', '90d': '90 days', all: 'All time' };
 /** The list panel closes itself after a minute with no touch, so the room is back on the tiles. */
@@ -61,7 +68,15 @@ export function readBoardFeed(value: unknown): BoardFeed {
       headline[period][metric] = { n: numeric(total?.n), ugx: numeric(total?.ugx) };
     }
   }
-  return { generated_at: raw.generated_at, display: { label: String(raw.display?.label ?? '') }, headline };
+  const s = raw.display?.screen;
+  const screen: BoardScreen = s === 'map' || s === 'pipeline' ? s : 'funders';
+  return {
+    generated_at: raw.generated_at,
+    display: { label: String(raw.display?.label ?? ''), screen },
+    headline,
+    map: screen === 'map' ? readBoardMap(raw.map, raw.stages) : null,
+    ...(screen === 'pipeline' ? { stages: readStages(raw.stages) } : {}),
+  };
 }
 /**
  * The server refuses a link that is not valid, switched off or used off the
