@@ -71139,18 +71139,18 @@ export type Database = {
           agent_reward_status: string
           agent_reward_tx_ref: string | null
           business_category: string | null
-          consenting_relation: string
+          consenting_relation: string | null
           coo_approved_at: string | null
           coo_approved_by: string | null
           coo_review_notes: string | null
           county_name: string | null
           created_at: string
-          district_name: string
+          district_name: string | null
           foot_traffic: string
-          gps_accuracy_meters: number
-          gps_captured_at: string
-          gps_latitude: number
-          gps_longitude: number
+          gps_accuracy_meters: number | null
+          gps_captured_at: string | null
+          gps_latitude: number | null
+          gps_longitude: number | null
           gps_source: string | null
           id: string
           installation_decline_reason: string | null
@@ -71160,24 +71160,27 @@ export type Database = {
           installed_at: string | null
           installer_name: string | null
           nearby_landmarks: string | null
+          nearby_signage_m: number | null
+          nearby_signage_ref: string | null
           operating_hours: string | null
           owner_alt_phone: string | null
-          owner_full_name: string
+          owner_full_name: string | null
           owner_payment_method: string
-          owner_payment_name: string
-          owner_payment_number: string
-          owner_phone: string
+          owner_payment_name: string | null
+          owner_payment_number: string | null
+          owner_phone: string | null
           owner_rent_disbursed_at: string | null
           owner_rent_disbursed_by: string | null
           owner_rent_due_at: string | null
           owner_rent_status: string
           owner_rent_tx_ref: string | null
+          owner_user_id: string | null
           parish_name: string | null
           permission_confirmed: boolean
           photos: Json
           plot_or_landmark: string | null
-          property_name: string
-          property_type: string
+          property_name: string | null
+          property_type: string | null
           proposed_dimensions: string | null
           proposed_surface: string | null
           reference_no: string | null
@@ -71190,11 +71193,14 @@ export type Database = {
           road_visibility: string | null
           status: string
           sub_county_name: string | null
+          submitted_at: string | null
+          terminated_by: string | null
+          termination_reason: string | null
           updated_at: string
           verification_notes: string | null
           verified_at: string | null
           verified_by: string | null
-          village_name: string
+          village_name: string | null
         }
         Insert: {
           accessibility_notes?: string | null
@@ -71207,18 +71213,18 @@ export type Database = {
           agent_reward_status?: string
           agent_reward_tx_ref?: string | null
           business_category?: string | null
-          consenting_relation: string
+          consenting_relation?: string | null
           coo_approved_at?: string | null
           coo_approved_by?: string | null
           coo_review_notes?: string | null
           county_name?: string | null
           created_at?: string
-          district_name: string
+          district_name?: string | null
           foot_traffic?: string
-          gps_accuracy_meters: number
-          gps_captured_at?: string
-          gps_latitude: number
-          gps_longitude: number
+          gps_accuracy_meters?: number | null
+          gps_captured_at?: string | null
+          gps_latitude?: number | null
+          gps_longitude?: number | null
           gps_source?: string | null
           id?: string
           installation_decline_reason?: string | null
@@ -71228,24 +71234,27 @@ export type Database = {
           installed_at?: string | null
           installer_name?: string | null
           nearby_landmarks?: string | null
+          nearby_signage_m?: number | null
+          nearby_signage_ref?: string | null
           operating_hours?: string | null
           owner_alt_phone?: string | null
-          owner_full_name: string
+          owner_full_name?: string | null
           owner_payment_method?: string
-          owner_payment_name: string
-          owner_payment_number: string
-          owner_phone: string
+          owner_payment_name?: string | null
+          owner_payment_number?: string | null
+          owner_phone?: string | null
           owner_rent_disbursed_at?: string | null
           owner_rent_disbursed_by?: string | null
           owner_rent_due_at?: string | null
           owner_rent_status?: string
           owner_rent_tx_ref?: string | null
+          owner_user_id?: string | null
           parish_name?: string | null
           permission_confirmed?: boolean
           photos?: Json
           plot_or_landmark?: string | null
-          property_name: string
-          property_type: string
+          property_name?: string | null
+          property_type?: string | null
           proposed_dimensions?: string | null
           proposed_surface?: string | null
           reference_no?: string | null
@@ -71258,11 +71267,14 @@ export type Database = {
           road_visibility?: string | null
           status?: string
           sub_county_name?: string | null
+          submitted_at?: string | null
+          terminated_by?: string | null
+          termination_reason?: string | null
           updated_at?: string
           verification_notes?: string | null
           verified_at?: string | null
           verified_by?: string | null
-          village_name: string
+          village_name?: string | null
         }
         Update: {
           accessibility_notes?: string | null
@@ -71275,18 +71287,18 @@ export type Database = {
           agent_reward_status?: string
           agent_reward_tx_ref?: string | null
           business_category?: string | null
-          consenting_relation?: string
+          consenting_relation?: string | null
           coo_approved_at?: string | null
           coo_approved_by?: string | null
           coo_review_notes?: string | null
           county_name?: string | null
           created_at?: string
-          district_name?: string
+          district_name?: string | null
           foot_traffic?: string
-          gps_accuracy_meters?: number
-          gps_captured_at?: string
-          gps_latitude?: number
-          gps_longitude?: number
+          gps_accuracy_meters?: number | null
+          gps_captured_at?: string | null
+          gps_latitude?: number | null
+          gps_longitude?: number | null
           gps_source?: string | null
           id?: string
           installation_decline_reason?: string | null
@@ -71296,24 +71308,27 @@ export type Database = {
           installed_at?: string | null
           installer_name?: string | null
           nearby_landmarks?: string | null
+          nearby_signage_m?: number | null
+          nearby_signage_ref?: string | null
           operating_hours?: string | null
           owner_alt_phone?: string | null
-          owner_full_name?: string
+          owner_full_name?: string | null
           owner_payment_method?: string
-          owner_payment_name?: string
-          owner_payment_number?: string
-          owner_phone?: string
+          owner_payment_name?: string | null
+          owner_payment_number?: string | null
+          owner_phone?: string | null
           owner_rent_disbursed_at?: string | null
           owner_rent_disbursed_by?: string | null
           owner_rent_due_at?: string | null
           owner_rent_status?: string
           owner_rent_tx_ref?: string | null
+          owner_user_id?: string | null
           parish_name?: string | null
           permission_confirmed?: boolean
           photos?: Json
           plot_or_landmark?: string | null
-          property_name?: string
-          property_type?: string
+          property_name?: string | null
+          property_type?: string | null
           proposed_dimensions?: string | null
           proposed_surface?: string | null
           reference_no?: string | null
@@ -71326,11 +71341,14 @@ export type Database = {
           road_visibility?: string | null
           status?: string
           sub_county_name?: string | null
+          submitted_at?: string | null
+          terminated_by?: string | null
+          termination_reason?: string | null
           updated_at?: string
           verification_notes?: string | null
           verified_at?: string | null
           verified_by?: string | null
-          village_name?: string
+          village_name?: string | null
         }
         Relationships: []
       }
@@ -81778,15 +81796,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      agent_submit_signage_installation: {
-        Args: {
-          p_installed_at: string
-          p_note?: string
-          p_photo_url: string
-          p_signage_id: string
-        }
-        Returns: Json
-      }
       agent_suspend_subagent: {
         Args: { p_days: number; p_reason: string; p_sub_agent_id: string }
         Returns: Json
@@ -84463,6 +84472,10 @@ export type Database = {
         Args: { p_reason: string; p_request_ids: string[] }
         Returns: Json
       }
+      cfo_return_signage: {
+        Args: { p_reason: string; p_signage_id: string }
+        Returns: Json
+      }
       cfo_s12_audit: {
         Args: { p_collection_id: string }
         Returns: {
@@ -84660,6 +84673,10 @@ export type Database = {
           tin: string
           user_id: string
         }[]
+      }
+      cfo_terminate_signage: {
+        Args: { p_reason: string; p_signage_id: string }
+        Returns: Json
       }
       cfo_transfer_agent_advance: {
         Args: {
@@ -95138,16 +95155,6 @@ export type Database = {
           version_code: string
         }[]
       }
-      my_signage_installations_due: {
-        Args: never
-        Returns: {
-          id: string
-          installation_decline_reason: string
-          installation_started_at: string
-          property_name: string
-          reference_no: string
-        }[]
-      }
       my_staff_loan_eligibility: { Args: never; Returns: Json }
       my_staff_mfa_status: { Args: never; Returns: Json }
       my_withdrawal_pin_status: { Args: never; Returns: Json }
@@ -95419,10 +95426,6 @@ export type Database = {
       ops_case_weekly_digest: { Args: never; Returns: number }
       ops_case_window: { Args: { p_severity: string }; Returns: string }
       ops_cases_sync_sources: { Args: never; Returns: Json }
-      ops_decide_signage_installation: {
-        Args: { p_approve: boolean; p_reason?: string; p_signage_id: string }
-        Returns: Json
-      }
       ops_decide_subagent_tenant_transfer: {
         Args: { p_approve: boolean; p_reason: string; p_transfer_id: string }
         Returns: Json
