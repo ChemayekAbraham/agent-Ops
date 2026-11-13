@@ -4857,8 +4857,12 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
   
   // Step 2 state
   const [selectedPayout, setSelectedPayout] = useState<NearingPayoutPortfolio | null>(null);
-  const [paymentStep, setPaymentStep] = useState<'list' | 'payment-options' | 'split-config'>('list');
+  const [paymentStep, setPaymentStep] = useState<'list' | 'payment-options' | 'split-config' | 'correction'>('list');
   const [checkingManagedStep2, setCheckingManagedStep2] = useState(false);
+  // Correction request for a cycle locked by a misdated payout key: where the Rent profit share
+  // should go, and the reason the COO must see in Rent profit share Return Approvals.
+  const [correctionMode, setCorrectionMode] = useState<'wallet' | 'already_paid'>('wallet');
+  const [correctionReason, setCorrectionReason] = useState('');
   // Hide anyone whose ROI is already credited / pending this cycle so they can't
   // be paid twice. ON by default so the visible count / PDF export match the
   // Nearing-Payout card (which counts every portfolio due today regardless of
@@ -5464,7 +5468,9 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
         );
       }
 
-      toast.success(`${modeLabel}: ${formatUGX(roiAmount)} submitted for COO approval`, { description: `Ref: ${refId}` });
+      toast.success(correctionReason !== undefined
+        ? 'Correction sent to COO Rent profit share Return Approvals'
+        : `${modeLabel}: ${formatUGX(roiAmount)} submitted for COO approval`, { description: `Ref: ${refId}` });
       setCompleted(prev => ({ ...prev, [p.portfolioId]: 'pending' }));
       setPaymentStep('list');
       setSelectedPayout(null);
@@ -5476,40 +5482,54 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
     }
   };
 
+  /** Look up proxy/managed status once per portfolio; both the Pay and correction flows need it. */
+  const ensureManagedInfo = async (p: NearingPayoutPortfolio) => {
+    if (managedInfo[p.portfolioId] !== undefined) return;
+    setCheckingManagedStep2(true);
+    try {
+      // Mirror the server rule (`resolveManagedProxy`): approved + active
+      // only, managed rows first, newest first — a stale non-managed row must
+      // never shadow the live managed link.
+      const { data: proxyRows } = await supabase
+        .from('proxy_agent_assignments')
+        .select('agent_id, is_managed_account, created_at, agent:agent_id(full_name)')
+        .eq('beneficiary_id', p.investorId)
+        .eq('is_active', true)
+        .eq('approval_status', 'approved')
+        .order('is_managed_account', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const proxyData = proxyRows?.[0] ?? null;
+      if (proxyData) {
+        const agentName = (proxyData.agent as any)?.full_name || 'Agent';
+        setManagedInfo(prev => ({ ...prev, [p.portfolioId]: { isManaged: !!proxyData.is_managed_account, agentName, agentId: proxyData.agent_id, hasProxy: true } }));
+      } else {
+        setManagedInfo(prev => ({ ...prev, [p.portfolioId]: null }));
+      }
+    } catch {
+      setManagedInfo(prev => ({ ...prev, [p.portfolioId]: null }));
+    } finally {
+      setCheckingManagedStep2(false);
+    }
+  };
+
   // Handle Pay click — transition to step 2
   const handlePayClick = async (p: NearingPayoutPortfolio) => {
     setSelectedPayout(p);
     setPaymentStep('payment-options');
-    
-    // Check managed status if not already known
-    if (managedInfo[p.portfolioId] === undefined) {
-      setCheckingManagedStep2(true);
-      try {
-        // Mirror the server rule (`resolveManagedProxy`): approved + active
-        // only, managed rows first, newest first — a stale non-managed row must
-        // never shadow the live managed link.
-        const { data: proxyRows } = await supabase
-          .from('proxy_agent_assignments')
-          .select('agent_id, is_managed_account, created_at, agent:agent_id(full_name)')
-          .eq('beneficiary_id', p.investorId)
-          .eq('is_active', true)
-          .eq('approval_status', 'approved')
-          .order('is_managed_account', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(1);
-        const proxyData = proxyRows?.[0] ?? null;
-        if (proxyData) {
-          const agentName = (proxyData.agent as any)?.full_name || 'Agent';
-          setManagedInfo(prev => ({ ...prev, [p.portfolioId]: { isManaged: !!proxyData.is_managed_account, agentName, agentId: proxyData.agent_id, hasProxy: true } }));
-        } else {
-          setManagedInfo(prev => ({ ...prev, [p.portfolioId]: null }));
-        }
-      } catch {
-        setManagedInfo(prev => ({ ...prev, [p.portfolioId]: null }));
-      } finally {
-        setCheckingManagedStep2(false);
-      }
-    }
+    await ensureManagedInfo(p);
+  };
+
+  /**
+   * Open the correction request for a cycle locked only by an earlier payout saved under this
+   * cycle's key. Same payout destination choice as the normal Pay flow, plus the COO's reason.
+   */
+  const openCorrection = async (p: NearingPayoutPortfolio) => {
+    setSelectedPayout(p);
+    setCorrectionMode('wallet');
+    setCorrectionReason('');
+    setPaymentStep('correction');
+    await ensureManagedInfo(p);
   };
 
   // Handle Split click — transition to split-config step
@@ -5802,6 +5822,13 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
   const selectedManaged = selectedPayout ? managedInfo[selectedPayout.portfolioId] : null;
   const selectedReason = selectedPayout ? (reasons[selectedPayout.portfolioId] || '') : '';
   const selectedProcessing = selectedPayout ? processing[selectedPayout.portfolioId] : null;
+  // The misdated payout behind a correction request, for the dialog's read-only note.
+  const selectedMisdatedLabel = selectedPayout?.misdatedPaidOn
+    ? formatDateOnlyForDisplay(selectedPayout.misdatedPaidOn, { month: 'short', day: 'numeric', year: 'numeric' })
+    : 'an earlier date';
+  const selectedMisdatedAmountLabel = Number.isFinite(Number(selectedPayout?.misdatedAmount)) && Number(selectedPayout?.misdatedAmount) > 0
+    ? ` (${formatUGX(Number(selectedPayout?.misdatedAmount))})`
+    : '';
 
   return (
     <>
@@ -5954,6 +5981,13 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                   const isProcessing = processing[p.portfolioId];
                   const isDone = completed[p.portfolioId];
                   const refPreview = `${p.portfolioId.slice(0, 8)}`;
+                  // The earlier payout that was saved under this cycle's key, for the amber note.
+                  const misdatedLabel = p.misdatedPaidOn
+                    ? formatDateOnlyForDisplay(p.misdatedPaidOn, { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'an earlier date';
+                  const misdatedAmountLabel = Number.isFinite(Number(p.misdatedAmount)) && Number(p.misdatedAmount) > 0
+                    ? ` (${formatUGX(Number(p.misdatedAmount))})`
+                    : '';
                   // Labelled payout destination (registered name + number).
                   const destLabel =
                     p.paymentMethod === 'bank_transfer' ? 'Account name'
@@ -6070,16 +6104,37 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                       </div>
                       {/* Audit Reason + Action Buttons */}
                       {p.alreadyProcessedThisCycle && !isDone && (
-                        <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/5 px-3 py-2">
-                          <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                          <p className="text-xs font-medium text-green-700 dark:text-green-300">
-                            {p.processedState === 'pending'
-                              ? 'Rent profit share already in the approval queue for this cycle — cannot pay again.'
-                              : 'Rent profit share already credited this cycle — cannot pay again.'}
-                          </p>
-                        </div>
+                        p.correctionEligible ? (
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+                              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                                Locked by mistake: the payout made on {misdatedLabel}{misdatedAmountLabel} paid the previous cycle but was saved under this one.
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full gap-1.5 border-amber-500/40 text-amber-800 hover:bg-amber-500/10 dark:text-amber-300"
+                              disabled={!!isProcessing}
+                              onClick={() => openCorrection(p)}
+                            >
+                              <AlertTriangle className="h-3 w-3" />
+                              Request correction
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/5 px-3 py-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                            <p className="text-xs font-medium text-green-700 dark:text-green-300">
+                              {p.processedState === 'pending'
+                                ? 'Rent profit share already in the approval queue for this cycle — cannot pay again.'
+                                : 'Rent profit share already credited this cycle — cannot pay again.'}
+                            </p>
+                          </div>
+                        )
                       )}
-                      {p.alreadyProcessedThisCycle && !isDone && p.processedState !== 'pending' && isCfoApprover && (
+                      {p.alreadyProcessedThisCycle && !isDone && p.processedState !== 'pending' && !p.correctionEligible && isCfoApprover && (
                         <Button size="sm" variant="outline" className="w-full" onClick={() => setExtraPayTarget({
                           portfolioId: p.portfolioId, portfolioName: p.portfolioName, partnerName: p.name,
                           nextPayoutDate: p.nextPayoutDate, investmentAmount: p.investmentAmount, roiPercentage: p.roiPercentage,
@@ -6272,6 +6327,143 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                   </div>
                 </div>
               )}
+            </div>
+          </>
+        ) : paymentStep === 'correction' && selectedPayout ? (
+          /* ═══ Step 2b: Correction request — cycle locked by a misdated payout key ═══ */
+          <>
+            <DialogHeader className="p-4 pb-2 sm:p-5 sm:pb-3">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <button
+                  onClick={() => { setPaymentStep('list'); setSelectedPayout(null); }}
+                  className="p-1 -ml-1 rounded-lg hover:bg-muted transition-colors"
+                >
+                  <ArrowUpRight className="h-4 w-4 rotate-[225deg]" />
+                </button>
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                Request correction
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Ask the COO to correct a cycle locked by a payout saved under the wrong month.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="px-4 pb-4 sm:px-5 sm:pb-5 space-y-4">
+              {/* Read-only summary: one cycle's Rent profit share + the mistake it fixes */}
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm">{selectedPayout.name}</p>
+                    <p className="text-xs text-muted-foreground">{selectedPayout.phone || selectedPayout.email || 'No contact'}</p>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px] shrink-0">Correction</Badge>
+                </div>
+                <div className="rounded-lg bg-background p-2">
+                  <p className="text-[10px] text-muted-foreground">Rent profit share Due</p>
+                  <p className="text-xs font-bold tabular-nums text-primary">{formatUGX(selectedRoiAmount)}</p>
+                </div>
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-2">
+                  <p className="text-[10px] font-medium text-amber-800 dark:text-amber-300">
+                    Locked by mistake: the payout made on {selectedMisdatedLabel}{selectedMisdatedAmountLabel} paid the previous cycle but was saved under this one.
+                  </p>
+                </div>
+              </div>
+
+              {/* Payout destination — same choice as the normal Pay flow */}
+              {checkingManagedStep2 ? (
+                <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-xs">Checking account status...</span>
+                </div>
+              ) : selectedManaged?.isManaged ? (
+                <div className="flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 px-3 py-2.5">
+                  <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-primary">Managed Account</p>
+                    <p className="text-[10px] text-primary/70">Funds are routed to proxy agent <strong>{selectedManaged.agentName}</strong>'s wallet for disbursement to the partner. Partner wallet is not credited.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedManaged?.hasProxy && (
+                    <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
+                      <Handshake className="h-4 w-4 text-amber-600 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Linked Proxy Agent</p>
+                        <p className="text-[10px] text-amber-600/80 dark:text-amber-400/70">
+                          <strong>{selectedManaged.agentName}</strong> is assigned as proxy agent for this partner
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs font-medium text-muted-foreground">Select payment method</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      className={cn(
+                        "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all",
+                        "hover:border-primary/50 hover:bg-primary/5",
+                        "focus:outline-none focus:ring-2 focus:ring-primary/30",
+                        correctionMode === 'wallet' && "border-primary bg-primary/5",
+                      )}
+                      disabled={!!selectedProcessing}
+                      onClick={() => setCorrectionMode('wallet')}
+                    >
+                      <Wallet className="h-6 w-6 text-primary" />
+                      <span className="text-xs font-semibold">Pay to Partner Wallet</span>
+                      <span className="text-[10px] text-muted-foreground leading-tight text-center">
+                        {selectedManaged?.hasProxy ? `Lands in partner's wallet (proxy: ${selectedManaged.agentName})` : "Credit partner's digital wallet"}
+                      </span>
+                    </button>
+                    <button
+                      className={cn(
+                        "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all",
+                        "hover:border-primary/50 hover:bg-primary/5",
+                        "focus:outline-none focus:ring-2 focus:ring-primary/30",
+                        correctionMode === 'already_paid' && "border-primary bg-primary/5",
+                      )}
+                      disabled={!!selectedProcessing}
+                      onClick={() => setCorrectionMode('already_paid')}
+                    >
+                      <CheckCircle2 className="h-6 w-6 text-primary" />
+                      <span className="text-xs font-semibold">Cash</span>
+                      <span className="text-[10px] text-muted-foreground leading-tight text-center">Already/to be paid externally</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label htmlFor="correction-reason">Correction reason</Label>
+                <Textarea
+                  id="correction-reason"
+                  value={correctionReason}
+                  onChange={e => setCorrectionReason(e.target.value)}
+                  placeholder="Explain the mistake for the COO — at least 20 characters"
+                  className="min-h-[70px] text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">{correctionReason.trim().length}/20</p>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  disabled={!!selectedProcessing}
+                  onClick={() => { setPaymentStep('list'); setSelectedPayout(null); }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  disabled={!!selectedProcessing || correctionReason.trim().length < 20}
+                  onClick={() => handlePay(
+                    selectedPayout,
+                    correctionReason.trim(),
+                    selectedManaged?.isManaged ? 'wallet' : correctionMode,
+                    { correctionReason: correctionReason.trim() },
+                  )}
+                >
+                  {selectedProcessing === 'pay' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <AlertTriangle className="h-4 w-4 mr-1" />}
+                  Send correction to COO
+                </Button>
+              </DialogFooter>
             </div>
           </>
         ) : paymentStep === 'split-config' && selectedPayout ? (
