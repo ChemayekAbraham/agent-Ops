@@ -26,20 +26,24 @@ export interface AuthoriseReturnOverrideInput {
   cycleDate: string;
   /** The staff member who will request the extra Return. Must not be the authorising CFO. */
   requesterId: string;
+  /** Most the extra Return may pay (whole UGX, above 0, at most twice one cycle's Return). Required by the RPC. */
+  maxAmount: number;
   reason: string;
 }
 
 export function useAuthoriseReturnCycleOverride() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ portfolioId, cycleDate, requesterId, reason }: AuthoriseReturnOverrideInput): Promise<string> => {
+    mutationFn: async ({ portfolioId, cycleDate, requesterId, maxAmount, reason }: AuthoriseReturnOverrideInput): Promise<string> => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(cycleDate)) throw new Error('Choose the cycle date');
       if (!requesterId) throw new Error('Choose who will request the Return');
+      if (!Number.isInteger(maxAmount) || maxAmount <= 0) throw new Error('Enter the maximum amount in whole UGX');
       if (reason.trim().length < RETURN_OVERRIDE_MIN_REASON) {
         throw new Error(`Give a reason of at least ${RETURN_OVERRIDE_MIN_REASON} characters`);
       }
       const { data, error } = await rpc('authorise_return_cycle_override', {
-        p_portfolio_id: portfolioId, p_cycle_date: cycleDate, p_requester: requesterId, p_reason: reason.trim(),
+        p_portfolio_id: portfolioId, p_cycle_date: cycleDate, p_requester: requesterId,
+        p_max_amount: maxAmount, p_reason: reason.trim(),
       });
       if (error) throw error;
       return data as string;
