@@ -20,13 +20,31 @@ import {
   RECORDED_ADVANCE_MARKER,
   repaymentStatusLabel,
 } from '@/lib/specialAdvances';
-import { useSpecialAdvanceList } from '@/hooks/useSpecialAdvances';
+import { useSpecialAdvanceList, useSpecialAdvanceStatement } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceModal } from '@/components/cfo/SpecialAdvanceModal';
 import { SpecialAdvanceDetailSheet } from './SpecialAdvanceDetailSheet';
 import { SpecialAdvanceProvisionsTab } from './SpecialAdvanceProvisionsTab';
 import { SpecialAdvanceReconciliationCard } from './SpecialAdvanceReconciliationCard';
 
 const ALL = '__all__';
+
+function TopUpCell({ advanceId }: { advanceId: string }) {
+  const statement = useSpecialAdvanceStatement(advanceId);
+  if (statement.isLoading) return <span className="text-muted-foreground">Loading...</span>;
+  if (statement.isError) return <span className="text-destructive" title={describeSpecialAdvanceError(statement.error)}>Unavailable</span>;
+  if (!statement.data || statement.data.topups === undefined) return <span className="text-muted-foreground">Unavailable</span>;
+  if (statement.data.topups.length === 0) return <span className="text-muted-foreground">None</span>;
+  return (
+    <ul className="space-y-2">
+      {statement.data.topups.map((topup) => (
+        <li key={topup.id} className={topup.reversed_by_correction ? 'text-muted-foreground' : ''}>
+          <span className={topup.reversed_by_correction ? 'line-through' : ''}>{formatUGX(topup.principal)}</span>
+          <span className="block text-[10px] text-muted-foreground">{kampalaLabel(topup.topup_date)}{topup.reversed_by_correction ? ' · Reversed' : ''}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /**
  * CFO Special Advances: A24/A25 reconciliation,
@@ -106,6 +124,7 @@ export function SpecialAdvancesPanel() {
                     <th className="px-3 py-2 text-left font-medium">Reference</th>
                     <th className="px-3 py-2 text-left font-medium">Recipient</th>
                     <th className="px-3 py-2 text-right font-medium">Principal</th>
+                    <th className="px-3 py-2 text-right font-medium">Top-up</th>
                     <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Total repayable</th>
                     <th className="px-3 py-2 text-right font-medium">Outstanding</th>
                     <th className="px-3 py-2 text-left font-medium">Status</th>
@@ -118,21 +137,21 @@ export function SpecialAdvancesPanel() {
                 <tbody className="divide-y divide-border/50">
                   {list.isLoading && (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={11} className="py-8 text-center text-muted-foreground">
                         Loading...
                       </td>
                     </tr>
                   )}
                   {list.isError && (
                     <tr>
-                      <td colSpan={9} role="alert" className="py-8 text-center text-destructive">
+                      <td colSpan={11} role="alert" className="py-8 text-center text-destructive">
                         {describeSpecialAdvanceError(list.error)}
                       </td>
                     </tr>
                   )}
                   {!list.isLoading && !list.isError && items.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={11} className="py-8 text-center text-muted-foreground">
                         No Special Advances recorded{status ? ' with this status' : ''}.
                       </td>
                     </tr>
@@ -155,6 +174,7 @@ export function SpecialAdvancesPanel() {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatUGX(a.principal)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap"><TopUpCell advanceId={a.id} /></td>
                       <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">
                         {formatUGX(a.total_repayable)}
                       </td>
