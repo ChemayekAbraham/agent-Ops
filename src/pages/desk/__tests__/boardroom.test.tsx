@@ -9,9 +9,22 @@ import { MAP, STAGES_RAW } from '@/lib/boardMap.fixtures';
 
 /** E97: the Command Centre's Boardroom view, fed by boardroom_feed, drawn by the board's own screens. */
 
-const h = vi.hoisted(() => ({ rpc: vi.fn(), mapProps: [] as Record<string, unknown>[] }));
+const h = vi.hoisted(() => ({ rpc: vi.fn(), mapProps: [] as Record<string, unknown>[], signals: [] as unknown[] }));
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { rpc: (...a: unknown[]) => h.rpc(...a), from: vi.fn(), storage: { from: vi.fn() } },
+  supabase: {
+    // The builder: awaitable, with .abortSignal() as supabase-js has it.
+    rpc: (...a: unknown[]) => {
+      const p = Promise.resolve(h.rpc(...a));
+      return Object.assign(p, {
+        abortSignal: (s: unknown) => {
+          h.signals.push(s);
+          return p;
+        },
+      });
+    },
+    from: vi.fn(),
+    storage: { from: vi.fn() },
+  },
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }, roles: ['coo'] }) }));
 // The ops map needs Google Maps; its props are what this view owes it.
@@ -28,7 +41,7 @@ vi.mock('@/pages/board/OpsMapScreen', () => ({
 }));
 
 import { BOARD_ROTATE_MS } from '@/lib/boardDisplay';
-import { BOARDROOM_LIST_MISSING, Boardroom } from '../Boardroom';
+import { Boardroom } from '../Boardroom';
 
 const BOARDROOM_SCREENS = [
   { key: 'funders', label: 'Funders' },
@@ -62,6 +75,7 @@ const wrap = (ui: ReactNode) =>
 beforeEach(() => {
   h.rpc.mockReset();
   h.mapProps = [];
+  h.signals = [];
 });
 afterEach(() => vi.useRealTimers());
 
@@ -128,12 +142,43 @@ describe('Boardroom view', () => {
     expect(pressed('Pipeline')).toBe('true');
   });
 
-  it('a funders tile says plainly that its list is on the TV link, not a made-up empty list', async () => {
-    answerScreens();
+  it('a funders tile lists its requests from boardroom_list (E97b), names included, with the abort signal', async () => {
+    const LIST = {
+      count: 2,
+      ugx: 1300000,
+      shown: 2,
+      rows: [
+        { ref: 'AB12CD34', area: 'Masaka', rent: 600000, posted_at: '2026-11-10T08:00:00Z', tenant: 'Ben Okello', agent: 'Ann Agent', landlord: 'Leo Landlord', funder: 'Faith Funder', selected_at: '2026-11-11T08:00:00Z', otp_verified_at: '2026-11-12T08:00:00Z', money_released_at: '2026-11-11T09:00:00Z' },
+        { ref: 'EF56GH78', area: null, rent: 700000, posted_at: '2026-11-09T08:00:00Z', tenant: 'Tina T', agent: null, landlord: null, funder: null, selected_at: null },
+      ],
+    };
+    h.rpc.mockImplementation((fn: string, args: { p_screen?: string }) =>
+      fn === 'boardroom_feed' ? { data: feedFor(args.p_screen ?? 'funders'), error: null } : fn === 'boardroom_list' ? { data: LIST, error: null } : { data: null, error: null },
+    );
     wrap(<Boardroom onClose={() => {}} />);
     await waitFor(() => expect(document.querySelector('[data-metric="sold"]')).toBeTruthy());
     fireEvent.click(document.querySelector('[data-metric="sold"]')!);
-    expect((await screen.findByRole('alert')).textContent).toBe(BOARDROOM_LIST_MISSING);
+    const panel = await screen.findByRole('dialog', { name: 'Rent requests sold' });
+    await waitFor(() => expect(panel.querySelectorAll('[data-board-row]').length).toBe(2));
+    const call = h.rpc.mock.calls.find((c) => c[0] === 'boardroom_list')!;
+    expect(call[1]).toEqual({ p_period: expect.stringMatching(/^(today|7d|30d|90d|all)$/), p_kind: 'sold' });
+    expect(h.signals.some((s) => s instanceof AbortSignal)).toBe(true);
+    expect(Array.from(panel.querySelectorAll('[data-board-tenant]')).map((e) => e.textContent)).toEqual(['Ben Okello', 'Tina T']);
+    expect(panel.textContent).toContain('Agent: Ann Agent');
+    expect(panel.textContent).toContain('Funder: Faith Funder');
+    expect(panel.textContent).not.toMatch(/no list for them yet/);
+  });
+
+  it('a list refusal is shown in the server’s words', async () => {
+    h.rpc.mockImplementation((fn: string, args: { p_screen?: string }) =>
+      fn === 'boardroom_feed'
+        ? { data: feedFor(args.p_screen ?? 'funders'), error: null }
+        : { data: null, error: { code: '42501', message: 'The boardroom lists are for the COO, CEO, Command Centre and Funders Dashboard desk' } },
+    );
+    wrap(<Boardroom onClose={() => {}} />);
+    await waitFor(() => expect(document.querySelector('[data-metric="posted"]')).toBeTruthy());
+    fireEvent.click(document.querySelector('[data-metric="posted"]')!);
+    expect((await screen.findByRole('alert')).textContent).toBe('The boardroom lists are for the COO, CEO, Command Centre and Funders Dashboard desk');
   });
 
   it('back to the Command Centre from the switcher slot, and from a refusal', async () => {

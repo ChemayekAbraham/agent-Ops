@@ -4,13 +4,17 @@ import {
   BOARD_POLL_MS,
   boardIsStale,
   readBoardFeed,
+  readBoardList,
   readBoardPeriod,
   storeBoardPeriod,
   type BoardFeed,
+  type BoardList,
+  type BoardMetric,
   type BoardPeriod,
   type BoardScreen,
 } from '@/lib/boardDisplay';
 import { FundersScreen, OpsMapScreen, PipelineScreen, useBoardScreenControl, type BoardListLoader } from '@/pages/board';
+import { supabase } from '@/integrations/supabase/client';
 import { rpc } from './reviewApi';
 import { ErrorLine } from './ui';
 
@@ -39,9 +43,22 @@ export function useBoardroomFeed(screen: BoardScreen) {
   });
 }
 
-/** The lists behind the funders tiles are token-only on the server (board_display_list); there is no signed-in one yet. */
-export const BOARDROOM_LIST_MISSING = 'The requests behind this tile open on the boardroom TV link; the Command Centre has no list for them yet.';
-const loadList: BoardListLoader = () => Promise.reject(new Error(BOARDROOM_LIST_MISSING));
+/** Not in the generated types yet; the builder is kept so the list can be cancelled. */
+type ListRpc = (
+  fn: 'boardroom_list',
+  args: { p_period: BoardPeriod; p_kind: BoardMetric },
+) => { abortSignal: (s: AbortSignal) => PromiseLike<{ data: unknown; error: { message: string; code?: string } | null }> };
+
+/**
+ * The requests behind a funders tile (E97b): `boardroom_list`, the signed-in
+ * twin of the TV's board_display_list (count, ugx, shown, rows with names),
+ * read with the TV's own readBoardList. A refusal keeps the server's words.
+ */
+export const loadBoardroomList: BoardListLoader = async (period, kind, signal): Promise<BoardList> => {
+  const { data, error } = await (supabase.rpc as unknown as ListRpc)('boardroom_list', { p_period: period, p_kind: kind }).abortSignal(signal);
+  if (error) throw Object.assign(new Error(error.message), { code: error.code });
+  return readBoardList(data, period, kind);
+};
 
 const asIs = (e: unknown) => String((e as { message?: string } | null)?.message ?? e ?? 'Something went wrong.');
 const storage = () => {
@@ -110,7 +127,7 @@ export function Boardroom({ onClose }: { onClose: () => void }) {
           feed={feed}
           period={period}
           onPeriodChange={setPeriod}
-          loadList={loadList}
+          loadList={loadBoardroomList}
           now={now}
           stale={stale}
           error={errorText ? { text: errorText, fatal: false } : null}
