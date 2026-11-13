@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, ArrowLeft } from 'lucide-react';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
+import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 import { toast } from 'sonner';
 
 interface Props {
@@ -120,8 +121,9 @@ export function StaffRepayAdvanceDialog({ open, onOpenChange, onSuccess }: Props
           notes: notes || null,
         },
       });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if (error || (data as any)?.error) {
+        throw new Error(await extractEdgeFunctionError({ data, error }, 'Failed to record repayment'));
+      }
       toast.success(`Recorded ${formatUGX(parsed)} repayment`);
       onSuccess();
       onOpenChange(false);

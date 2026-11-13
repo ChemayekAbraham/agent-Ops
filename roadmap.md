@@ -1,3 +1,9 @@
+# Direct landlord payment screens
+- [x] Build partner claim, held-plan/proof/status screens using only the direct-pay data layer.
+- [x] Build Landlord Ops infinite review queue and agent receipt recording; preserve server-only decisions.
+- [x] Test mocked flows and unavailable service states; all guards and automatic build pass; all Supabase files and production activation untouched.
+- [ ] Verify production claim and approval after owner activation; blocked on unapplied migrations and external unmanaged sign-in.
+
 # Signage shop-owner cross-check
 - [ ] Add staff-only phone/account/Rent Plan matching and the Agent Ops Shop owners tab.
 - [ ] Test matching, paging, access and existing signage behavior.
@@ -102,6 +108,7 @@
 - [x] Add selected-portfolio rate editing through the existing server approval workflow and active-rate contract rendering.
 - [x] Run focused tests and guards (6 tests passed; all safeguards passed).
 - [ ] Verify an actual authorized rate save; external unmanaged authentication prevents signed-in browser verification.
+- [x] Allow agreement-rate editing before portfolio creation, wait for required CFO approval, and consume the approved rate atomically on countersign; matching PDF terms are rechecked before funding. UI/database regression tests and financial guards passed; real signed-in verification remains unavailable with external unmanaged authentication.
 
 # Funders Houses to fund switch
 - [x] Fix obsolete test imports after the restored discovery change.
@@ -141,3 +148,14 @@
 - [x] Requisition receipt columns: pending draft updated (helper grants for authenticated, MFA policy check).
 - [ ] Apply receipt columns migration; waiting on Josh/Benjamin go-ahead.
 - [x] Publish so browsers load the login telemetry fix.
+- [x] Special Advances table: overflow menu with Record Repayment, Top up, Reverse
+- [x] Alpha Ssema only: pay assigned landlords himself from Landlord Float (code + location kept), record TID/receipt, no merchant queue, wallet untouched
+- [x] Funder Saved Items: Co-support/Bookmarked/Booked pills + float-hold line on Support screen (UI only, sync 89c304d876)
+
+## Error-watch fixes (frontend only)
+- [ ] wallet_transactions.user_id: not in this app code (blocked: caller unknown); profiles referred_by fixed
+- [x] resolve_short_link already .maybeSingle()
+- [ ] escape search regex input (blocked: source not found in logs)
+- [x] nexa_learned_knowledge browser call removed; houses not queried by app
+- [x] avatar fallback + failure cache already in place
+- [ ] investor_portfolios 400 (blocked: no failing request in logs)

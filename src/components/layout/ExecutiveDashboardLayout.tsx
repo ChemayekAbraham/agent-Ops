@@ -35,6 +35,12 @@ interface ExecutiveDashboardLayoutProps {
   pulseBadgeIds?: string[];
   /** Optional extra actions rendered in the top bar (e.g. a notification bell). */
   headerActions?: ReactNode;
+  /**
+   * Let the page's content area grow to the bottom of the viewport. Off by
+   * default: only pages that pass it get the taller content frame, so every
+   * other executive dashboard renders exactly as before.
+   */
+  fillHeight?: boolean;
 }
 
 export default function ExecutiveDashboardLayout({
@@ -45,6 +51,7 @@ export default function ExecutiveDashboardLayout({
   badges,
   pulseBadgeIds,
   headerActions,
+  fillHeight = false,
 }: ExecutiveDashboardLayoutProps) {
   const { user, roles, signOut, switchRole, addRole } = useAuth();
   const { hasPermission } = useStaffPermissions();
@@ -571,16 +578,41 @@ export default function ExecutiveDashboardLayout({
 
         {/* Main Content */}
         <main className="flex-1 min-w-0 p-2 sm:p-4 lg:p-6 max-w-7xl mx-auto w-full overflow-y-auto overflow-x-hidden bg-muted/20">
-          <V360StaffPricingBanner />
-          {activeTab !== 'mission-goals' && (
-            <MissionBanner dashboardRole={role} className="mb-4" />
-          )}
-          {activeTab === 'my-work' ? (
-            <Suspense fallback={null}>
-              <MyWork embedded />
-            </Suspense>
+          {fillHeight ? (
+            /* fillHeight: one column that is at least as tall as the viewport,
+               so the page body below the banners can grow to the bottom edge
+               instead of leaving empty background under a short section. */
+            <div className="flex min-h-full flex-col">
+              <div className="shrink-0">
+                <V360StaffPricingBanner />
+                {activeTab !== 'mission-goals' && (
+                  <MissionBanner dashboardRole={role} className="mb-4" />
+                )}
+              </div>
+              <div className="flex flex-1 flex-col">
+                {activeTab === 'my-work' ? (
+                  <Suspense fallback={null}>
+                    <MyWork embedded />
+                  </Suspense>
+                ) : (
+                  children
+                )}
+              </div>
+            </div>
           ) : (
-            children
+            <>
+              <V360StaffPricingBanner />
+              {activeTab !== 'mission-goals' && (
+                <MissionBanner dashboardRole={role} className="mb-4" />
+              )}
+              {activeTab === 'my-work' ? (
+                <Suspense fallback={null}>
+                  <MyWork embedded />
+                </Suspense>
+              ) : (
+                children
+              )}
+            </>
           )}
         </main>
       </div>

@@ -47,6 +47,7 @@ import {
   tenantRequestMissing,
   type TenantItemKey,
 } from '@/lib/tenantSelfRequest';
+import { createSendTimer } from '@/lib/sendProgress';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { NationalIdConsentDialog } from '@/components/shared/NationalIdConsentDialog';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
@@ -100,8 +101,16 @@ const EARNERS = [
   },
 ] as const;
 
-/** What the submit button says while it works, in order. */
-const SUBMIT_PHASES = ['Submitting…', 'Sending your request…', 'Uploading your photos…', 'Almost done…'] as const;
+/**
+ * What the submit button says while it works, from the real step: the photos travel with
+ * the request in one call, then the details are saved.
+ */
+type SubmitStage = { stage: 'uploading'; photos: number } | { stage: 'saving' } | { stage: 'sent' };
+const submitStageLabel = (s: SubmitStage | null): string =>
+  !s ? 'Submitting…'
+    : s.stage === 'uploading' ? (s.photos > 0 ? `Uploading ${s.photos} photo${s.photos === 1 ? '' : 's'}…` : 'Sending your request…')
+      : s.stage === 'saving' ? 'Saving…'
+        : 'Sent ✓';
 
 /** Welile support, shown behind the header Help button. */
 const SUPPORT_EMAIL = 'info@welile.com';
@@ -252,8 +261,8 @@ export default function TenantsOnboarding() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [addLandlordOpen, setAddLandlordOpen] = useState(false);
   const [declared, setDeclared] = useState(false);
-  /* Which reassurance line the submit button is showing. */
-  const [submitPhase, setSubmitPhase] = useState(0);
+  /* Which step the submit button is showing. */
+  const [submitStage, setSubmitStage] = useState<SubmitStage | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   /* Step 5 */
@@ -288,14 +297,6 @@ export default function TenantsOnboarding() {
     })();
   }, [user, routeLocation.search]);
 
-  /* Walk the submit button through its reassurance lines. Submission uploads
-     several photos over a Ugandan mobile connection and can genuinely take a
-     while; a frozen spinner reads as a hang. */
-  useEffect(() => {
-    if (!submitting) { setSubmitPhase(0); return; }
-    const t = setInterval(() => setSubmitPhase((n) => Math.min(n + 1, SUBMIT_PHASES.length - 1)), 2600);
-    return () => clearInterval(t);
-  }, [submitting]);
 
   /* ---------------------------------------------------------- draft save ---
      The form is six steps long and is filled on a phone, often on a bad
@@ -609,16 +610,23 @@ export default function TenantsOnboarding() {
       setConsentSubmitting(true);
       setConsentErrorMessage(null);
     }
+    const timer = createSendTimer('tenant request');
+    let outcome: 'ok' | 'failed' = 'failed';
     try {
-      const [tenantB64, housesB64] = await Promise.all([
+      // Every photo is read side by side; they travel with the request in one call.
+      const [tenantB64, housesB64, idB64, idBackB64, lcLetterB64] = await timer.step('read photos', Promise.all([
         tenantPhoto ? toDataUrl(tenantPhoto.file) : Promise.resolve(null),
         Promise.all(housePhotos.map((p) => toDataUrl(p.file))),
-      ]);
-      const idB64 = idPhoto ? await toDataUrl(idPhoto.file) : null;
-      const idBackB64 = idPhotoBack ? await toDataUrl(idPhotoBack.file) : null;
-      const lcLetterB64 = lcLetter ? await toDataUrl(lcLetter.file) : null;
+        idPhoto ? toDataUrl(idPhoto.file) : Promise.resolve(null),
+        idPhotoBack ? toDataUrl(idPhotoBack.file) : Promise.resolve(null),
+        lcLetter ? toDataUrl(lcLetter.file) : Promise.resolve(null),
+      ]));
+      setSubmitStage({
+        stage: 'uploading',
+        photos: [tenantB64, idB64, idBackB64, lcLetterB64].filter(Boolean).length + housesB64.length,
+      });
 
-      const { data, error } = await supabase.functions.invoke('tenant-self-onboarding', {
+      const { data, error } = await timer.step('tenant-self-onboarding', supabase.functions.invoke('tenant-self-onboarding', {
         body: {
           action: 'submit',
           full_name: `${firstName.trim()} ${lastName.trim()}`,
@@ -659,7 +667,7 @@ export default function TenantsOnboarding() {
           ...(consentParams?.consent_declaration_id ? { consent_declaration_id: consentParams.consent_declaration_id } : {}),
           ...(consentParams?.consent_code ? { consent_code: consentParams.consent_code } : {}),
         },
-      });
+      }));
 
       let parsedBody: Record<string, unknown> | null = null;
       if (error?.context) {
@@ -714,16 +722,19 @@ export default function TenantsOnboarding() {
       setConsentModalOpen(false);
       const requestId = String(dataObj?.rent_request_id || '');
       // The intake Agent Ops checks. The request is kept even if this fails; its message is shown as-is.
+      setSubmitStage({ stage: 'saving' });
       const intake = requestId
-        ? await saveTenantIntake(requestId, {
+        ? await timer.step('intake', saveTenantIntake(requestId, {
             familySize: parseFamilySize(familySize),
             workBusiness: occupation,
             workLocation,
             lc1Contact: lc1?.name?.trim() && lc1?.phone ? `${lc1.name.trim()}, ${lc1.phone}` : null,
             lcLetterBucket: typeof dataObj?.lc_letter_bucket === 'string' ? dataObj.lc_letter_bucket : null,
             lcLetterPath: typeof dataObj?.lc_letter_path === 'string' ? dataObj.lc_letter_path : null,
-          })
+          }))
         : { ok: false, message: 'The request was created but no reference came back. Contact Welile support.' };
+      outcome = 'ok';
+      setSubmitStage({ stage: 'sent' });
       setSubmitted({ id: requestId, intakeError: intake.ok ? null : intake.message });
       /* The draft has served its purpose — drop it so a returning tenant does
          not reopen a stale copy of a request they already sent. */
@@ -740,8 +751,10 @@ export default function TenantsOnboarding() {
       toast.error('Could not submit your request', { description: msg, duration: 8000 });
       setSubmitError(msg);
     } finally {
+      timer.finish(outcome);
       setSubmitting(false);
       setConsentSubmitting(false);
+      if (outcome !== 'ok') setSubmitStage(null);
     }
   };
 
@@ -1937,9 +1950,9 @@ export default function TenantsOnboarding() {
                       inline-block wrapper, which is sized by its own content —
                       it can never collapse the label to zero height. */}
                   <span className="inline-block overflow-hidden align-middle">
-                    <span key={submitting ? submitPhase : -1} className="inline-block animate-submit-rise">
+                    <span key={submitting ? (submitStage?.stage ?? 'start') : 'idle'} className="inline-block animate-submit-rise">
                       {submitting
-                        ? SUBMIT_PHASES[submitPhase]
+                        ? submitStageLabel(submitStage)
                         : user
                           ? 'Submit rent request'
                           : creatingAccount

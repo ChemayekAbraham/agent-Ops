@@ -1,22 +1,50 @@
 import { useState } from 'react';
-import { Plus, Scale, Clock, Sparkles, Eye } from 'lucide-react';
+import { Plus, Scale, Clock, Sparkles, MoreHorizontal, Wallet, PlusCircle, RotateCcw, Pencil } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import type { SpecialAdvanceSheetAction } from './SpecialAdvanceDetailSheet';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
+import { kampalaLabel } from '@/lib/kampalaDays';
 import {
   STATUS_LABEL,
   describeSpecialAdvanceError,
   type SpecialAdvanceStatus,
+  RECORDED_ADVANCE_MARKER,
+  repaymentStatusLabel,
 } from '@/lib/specialAdvances';
-import { useSpecialAdvanceList } from '@/hooks/useSpecialAdvances';
+import { useSpecialAdvanceList, useSpecialAdvanceStatement } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceModal } from '@/components/cfo/SpecialAdvanceModal';
 import { SpecialAdvanceDetailSheet } from './SpecialAdvanceDetailSheet';
 import { SpecialAdvanceProvisionsTab } from './SpecialAdvanceProvisionsTab';
 import { SpecialAdvanceReconciliationCard } from './SpecialAdvanceReconciliationCard';
 
 const ALL = '__all__';
+
+function TopUpCell({ advanceId }: { advanceId: string }) {
+  const statement = useSpecialAdvanceStatement(advanceId);
+  if (statement.isLoading) return <span className="text-muted-foreground">Loading...</span>;
+  if (statement.isError) return <span className="text-destructive" title={describeSpecialAdvanceError(statement.error)}>Unavailable</span>;
+  if (!statement.data || statement.data.topups === undefined) return <span className="text-muted-foreground">Unavailable</span>;
+  if (statement.data.topups.length === 0) return <span className="text-muted-foreground">None</span>;
+  return (
+    <ul className="space-y-2">
+      {statement.data.topups.map((topup) => (
+        <li key={topup.id} className={topup.reversed_by_correction ? 'text-muted-foreground' : ''}>
+          <span className={topup.reversed_by_correction ? 'line-through' : ''}>{formatUGX(topup.principal)}</span>
+          <span className="block text-[10px] text-muted-foreground">{kampalaLabel(topup.topup_date)}{topup.reversed_by_correction ? ' · Reversed' : ''}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /**
  * CFO Special Advances: A24/A25 reconciliation,
@@ -27,6 +55,7 @@ export function SpecialAdvancesPanel() {
   const [activeTab, setActiveTab] = useState<'agreements' | 'provisions' | 'reconciliation'>('agreements');
   const [status, setStatus] = useState<SpecialAdvanceStatus | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [openAction, setOpenAction] = useState<SpecialAdvanceSheetAction>(null);
   const [recording, setRecording] = useState(false);
   const [historical, setHistorical] = useState(false);
 
@@ -40,8 +69,8 @@ export function SpecialAdvancesPanel() {
       {/* Top Banner: New Advance button */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 text-xs">
 
-        <Button variant="outline" size="sm" className="ml-auto" onClick={() => { setHistorical(true); setRecording(true); }}>
-          <Clock className="mr-1 h-4 w-4" /> Record already-issued advance
+        <Button variant="outline" size="sm" className="ml-auto text-primary" onClick={() => { setHistorical(true); setRecording(true); }}>
+          <Clock className="mr-1 h-4 w-4" /> Record Special Advance
         </Button>
         <Button id="special-advance-new" size="sm" onClick={() => { setHistorical(false); setRecording(true); }}>
           <Plus className="mr-1 h-4 w-4" /> New Special Advance
@@ -93,9 +122,14 @@ export function SpecialAdvancesPanel() {
                 <thead className="bg-muted/40 text-[11px] text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Reference</th>
-                    <th className="px-3 py-2 text-left font-medium">Borrower</th>
+                    <th className="px-3 py-2 text-left font-medium">Recipient</th>
                     <th className="px-3 py-2 text-right font-medium">Principal</th>
+                    <th className="px-3 py-2 text-right font-medium">Top-up</th>
                     <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Total repayable</th>
+                    <th className="px-3 py-2 text-right font-medium">Outstanding</th>
+                    <th className="px-3 py-2 text-left font-medium">Status</th>
+                    <th className="px-3 py-2 text-left font-medium">Date Issued</th>
+                    <th className="px-3 py-2 text-left font-medium">Period</th>
                     <th className="px-3 py-2 text-left font-medium">Status</th>
                     <th className="px-3 py-2 text-right font-medium">Actions</th>
                   </tr>
@@ -103,21 +137,21 @@ export function SpecialAdvancesPanel() {
                 <tbody className="divide-y divide-border/50">
                   {list.isLoading && (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={11} className="py-8 text-center text-muted-foreground">
                         Loading...
                       </td>
                     </tr>
                   )}
                   {list.isError && (
                     <tr>
-                      <td colSpan={6} role="alert" className="py-8 text-center text-destructive">
+                      <td colSpan={11} role="alert" className="py-8 text-center text-destructive">
                         {describeSpecialAdvanceError(list.error)}
                       </td>
                     </tr>
                   )}
                   {!list.isLoading && !list.isError && items.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={11} className="py-8 text-center text-muted-foreground">
                         No Special Advances recorded{status ? ' with this status' : ''}.
                       </td>
                     </tr>
@@ -140,8 +174,34 @@ export function SpecialAdvancesPanel() {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatUGX(a.principal)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap"><TopUpCell advanceId={a.id} /></td>
                       <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">
                         {formatUGX(a.total_repayable)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {a.paid_out ? formatUGX(a.outstanding ?? 0) : '—'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <span className={
+                          repaymentStatusLabel(a) === 'Fully repaid'
+                            ? 'font-medium text-emerald-600'
+                            : repaymentStatusLabel(a) === 'Partly repaid'
+                            ? 'font-medium text-amber-700'
+                            : repaymentStatusLabel(a) === 'Not started'
+                            ? 'font-medium text-destructive'
+                            : 'text-muted-foreground'
+                        }>
+                          {repaymentStatusLabel(a)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {a.payout_date ? kampalaLabel(a.payout_date) : '—'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {a.term_days} days
+                        <span className="block text-[10px] text-muted-foreground">
+                          {a.instalments} {a.frequency} instalments
+                        </span>
                       </td>
                       <td className="px-3 py-2">
                         <Badge
@@ -160,20 +220,34 @@ export function SpecialAdvancesPanel() {
                         </Badge>
                       </td>
                       <td className="px-3 py-2 text-right">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          aria-label={`Record repayment for ${a.reference}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenId(a.id);
-                          }}
-                        >
-                          <Eye className="mr-1 h-3.5 w-3.5" />
-                          Record Repayment
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              aria-label={`Actions for ${a.reference}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem disabled={a.decision_reason !== RECORDED_ADVANCE_MARKER} onSelect={() => { setOpenAction('edit'); setOpenId(a.id); }}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => { setOpenAction('repay'); setOpenId(a.id); }}>
+                              <Wallet className="mr-2 h-4 w-4" /> Record Repayment
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={a.status !== 'disbursed'} onSelect={() => { setOpenAction('topup'); setOpenId(a.id); }}>
+                              <PlusCircle className="mr-2 h-4 w-4" /> Top up
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={a.status !== 'disbursed'} onSelect={() => { setOpenAction('reverse'); setOpenId(a.id); }}>
+                              <RotateCcw className="mr-2 h-4 w-4" /> Reverse
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}
@@ -200,8 +274,9 @@ export function SpecialAdvancesPanel() {
       <SpecialAdvanceDetailSheet
         advanceId={openId}
         issuanceEnabled={issuanceEnabled}
+        initialAction={openAction}
         onOpenChange={(o) => {
-          if (!o) setOpenId(null);
+          if (!o) { setOpenId(null); setOpenAction(null); }
         }}
       />
       <SpecialAdvanceModal key={historical ? 'historical' : 'new'} open={recording} onOpenChange={setRecording} historical={historical} />

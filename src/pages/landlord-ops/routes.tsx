@@ -31,6 +31,7 @@ export const LANDLORD_OPS_ROUTES: LandlordOpsRoute[] = [
   { path: 'pipeline/advances', Component: lazy(() => import('./pipeline/Advances')) },
 
   { path: 'payouts/review', Component: lazy(() => import('./payouts/Review')) },
+  { path: 'payouts/direct-payments', Component: lazy(() => import('./DirectPayments')) },
   { path: 'payouts/paid', Component: lazy(() => import('./payouts/Paid')) },
   { path: 'pipeline/welile-homes-float', Component: lazy(() => import('./pipeline/WelileHomesFloat')) },
   { path: 'payouts/float', Component: lazy(() => import('./payouts/Float')) },

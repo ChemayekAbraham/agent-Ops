@@ -8,7 +8,6 @@ import { useMerchantAgentMoneyOwed } from '@/hooks/useMerchantAgentMoneyOwed';
 import { MoneyWeCanUseBreakdown } from '@/components/cfo/MoneyWeCanUseBreakdown';
 import { MerchantAgentOwedSheet } from '@/components/cfo/MerchantAgentOwedSheet';
 
-import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -77,7 +76,7 @@ export function CFOOverviewDashboard({
   const isOpen = (key: string) => openSections[key] !== false;
   const toggleSection = (key: string) =>
     setOpenSections((prev) => ({ ...prev, [key]: prev[key] === false }));
-  const { user } = useAuth();
+
   const {
     platformCash, position, positionError, liabilities, receivables,
     todayCashFlow, platformCashLoading, platformCashError, refetchPlatformCash, positionLoading,
@@ -215,14 +214,6 @@ export function CFOOverviewDashboard({
   ];
 
   /* ── presentation-only derivations (no new data sources) ── */
-  const firstName = (() => {
-    const meta = user?.user_metadata as Record<string, unknown> | undefined;
-    const raw = (meta?.full_name as string | undefined) || user?.email || '';
-    const first = String(raw).split(/[\s@.]+/)[0] || '';
-    return first ? first.charAt(0).toUpperCase() + first.slice(1) : 'there';
-  })();
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const todayLabel = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 
@@ -235,16 +226,10 @@ export function CFOOverviewDashboard({
 
 
   return (
-    <div className={cashPositionOnly ? 'cash-position-page max-w-7xl mx-auto' : 'space-y-6 max-w-7xl mx-auto'}>
+    <div className={cashPositionOnly ? 'cash-position-page max-w-7xl mx-auto' : 'space-y-6 max-w-7xl mx-auto flex flex-1 flex-col'}>
 
-      {/* ══════════════ GREETING HEADER ══════════════ */}
-      {!cashPositionOnly && <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            {greeting}, {firstName} <span aria-hidden>👋</span>
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Here's what's happening with Welile today.</p>
-        </div>
+      {/* ══════════════ HEADER ══════════════ */}
+      {!cashPositionOnly && <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-2 h-10 px-4 rounded-lg border border-border bg-card text-xs font-medium shadow-sm">
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
@@ -296,7 +281,7 @@ export function CFOOverviewDashboard({
           page reads top-down: what we hold → what is owed to/by us →
           how it moved → the advances book → lookup tools.
          ══════════════════════════════════════════════════════════════ */}
-      <div className="space-y-6">
+      <div className={cashPositionOnly ? 'space-y-6' : 'space-y-6 flex flex-1 flex-col'}>
         {/* ─────────── 1 · CASH POSITION ─────────── */}
         {showCashPosition && <Band
           title="Cash Position"
@@ -589,7 +574,7 @@ export function CFOOverviewDashboard({
         )}
 
 
-        {!cashPositionOnly && <>
+        {!cashPositionOnly && <div className="flex flex-1 flex-col space-y-6">
         {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Receivables &amp; Payables</h2>
@@ -599,7 +584,7 @@ export function CFOOverviewDashboard({
 
         {/* Tools & Audit Trail (receipt lookup, email transactions, transaction
             search, CFO actions log) removed from Home at the CFO's request. */}
-        </>}
+        </div>}
       </div>
 
       {/* ── BREAKDOWNS ── */}

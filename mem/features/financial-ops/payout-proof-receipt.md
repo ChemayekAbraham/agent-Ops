@@ -21,9 +21,9 @@ The TID the agent enters at confirm time IS the proof; the receipt is auto-gener
 The receipt link is now delivered to the customer on THREE channels (all idempotent per withdrawal), not just SMS:
 - **SMS** — via `sendSMS` (Yoola/Africa's Talking/Lana).
 - **Email** — ALWAYS sent now (no longer only an SMS-failure fallback) whenever an email is on file. `buildWithdrawalPaidReceiptRequest` takes `receiptUrl`; template `withdrawal-paid-receipt.tsx` shows a primary "View & download your receipt" button + plain link. In `approve-withdrawal`, `sendReceiptEmail("primary channel")` fires unconditionally (old `sendFallbackReceiptEmail` is now an alias, so SMS-failure call sites still work as no-ops after the first send).
-- **WhatsApp** — best-effort via `_shared/whatsapp.ts` `sendWhatsApp()` using the Twilio Messages API. Reads `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (+ optional `TWILIO_WHATSAPP_CONTENT_SID` for approved out-of-window template). Safe no-op (logs, never throws) when the WhatsApp sender is not configured. `toE164()` normalises Ugandan numbers. Same receipt URL in every channel.
+- **WhatsApp** — best-effort via `_shared/whatsapp.ts` `sendWhatsApp()` using the Meta WhatsApp Cloud API. Reads `META_WHATSAPP_ACCESS_TOKEN`, `META_WHATSAPP_PHONE_NUMBER_ID` (+ optional `META_WHATSAPP_FALLBACK_TEMPLATE` for out-of-window sends). Safe no-op (logs, never throws) when the WhatsApp sender is not configured. `toE164()` normalises Ugandan numbers. Same receipt URL in every channel.
 
-NOTE: WhatsApp only activates once the Twilio WhatsApp sender secrets are added; outbound/unsolicited WhatsApp requires a pre-approved Content template (set `TWILIO_WHATSAPP_CONTENT_SID`) to deliver outside the 24h customer-service window.
+NOTE: WhatsApp only activates once the Meta WhatsApp secrets are added; outbound/unsolicited WhatsApp requires a pre-approved template (set `META_WHATSAPP_FALLBACK_TEMPLATE`) to deliver outside the 24h customer-service window.
 
 ## Receipt distribution (2026-07-07)
 On every completed payout, `approve-withdrawal` now emails the SAME secure receipt link to FOUR internal/archive parties in addition to the customer (who gets SMS + email + WhatsApp):

@@ -26,7 +26,8 @@ import { Lc1SearchStep, type Lc1Hit } from './Lc1SearchStep';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD } from '@/hooks/useAgentCapacityMap';
+import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
+import { collectionInfoLine, fetchMyCollectionPct } from '@/lib/agentCollectionInfo';
 import { listingHasRealPhoto } from '@/hooks/useHouseListings';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
@@ -80,6 +81,7 @@ import {
   type StoredDoc,
   type TenantRecord,
 } from '@/lib/t4RentRequestSubmit';
+import { counted, createUploadCounter, sendButtonLabel, type SendProgress } from '@/lib/sendProgress';
 import { cn } from '@/lib/utils';
 import {
   computeAssistantFees,
@@ -242,12 +244,19 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const rejected = request?.mode === 'resubmit' ? request.rejected : null;
   const renewal = request?.mode === 'renewal' ? request.renewal : null;
   const capIds = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
-  const { data: capMap, isLoading: capQueryLoading } = useAgentCapacityMap(capIds);
+  const { data: capMap } = useAgentCapacityMap(capIds);
   const myCap = user?.id ? capMap?.get(user.id) : undefined;
+  // The per-tenant cap is still checked (and the server enforces it).
   const perTenantMax = myCap?.unlimited_posting ? Number.MAX_SAFE_INTEGER : (myCap?.per_tenant_max ?? 500_000);
-  // The daily posting gate is for new requests; a resubmit or renewal was never gated by it.
-  const capLoading = mode === 'new' && capQueryLoading;
-  const postingBlocked = mode === 'new' && !!myCap && !myCap.unlimited_posting && !myCap.can_post_rent_today;
+  // E100 (COO decision): no daily or weekly posting gate. The agent's collection against the
+  // 50% rule is shown as information only; it never blocks a post.
+  const [collectionPct, setCollectionPct] = useState<number | null>(null);
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    let cancelled = false;
+    void fetchMyCollectionPct(user.id).then((p) => { if (!cancelled) setCollectionPct(p); });
+    return () => { cancelled = true; };
+  }, [open, user?.id]);
 
   // ----- answers -----
   const [planType, setPlanType] = useState<PlanType | null>(null);
@@ -360,6 +369,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   /** Wrong tries per question; the third one adds a tip. */
   const [wrongTries, setWrongTries] = useState<Partial<Record<StepId, number>>>({});
   const [posting, setPosting] = useState(false);
+  /** What the send button says while sending: "Uploading photos 3/6…", "Saving…", "Sent ✓". */
+  const [sendProgress, setSendProgress] = useState<SendProgress | null>(null);
   const [result, setResult] = useState<{
     id: string;
     existing: boolean;
@@ -1008,6 +1019,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const postResubmit = async () => {
     if (!user || !rejected || !original || posting || missing.length) return;
     setPosting(true);
+    setSendProgress(null);
     setError(null);
     const after: ResubmitValues = {
       rentAmount: amount,
@@ -1026,14 +1038,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     const patch = resubmitPatch(original, after);
     // The request had no GPS; send the one captured at the house now.
     if (!gpsOnFile && gps) { patch.request_latitude = gps.lat; patch.request_longitude = gps.lng; }
-    // DOCS-1: new photos are attached to this existing request first (request_attach_document).
-    // E90: family size and work are saved before the resubmit (resubmitT4Request), and for a
-    // renewal-type request too when the server lists them.
+    // DOCS-1: new photos are attached to this existing request (request_attach_document), and
+    // E90: family size and work saved, both before the resubmit (resubmitT4Request), and for a
+    // renewal-type request too when the server lists them. They go in side by side.
     const askDetails = rejected.registration_type !== 'renewal' || !!sideSteps?.has('familySize') || !!sideSteps?.has('work');
-    const attachErrors = await attachT4Documents(user.id, rejected.id, {
-      id_front: idFront?.file ?? null, id_back: idBack?.file ?? null, lc1_letter: lcLetter?.file ?? null,
-    });
-    if (attachErrors.length) { setPosting(false); setError(attachErrors.join(' · ')); return; }
     const res = await resubmitT4Request({
       agentId: user.id,
       requestId: rejected.id,
@@ -1041,17 +1049,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       note,
       photos: housePhotos.map((p) => (p ? (p.file ?? p.preview) : null)),
       extraPhotoUrls: urls.slice(4),
-      // The LC1 letter was attached above with the ID photos.
+      // The LC1 letter goes with the ID photos (docs).
       lcLetter: null,
       noLc1Reason: null,
       details: askDetails
         ? { familySize: parseFamilySize(familySize), workBusiness: work, workLocation }
         : null,
+      docs: { id_front: idFront?.file ?? null, id_back: idBack?.file ?? null, lc1_letter: lcLetter?.file ?? null },
+      onProgress: setSendProgress,
     });
     // Server errors are shown as they come. RESUBMIT_INCOMPLETE: read the list again so the
     // questions match what the server still needs.
     if ('message' in res) {
       setPosting(false);
+      setSendProgress(null);
       setError(res.message);
       if (res.message.includes('RESUBMIT_INCOMPLETE')) {
         void fetchAgentSideMissing(rejected.id).then((lines) => { if (lines) setSideMissing(lines); });
@@ -1059,6 +1070,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       return;
     }
     setPosting(false);
+    setSendProgress({ phase: 'sent' });
     showSent(res.requestId, res);
   };
 
@@ -1076,25 +1088,31 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setRenewing(false);
     if (!choice) return;
     setPosting(true);
+    setSendProgress(null);
+    let sent = false;
     try {
+      const counter = createUploadCounter(setSendProgress);
       // A changed name, or a NIN for a tenant with no ID on file, goes on the tenant's profile first.
       const nameChanged = tenantName.trim() !== (tenantOnFile?.full_name ?? renewal.tenantName).trim();
       const ninNew = !hasTenantId(tenantOnFile) && !!nationalId.trim();
-      if (renewal.tenantId && (nameChanged || ninNew)) {
-        const saved = await saveTenantProfile(renewal.tenantId, { fullName: nameChanged ? tenantName : null, nationalId: ninNew ? nationalId : null });
-        if (!saved.ok) { setError(saved.message); return; }
-      }
       // DOCS-1: renew_rent_request reuses the previous plan's LC1 letter and carries the ID photos over,
       // so what is missing is filled in first: a new ID back on the tenant's profile, a new ID front
-      // or LC1 letter attached to the previous plan (request_attach_document).
-      if (idBack?.file && renewal.tenantId) {
-        const backError = await saveProfileIdBack(user.id, renewal.tenantId, idBack.file);
-        if (backError) { setError(backError); return; }
-      }
-      const prevErrors = await attachT4Documents(user.id, renewal.prevId, {
-        id_front: idFront?.file ?? null, lc1_letter: lcLetter?.file ?? null,
-      });
+      // or LC1 letter attached to the previous plan (request_attach_document). All side by side.
+      const newBack = idBack?.file && renewal.tenantId ? idBack.file : null;
+      if (newBack) counter.add(1);
+      const [saved, backError, prevErrors] = await Promise.all([
+        renewal.tenantId && (nameChanged || ninNew)
+          ? saveTenantProfile(renewal.tenantId, { fullName: nameChanged ? tenantName : null, nationalId: ninNew ? nationalId : null })
+          : Promise.resolve(null),
+        newBack && renewal.tenantId ? counted(counter, saveProfileIdBack(user.id, renewal.tenantId, newBack)) : Promise.resolve(null),
+        attachT4Documents(user.id, renewal.prevId, {
+          id_front: idFront?.file ?? null, lc1_letter: lcLetter?.file ?? null,
+        }, counter),
+      ]);
+      if (saved && !saved.ok) { setError(saved.message); return; }
+      if (backError) { setError(backError); return; }
       if (prevErrors.length) { setError(prevErrors.join(' · ')); return; }
+      counter.saving();
       const newId = await postRenewal(
         renewal.prevId,
         choice,
@@ -1102,13 +1120,18 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         !gpsOnFile && gps ? { latitude: gps.lat, longitude: gps.lng } : null,
       );
       setRentText(String(choice.newRent));
-      const photoError = await attachRenewalPhotos(user.id, newId, housePhotos.map((p) => (p ? (p.file ?? p.preview) : null)));
-      const o = await finishRenewalIntake(user.id, newId, null, null);
+      const [photoError, o] = await Promise.all([
+        attachRenewalPhotos(user.id, newId, housePhotos.map((p) => (p ? (p.file ?? p.preview) : null)), counter),
+        finishRenewalIntake(user.id, newId, null, null),
+      ]);
+      sent = true;
+      setSendProgress({ phase: 'sent' });
       showSent(newId, { ...o, lc1AttachError: o.lc1AttachError ?? (photoError ? `House photos not saved: ${photoError}` : null) });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setPosting(false);
+      if (!sent) setSendProgress(null);
     }
   };
 
@@ -1118,7 +1141,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     if (!user || !fees || !landlord || !tenantPhoto || posting) return;
     if (missing.length) { setError(`Still missing: ${missing.map((m) => m.label).join(', ')}.`); return; }
     if (!consent) { setError('Tick the box to accept guarantor responsibility.'); return; }
-    if (postingBlocked) { setError('Posting is closed for you right now.'); return; }
     // Required intake: every step checks its own answer; this catches anything skipped.
     const intakeMissing = (!isFullName(tenantName) && 'Type the tenant’s full name (first and last), as on the ID.')
       || familySizeProblem(familySize)
@@ -1126,34 +1148,36 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       || lc1LetterProblem({ hasLetter: !!lcLetter, noLetterYet: noLc1Letter, reason: noLc1Reason });
     if (intakeMissing) { setError(`${intakeMissing} Tap the answer above to fix it.`); return; }
     setPosting(true);
+    setSendProgress(null);
     setError(null);
+    // DOCS-1: the three document photos start uploading now, side by side with the re-check below
+    // and then with the house and passport photos and the checks in the submit; their paths go in
+    // the insert itself. A failed photo comes back as the submit's error. If the re-check stops the
+    // send, the stored photos are simply never used.
+    const counter = createUploadCounter(setSendProgress);
+    const docs = uploadNewRequestDocs(user.id, { idFront: idFront!.file!, idBack: idBack!.file!, lcLetter: lcLetter!.file! }, counter);
+    docs.catch(() => {});
     // Re-check right before posting: the number or ID may have been registered since it was typed.
     const [phoneNow, ninNow] = await Promise.all([checkTenantPhone(tenantPhone, agentSelf), checkNationalId(nationalId, agentSelf)]);
     for (const [step, verdict, value] of [['tenantPhone', phoneNow, tenantPhone], ['nationalId', ninNow, nationalId]] as const) {
       if (verdict.status === 'taken') {
         setPosting(false);
+        setSendProgress(null);
         setCurrent(step);
         setRecordBlock(blockFor(step, verdict.hit === 'self', value));
         return;
       }
       if (verdict.status === 'unknown') {
         setPosting(false);
+        setSendProgress(null);
         setError('I couldn’t check Welile’s records just now. Check your connection and tap Post again.');
         return;
       }
     }
-    // DOCS-1: the three photos are uploaded first; their paths go in the insert itself.
-    let docs: Awaited<ReturnType<typeof uploadNewRequestDocs>>;
-    try {
-      docs = await uploadNewRequestDocs(user.id, { idFront: idFront!.file!, idBack: idBack!.file!, lcLetter: lcLetter!.file! });
-    } catch (e) {
-      setPosting(false);
-      setError(e instanceof Error ? e.message : String(e));
-      return;
-    }
     const res = await submitAssistantRentRequest({
       agentId: user.id,
       docs,
+      uploadCounter: counter,
       incomeType,
       earnerCycle,
       fees,
@@ -1187,6 +1211,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     });
     if (res.ok) {
       setPosting(false);
+      setSendProgress({ phase: 'sent' });
       hapticSuccess();
       setResult({
         id: res.rentRequestId,
@@ -1202,6 +1227,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       return;
     }
     setPosting(false);
+    setSendProgress(null);
     const fail = res as Extract<AssistantSubmitResult, { ok: false }>;
     if (fail.raw && promptIfNotVetted(fail.raw, fail.message)) {
       setError(agentNotVettedReason(fail.raw) ?? agentNotVettedReason(fail.message) ?? fail.message);
@@ -1357,11 +1383,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
   const isTextStep = ['rent', 'days', 'tenantPhone', 'nationalId', 'familySize', 'work', 'workLocation', 'address', 'lc1Phone', 'lc1Village', 'city', 'note'].includes(current);
 
-  const spokenReply = capLoading
-    ? 'Checking whether you can post today.'
-    : postingBlocked && myCap
-      ? `You can’t post a Rent Plan yet ${myCap.posting_rule === 'weekly' ? 'this week' : 'today'}. ${blockedReason(myCap)}`
-      : result
+  const spokenReply = result
         ? `Sent to the Service Centre. ${sentLine}${mode === 'new' && !result.existing ? ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.` : ''}${result.lcLetterFailed ? ' The LC letter didn’t upload. Add it later from My rent requests.' : ''}${result.intakeError ? ' Details not saved. Open Complete your requests on your home screen.' : ''}`
         : recordBlock && recordBlock.step === current
           ? `${recordHeadline(recordBlock, true)} ${recordBody(recordBlock)}`
@@ -1451,19 +1473,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             </div>
           )}
 
-          {capLoading ? (
-            <Bot><Bubble><Loader2 className="inline h-4 w-4 animate-spin" /> Checking whether you can post today…</Bubble></Bot>
-          ) : postingBlocked && myCap ? (
-            <Bot>
-              <Bubble tone="warn">
-                <b>You can’t post a Rent Plan yet {myCap.posting_rule === 'weekly' ? 'this week' : 'today'}.</b>{' '}
-                {blockedReason(myCap)}
-              </Bubble>
-            </Bot>
-          ) : (
+          {(
             <>
-              {myCap && (
-                <Bot><Bubble>Good news 🎉 You can post a rent request today! {myCap.tenants_due > 0 ? `${myCap.tenants_paid_today} of your ${myCap.tenants_due} tenants due have already paid.` : ''}</Bubble></Bot>
+              {typeof collectionPct === 'number' && (
+                <Bot><Bubble><span data-testid="collection-info">{collectionInfoLine(collectionPct)}</span></Bubble></Bot>
               )}
 
               {steps.slice(0, idx).map((s) => (
@@ -1546,7 +1559,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         </div>
       </div>
 
-      {!result && !postingBlocked && !capLoading && current !== 'review' && (
+      {!result && current !== 'review' && (
         <footer className="border-t border-border bg-card px-3 pb-safe pt-2.5">
           <div className="mx-auto flex max-w-xl items-center gap-2 pb-3">
             {isTextStep ? (
@@ -1917,12 +1930,16 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             <button
               type="button"
               onClick={() => void post()}
-              disabled={posting || missing.length > 0 || (mode === 'resubmit' && !original)}
+              disabled={posting || sendProgress?.phase === 'sent' || missing.length > 0 || (mode === 'resubmit' && !original)}
+              aria-live="polite"
               className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary font-display text-base font-bold text-primary-foreground shadow-lg disabled:opacity-50"
+              data-testid="send-button"
             >
-              {posting
-                ? <><Loader2 className="h-5 w-5 animate-spin" /> Sending…</>
-                : <><Send className="h-5 w-5" /> {mode === 'resubmit' ? 'Resubmit rent request' : mode === 'renewal' ? 'Renew Rent Plan' : 'Post rent request'}</>}
+              {sendProgress?.phase === 'sent'
+                ? <>{sendButtonLabel(sendProgress, '')}</>
+                : posting
+                  ? <><Loader2 className="h-5 w-5 animate-spin" /> {sendButtonLabel(sendProgress, 'Sending…')}</>
+                  : <><Send className="h-5 w-5" /> {mode === 'resubmit' ? 'Resubmit rent request' : mode === 'renewal' ? 'Renew Rent Plan' : 'Post rent request'}</>}
             </button>
           </div>
         );
@@ -1930,15 +1947,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         // Text steps answer in the composer below.
         return null;
     }
-  }
-
-  function blockedReason(c: NonNullable<typeof myCap>): string {
-    if (c.posting_rule === 'weekly') {
-      return c.weekly_posting?.reason ?? 'Your collections last week were below the target. You can post again when a week meets it.';
-    }
-    const needed = Math.max(0, Math.ceil(c.tenants_due * DAILY_ELIGIBILITY_THRESHOLD) - c.tenants_paid_today);
-    const t = (n: number) => (n === 1 ? 'tenant' : 'tenants');
-    return `You have reached ${c.tenants_paid_today} of ${c.tenants_due} ${t(c.tenants_due)} today, and ${c.tenants_paid_yesterday} yesterday. Collect from ${needed} more ${t(needed)} today to post new Rent Plans. Any payment counts, however small.`;
   }
 }
 

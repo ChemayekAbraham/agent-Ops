@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { decisionTone, fmt, type Tone } from './format';
 import type { Tile } from './deskConfig';
@@ -227,6 +227,33 @@ function MoneyOut({ feed, board, limit }: { feed: FeedState; board: boolean; lim
   );
 }
 
+/** Overview | Boardroom (E97). */
+function ViewTabs({ view, onChange, board }: { view: 'overview' | 'boardroom'; onChange: (v: 'overview' | 'boardroom') => void; board: boolean }) {
+  return (
+    <div role="tablist" aria-label="Command Centre views" className="flex flex-wrap gap-1.5">
+      {(['overview', 'boardroom'] as const).map((v) => (
+        <button
+          key={v}
+          type="button"
+          role="tab"
+          aria-selected={view === v}
+          onClick={() => onChange(v)}
+          className={`desk-pill border px-3.5 py-1.5 ${board ? 'text-base' : 'text-sm'} ${CALM} ${FOCUS} ${
+            view === v
+              ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
+              : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
+          }`}
+        >
+          {v === 'overview' ? 'Overview' : 'Boardroom'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// The boardroom screens (Google Maps, the TV's own client) load only when the tab opens.
+const Boardroom = lazy(() => import('./Boardroom').then((m) => ({ default: m.Boardroom })));
+
 export function CommandCentre({
   feeds,
   board,
@@ -239,6 +266,7 @@ export function CommandCentre({
   /** The E26 cards — today by desk, overrides, and why requests bounce. Off with the flag. */
   pipelineCards?: boolean;
 }) {
+  const [view, setView] = useState<'overview' | 'boardroom'>('overview');
   const flow = useStageFlow();
   const care = feeds.cc_owners?.rows ?? [];
   const gaps = feeds.payment_gaps ?? { rows: [], loading: true, error: null, updatedAt: 0 };
@@ -265,11 +293,22 @@ export function CommandCentre({
   );
   const moneyLine = pipelineCards ? <MoneyLine gaps={gaps} board={board} /> : null;
 
+  // E97: the boardroom TV's screens, here for signed-in staff (and on the wall view).
+  if (view === 'boardroom') {
+    return (
+      <Suspense fallback={<Skeleton className="h-40 w-full" />}>
+        <Boardroom onClose={() => setView('overview')} />
+      </Suspense>
+    );
+  }
+  const viewTabs = <ViewTabs view={view} onChange={setView} board={board} />;
+
   if (board) {
     // One screen, no scrolling: strip, then the river, then the panels. Each
     // panel scrolls inside itself, so the wall display never grows a scrollbar.
     return (
       <div className="flex h-full min-h-0 flex-col gap-6">
+        <div className="shrink-0">{viewTabs}</div>
         {pipelineCards && (
           <div className="shrink-0 space-y-6">
             <MorningBrief board enabled />
@@ -298,6 +337,7 @@ export function CommandCentre({
 
   return (
     <div className="space-y-6">
+      {viewTabs}
       {/* Any name, phone or request id across the pipeline. Not on the wall display, which nobody types into. */}
       {pipelineCards && <CommandSearch />}
       {pipelineCards && (

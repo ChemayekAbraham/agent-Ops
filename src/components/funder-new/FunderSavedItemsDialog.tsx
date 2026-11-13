@@ -1,6 +1,6 @@
 import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { useEffect, useState } from 'react';
-import { Bookmark, Home, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Bookmark, Home, Loader2, RefreshCw, Trash2, Users } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
@@ -12,8 +12,22 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { itemId, toSelectionItem } from './utils';
 import { loadFunderSavedItems, type SavedFunderEntry } from './loadFunderSavedItems';
 import { FunderBookedHousesSection } from './FunderBookedHousesSection';
+import { useFunderSavedTabs } from '@/hooks/useFunderSavedTabs';
+import { FUNDER_SAVED_TABS, type FunderSavedTab } from '@/lib/funderSavedTabs';
+import { CoSupportInviteRow } from '@/components/co-support/CoSupportWaitingSection';
+import { coSupportErrorMessage } from '@/lib/coSupport';
 
-export function FunderSavedItemsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function FunderSavedItemsDialog({ open, onOpenChange, initialTab: requestedTab }: { open: boolean; onOpenChange: (open: boolean) => void; initialTab?: FunderSavedTab | null }) {
+  const tabs = useFunderSavedTabs(open, requestedTab);
+  // The last pill is remembered while the dialog stays open.
+  const [picked, setPicked] = useState<FunderSavedTab | null>(null);
+  useEffect(() => { if (!open) setPicked(null); }, [open]);
+  // Fix the opening pill once its counts are in, so it does not move when a count changes
+  // (e.g. cancelling the last co-support while looking at the Co-support pill).
+  useEffect(() => {
+    if (open && picked === null && tabs.ready) setPicked(tabs.initialTab);
+  }, [open, picked, tabs.ready, tabs.initialTab]);
+  const tab: FunderSavedTab = picked ?? tabs.initialTab;
   // Agent Care: partner amounts use pay(rent) (= rent while the switch is off).
   const { pay: partnerPay } = useSelfSupportFeePolicy();
   const { user } = useAuth();
@@ -47,10 +61,36 @@ export function FunderSavedItemsDialog({ open, onOpenChange }: { open: boolean; 
       <DialogContent className="flex max-h-[85dvh] max-w-2xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Bookmark className="h-5 w-5 text-primary" />Saved Items</DialogTitle>
-          <DialogDescription>Houses booked for you, and houses and Rent Plans you bookmarked</DialogDescription>
+          <DialogDescription>Co-supports, bookmarked houses and Rent Plans, and houses booked for you</DialogDescription>
         </DialogHeader>
+        <div role="tablist" aria-label="Saved Items" className="-mx-1 flex shrink-0 gap-2 overflow-x-auto px-1 pb-1">
+          {FUNDER_SAVED_TABS.map(({ id, label }) => {
+            const active = tab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setPicked(id)}
+                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-foreground hover:bg-muted'}`}
+              >
+                {label}
+                <span className={`min-w-5 rounded-full px-1.5 text-xs font-semibold ${active ? 'bg-primary-foreground/20' : 'bg-muted text-muted-foreground'}`}>{tabs.counts[id]}</span>
+              </button>
+            );
+          })}
+        </div>
         <div className="min-h-0 space-y-5 overflow-y-auto">
-        {open ? (
+        {open && tab === 'co_support' ? (
+          <section aria-label="Co-support" className="space-y-3">
+            {tabs.coSupportLoading ? <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Loading</div>
+              : tabs.coSupportError ? <p className="py-6 text-center text-sm text-destructive">{coSupportErrorMessage(tabs.coSupportError)}</p>
+              : tabs.coSupportRows.length === 0 ? <div className="py-8 text-center"><Users className="mx-auto h-9 w-9 text-primary/50" /><p className="mt-3 font-medium">No co-supports yet</p><p className="mt-1 text-sm text-muted-foreground">When you share a Rent Plan or a house with a partner, it shows here.</p></div>
+              : <ul className="space-y-2">{tabs.coSupportRows.map((invite) => <CoSupportInviteRow key={invite.id} invite={invite} />)}</ul>}
+          </section>
+        ) : null}
+        {open && tab === 'booked' ? (
           <FunderBookedHousesSection
             onOpenHouse={(house) => {
               setDetail({ category: 'empty', item: house });
@@ -58,6 +98,7 @@ export function FunderSavedItemsDialog({ open, onOpenChange }: { open: boolean; 
             }}
           />
         ) : null}
+        {tab === 'bookmarked' ? <>
         <section aria-labelledby="bookmarked-h" className="space-y-1">
         <h3 id="bookmarked-h" className="font-semibold">Bookmarked</h3>
         {query.isPending || query.isFetching ? <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Checking availability</div>
@@ -76,6 +117,7 @@ export function FunderSavedItemsDialog({ open, onOpenChange }: { open: boolean; 
             })}
           </div>}
         </section>
+        </> : null}
         </div>
       </DialogContent>
     </Dialog>

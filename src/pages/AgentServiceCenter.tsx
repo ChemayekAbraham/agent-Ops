@@ -227,7 +227,8 @@ export default function AgentServiceCenter() {
           ))}
         </div>
 
-        <div className="sticky top-0 z-20"><OverdueVettingBanner onJumpToOldest={jumpToOldest} /></div>
+        {/* In the page flow, not sticky: pinned on phones, its see-through red sat over the cards below. */}
+        <OverdueVettingBanner onJumpToOldest={jumpToOldest} />
         <Tabs value={mainTab} onValueChange={setMainTab}>
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="team" className="text-xs sm:text-sm">

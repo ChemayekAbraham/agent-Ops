@@ -67,7 +67,7 @@ The platform is engineered as a secure, responsive PWA optimized for performance
 | **Frontend** | React 18, Vite, TypeScript | Lazy-loaded routes with retry/concurrency limiting, offline-first React Query, installable PWA. |
 | **Styling & UI** | Tailwind CSS, shadcn/ui | Radix UI primitives, dark/light themes, responsive mobile design. |
 | **Database & Auth** | Supabase (PostgreSQL) | Row Level Security policies, SECURITY DEFINER RPCs, database triggers. The frontend never writes ledger/wallet state directly — enforced at build time by `scripts/guard-frontend-ledger-writes.mjs`. |
-| **Serverless** | Supabase Edge Functions (Deno) | 300+ functions covering money movement, transactional email (Mailgun), SMS (Yoola → Africa's Talking → LANA), WhatsApp (Twilio), PDF generation, and MoMo reconciliation. |
+| **Serverless** | Supabase Edge Functions (Deno) | 300+ functions covering money movement, transactional email (Mailgun), SMS (Yoola → Africa's Talking → LANA), WhatsApp (Meta Cloud API), PDF generation, and MoMo reconciliation. |
 | **AI Tooling** | MCP servers (`supabase/functions/mcp*`) | Model Context Protocol tools exposing wallet/profile data to signed-in users and public onboarding info to prospective users — both read-only and RLS-scoped. |
 | **Third-Party APIs** | Google Maps, MTN/Airtel Mobile Money | Location-based search, mobile money payment rails. |
 

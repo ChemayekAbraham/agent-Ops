@@ -70,7 +70,7 @@ const HEALTH_CONFIG: Record<StandingOrderHealth, {
 function describeFrequency(row: StandingOrderRow): string {
   switch (row.frequency) {
     case 'daily':
-      return 'Daily';
+      return 'Daily (Monday–Friday)';
     case 'weekly': {
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       return `Weekly on ${days[row.day_of_week ?? 1]}`;

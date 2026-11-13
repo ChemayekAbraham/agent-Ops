@@ -21,6 +21,7 @@ import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
 import { normalizeDistrict } from '@/lib/ugandaDistricts';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { attachLc1Letter, noteLc1Missing, saveIntakeDetails } from '@/lib/agentIntakeDetails';
+import { counted, createSendTimer, createUploadCounter, type OnSendProgress, type UploadCounter } from '@/lib/sendProgress';
 
 export type AssistantIncomeType = 'daily' | 'weekly-monthly';
 export type AssistantEarnerCycle = 'weekly' | 'monthly';
@@ -116,12 +117,22 @@ export interface AssistantSubmitInput {
    * DOCS-1 (E75/E75b): the ID front, ID back and LC1 letter photos, already uploaded. They go in the
    * insert itself: with the docs rule on, the database refuses a rent request without them.
    */
-  docs?: {
-    idFront: { bucket: string; path: string };
-    idBack: { bucket: string; path: string };
-    lcLetter: { bucket: string; path: string };
-  } | null;
+  docs?: AssistantDocs | Promise<AssistantDocs> | null;
+  /** "Uploading photos 3/6…", "Saving…": the button follows this. */
+  onProgress?: OnSendProgress;
+  /** Shared with the caller when it uploads some photos itself (the documents). */
+  uploadCounter?: UploadCounter;
 }
+
+/**
+ * The ID front, ID back and LC1 letter, stored. May be passed while still uploading: the
+ * submit waits for them together with its own uploads.
+ */
+export type AssistantDocs = {
+  idFront: { bucket: string; path: string };
+  idBack: { bucket: string; path: string };
+  lcLetter: { bucket: string; path: string };
+};
 
 export type AssistantSubmitResult =
   | {
@@ -156,7 +167,11 @@ const rpcUntyped: UntypedRpc = (fn, args) => (supabase.rpc as unknown as Untyped
 /** Untyped insert/update payloads: columns the generated types don't list, as in the form. */
 type Loose = never;
 
-async function uploadTenantPhoto(agentId: string, file: File, tenantUserId: string): Promise<string | null> {
+/**
+ * Stores the tenant's passport photo. The path does not need the tenant id, so it uploads
+ * while the checks run; the avatar is set after the insert (setTenantAvatar).
+ */
+async function storeTenantPhoto(agentId: string, file: File): Promise<string | null> {
   try {
     const optimized = await optimizeImage(file, { maxWidth: 1200, quality: 0.85 });
     const ext = optimized.file.name.split('.').pop() || 'webp';
@@ -165,41 +180,45 @@ async function uploadTenantPhoto(agentId: string, file: File, tenantUserId: stri
       .from('house-images')
       .upload(path, optimized.file, { cacheControl: '86400', upsert: true });
     if (error) throw error;
-    const { data } = supabase.storage.from('house-images').getPublicUrl(path);
     archiveToDrive('house-images', path, 'tenant_id');
-    try {
-      const { data: updated } = await supabase
-        .from('profiles')
-        .update({ avatar_url: data.publicUrl })
-        .eq('id', tenantUserId)
-        .is('avatar_url', null)
-        .select('id');
-      if (updated?.length) publishAvatarUpdate(tenantUserId, data.publicUrl);
-    } catch { /* non-fatal */ }
-    return data.publicUrl;
+    return supabase.storage.from('house-images').getPublicUrl(path).data.publicUrl;
   } catch (err) {
     console.warn('[rentRequestAssistant] tenant photo upload failed', err);
     return null;
   }
 }
 
-async function uploadHousePhotos(agentId: string, requestId: string, files: File[]): Promise<string[]> {
-  const urls: string[] = [];
-  for (let i = 0; i < files.length; i++) {
-    try {
-      const optimized = await optimizeImage(files[i], { maxWidth: 1200, quality: 0.8 });
-      const ext = optimized.file.name.split('.').pop() || 'webp';
-      const path = `${agentId}/${requestId}/photo_${i}.${ext}`;
-      const { error } = await supabase.storage
-        .from('house-images')
-        .upload(path, optimized.file, { cacheControl: '86400', upsert: false });
-      if (error) throw error;
-      urls.push(supabase.storage.from('house-images').getPublicUrl(path).data.publicUrl);
-    } catch (err) {
-      console.warn(`[rentRequestAssistant] house photo ${i} upload failed`, err);
-    }
+/** The tenant's avatar, when they have none yet. Best effort. */
+async function setTenantAvatar(tenantUserId: string, url: string): Promise<void> {
+  try {
+    const { data: updated } = await supabase
+      .from('profiles')
+      .update({ avatar_url: url })
+      .eq('id', tenantUserId)
+      .is('avatar_url', null)
+      .select('id');
+    if (updated?.length) publishAvatarUpdate(tenantUserId, url);
+  } catch { /* non-fatal */ }
+}
+
+/**
+ * One house photo, uploaded before the insert under the same fresh folder as the
+ * documents (the request id does not exist yet). A failed photo is skipped, as before.
+ */
+async function uploadHousePhoto(agentId: string, folder: string, file: File, i: number): Promise<string | null> {
+  try {
+    const optimized = await optimizeImage(file, { maxWidth: 1200, quality: 0.8 });
+    const ext = optimized.file.name.split('.').pop() || 'webp';
+    const path = `${agentId}/${folder}/photo_${i}.${ext}`;
+    const { error } = await supabase.storage
+      .from('house-images')
+      .upload(path, optimized.file, { cacheControl: '86400', upsert: false });
+    if (error) throw error;
+    return supabase.storage.from('house-images').getPublicUrl(path).data.publicUrl;
+  } catch (err) {
+    console.warn(`[rentRequestAssistant] house photo ${i} upload failed`, err);
+    return null;
   }
-  return urls;
 }
 
 /** Uploads the LC1 letter photo to `lc-letters/<agent>/<request>/lc_letter.<ext>`. */
@@ -235,6 +254,21 @@ function landlordPayoutFields(dayText: string) {
 }
 
 export async function submitAssistantRentRequest(input: AssistantSubmitInput): Promise<AssistantSubmitResult> {
+  const timer = createSendTimer('new request');
+  const res = await submitTimed(input, timer);
+  timer.finish(res.ok ? 'ok' : 'failed');
+  return res;
+}
+
+/**
+ * The send, fastest order first:
+ * 1. every photo uploads side by side, while the house, landlord and LC1 checks run;
+ * 2. the LC1 record, the tenant account, the last landlord gate, then the insert, with
+ *    the photo paths in it;
+ * 3. after the insert, the house link, intake details, fingerprint and avatar together.
+ * Invite SMS are fired without waiting. Nothing here waits for notices or the assistant.
+ */
+async function submitTimed(input: AssistantSubmitInput, timer: ReturnType<typeof createSendTimer>): Promise<AssistantSubmitResult> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return { ok: false, reason: 'network', message: 'No internet right now. Your answers are kept on this screen. Post again once you have a signal.' };
   }
@@ -246,8 +280,26 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
   }
 
   try {
-    // Fresh availability read: two agents must never link the same house.
-    if (input.house?.id) {
+    const landlordId = input.house?.landlord_id || input.landlordId;
+    if (!landlordId) {
+      return { ok: false, reason: 'landlord_missing', backTo: 'landlord', message: 'Pick a registered landlord before posting.' };
+    }
+
+    // 1. Uploads start now and run side by side with the checks below.
+    const counter = input.uploadCounter ?? createUploadCounter(input.onProgress);
+    const folder = `new-${safeUUID()}`;
+    counter.add(1 + input.housePhotos.length);
+    const tenantPhotoP = counted(counter, storeTenantPhoto(input.agentId, input.tenantPhoto));
+    const housePhotosP = Promise.all(input.housePhotos.map((f, i) => counted(counter, uploadHousePhoto(input.agentId, folder, f, i))));
+    const docsP = Promise.resolve(input.docs ?? null);
+    const telemetryP = collectAgentSignupTelemetry('/agent/rent-request#assistant', 'tenant');
+    // A check may fail first; these are then never awaited.
+    for (const p of [tenantPhotoP, housePhotosP, docsP, telemetryP]) p.catch(() => {});
+
+    const cleanLc1Phone = clean(input.lc1Phone);
+    const houseCheck = async (): Promise<AssistantSubmitResult | null> => {
+      // Fresh availability read: two agents must never link the same house.
+      if (!input.house?.id) return null;
       const { data: freshHouse } = await supabase
         .from('house_listings')
         .select('id, status, tenant_id, reserved_at, is_hidden')
@@ -257,42 +309,62 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
       if (!h || h.tenant_id !== null || h.reserved_at !== null || h.is_hidden === true || h.status !== 'available') {
         return { ok: false, reason: 'house_taken', backTo: 'house', message: 'Another agent just reserved this house. Pick a different house and post again.' };
       }
-    }
-
-    const landlordId = input.house?.landlord_id || input.landlordId;
-    if (!landlordId) {
-      return { ok: false, reason: 'landlord_missing', backTo: 'landlord', message: 'Pick a registered landlord before posting.' };
-    }
-
-    // Landlord must exist (an unverified landlord is allowed: the request waits for Landlord Ops).
-    try {
-      const { data: verRows, error } = await rpcUntyped('get_landlord_verification_status', { p_id: landlordId });
-      if (error) throw error;
-      const row = (Array.isArray(verRows) ? verRows[0] : verRows) as { exists_flag?: boolean } | null | undefined;
-      if (!row || row.exists_flag === false) {
-        return { ok: false, reason: 'landlord_missing', backTo: 'landlord', message: 'This landlord is not registered in the system. Pick a registered landlord or register them first.' };
+      return null;
+    };
+    const landlordCheck = async (): Promise<AssistantSubmitResult | null> => {
+      // Landlord must exist (an unverified landlord is allowed: the request waits for Landlord Ops).
+      try {
+        const { data: verRows, error } = await rpcUntyped('get_landlord_verification_status', { p_id: landlordId });
+        if (error) throw error;
+        const row = (Array.isArray(verRows) ? verRows[0] : verRows) as { exists_flag?: boolean } | null | undefined;
+        if (!row || row.exists_flag === false) {
+          return { ok: false, reason: 'landlord_missing', backTo: 'landlord', message: 'This landlord is not registered in the system. Pick a registered landlord or register them first.' };
+        }
+        return null;
+      } catch {
+        return { ok: false, reason: 'network', message: "Couldn't confirm the landlord is registered. Check your connection and try again." };
       }
-    } catch {
-      return { ok: false, reason: 'network', message: "Couldn't confirm the landlord is registered. Check your connection and try again." };
-    }
+    };
+    type Lc1Lookup = { found: { id: string } | null } | { fail: AssistantSubmitResult };
+    const lc1Lookup = async (): Promise<Lc1Lookup> => {
+      // LC1: reuse an existing record by normalised phone, else register an unverified one (below).
+      try {
+        const { data, error } = await supabase.rpc('find_lc1_by_phone', { p_phone: cleanLc1Phone });
+        if (error) throw error;
+        return { found: ((data ?? [])[0] as { id: string } | undefined) ?? null };
+      } catch {
+        return { fail: { ok: false, reason: 'network', message: "Couldn't look up the LC1 chairperson. Check your connection and try again." } };
+      }
+    };
+    const [houseFail, landlordFail, lc1] = await timer.step('checks', Promise.all([houseCheck(), landlordCheck(), lc1Lookup()]));
+    if (houseFail) return houseFail;
+    if (landlordFail) return landlordFail;
+    if ('fail' in lc1) return lc1.fail;
+    const existingLc1 = lc1.found;
 
-    // LC1: reuse an existing record by normalised phone, else register an unverified one.
-    const cleanLc1Phone = clean(input.lc1Phone);
-    let lc1Id: string | null = null;
-    let existingLc1: { id: string } | null = null;
+    // Every photo is in before anything is created, so a failed photo leaves nothing behind.
+    let docs: AssistantDocs | null;
     try {
-      const { data, error } = await supabase.rpc('find_lc1_by_phone', { p_phone: cleanLc1Phone });
-      if (error) throw error;
-      existingLc1 = ((data ?? [])[0] as { id: string } | undefined) ?? null;
-    } catch {
-      return { ok: false, reason: 'network', message: "Couldn't look up the LC1 chairperson. Check your connection and try again." };
+      docs = await timer.step('documents', docsP);
+    } catch (e) {
+      return { ok: false, reason: 'photo', message: e instanceof Error ? e.message : String(e) };
     }
+    const [tenantPhotoUrl, houseUrls] = await timer.step('photos', Promise.all([tenantPhotoP, housePhotosP]));
+    counter.saving();
+    // The tenant photo must be stored before the insert (enforce_rent_request_tenant_photo).
+    if (!tenantPhotoUrl) {
+      return { ok: false, reason: 'photo', message: "Couldn't upload the tenant's passport photo. Check your connection and try again." };
+    }
+    const photoUrls = houseUrls.filter((u): u is string => !!u);
+
+    // 2. LC1 record, tenant account, last landlord gate, insert.
+    let lc1Id: string | null = null;
     if (existingLc1) {
       lc1Id = existingLc1.id;
     } else {
       const unit = input.location;
       const sameVillage = unit && unit.village.trim().toLowerCase() === input.lc1Village.trim().toLowerCase();
-      const { data: createdLc1, error: lc1InsertError } = await supabase
+      const { data: createdLc1, error: lc1InsertError } = await timer.step('lc1', Promise.resolve(supabase
         .from('lc1_chairpersons')
         .insert({
           name: input.lc1Name.trim(),
@@ -312,7 +384,7 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
             : {}),
         })
         .select('id')
-        .maybeSingle();
+        .maybeSingle()));
       if (lc1InsertError) {
         if ((lc1InsertError as { code?: string }).code === '23505') {
           const { data: reLookup } = await supabase.rpc('find_lc1_by_phone', { p_phone: cleanLc1Phone });
@@ -334,14 +406,14 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
 
     // Tenant account (new or existing) via the same edge function the form uses.
     const cleanTenantPhone = clean(input.tenantPhone);
-    const { data: tenantResult, error: tenantRegError } = await supabase.functions.invoke('register-tenant', {
+    const { data: tenantResult, error: tenantRegError } = await timer.step('register-tenant', supabase.functions.invoke('register-tenant', {
       body: {
         full_name: input.tenantName.trim(),
         phone: cleanTenantPhone,
         national_id: input.tenantNationalId.trim().toUpperCase() || null,
-        telemetry: await collectAgentSignupTelemetry('/agent/rent-request#assistant', 'tenant'),
+        telemetry: await telemetryP,
       },
-    });
+    }));
     if (tenantRegError || !tenantResult?.user_id) {
       let message = tenantResult?.error || 'Failed to register the tenant';
       try {
@@ -352,40 +424,39 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
     }
     const tenantId: string = tenantResult.user_id;
 
-    // Best-effort location on the tenant profile (Tenant Ops roll-ups).
+    // Best-effort location on the tenant profile (Tenant Ops roll-ups), side by side with
+    // the last authoritative landlord gate right before the insert.
     const profileLocation: Record<string, string> = {};
     if (input.propertyCity.trim()) profileLocation.city = input.propertyCity.trim();
     if (input.propertyDistrict.trim()) profileLocation.district = normalizeDistrict(input.propertyDistrict);
     if (input.lc1Village.trim()) profileLocation.village = input.lc1Village.trim();
-    if (Object.keys(profileLocation).length > 0) {
+    const saveLocation = async () => {
+      if (Object.keys(profileLocation).length === 0) return;
       profileLocation.country = 'Uganda';
       try {
         await supabase.from('profiles').update(profileLocation).eq('id', tenantId);
       } catch (e) {
         console.warn('[rentRequestAssistant] tenant profile location update failed', e);
       }
-    }
-
-    // Last authoritative landlord gate right before the insert.
-    try {
-      const { data: isRegistered, error } = await supabase.rpc('verify_landlord_registered', { p_landlord_id: landlordId });
-      if (error) throw error;
-      if (!isRegistered) {
-        return { ok: false, reason: 'landlord_missing', backTo: 'landlord', message: 'This landlord is not registered in the system. Pick a registered landlord or register them first.' };
+    };
+    const landlordGate = async (): Promise<AssistantSubmitResult | null> => {
+      try {
+        const { data: isRegistered, error } = await supabase.rpc('verify_landlord_registered', { p_landlord_id: landlordId });
+        if (error) throw error;
+        if (!isRegistered) {
+          return { ok: false, reason: 'landlord_missing', backTo: 'landlord', message: 'This landlord is not registered in the system. Pick a registered landlord or register them first.' };
+        }
+        return null;
+      } catch {
+        return { ok: false, reason: 'network', message: "Couldn't confirm the landlord is registered. Check your connection and try again." };
       }
-    } catch {
-      return { ok: false, reason: 'network', message: "Couldn't confirm the landlord is registered. Check your connection and try again." };
-    }
-
-    // The tenant photo must be stored before the insert (enforce_rent_request_tenant_photo).
-    const tenantPhotoUrl = await uploadTenantPhoto(input.agentId, input.tenantPhoto, tenantId);
-    if (!tenantPhotoUrl) {
-      return { ok: false, reason: 'photo', message: "Couldn't upload the tenant's passport photo. Check your connection and try again." };
-    }
+    };
+    const [, gateFail] = await timer.step('landlord gate', Promise.all([saveLocation(), landlordGate()]));
+    if (gateFail) return gateFail;
 
     const isWeeklyEarner = input.incomeType === 'weekly-monthly' && input.earnerCycle === 'weekly';
     const { fees } = input;
-    const { data: rentReq, error: requestError } = await supabase
+    const { data: rentReq, error: requestError } = await timer.step('insert', Promise.resolve(supabase
       .from('rent_requests')
       .insert({
         tenant_id: tenantId,
@@ -410,21 +481,25 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
         agent_guarantor_consent_at: new Date().toISOString(),
         agent_guarantor_consent_version: 'v1',
         tenant_photo_url: tenantPhotoUrl,
-        ...(input.docs
+        ...(photoUrls.length > 0 ? { house_image_urls: photoUrls } : {}),
+        ...(docs
           ? {
-              nin_photo_path: input.docs.idFront.path, nin_photo_bucket: input.docs.idFront.bucket,
-              nin_photo_back_path: input.docs.idBack.path, nin_photo_back_bucket: input.docs.idBack.bucket,
-              lc_letter_path: input.docs.lcLetter.path, lc_letter_bucket: input.docs.lcLetter.bucket,
+              nin_photo_path: docs.idFront.path, nin_photo_bucket: docs.idFront.bucket,
+              nin_photo_back_path: docs.idBack.path, nin_photo_back_bucket: docs.idBack.bucket,
+              lc_letter_path: docs.lcLetter.path, lc_letter_bucket: docs.lcLetter.bucket,
             }
           : {}),
         ...landlordPayoutFields(input.landlordPayoutDay),
       } as Loose)
       .select('id')
-      .single();
+      .single()));
     if (requestError) throw requestError;
     const requestId: string = rentReq.id;
 
-    if (input.house?.id) {
+    // 3. The request is saved. What follows runs side by side; a failure here keeps the
+    // request and is finished from the home card.
+    const linkHouse = async () => {
+      if (!input.house?.id) return;
       try {
         await supabase
           .from('house_listings')
@@ -435,43 +510,25 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
       } catch (e) {
         console.warn('[rentRequestAssistant] linking the house failed', e);
       }
-    }
-
-    const photoUrls = await uploadHousePhotos(input.agentId, requestId, input.housePhotos);
-    if (photoUrls.length > 0) {
-      await supabase.from('rent_requests').update({ house_image_urls: photoUrls }).eq('id', requestId);
-    }
-
-    let lcLetterFailed = false;
-    let lc1AttachError: string | null = null;
-    if (input.lcLetter) {
+    };
+    const letterAfterInsert = async (): Promise<{ lcLetterFailed: boolean; lc1AttachError: string | null }> => {
+      if (!input.lcLetter) return { lcLetterFailed: false, lc1AttachError: null };
       const letter = await uploadLcLetter(input.agentId, requestId, input.lcLetter);
-      if (letter) {
-        await supabase
-          .from('rent_requests')
-          .update({ lc_letter_path: letter.path, lc_letter_bucket: letter.bucket } as Loose)
-          .eq('id', requestId);
-        const attached = await attachLc1Letter(requestId, letter.path);
-        if (!attached.ok) lc1AttachError = attached.message;
-      } else {
-        lcLetterFailed = true;
-      }
-    }
-    let lc1NoteError: string | null = null;
-    if (!input.lcLetter && input.noLc1Reason?.trim()) {
+      if (!letter) return { lcLetterFailed: true, lc1AttachError: null };
+      await supabase
+        .from('rent_requests')
+        .update({ lc_letter_path: letter.path, lc_letter_bucket: letter.bucket } as Loose)
+        .eq('id', requestId);
+      const attached = await attachLc1Letter(requestId, letter.path);
+      return { lcLetterFailed: false, lc1AttachError: attached.ok ? null : attached.message };
+    };
+    const noteMissingLetter = async (): Promise<string | null> => {
+      if (input.lcLetter || !input.noLc1Reason?.trim()) return null;
       const noted = await noteLc1Missing(requestId, input.noLc1Reason);
-      if (!noted.ok) lc1NoteError = noted.message;
-    }
-
-    // The request exists now: a failure here keeps it and is finished from the home card.
-    const intake = await saveIntakeDetails(requestId, {
-      familySize: input.familySize,
-      workBusiness: input.workBusiness,
-      workLocation: input.workLocation,
-    });
-    const intakeError = intake.ok ? null : intake.message;
-
-    if (input.faceCheckSha256) {
+      return noted.ok ? null : noted.message;
+    };
+    const linkFingerprint = async () => {
+      if (!input.faceCheckSha256) return;
       try {
         await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<unknown>)(
           'link_identity_photo_fingerprint',
@@ -480,13 +537,26 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
       } catch (e) {
         console.warn('[rentRequestAssistant] face fingerprint link failed', e);
       }
-    }
+    };
+    const [, letterOut, lc1NoteError, intake] = await timer.step('after insert', Promise.all([
+      linkHouse(),
+      letterAfterInsert(),
+      noteMissingLetter(),
+      saveIntakeDetails(requestId, {
+        familySize: input.familySize,
+        workBusiness: input.workBusiness,
+        workLocation: input.workLocation,
+      }),
+      linkFingerprint(),
+      setTenantAvatar(tenantId, tenantPhotoUrl),
+    ]));
+    const intakeError = intake.ok ? null : intake.message;
 
     const activationLink = !tenantResult.existing && tenantResult.activation_token
       ? `${getPublicOrigin()}/join?t=${tenantResult.activation_token}`
       : null;
 
-    // Sign-up invites (tenant if new, landlord if not yet a user). Fire-and-forget.
+    // Sign-up invites (tenant if new, landlord if not yet a user). Fired without waiting.
     try {
       const recipients: Array<{ role: 'tenant' | 'landlord'; full_name: string; phone: string; activation_token?: string }> = [];
       if (!tenantResult.existing && tenantResult.activation_token && cleanTenantPhone) {
@@ -497,8 +567,8 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
         recipients.push({ role: 'landlord', full_name: input.landlordName.trim(), phone: llPhone });
       }
       if (recipients.length > 0) {
-        void supabase.functions
-          .invoke('send-signup-invite-sms', { body: { origin: getPublicOrigin(), recipients } })
+        void Promise.resolve(supabase.functions
+          .invoke('send-signup-invite-sms', { body: { origin: getPublicOrigin(), recipients } }))
           .catch((e) => console.warn('[rentRequestAssistant] invite SMS failed (non-critical)', e));
       }
     } catch (e) {
@@ -510,9 +580,9 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
       rentRequestId: requestId,
       tenantExisting: !!tenantResult.existing,
       activationLink,
-      lcLetterFailed,
+      lcLetterFailed: letterOut.lcLetterFailed,
       intakeError,
-      lc1AttachError,
+      lc1AttachError: letterOut.lc1AttachError,
       lc1NoteError,
     };
   } catch (caught) {

@@ -46,8 +46,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { reverseGeocode } from '@/lib/reverseGeocode';
-import { signageGpsLocation, type SignageGpsLocation } from '@/lib/signageGpsLocation';
+import { lookupSignageGpsLocation, resolvedSignageVillage, type SignageGpsLocation } from '@/lib/signageGpsLocation';
 import { hapticTap, hapticSuccess, hapticError } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { safeUUID } from '@/lib/safeUUID';
@@ -125,6 +124,10 @@ export default function AgentWelileSignages() {
 
   // Administrative Location
   const [adminLocation, setAdminLocation] = useState<SignageGpsLocation | null>(null);
+  // Typed by the agent only when the address lookup could not find a village for this spot.
+  const [villageTyped, setVillageTyped] = useState('');
+  // The village that will be saved: the GPS name when found, otherwise what the agent typed.
+  const resolvedVillage = resolvedSignageVillage(adminLocation, villageTyped);
   const captureVersion = useRef(0);
   useEffect(() => () => { captureVersion.current += 1; }, []);
   const [plotOrLandmark, setPlotOrLandmark] = useState('');
@@ -155,6 +158,7 @@ export default function AgentWelileSignages() {
     setGpsAccuracy(null);
     setGpsCapturedAt(null);
     setAdminLocation(null);
+    setVillageTyped('');
     setPlotOrLandmark('');
     setNearbyLandmarks('');
     if (!navigator.geolocation) {
@@ -172,17 +176,24 @@ export default function AgentWelileSignages() {
         setGpsLng(longitude);
         setGpsAccuracy(accuracy);
         setGpsCapturedAt(new Date().toISOString());
-        const location = signageGpsLocation(await reverseGeocode(latitude, longitude));
+        const outcome = await lookupSignageGpsLocation(latitude, longitude);
         if (version !== captureVersion.current) return;
         setIsCapturingGps(false);
-        if (!location) {
-          setGpsError('The address could not be confirmed from GPS. Check your connection and capture the location again.');
+        if (outcome.kind !== 'ok') {
+          const msg = outcome.kind === 'connection'
+            ? 'No internet connection reached the address service. Check your data or Wi-Fi, then tap Capture Live Location to retry.'
+            : 'GPS worked, but no District could be found for this spot. Move a little and tap Capture Live Location to retry.';
+          setGpsError(msg);
+          toast.error(msg);
           hapticError();
           return;
         }
+        const location = outcome.location;
         setAdminLocation(location);
-        setPlotOrLandmark(location.address);
-        setNearbyLandmarks(location.address);
+        setVillageTyped(location.village);
+        // A street or landmark the lookup could not find is left for the agent to type.
+        setPlotOrLandmark(location.landmarkFound ? location.address : '');
+        setNearbyLandmarks(location.landmarkFound ? location.address : '');
         hapticSuccess();
         toast.success(`Live GPS captured: accuracy ±${Math.round(accuracy)}m`);
       },
@@ -254,6 +265,7 @@ export default function AgentWelileSignages() {
     setGpsError(null);
     // Returned applications require a fresh device capture and address lookup.
     setAdminLocation(null);
+    setVillageTyped('');
     toast.info('Capture live GPS again to fill the location before resubmitting.');
     setPlotOrLandmark('');
     setFootTraffic(record.foot_traffic);
@@ -291,8 +303,13 @@ export default function AgentWelileSignages() {
       document.getElementById('section-gps')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
-    if (isCapturingGps || !adminLocation?.district || !adminLocation?.village) {
-      toast.error('Capture GPS again to confirm the District and Village in Section 3.');
+    if (isCapturingGps || !adminLocation?.district) {
+      toast.error('Capture GPS again to confirm the District in Section 3.');
+      document.getElementById('section-location')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    if (!resolvedVillage) {
+      toast.error('Type the Village / Locality in Section 3 — the address lookup could not find it for this spot.');
       document.getElementById('section-location')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
@@ -326,7 +343,7 @@ export default function AgentWelileSignages() {
         county_name: adminLocation.county,
         sub_county_name: adminLocation.subcounty,
         parish_name: adminLocation.parish,
-        village_name: adminLocation.village,
+        village_name: resolvedVillage,
         plot_or_landmark: plotOrLandmark.trim() || undefined,
 
         foot_traffic: footTraffic,
@@ -355,6 +372,7 @@ export default function AgentWelileSignages() {
       setGpsAccuracy(null);
       setGpsCapturedAt(null);
       setAdminLocation(null);
+      setVillageTyped('');
       setPlotOrLandmark('');
       setNearbyLandmarks('');
       setPhotos([]);
@@ -1097,23 +1115,45 @@ export default function AgentWelileSignages() {
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {([
                       ['district', 'District'], ['county', 'County'], ['subcounty', 'Sub-County'],
-                      ['parish', 'Parish'], ['village', 'Village / Locality'],
+                      ['parish', 'Parish'],
                     ] as const).map(([key, label]) => <div key={key}>
                       <Label htmlFor={`signage-${key}`} className="text-xs font-medium">{label}</Label>
                       <Input id={`signage-${key}`} readOnly value={adminLocation?.[key] ?? ''}
                         placeholder={isCapturingGps ? 'Capturing location…' : '—'} className="mt-1 h-10 rounded-xl bg-muted text-sm" />
                     </div>)}
+                    <div>
+                      <Label htmlFor="signage-village" className="text-xs font-medium">Village / Locality</Label>
+                      <Input
+                        id="signage-village"
+                        readOnly={!adminLocation || !!adminLocation.villageFound}
+                        value={adminLocation?.villageFound ? adminLocation.village : villageTyped}
+                        onChange={(e) => setVillageTyped(e.target.value)}
+                        placeholder={isCapturingGps ? 'Capturing location…' : (adminLocation ? 'Type the village name' : '—')}
+                        className={`mt-1 h-10 rounded-xl text-sm ${adminLocation?.villageFound ? 'bg-muted' : ''}`}
+                      />
+                      {adminLocation && !adminLocation.villageFound && (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          The address lookup could not find a village for this spot. Type it so Ops can locate the property.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div>
                     <Label htmlFor="signage-address" className="text-xs font-medium">Plot / Street / Immediate Landmark</Label>
                     <Input
                       id="signage-address"
-                      readOnly
-                      placeholder="—"
+                      readOnly={!adminLocation || !!adminLocation.landmarkFound}
                       value={plotOrLandmark}
+                      onChange={(e) => setPlotOrLandmark(e.target.value)}
+                      placeholder={isCapturingGps ? 'Capturing location…' : (adminLocation ? 'Type the plot, street or nearest landmark' : '—')}
                       className="mt-1 h-10 text-sm rounded-xl"
                     />
+                    {adminLocation && !adminLocation.landmarkFound && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        No street or landmark was found here. Type the plot, street or nearest landmark.
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1268,7 +1308,7 @@ export default function AgentWelileSignages() {
                   )}
                 </Button>
 
-                {(!gpsLat || !permissionConfirmed || photos.length === 0 || !adminLocation?.village) && (
+                {(!gpsLat || !permissionConfirmed || photos.length === 0 || !resolvedVillage) && (
                   <div className="mt-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 space-y-1">
                     <p className="font-semibold text-[11px] text-center">To submit, please complete the required items:</p>
                     <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
@@ -1297,8 +1337,8 @@ export default function AgentWelileSignages() {
                         onClick={() => document.getElementById('section-location')?.scrollIntoView({ behavior: 'smooth' })}
                         className="text-left flex items-center gap-1 hover:underline cursor-pointer"
                       >
-                        <span className={adminLocation?.village ? "text-emerald-600 font-bold" : "text-amber-600"}>
-                          {adminLocation?.village ? "✓" : "○"}
+                        <span className={resolvedVillage ? "text-emerald-600 font-bold" : "text-amber-600"}>
+                          {resolvedVillage ? "✓" : "○"}
                         </span>
                         <span>District &amp; Village</span>
                       </button>

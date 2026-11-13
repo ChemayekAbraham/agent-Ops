@@ -63,6 +63,9 @@ function useInvalidate() {
     // the float balance and its hold change with every co-support action
     qc.invalidateQueries({ queryKey: ['wallet'] });
     qc.invalidateQueries({ queryKey: ['wallet-view'] });
+    // the Support screen's available float and its hold line
+    qc.invalidateQueries({ queryKey: ['funder-float-available'] });
+    qc.invalidateQueries({ queryKey: ['funder-float-holds'] });
   };
 }
 

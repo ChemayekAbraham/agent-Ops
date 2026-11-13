@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { LandlordFloatPerformanceNotice } from '@/components/agent/LandlordFloatPerformanceNotice';
 import { useLandlordFloatPerformance } from '@/hooks/useLandlordFloatPerformance';
 import { useCaptureLocation } from '@/hooks/useCaptureLocation';
+import { canSelfPayLandlords } from '@/lib/landlordSelfPayAgents';
 import { useLandlordOtp } from '@/hooks/useLandlordOtp';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -432,10 +433,14 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
       // leave getCurrentPosition pending indefinitely when the permission sheet
       // is dismissed. Continue after 8 seconds; payout verification still keeps
       // the landlord/property coordinates already stored on the request.
-      const loc = await Promise.race([
-        geo.captureLocation().catch(() => null),
-        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000)),
-      ]);
+      // Direct-pay agents (Alpha Ssema) pay landlords remotely: no location
+      // is asked for; the landlord's one-time code is still required.
+      const loc = canSelfPayLandlords(user.id)
+        ? null
+        : await Promise.race([
+            geo.captureLocation().catch(() => null),
+            new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000)),
+          ]);
       const r = selectedRequest;
       const propLat = r.landlord?.latitude ?? null;
       const propLng = r.landlord?.longitude ?? null;

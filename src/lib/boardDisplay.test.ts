@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   BOARD_IDLE_MS, BOARD_PANEL_IDLE_MS, BOARD_PERIOD_KEY, BOARD_POLL_MS, BOARD_PULSE_MS, BOARD_RETRY_MS, boardDays, boardDisplayToken, boardIsStale,
-  boardUpdatedText, isBoardDisplayPath, isBoardLinkError, kampalaDate, readBoardFeed, readBoardList, readBoardPeriod, storeBoardPeriod,
+  boardUpdatedText, isBoardDisplayPath, isBoardLinkError, kampalaDate, readBoardFeed, readBoardList, readBoardPeriod, sortBoardRows, storeBoardPeriod,
 } from './boardDisplay';
-const feed = () => ({ generated_at: '2026-11-09T08:00:00Z', display: { label: 'Boardroom 1' }, headline: Object.fromEntries(['today','7d','30d','90d','all'].map(p => [p, { posted: { n: 0, ugx: 0 }, sold: { n: 1, ugx: 10000 }, waiting: { n: 2, ugx: 20000 } }])) });
+const feed = () => ({ generated_at: '2026-11-09T08:00:00Z', display: { label: 'Boardroom 1' }, headline: Object.fromEntries(['today','7d','30d','90d','all'].map(p => [p, { posted: { n: 0, ugx: 0 }, sold: { n: 1, ugx: 10000 }, selected: { n: 3, ugx: 30000 }, waiting: { n: 2, ugx: 20000 } }])) });
 const memory = (seed: Record<string, string> = {}) => {
   const m = new Map(Object.entries(seed));
   return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v); }, m };
@@ -51,6 +51,12 @@ describe('Board display rules', () => {
   it('rejects incomplete totals rather than inventing zero', () => {
     expect(() => readBoardFeed({ ...feed(), headline: {} })).toThrow('totals are unavailable');
   });
+  it('E94: reads the selected total too, and a feed without it is incomplete', () => {
+    expect(readBoardFeed(feed()).headline['7d'].selected).toEqual({ n: 3, ugx: 30000 });
+    const old = feed();
+    for (const p of Object.values(old.headline) as Record<string, unknown>[]) delete p.selected;
+    expect(() => readBoardFeed(old)).toThrow('totals are unavailable');
+  });
 });
 
 describe('Board period choice', () => {
@@ -71,14 +77,27 @@ describe('Board period choice', () => {
 });
 
 describe('Board list (board_display_list)', () => {
-  it('whitelists ref, area, rent, dates and status: no names, phones or ids', () => {
+  it('E94: keeps the tenant, agent, landlord and funder names and the dates; never phones, ids or anything else', () => {
     const l = readBoardList({ count: 412, ugx: 9_000_000, shown: 300, rows: [{
       ref: 'a1b2c3d4e5', area: 'Kireka, Wakiso', rent: '300000', posted_at: '2026-11-08T08:00:00Z', days_since_posted: 1.5, status_label: 'Repaying',
-      money_released_at: '2026-11-09T07:00:00Z', tenant: 'Private Name', tenant_phone: '0700', landlord_phone: '0701', id: 'uuid', partner: 'Private',
+      money_released_at: '2026-11-09T07:00:00Z', tenant: 'Amina Nakato', agent: 'Paul Okello', landlord: 'Grace L', funder: 'Jane Funder',
+      selected_at: '2026-11-08T09:00:00Z', otp_verified_at: '2026-11-09T06:55:00Z',
+      tenant_phone: '0700', landlord_phone: '0701', id: 'uuid', partner: 'Private', national_id: 'CM123',
     }] }, '7d', 'sold');
     expect(l).toMatchObject({ period: '7d', kind: 'sold', count: 412, ugx: 9_000_000, shown: 300 });
-    expect(l.rows[0]).toEqual({ ref: 'a1b2c3d4', area: 'Kireka, Wakiso', rent: 300000, posted_at: '2026-11-08T08:00:00Z', days_since_posted: 1.5, status_label: 'Repaying', money_released_at: '2026-11-09T07:00:00Z' });
-    expect(JSON.stringify(l)).not.toMatch(/Private|0700|0701|uuid/);
+    expect(l.rows[0]).toEqual({
+      ref: 'a1b2c3d4', area: 'Kireka, Wakiso', rent: 300000, posted_at: '2026-11-08T08:00:00Z', days_since_posted: 1.5, status_label: 'Repaying',
+      money_released_at: '2026-11-09T07:00:00Z', tenant: 'Amina Nakato', agent: 'Paul Okello', landlord: 'Grace L', funder: 'Jane Funder',
+      selected_at: '2026-11-08T09:00:00Z', otp_verified_at: '2026-11-09T06:55:00Z',
+    });
+    expect(JSON.stringify(l)).not.toMatch(/Private|0700|0701|uuid|CM123/);
+  });
+  it('orders newest selected first by default, oldest first, or by amount; unselected rows go by when they were posted', () => {
+    const r = (ref: string, selected_at: string | null, posted_at: string | null, rent: number | null) => ({ ref, selected_at, posted_at, rent });
+    const rows = [r('a', '2026-11-08T09:00:00Z', null, 500), r('b', '2026-11-10T09:00:00Z', null, 900), r('c', null, '2026-11-09T09:00:00Z', 700), r('d', null, null, null)];
+    expect(sortBoardRows(rows, 'newest').map((x) => x.ref)).toEqual(['b', 'c', 'a', 'd']);
+    expect(sortBoardRows(rows, 'oldest').map((x) => x.ref)).toEqual(['a', 'c', 'b', 'd']);
+    expect(sortBoardRows(rows, 'amount').map((x) => x.ref)).toEqual(['b', 'c', 'a', 'd']);
   });
   it('an empty or missing list is zero, not an error', () => {
     expect(readBoardList(null, 'today', 'posted')).toEqual({ period: 'today', kind: 'posted', count: 0, ugx: 0, shown: 0, rows: [] });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { hasUsableUserSession, useAuthenticatedAudience, useAuthenticatedPoll } from '@/hooks/useAuthenticatedPoll';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -8,6 +8,8 @@ import { Loader2, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { REQUISITION_REMINDER_MS, reminderDue } from './reminderTiming';
 
 /**
  * Blocking requisition notice — for the person who raised a requisition.
@@ -21,7 +23,7 @@ import { cn } from '@/lib/utils';
  * whether a signed-in requester is polled.
  */
 
-const POLL_MS = 5 * 60 * 1000;
+const POLL_MS = REQUISITION_REMINDER_MS;
 
 type Kind = 'moved' | 'amount_changed' | 'declined' | 'returned' | 'paid' | 'deferred' | 'payment_delayed';
 
@@ -65,9 +67,18 @@ export function StaffRequisitionNoticeGate({ enabled = true }: { enabled?: boole
   const [notices, setNotices] = useState<Notice[]>([]);
   const [working, setWorking] = useState(false);
   const ready = useAuthenticatedAudience();
+  const lastCheckedRef = useRef<number | null>(null);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    lastCheckedRef.current = null;
+    setNotices([]);
+  }, [user?.id]);
 
   const load = useCallback(async () => {
+    if (!reminderDue(lastCheckedRef.current, Date.now())) return;
     if (!(await hasUsableUserSession())) { setNotices([]); return; }
+    lastCheckedRef.current = Date.now();
     try {
       const { data, error } = await supabase.rpc('staff_requisition_my_notices' as never);
       if (error) { setNotices([]); return; }
@@ -78,7 +89,7 @@ export function StaffRequisitionNoticeGate({ enabled = true }: { enabled?: boole
     }
   }, []);
 
-  useAuthenticatedPoll(load, POLL_MS, { onFocus: true });
+  useAuthenticatedPoll(load, POLL_MS);
   useEffect(() => { if (!ready) setNotices([]); }, [ready]);
 
   const notice = notices[0];

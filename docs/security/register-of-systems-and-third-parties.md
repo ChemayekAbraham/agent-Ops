@@ -21,7 +21,7 @@ Add a row before any new service starts holding personal data (§11). Review at 
 | Yoola SMS (yoolasms.com) | SMS gateway (main bulk sender) | Phone numbers, message text | `_shared/sendSmsMultiProvider.ts` | TO CONFIRM | TO CONFIRM | TO CONFIRM |
 | Lana SMS (lanasms.com) | SMS gateway (fallback) | Phone numbers, message text | `_shared/sendSmsMultiProvider.ts` | TO CONFIRM | TO CONFIRM | TO CONFIRM |
 | "Gate" SMS provider | SMS gateway recorded as `gate` in `sms_delivery_log` (all messages through it fail) | Phone numbers, message text | `_shared/sendSmsMultiProvider.ts` | TO CONFIRM | TO CONFIRM | TO CONFIRM |
-| Twilio (through the Lovable connector gateway) | WhatsApp and SMS | Phone numbers, message text | `whatsapp.ts`, `sms-delivery-report` | TO CONFIRM | TO CONFIRM | TO CONFIRM |
+| Meta WhatsApp Cloud API | WhatsApp | Phone numbers, message text | `whatsapp.ts` | TO CONFIRM | TO CONFIRM | TO CONFIRM |
 | Mailgun | Transactional email sending and inbound mail | Email addresses, message content | `process-email-queue`, `send-transactional-email` | TO CONFIRM | TO CONFIRM | TO CONFIRM |
 | Google (Gmail API) | Reads incoming mobile-money deposit emails for reconciliation | Mailbox content: payer names, phone numbers, amounts, transaction IDs | `gmail-poll-transactions` | TO CONFIRM | TO CONFIRM | TO CONFIRM |
 | Lovable | Deployment of the frontend; AI gateway; connector gateway | Source code; content sent to the AI assistant and to connectors | `ai.gateway.lovable.dev`, `connector-gateway.lovable.dev` | TO CONFIRM | TO CONFIRM | Written confirmation that data from the old Lovable Cloud database is deleted: TO CONFIRM |

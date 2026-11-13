@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Send, HandCoins, TrendingUp, CalendarCheck, Sprout } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { FileText } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, ShieldCheck, Trash2, Wallet, X, Send, TrendingUp, Sprout } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizeE164OrNull } from '@/lib/phoneUtils';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderNewCategory, FunderNewSelectionItem } from './types';
@@ -13,6 +14,9 @@ import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import { LANDLORD_PAID_STEPS } from '@/lib/selfSupportDirect';
+const SupporterAgreementViewModal = lazy(() => import('@/components/supporter/agreement/SupporterAgreementCard').then((m) => ({ default: m.SupporterAgreementViewModal })));
+import { useFunderFloatHolds } from '@/hooks/useFunderSavedTabs';
+import type { FunderSavedTab } from '@/lib/funderSavedTabs';
 
 /**
  * Monthly Returns on a selection at the signed-in partner's OWN rate for a new portfolio
@@ -159,6 +163,7 @@ export function FunderNewReviewDialog({
   onFund,
   onTopUp,
   onViewPortfolio,
+  onOpenSavedTab,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -173,12 +178,16 @@ export function FunderNewReviewDialog({
   onTopUp?: (shortfall: number) => void;
   /** Opens the supporter's own portfolio list from the success view. */
   onViewPortfolio?: () => void;
+  /** Opens Saved Items on a pill (the co-support float-hold line). */
+  onOpenSavedTab?: (tab: FunderSavedTab) => void;
 }) {
+  const holds = useFunderFloatHolds(open);
   const monthlyAt15 = useMonthlyAtOwnRate();
   const ownRatePct = formatRatePct(useOwnNewPortfolioRate().rate);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<FunderReceipt | null>(null);
+  const [contractOpen, setContractOpen] = useState(false);
   const total = items.reduce((sum, item) => sum + item.amount, 0);
   const shortfall = available === null ? null : Math.max(0, total - available);
 
@@ -221,107 +230,117 @@ export function FunderNewReviewDialog({
         </div>
 
         {/* Scrollable body */}
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
-          {items[0] && <SalesSheet item={items[0]} />}
+        {/* App-style body: photo header, one summary card, then three tabs so nothing is stacked at once. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-6 [-webkit-overflow-scrolling:touch]">
+          {items[0] && <PlanHero item={items[0]} more={items.length - 1} />}
 
-          {/* 1. House & tenant summary */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Selected Homes ({items.length})
-            </h3>
-            <ul className="space-y-2">
-              {items.map((item) => (
-                <li
-                  key={`${item.category}:${item.id}`}
-                  className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card p-3 shadow-2xs"
-                >
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.title} className="h-14 w-14 shrink-0 rounded-xl object-cover" />
-                  ) : (
-                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <Home className="h-6 w-6" />
-                    </span>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words text-sm sm:text-base font-semibold text-foreground">{item.title}</p>
-                    <Badge variant="outline" className="mt-1 rounded-full px-2 py-0 text-xs font-medium">
-                      {categoryLabel(item.category)}
-                    </Badge>
-                    <p className="mt-1 break-words text-sm text-muted-foreground">{item.place}</p>
-                    {item.tenantName ? (
-                      <p className="mt-0.5 break-words text-sm text-foreground">Tenant: {item.tenantName}</p>
-                    ) : null}
-                    <p className="mt-1 text-base font-bold text-foreground">{formatDynamic(item.amount)}</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-11 w-11 shrink-0 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    aria-label={`Remove ${item.title}`}
-                    onClick={() => onRemove(item)}
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {/* 2. Support amount / plan details */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Plan details</h3>
-            <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
-              <div className="rounded-2xl bg-primary p-3.5 text-primary-foreground shadow-xs">
-                <p className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/75">Total Support</p>
-                <p className="mt-1 break-words text-lg sm:text-xl font-bold tracking-tight">{formatDynamic(total)}</p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-primary/5 p-3.5 shadow-2xs">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly Rent profit share{ownRatePct ? ` (${ownRatePct})` : ''}</p>
-                <p className="mt-1 break-words text-lg sm:text-xl font-bold tracking-tight text-success">
-                  {monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/70 bg-muted/30 px-3.5 py-3 shadow-2xs min-[380px]:col-span-2">
+          <div className="relative z-10 -mt-8 space-y-4 px-4 sm:px-6">
+            {/* Summary card: what you put in, what you earn, and whether your float covers it. */}
+            <section className="rounded-3xl border border-border/70 bg-card p-4 shadow-lg">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Available operational float</p>
-                  <p className="mt-0.5 break-words text-base font-bold tracking-tight text-foreground">
-                    {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
-                  </p>
+                  <p className="text-xs font-medium text-muted-foreground">You support</p>
+                  <p className="mt-0.5 break-words text-xl font-bold tracking-tight">{formatDynamic(total)}</p>
                 </div>
+                <div className="min-w-0 border-l border-border/60 pl-3">
+                  <p className="text-xs font-medium text-muted-foreground">You earn monthly</p>
+                  <p className="mt-0.5 break-words text-xl font-bold tracking-tight text-success">
+                    {monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}
+                  </p>
+                  {ownRatePct ? <p className="text-xs text-muted-foreground">at {ownRatePct} a month</p> : null}
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-muted/50 px-3 py-2.5">
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <Wallet className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+                  <span className="min-w-0">
+                    <span className="block text-xs text-muted-foreground">Your float</span>
+                    <span className="block whitespace-nowrap text-sm font-semibold">
+                      {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
+                    </span>
+                    {holds.line ? (
+                      holds.tab === 'co_support' && onOpenSavedTab ? (
+                        <button type="button" onClick={() => onOpenSavedTab('co_support')} className="mt-0.5 block text-left text-[11px] leading-snug text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground">
+                          {holds.line}
+                        </button>
+                      ) : (
+                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{holds.line}</span>
+                      )
+                    ) : null}
+                  </span>
+                </span>
                 {shortfall !== null && (
-                  <Badge
-                    variant="outline"
+                  <span
                     className={cn(
-                      'rounded-full border px-2.5 py-0.5 text-xs font-semibold shadow-2xs',
-                      shortfall > 0
-                        ? 'bg-warning/10 text-warning border-warning/30'
-                        : 'bg-success/10 text-success border-success/30',
+                      'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                      shortfall > 0 ? 'bg-warning/15 text-warning' : 'bg-success/15 text-success',
                     )}
                   >
                     {shortfall > 0 ? `${formatDynamic(shortfall)} short` : 'Fully covered'}
-                  </Badge>
+                  </span>
                 )}
               </div>
-            </div>
-          </section>
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden />
+                Support once, earn for 12 months. Backed by Welile's operational guarantee.
+              </p>
+            </section>
 
-          {/* 3. WhatsApp contacts */}
-          {items.length > 0 && (
-            <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">The people behind this home</h3>
-              <div className="space-y-3">
+            <Tabs defaultValue="homes" className="w-full">
+              <TabsList className="grid h-11 w-full grid-cols-3 rounded-full bg-muted p-1">
+                <TabsTrigger value="homes" className="rounded-full">
+                  Homes{items.length > 1 ? ` (${items.length})` : ''}
+                </TabsTrigger>
+                <TabsTrigger value="people" className="rounded-full">People</TabsTrigger>
+                <TabsTrigger value="how" className="rounded-full">How it works</TabsTrigger>
+              </TabsList>
+
+              {/* forceMount keeps every tab in the page (hidden when inactive) so screen readers and tests still find it. */}
+              <TabsContent value="homes" forceMount className="mt-3 space-y-3 data-[state=inactive]:hidden">
+                <ul className="divide-y divide-border/60 overflow-hidden rounded-3xl border border-border/70 bg-card">
+                  {items.map((item) => (
+                    <li key={`${item.category}:${item.id}`} className="flex items-center gap-3 p-3">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.title} className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                      ) : (
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Home className="h-5 w-5" />
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">{item.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {item.tenantName ? `${item.tenantName} · ` : ''}{item.place}
+                        </p>
+                        <p className="mt-0.5 text-sm font-bold text-foreground">{formatDynamic(item.amount)}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        aria-label={`Remove ${item.title}`}
+                        onClick={() => onRemove(item)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+                <p className="px-1 text-xs leading-relaxed text-muted-foreground">
+                  Nothing is charged until you confirm. When your float covers the rent, it goes to the agent, who pays the landlord within 24 hours. Rent profit share figures are estimates{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}.
+                </p>
+              </TabsContent>
+
+              <TabsContent value="people" forceMount className="mt-3 space-y-3 data-[state=inactive]:hidden">
                 {items.map((item) => (
                   <HomeContacts key={`wa:${item.category}:${item.id}`} item={item} showTitle={items.length > 1} />
                 ))}
-              </div>
-            </section>
-          )}
+              </TabsContent>
 
-          <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-3 text-muted-foreground">
-            <Info className="mt-0.5 h-4 w-4 shrink-0" />
-            <p className="min-w-0 flex-1 text-sm leading-relaxed">
-              Selecting and reviewing homes is planning only. Support starts when you confirm. When your float covers the rent, it goes to the agent, who pays the landlord within 24 hours. Rent profit share shown are estimates{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}.
-            </p>
+              <TabsContent value="how" forceMount className="mt-3 data-[state=inactive]:hidden">
+                {items[0] && <HowItWorks item={items[0]} />}
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 
@@ -406,6 +425,15 @@ export function FunderNewReviewDialog({
                   ))}
                 </ol>
               </div>
+
+              <Button className="h-11 w-full" onClick={() => setContractOpen(true)}>
+                <FileText className="mr-2 h-4 w-4" /> View contract
+              </Button>
+              {contractOpen ? (
+                <Suspense fallback={null}>
+                  <SupporterAgreementViewModal open={contractOpen} onOpenChange={setContractOpen} defaultTab="full" />
+                </Suspense>
+              ) : null}
 
               <div className="flex gap-2">
                 <Button variant="outline" className="h-11 flex-1" onClick={closeAll}>Done</Button>
@@ -636,63 +664,67 @@ export function buildWhatsAppShareUrl(message: string): string {
   return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
 
-const POINTS = [
-  { icon: HandCoins, text: 'You support a tenant — you earn monthly Rent profit share on their rent.' },
-  { icon: CalendarCheck, text: 'Support once, earn for 12 months.' },
-  { icon: ShieldCheck, text: 'Welile provides an operational guarantee for every tenant you support.' },
-];
-
 const HOW_STEPS = [
   { icon: Wallet, text: 'Deposit to your Welile wallet' },
   { icon: TrendingUp, text: 'Tap Fund' },
   { icon: Send, text: 'The rent goes to the agent, who pays the landlord within 24 hours.' },
 ];
 
-function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
+/** Full-bleed photo header with the home's name over a soft gradient, like an app detail screen. */
+function PlanHero({ item, more }: { item: FunderNewSelectionItem; more: number }) {
+  return (
+    <div className="relative aspect-[16/10] w-full overflow-hidden bg-primary/10 sm:aspect-video">
+      {item.imageUrl ? (
+        <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-primary">
+          <Home className="h-12 w-12" aria-hidden />
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" aria-hidden />
+      <span className="absolute left-4 top-4 rounded-full bg-background/90 px-2.5 py-1 text-xs font-semibold text-foreground shadow-sm backdrop-blur sm:left-6">
+        {categoryLabel(item.category)}
+      </span>
+      {more > 0 ? (
+        <span className="absolute right-4 top-4 rounded-full bg-background/90 px-2.5 py-1 text-xs font-semibold text-foreground shadow-sm backdrop-blur sm:right-6">
+          +{more} more
+        </span>
+      ) : null}
+      <div className="absolute inset-x-0 bottom-10 px-4 text-white sm:px-6">
+        <p className="text-xs font-medium uppercase tracking-wider text-white/80">Turn rent into an asset</p>
+        <p className="mt-0.5 line-clamp-2 text-lg font-bold leading-snug">{item.title}</p>
+        <p className="mt-0.5 flex items-center gap-1 truncate text-sm text-white/85">
+          <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          {item.place}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** The "How it works" tab: three short steps as a timeline, then the worked example for this plan. */
+function HowItWorks({ item }: { item: FunderNewSelectionItem }) {
   // Signed-in partner screen: the worked example is priced at the viewer's own rate (null = no figure).
   const { rate: ownRate } = useOwnNewPortfolioRate();
 
   return (
-    <section className="space-y-6">
-      <div className="aspect-video w-full overflow-hidden rounded-2xl bg-primary/10">
-        {item.imageUrl ? (
-          <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-primary">
-            <Home className="h-12 w-12" />
-            <span className="text-sm text-muted-foreground">Photo coming soon</span>
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold tracking-tight">Turn rent into an asset</h2>
-        <p className="text-base text-muted-foreground leading-relaxed">
-          Support this tenant's rent once. Earn {formatRatePct(ownRate) ? `${formatRatePct(ownRate)} of their rent` : 'Rent profit share on their rent'} every month for the next 12 months.
-        </p>
-      </div>
-
-      <ul className="space-y-3">
-        {POINTS.map((p) => (
-          <li key={p.text} className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"><p.icon className="h-5 w-5" /></span>
-            <span className="pt-1.5 text-base">{p.text}</span>
+    <section className="space-y-5">
+      <ol className="rounded-3xl border border-border/70 bg-card p-4">
+        {HOW_STEPS.map((step, i) => (
+          <li key={step.text} className="relative flex gap-3 pb-4 last:pb-0">
+            {i < HOW_STEPS.length - 1 ? (
+              <span className="absolute left-[15px] top-8 h-[calc(100%-2rem)] w-0.5 bg-primary/20" aria-hidden />
+            ) : null}
+            <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <step.icon className="h-4 w-4" aria-hidden />
+            </span>
+            <span className="min-w-0 pt-1 text-sm">
+              <span className="font-semibold text-muted-foreground">Step {i + 1}. </span>
+              {step.text}
+            </span>
           </li>
         ))}
-      </ul>
-
-      <div className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">How it works</h3>
-        <ol className="space-y-2">
-          {HOW_STEPS.map((step, i) => (
-            <li key={step.text} className="flex items-center gap-3 rounded-2xl bg-muted/40 p-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">{i + 1}</span>
-              <step.icon className="h-5 w-5 shrink-0 text-primary" />
-              <span className="text-sm sm:text-base">{step.text}</span>
-            </li>
-          ))}
-        </ol>
-      </div>
+      </ol>
 
       <SupportPlanExample fundingAmount={item.amount} rate={ownRate} />
     </section>

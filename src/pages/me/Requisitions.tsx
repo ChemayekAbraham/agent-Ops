@@ -581,7 +581,7 @@ const MyRequisitions = () => {
                 </DialogHeader>
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="req-title">{isRefund ? 'What did you pay for' : 'What is it for'}</Label>
+                    <Label htmlFor="req-title">Title</Label>
                     <Input
                       id="req-title"
                       value={form.title}
@@ -600,17 +600,6 @@ const MyRequisitions = () => {
                         placeholder="250000"
                       />
                     </div>
-                    {!isRefund && (
-                    <div className="space-y-2">
-                      <Label htmlFor="req-needed">Needed by (optional)</Label>
-                      <Input
-                        id="req-needed"
-                        type="date"
-                        value={form.needed_by}
-                        onChange={(e) => setForm((f) => ({ ...f, needed_by: e.target.value }))}
-                      />
-                    </div>
-                    )}
                   </div>
                   {kind === 'staff_loan' && (
                     <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
@@ -676,17 +665,6 @@ const MyRequisitions = () => {
                       </label>
                     </div>
                   )}
-                  {!isRefund && (
-                  <div className="space-y-2">
-                    <Label htmlFor="req-category">Category (optional)</Label>
-                    <Input
-                      id="req-category"
-                      value={form.category}
-                      onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                      placeholder="Operations, marketing, travel…"
-                    />
-                  </div>
-                  )}
                   <div className="space-y-2">
                     <Label htmlFor="req-reason">{isRefund ? 'Why should it be refunded' : 'Why do you need it'}</Label>
                     <Textarea
@@ -703,9 +681,6 @@ const MyRequisitions = () => {
                       <span>{isRefund ? 'Receipts / proof of payment' : 'Attachments / Receipts'} <span className="text-xs text-muted-foreground font-normal">{isRefund ? '(required)' : '(optional)'}</span></span>
                       <span className="text-[11px] text-muted-foreground">PDF, PNG, JPG (max 10MB)</span>
                     </Label>
-                    <p className="text-[11px] text-red-600 dark:text-red-400">
-                      A receipt is read and compared with the amount you type. You can still submit. If the figures differ, payout waits until they match or the CFO clears the gap.
-                    </p>
                     <div className="border border-dashed border-border rounded-xl p-3 bg-muted/20 hover:bg-muted/30 transition-colors text-center">
                       <label className="cursor-pointer flex flex-col items-center justify-center gap-1">
                         <Upload className="h-4 w-4 text-muted-foreground" />

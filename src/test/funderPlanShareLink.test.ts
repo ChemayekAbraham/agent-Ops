@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
+// The screen pulls hooks that import the Supabase client; this test needs no network.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: () => Promise.resolve({ data: null, error: null }), from: () => ({ select: () => ({ eq: () => Promise.resolve({ data: [], error: null }), in: () => Promise.resolve({ data: [], error: null }) }) }), auth: { getSession: () => Promise.resolve({ data: { session: null }, error: null }) } } }));
 // The sales sheet prices its worked example at the viewer's own rate (15 while the switch is off).
 vi.mock('@/hooks/usePartnerQuoteRate', () => ({
   useOwnNewPortfolioRate: () => ({ rate: 15, isLoading: false }),
