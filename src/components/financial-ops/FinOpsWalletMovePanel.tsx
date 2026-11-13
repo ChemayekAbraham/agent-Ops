@@ -307,7 +307,7 @@ export function FinOpsWalletMovePanel() {
     (async () => {
       const { data, error } = await supabase
         .from('general_ledger')
-        .select('amount, direction, category, classification')
+        .select('amount, direction, category, classification, reference_id')
         .eq('user_id', source!.id)
         .eq('ledger_scope', 'wallet')
         .eq('wallet_bucket', 'float')
@@ -321,10 +321,16 @@ export function FinOpsWalletMovePanel() {
       let net = 0;
       for (const r of data as Array<{
         amount: number; direction: string; category: string; classification: string | null;
+        reference_id: string | null;
       }>) {
         const cls = r.classification;
+        // Overdraft-fill credits (FLTFILL-…) must count, same as the edge function.
+        const isOverdraftFill =
+          cls === 'admin_correction' && r.category === 'system_balance_correction' &&
+          (r.direction === 'cash_in' || r.direction === 'credit') &&
+          typeof r.reference_id === 'string' && r.reference_id.startsWith('FLTFILL-');
         const okCls =
-          cls === null || cls === 'production' ||
+          cls === null || cls === 'production' || isOverdraftFill ||
           (cls === 'admin_correction' && r.category === 'system_balance_correction' &&
             (r.direction === 'debit' || r.direction === 'cash_out'));
         if (!okCls) continue;

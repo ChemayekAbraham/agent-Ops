@@ -8,7 +8,7 @@ import {
   type AgentCapacity,
 } from '@/hooks/useAgentCapacityMap';
 import { formatUGX } from '@/lib/rentCalculations';
-import { Gauge, CalendarCheck2, Users, Info, Printer, Loader2, ChevronDown, ChevronUp, CheckCircle2, Lock } from 'lucide-react';
+import { Gauge, CalendarCheck2, Users, Info, Printer, Loader2, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { hapticTap } from '@/lib/haptics';
@@ -149,7 +149,7 @@ export function AgentRentCapacitySelfCard() {
               <DailyRatingThresholdPopover />
             </div>
 
-            {/* Daily Eligibility Law banner — one distinct message per rating level */}
+            {/* Daily rating — one message per level. E100: information only; posting is never blocked. */}
             {(() => {
               const rating = cap.daily_rating;
               const ypct = Math.round(cap.yesterday_response_pct * 100);
@@ -170,9 +170,9 @@ export function AgentRentCapacitySelfCard() {
                     <div className="text-sm">
                       <div className="font-bold text-violet-700">You can post your first rent request</div>
                       <p className="text-muted-foreground mt-0.5">
-                        Once you have active rents, you must collect at least{' '}
-                        <strong>{threshold}%</strong> of your expected daily rent each day
-                        to keep posting new ones tomorrow.
+                        Once you have active rents, aim to collect at least{' '}
+                        <strong>{threshold}%</strong> of what is due. Below that, your requests
+                        still move but wait at the COO desk and can&apos;t be funded.
                       </p>
                     </div>
                   </div>
@@ -183,9 +183,9 @@ export function AgentRentCapacitySelfCard() {
                   <div className="rounded-xl border border-emerald-600/50 bg-emerald-600/10 p-3 flex items-start gap-3">
                     <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
                     <div className="text-sm">
-                      <div className="font-extrabold text-emerald-700">Very Good — outstanding daily performance, free to post today</div>
+                      <div className="font-extrabold text-emerald-700">Very Good — outstanding daily performance</div>
                       <p className="text-foreground/80 mt-0.5">
-                        {baseMsg} You are well above the <strong>{threshold}%</strong> daily law and can post new rent requests. Keep this up to stay at the top.
+                        {baseMsg} You are well above the <strong>{threshold}%</strong> target. Keep this up to stay at the top.
                       </p>
                     </div>
                   </div>
@@ -196,9 +196,9 @@ export function AgentRentCapacitySelfCard() {
                   <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 flex items-start gap-3">
                     <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
                     <div className="text-sm">
-                      <div className="font-extrabold text-emerald-700">Good — you can post new rent requests today</div>
+                      <div className="font-extrabold text-emerald-700">Good — on target</div>
                       <p className="text-foreground/80 mt-0.5">
-                        {baseMsg} You met the <strong>{threshold}%</strong> daily law. Keep collecting to move up to <strong className="text-emerald-700">Very Good</strong> (≥ 50%).
+                        {baseMsg} You met the <strong>{threshold}%</strong> target. Keep collecting to move up to <strong className="text-emerald-700">Very Good</strong> (≥ 50%).
                       </p>
                     </div>
                   </div>
@@ -207,11 +207,11 @@ export function AgentRentCapacitySelfCard() {
               if (rating === 'Fair') {
                 return (
                   <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 flex items-start gap-3">
-                    <Lock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                    <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                     <div className="text-sm">
-                      <div className="font-extrabold text-amber-700">Fair — close to target but blocked from new rent requests today</div>
+                      <div className="font-extrabold text-amber-700">Fair — close to target</div>
                       <p className="text-foreground/80 mt-0.5">
-                        {baseMsg} You are between 15% and 19%, just shy of the <strong>{threshold}%</strong> unblock line. Hit <strong>{threshold}%</strong> today and you will be unblocked and rated <strong className="text-emerald-700">Good</strong> immediately.
+                        {baseMsg} You can still post. Below <strong>50%</strong> of what is due across your plans, your requests still move but wait at the COO desk and can&apos;t be funded.
                       </p>
                     </div>
                   </div>
@@ -220,11 +220,11 @@ export function AgentRentCapacitySelfCard() {
               if (rating === 'Bad') {
                 return (
                   <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 p-3 flex items-start gap-3">
-                    <Lock className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
+                    <AlertTriangle className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
                     <div className="text-sm">
-                      <div className="font-extrabold text-orange-700">Bad — well below target, blocked from new rent requests today</div>
+                      <div className="font-extrabold text-orange-700">Bad — well below target</div>
                       <p className="text-foreground/80 mt-0.5">
-                        {baseMsg} You are between 5% and 14%, below the <strong>{threshold}%</strong> daily law. Hit <strong>{threshold}%</strong> today and you will be unblocked and rated <strong className="text-emerald-700">Good</strong> immediately.
+                        {baseMsg} You can still post. Below <strong>50%</strong> of what is due across your plans, your requests still move but wait at the COO desk and can&apos;t be funded.
                       </p>
                     </div>
                   </div>
@@ -233,11 +233,11 @@ export function AgentRentCapacitySelfCard() {
               // Very Bad
               return (
                 <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 flex items-start gap-3">
-                  <Lock className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                  <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                   <div className="text-sm">
-                    <div className="font-extrabold text-destructive">Very Bad — critically low, blocked from new rent requests today</div>
+                    <div className="font-extrabold text-destructive">Very Bad — critically low</div>
                     <p className="text-foreground/80 mt-0.5">
-                      {baseMsg} You are below 5%, far below the <strong>{threshold}%</strong> daily law. Hit <strong>{threshold}%</strong> today and you will be unblocked and rated <strong className="text-emerald-700">Good</strong> immediately.
+                      {baseMsg} You can still post. Below <strong>50%</strong> of what is due across your plans, your requests still move but wait at the COO desk and can&apos;t be funded.
                     </p>
                   </div>
                 </div>
@@ -431,7 +431,7 @@ export function AgentRentCapacitySelfCard() {
                   ≤ {Math.round(AGENT_TIER_THRESHOLDS.bad * 100) - 1}%
                 </span>
               </span>
-              <span className="font-mono text-destructive">Blocked from new requests</span>
+              <span className="font-mono text-destructive">Requests wait at the COO desk</span>
             </li>
           </ul>
           <p className="mt-3 text-xs text-muted-foreground leading-relaxed">

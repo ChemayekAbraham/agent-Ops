@@ -24,6 +24,7 @@ import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
 import { FunderNewMapSection } from '@/components/funder-new/FunderNewMapSection';
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
 import { CoSupportWaitingSection } from '@/components/co-support/CoSupportWaitingSection';
+import { DirectPayPartnerPayments } from '@/components/direct-pay/DirectPayPartner';
 import { FunderNewCalculatorDialog } from '@/components/funder-new/FunderNewCalculatorDialog';
 import { FunderNewHowItWorksDialog } from '@/components/funder-new/FunderNewHowItWorksDialog';
 import { FunderNewReviewDialog, FunderNewSelectionBar } from '@/components/funder-new/FunderNewSelectionPanel';
@@ -426,6 +427,7 @@ export default function FunderDashboardNew() {
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 lg:px-8">
         <CoSupportWaitingSection />
+        <DirectPayPartnerPayments />
         <FunderNewHero
           summary={summary.data}
           isLoading={summary.isLoading}
@@ -722,6 +724,8 @@ export default function FunderDashboardNew() {
                     email: (profile?.email || user?.email || '').trim() || null,
                     amount: Number(total || 0),
                     contribution_type: 'once_off',
+                    // Booking for themselves: the server uses this funder's own details and links the note to them.
+                    self_booking: true,
                   },
                   p_house_ids: ids,
                 });

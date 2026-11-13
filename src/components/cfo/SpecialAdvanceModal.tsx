@@ -12,7 +12,7 @@ import { UserSearchPicker, type UserResult } from '@/components/cfo/UserSearchPi
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
 import { kampalaLabel, kampalaTodayYmd } from '@/lib/kampalaDays';
 import {
-  RATE_BASIS_LABEL, RATE_MAX_BY_BASIS, RATE_MAX_PERCENT, SPECIAL_ADVANCE_FREQUENCIES, SPECIAL_ADVANCE_RATE_PRESETS, SPECIAL_ADVANCE_TERMS,
+  RATE_BASIS_LABEL, SPECIAL_ADVANCE_FREQUENCIES, SPECIAL_ADVANCE_RATE_PRESETS, SPECIAL_ADVANCE_TERMS,
   TERM_MAX_DAYS, TERM_MIN_DAYS, previewSpecialAdvance, rateLabel, type RateBasis, type SpecialAdvanceFrequency,
 } from '@/lib/specialAdvancePreview';
 import {
@@ -57,7 +57,7 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
   const [externalReg, setExternalReg] = useState('');
   const [externalOrg, setExternalOrg] = useState('');
   const [amount, setAmount] = useState('');
-  const [ratePreset, setRatePreset] = useState<string | null>(null);
+  const [ratePreset, setRatePreset] = useState<string | null>(CUSTOM);
   const [customBasis, setCustomBasis] = useState<RateBasis | null>(null);
   const [customRate, setCustomRate] = useState('');
   const [frequency, setFrequency] = useState<SpecialAdvanceFrequency>('daily');
@@ -90,7 +90,7 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
     setExternalReg('');
     setExternalOrg('');
     setAmount('');
-    setRatePreset(null);
+    setRatePreset(CUSTOM);
     setCustomBasis(null);
     setCustomRate('');
     setFrequency('daily');
@@ -114,10 +114,9 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
   const preset = SPECIAL_ADVANCE_RATE_PRESETS.find((p) => p.id === ratePreset);
   const isCustomRate = ratePreset === CUSTOM;
   const customRateNum = Number(customRate);
-  // Same limits as the server (_special_advance_term_errors): > 0, at most 1% per day or 28% per month, 2 decimals.
-  const customRateMax = customBasis ? RATE_MAX_BY_BASIS[customBasis] : RATE_MAX_PERCENT;
+  // Same limits as the server (_special_advance_term_errors): above 0, at most 2 decimals, no upper ceiling.
   const customRateValid = customRate.trim() !== '' && Number.isFinite(customRateNum) && customRateNum > 0
-    && customRateNum <= customRateMax && /^\d+(\.\d{1,2})?$/.test(customRate.trim());
+    && /^\d+(\.\d{1,2})?$/.test(customRate.trim());
   const rate: { ratePercent: number; basis: RateBasis } | null = preset
     ? { ratePercent: preset.ratePercent, basis: preset.basis }
     : isCustomRate && customBasis && customRateValid ? { ratePercent: customRateNum, basis: customBasis } : null;
@@ -349,14 +348,6 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
 
             <fieldset>
               <legend className="text-sm font-medium">Agreed access fee rate</legend>
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                {SPECIAL_ADVANCE_RATE_PRESETS.map((p) => (
-                  <Chip key={p.id} id={`special-advance-rate-${p.id}`} active={ratePreset === p.id} onClick={() => setRatePreset(p.id)}>
-                    {rateLabel(p.ratePercent, p.basis)}
-                  </Chip>
-                ))}
-                <Chip id="special-advance-rate-custom" active={isCustomRate} onClick={() => setRatePreset(CUSTOM)}>Custom rate</Chip>
-              </div>
               {isCustomRate && (
                 <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-dashed border-border p-3">
                   <div>
@@ -379,7 +370,7 @@ export function SpecialAdvanceModal({ open, onOpenChange, historical = false }: 
                   {!customBasis && <p className="col-span-2 text-[11px] text-amber-600">Choose whether the agreed rate is per day or per month.</p>}
                   {customRate !== '' && !customRateValid && (
                     <p className="col-span-2 text-[11px] text-destructive">
-                      Enter a rate above 0 and up to {customRateMax}%{customBasis ? ` ${RATE_BASIS_LABEL[customBasis]}` : ''} (at most 2 decimals).
+                      Enter a rate above 0 (at most 2 decimals).
                     </p>
                   )}
                 </div>
