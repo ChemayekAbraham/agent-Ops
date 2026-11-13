@@ -415,8 +415,8 @@ export function SchoolRegistration({ draft, setDraft, captureGps, gpsBusy, savin
             <Button variant="ghost" size="sm" className="shrink-0 rounded-full" onClick={clearGps}>Clear</Button>
           </div>
         ) : (
-          <Button variant="outline" className="h-12 w-full gap-2 rounded-2xl" disabled={gpsBusy} onClick={() => { void captureGps(); }}>
-            {gpsBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}Capture Gate GPS Now
+          <Button className="h-12 w-full gap-2 rounded-2xl text-base" disabled={gpsBusy} onClick={() => { void captureGps(); }}>
+            {gpsBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}{gpsBusy ? 'Getting location…' : 'Capture Gate GPS Now'}
           </Button>
         )}
         <button type="button" className="text-xs font-medium text-primary underline-offset-2 hover:underline" aria-expanded={manualGps} onClick={() => setManualGps(v => !v)}>
