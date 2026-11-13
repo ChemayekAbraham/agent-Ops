@@ -1,3 +1,9 @@
+# Direct landlord payment screens
+- [x] Build partner claim, held-plan/proof/status screens using only the direct-pay data layer.
+- [x] Build Landlord Ops infinite review queue and agent receipt recording; preserve server-only decisions.
+- [x] Test mocked flows and unavailable service states; all guards and automatic build pass; all Supabase files and production activation untouched.
+- [ ] Verify production claim and approval after owner activation; blocked on unapplied migrations and external unmanaged sign-in.
+
 # Signage shop-owner cross-check
 - [ ] Add staff-only phone/account/Rent Plan matching and the Agent Ops Shop owners tab.
 - [ ] Test matching, paging, access and existing signage behavior.

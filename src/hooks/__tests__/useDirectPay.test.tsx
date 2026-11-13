@@ -56,6 +56,7 @@ import {
   useDirectPayProofPhotos,
   useDirectPayQueue,
   useDirectPayUploadProof,
+  useDirectPayUploadLandlordReceiptPhoto,
 } from '../useDirectPay';
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -68,6 +69,15 @@ beforeEach(() => {
 });
 
 describe('useDirectPay', () => {
+  it('agent receipt evidence uses the existing own-folder upload without financial calls', async () => {
+    const { result } = renderHook(() => useDirectPayUploadLandlordReceiptPhoto(), { wrapper });
+    let path: string | null = null;
+    await act(async () => { path = await result.current.mutateAsync({ rentRequestId: 'rr-1', photo: new File(['receipt'], 'receipt.jpg') }); });
+    expect(path).toBe('user-1/rr-1-1.jpg');
+    expect(db.uploads).toBe(1);
+    expect(db.rpc).toHaveLength(0);
+    expect(db.invoke).toHaveLength(0);
+  });
   it('claim is one RPC call with the plan id', async () => {
     const { result } = renderHook(() => useDirectPayClaim(), { wrapper });
     await act(async () => { await result.current.mutateAsync('rr-1'); });

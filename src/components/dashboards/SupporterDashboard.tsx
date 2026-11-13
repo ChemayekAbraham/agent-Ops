@@ -88,6 +88,7 @@ const VirtualHouseDetailsSheet = lazyNamed(() => import('@/components/supporter/
 const InvestmentPackageSheet = lazyNamed(() => import('@/components/supporter/InvestmentPackageSheet'), 'InvestmentPackageSheet');
 const FunderSavedItemsDialog = lazyNamed(() => import('@/components/funder-new/FunderSavedItemsDialog'), 'FunderSavedItemsDialog');
 const FunderNewReviewDialog = lazyNamed(() => import('@/components/funder-new/FunderNewSelectionPanel'), 'FunderNewReviewDialog');
+const DirectPayPartnerPayments = lazyNamed(() => import('@/components/direct-pay/DirectPayPartner'), 'DirectPayPartnerPayments');
 const FunderActivationModal = lazyNamed(() => import('@/components/supporter/FunderActivationModal'), 'FunderActivationModal');
 const FunderNewMapSection = lazyNamed(loadHousesMap, 'FunderNewMapSection');
 const MapBottomSheet = lazyNamed(loadMapSheet, 'MapBottomSheet');
@@ -731,6 +732,7 @@ export default function SupporterDashboard({
           })()}
 
           {/* ═══ MARKET HERO (same section as /dashboard/funder-new) ═══ */}
+          <Suspense fallback={null}><DirectPayPartnerPayments /></Suspense>
           <FunderNewHero
             summary={marketSummary.data}
             isLoading={marketSummary.isLoading}
