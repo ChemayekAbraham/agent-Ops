@@ -1,56 +1,66 @@
 import { describe, expect, it } from 'vitest';
 import { signageGpsLocation } from '@/lib/signageGpsLocation';
-import { mergeOfficialChain, normalizeAdminName, type OfficialChainRow } from '@/lib/signageOfficialLocation';
+import { mergeOfficialChain, normalizeAdminName, placeTokens, searchTokens, type OfficialChainRow } from '@/lib/signageOfficialLocation';
 
-const entebbeOsm = {
+// Real OpenStreetMap answer for 0.095902, 32.505238 (Nkumba Primary School).
+const nkumbaOsm = {
   country_code: 'ug', amenity: 'Nkumba Primary School', road: 'Nkumba Road', village: 'Bendegere A',
   city_district: 'Kasenyi', city: 'Entebbe City', state: 'Central Region',
 };
-const gps = signageGpsLocation({ address: 'Nkumba Road, Bendegere A, Entebbe City', raw: { address: entebbeOsm } })!;
-const row = (r: Partial<OfficialChainRow>): OfficialChainRow =>
-  ({ village: null, parish: null, subcounty: null, county: null, district: null, ...r });
-const none = { villages: [], parishes: [], counties: [] };
+const gps = signageGpsLocation({ address: 'Nkumba Road, Bendegere A, Entebbe City', raw: { address: nkumbaOsm } })!;
+const ward = (village: string): OfficialChainRow => ({
+  village, parish: 'NKUMBA WARD', subcounty: 'Katabi Town Council', county: 'Busiro County South', district: 'Wakiso',
+});
+// Real rows the dataset returns in Wakiso for the keywords bendegere / kasenyi / nkumba.
+const nkumbaRows = ['ABAITA ABABIRI', 'BUFULU', 'KITINDA', 'NKUMBA BENDEGERE', 'NKUMBA BUKOLWA', 'NKUMBA CENTRAL'].map(ward);
 
-describe('official Uganda chain for signage GPS', () => {
-  it('treats City / Municipality / Division / Ward / Cell words as the same place', () => {
-    expect(normalizeAdminName('Entebbe City')).toBe('entebbe');
-    expect(normalizeAdminName('Entebbe Municipality')).toBe('entebbe');
-    expect(normalizeAdminName("Bendegere 'A' Cell")).toBe('bendegere a');
+describe('official Uganda chain for signage GPS (municipal structure)', () => {
+  it('reduces place names to distinctive keywords', () => {
+    expect(normalizeAdminName('Entebbe City')).toBe(normalizeAdminName('Entebbe Municipality'));
+    expect(placeTokens('Nkumba Primary School')).toEqual(['nkumba']);
+    expect(placeTokens('Katabi Town Council')).toEqual(['katabi']);
+    expect(searchTokens(nkumbaOsm).sort()).toEqual(['bendegere', 'kasenyi', 'nkumba']);
   });
 
-  it('fills county, sub-county and parish from a matching official village in the same municipality', () => {
-    const loc = mergeOfficialChain(gps, entebbeOsm, { ...none, villages: [
-      row({ village: "Bendegere 'A'", parish: 'Kigungu', subcounty: 'Division B', county: 'Entebbe Municipality', district: 'Wakiso' }),
-      // Same village name in another district must be ignored.
-      row({ village: 'Bendegere A', parish: 'X', subcounty: 'Y', county: 'Busiro', district: 'Mpigi' }),
-    ] });
-    expect(loc).toMatchObject({
-      district: 'Wakiso', county: 'Entebbe Municipality', subcounty: 'Division B', parish: 'Kigungu',
-      village: "Bendegere 'A'", villageFound: true,
+  it('places Nkumba in its official cell, ward, town council and county, not the city OSM named', () => {
+    expect(mergeOfficialChain(gps, nkumbaOsm, { districts: ['Wakiso'], villages: nkumbaRows })).toMatchObject({
+      district: 'Wakiso', county: 'Busiro County South', subcounty: 'Katabi Town Council',
+      parish: 'NKUMBA WARD', village: 'NKUMBA BENDEGERE',
     });
   });
 
-  it('falls back to the ward (parish) the geocoder named as the city division', () => {
-    const loc = mergeOfficialChain(gps, entebbeOsm, { ...none, parishes: [
-      row({ parish: 'Kasenyi', subcounty: 'Division B', county: 'Entebbe Municipality', district: 'Wakiso' }),
-    ] });
-    expect(loc).toMatchObject({ district: 'Wakiso', county: 'Entebbe Municipality', subcounty: 'Division B', parish: 'Kasenyi', village: 'Bendegere A' });
+  it('fills ward and above but keeps the GPS village when only the ward matches', () => {
+    const osm = { ...nkumbaOsm, village: 'Somewhere New' };
+    const loc = signageGpsLocation({ address: 'x', raw: { address: osm } })!;
+    expect(mergeOfficialChain(loc, osm, { districts: ['Wakiso'], villages: nkumbaRows.filter((r) => r.village !== 'NKUMBA BENDEGERE') }))
+      .toMatchObject({ county: 'Busiro County South', subcounty: 'Katabi Town Council', parish: 'NKUMBA WARD', village: 'Somewhere New' });
   });
 
-  it('uses the municipality as the county when only that level matches', () => {
-    const loc = mergeOfficialChain(gps, entebbeOsm, { ...none, counties: [
-      row({ county: 'Entebbe Municipality', district: 'Wakiso' }),
-      row({ county: 'Busiro', district: 'Wakiso' }),
-    ] });
-    expect(loc).toMatchObject({ district: 'Wakiso', county: 'Entebbe Municipality', subcounty: 'Kasenyi', parish: '', village: 'Bendegere A' });
+  it('maps a division and ward inside a municipality (Entebbe Division B, Kigungu)', () => {
+    const osm = { country_code: 'ug', village: 'Kigungu', city: 'Entebbe City', road: 'Kigungu Road' };
+    const loc = signageGpsLocation({ address: 'x', raw: { address: osm } })!;
+    const rows: OfficialChainRow[] = [
+      { village: 'KIGUNGU LANDING SITE', parish: 'KIGUNGU', subcounty: 'Division B', county: 'Entebbe Municipality', district: 'Wakiso' },
+      { village: 'MAWALA', parish: 'KIGUNGU', subcounty: 'Division B', county: 'Entebbe Municipality', district: 'Wakiso' },
+    ];
+    expect(mergeOfficialChain(loc, osm, { districts: ['Wakiso'], villages: rows })).toMatchObject({
+      district: 'Wakiso', county: 'Entebbe Municipality', subcounty: 'Division B', parish: 'KIGUNGU',
+    });
   });
 
-  it('leaves a level blank when candidates disagree, and changes nothing without a match', () => {
-    const loc = mergeOfficialChain(gps, entebbeOsm, { ...none, villages: [
-      row({ village: 'Bendegere A', parish: 'P1', subcounty: 'Division A', county: 'Entebbe Municipality', district: 'Wakiso' }),
-      row({ village: 'Bendegere A', parish: 'P2', subcounty: 'Division B', county: 'Entebbe Municipality', district: 'Wakiso' }),
-    ] });
-    expect(loc).toMatchObject({ county: 'Entebbe Municipality', parish: '', subcounty: 'Kasenyi' });
-    expect(mergeOfficialChain(gps, entebbeOsm, none)).toEqual(gps);
+  it('never guesses County from the city name alone, and ignores rows from other districts', () => {
+    const elsewhere: OfficialChainRow = { village: 'BENDEGERE', parish: 'Namusaale', subcounty: 'Kapeeka', county: 'Nakaseke South County', district: 'Nakaseke' };
+    const loc = mergeOfficialChain(gps, nkumbaOsm, { districts: ['Wakiso'], villages: [elsewhere] });
+    expect(loc).toMatchObject({ district: 'Wakiso', county: '', parish: '', village: 'Bendegere A' });
+  });
+
+  it('leaves a level blank when the best matches disagree, and changes nothing without data', () => {
+    const tie: OfficialChainRow[] = [
+      { ...ward('BENDEGERE I'), parish: 'P1' },
+      { ...ward('BENDEGERE II'), parish: 'P2' },
+    ];
+    expect(mergeOfficialChain(gps, nkumbaOsm, { districts: ['Wakiso'], villages: tie }))
+      .toMatchObject({ county: 'Busiro County South', subcounty: 'Katabi Town Council', parish: '' });
+    expect(mergeOfficialChain(gps, nkumbaOsm, { districts: [], villages: [] })).toEqual(gps);
   });
 });

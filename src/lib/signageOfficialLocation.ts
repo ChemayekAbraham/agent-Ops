@@ -2,18 +2,24 @@
  * Completes a GPS signage location with the official Uganda administrative chain
  * (ug_districts → ug_counties → ug_subcounties → ug_parishes → ug_villages).
  *
- * The geocoders rarely return County or Parish, and in towns they speak the urban
- * structure instead (City/Municipality → Division → Ward → Cell). In the official
- * dataset a municipality is a county (e.g. "Entebbe Municipality" in Wakiso), a
- * division is a sub-county and a ward is a parish. So we match the names the
- * geocoder did return against the dataset and take the levels it is missing.
+ * Urban areas use the municipal structure, which the dataset already stores at the
+ * matching rural level:
+ *   City / Municipality  → County      (e.g. "Entebbe Municipality")
+ *   Division / Town Council → Sub-County (e.g. "Division A", "Katabi Town Council")
+ *   Ward                 → Parish      (e.g. "NKUMBA WARD")
+ *   Cell                 → Village     (e.g. "NKUMBA BENDEGERE")
  *
- * Pure matching only — no network. The caller fetches candidate rows. We never guess:
- * a level is filled only when every remaining candidate agrees on it.
+ * The geocoders' place names are not official and their city boundaries are loose
+ * (OpenStreetMap puts Nkumba in "Entebbe City"; officially it is Katabi Town Council,
+ * Busiro County South). So the city name is used only to find the district, and the
+ * finer levels come from keyword matches against official village / ward names inside
+ * that district. A level is filled only when the best matches agree on it.
+ *
+ * Pure matching only — no network. The caller fetches candidate rows.
  */
 import type { SignageGpsLocation } from './signageGpsLocation';
 
-/** One official chain, flattened. village/parish are null for county-only rows. */
+/** One official chain, flattened. */
 export interface OfficialChainRow {
   village: string | null;
   parish: string | null;
@@ -23,122 +29,108 @@ export interface OfficialChainRow {
 }
 
 export interface OfficialCandidates {
+  /** Official district names the geocoder's district / city / municipality resolved to. */
+  districts: string[];
+  /** Village rows in those districts whose village or ward name shares a keyword. */
   villages: OfficialChainRow[];
-  parishes: OfficialChainRow[];
-  counties: OfficialChainRow[];
 }
 
-/** Drop structural words so "Entebbe City", "Entebbe Municipality" and "Entebbe" compare equal. */
+/** Structural words: "Entebbe City" = "Entebbe Municipality" = "Entebbe". */
+const STRUCTURE = /\b(city|municipality|municipal|council|district|division|town|tc|ward|cell|village|parish|sub ?county|county|central)\b/g;
+/** Words that say nothing about which place this is. */
+const NOISE = new Set([
+  'road', 'rd', 'street', 'st', 'avenue', 'lane', 'close', 'drive', 'way', 'highway', 'bypass',
+  'primary', 'secondary', 'school', 'college', 'university', 'church', 'mosque', 'hospital',
+  'health', 'centre', 'center', 'market', 'stage', 'trading', 'estate', 'plot', 'the', 'and',
+  'north', 'south', 'east', 'west', 'upper', 'lower', 'uganda', 'region', 'zone',
+]);
+
 export function normalizeAdminName(s: string | null | undefined): string {
-  return (s || '')
-    .toLowerCase()
-    .replace(/\b(city|municipality|municipal council|municipal|district|division|town council|tc|ward|cell|village|parish|sub ?county|county)\b/g, ' ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
+  return (s || '').toLowerCase().replace(STRUCTURE, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/** Distinctive words of a place name ("Nkumba Primary School" → ["nkumba"]). */
+export function placeTokens(s: string | null | undefined): string[] {
+  return normalizeAdminName(s).split(' ').filter((w) => w.length >= 4 && !NOISE.has(w) && !/^\d+$/.test(w));
 }
 
 const clean = (s: string | null | undefined) => (s || '').trim();
+const uniq = (xs: string[]) => [...new Set(xs.filter(Boolean))];
 
-/** Names the geocoder gave for the district / municipality level. */
+/** Names the geocoder gave for the district / city / municipality level. */
 export function districtHints(a: Record<string, string>): string[] {
   return uniq(['district', 'state_district', 'county', 'municipality', 'city', 'town'].map((k) => clean(a[k])));
 }
 
-/** Names the geocoder gave for the division / ward level. */
-export function areaHints(a: Record<string, string>): string[] {
-  return uniq(['city_district', 'suburb', 'subcounty', 'sub_county', 'parish', 'quarter'].map((k) => clean(a[k])));
+/** Keywords for the cell / village level. */
+export function villageTokens(a: Record<string, string>): string[] {
+  return uniq(['village', 'hamlet', 'neighbourhood', 'residential', 'quarter', 'locality'].flatMap((k) => placeTokens(a[k])));
 }
 
-/** Names the geocoder gave for the village / cell level. */
-export function villageHints(a: Record<string, string>): string[] {
-  return uniq(['village', 'hamlet', 'neighbourhood', 'suburb', 'quarter', 'residential'].map((k) => clean(a[k])));
+/** Keywords for the ward / division level (also roads and landmarks named after the area). */
+export function areaTokens(a: Record<string, string>): string[] {
+  return uniq(['city_district', 'suburb', 'subcounty', 'sub_county', 'parish', 'road', 'amenity', 'building', 'shop']
+    .flatMap((k) => placeTokens(a[k])));
 }
 
-function uniq(xs: string[]): string[] {
-  const seen = new Set<string>();
-  return xs.filter((x) => {
-    const k = normalizeAdminName(x);
-    if (!x || !k || seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
+/** Every keyword worth searching the dataset for, minus the district/city name itself. */
+export function searchTokens(a: Record<string, string>): string[] {
+  const districtWords = new Set(districtHints(a).flatMap(placeTokens));
+  return uniq([...villageTokens(a), ...areaTokens(a)]).filter((t) => !districtWords.has(t));
 }
 
-const matchesAny = (value: string | null, hints: string[]) => {
-  const v = normalizeAdminName(value);
-  return !!v && hints.some((h) => normalizeAdminName(h) === v);
-};
-
-/** Keep rows inside the district/municipality the geocoder named. */
-function inArea(rows: OfficialChainRow[], dHints: string[]): OfficialChainRow[] {
-  if (dHints.length === 0) return [];
-  return rows.filter((r) => matchesAny(r.district, dHints) || matchesAny(r.county, dHints) || matchesAny(r.subcounty, dHints));
+function score(row: OfficialChainRow, vt: string[], at: string[]): { score: number; villageHit: boolean } {
+  const v = new Set(placeTokens(row.village));
+  const p = new Set(placeTokens(row.parish));
+  const s = new Set(placeTokens(row.subcounty));
+  const villageHits = vt.filter((t) => v.has(t)).length;
+  const total =
+    4 * villageHits +
+    2 * [...vt, ...at].filter((t) => p.has(t)).length +
+    1 * at.filter((t) => v.has(t)).length +
+    1 * at.filter((t) => s.has(t)).length;
+  return { score: total, villageHit: villageHits > 0 };
 }
 
-/** Narrow by division/ward names when that still leaves something. */
-function preferArea(rows: OfficialChainRow[], aHints: string[]): OfficialChainRow[] {
-  if (rows.length <= 1 || aHints.length === 0) return rows;
-  const narrowed = rows.filter((r) => matchesAny(r.parish, aHints) || matchesAny(r.subcounty, aHints));
-  return narrowed.length > 0 ? narrowed : rows;
-}
-
-/** The value of a level only when all candidates agree on it. */
 function common(rows: OfficialChainRow[], key: keyof OfficialChainRow): string {
   const vals = new Set(rows.map((r) => clean(r[key])));
   return vals.size === 1 ? [...vals][0] : '';
 }
 
 /**
- * Fill County / Sub-County / Parish (and official District / Village spelling) from the
- * dataset. Levels already confirmed by a more specific match win; nothing is invented.
+ * Fill District / County / Sub-County / Parish (and the official cell name) from the dataset.
+ * - Village keyword hit → the whole official chain of the best-scoring cell.
+ * - Only a ward keyword hit → ward and above; the GPS village is kept.
+ * - No keyword hit → only the official district; County is NOT guessed from the city name.
  */
 export function mergeOfficialChain(
   loc: SignageGpsLocation,
   a: Record<string, string>,
   c: OfficialCandidates,
 ): SignageGpsLocation {
-  const dHints = uniq([...districtHints(a), loc.district]);
-  const aHints = uniq([...areaHints(a), loc.subcounty]);
+  const districts = uniq(c.districts.map(clean));
+  const district = districts.length === 1 ? districts[0] : '';
+  const vt = villageTokens(a).filter((t) => searchTokens(a).includes(t));
+  const at = areaTokens(a).filter((t) => searchTokens(a).includes(t));
 
-  let rows = preferArea(inArea(c.villages, dHints), aHints);
-  let level: 'village' | 'parish' | 'county' | null = rows.length ? 'village' : null;
-  if (!level) {
-    rows = preferArea(inArea(c.parishes, dHints), aHints);
-    if (rows.length) level = 'parish';
+  const scored = c.villages
+    .filter((r) => !district || clean(r.district) === district)
+    .map((r) => ({ r, ...score(r, vt, at) }))
+    .filter((x) => x.score >= 2);
+  const best = scored.reduce((m, x) => Math.max(m, x.score), 0);
+  const top = scored.filter((x) => x.score === best);
+  const rows = top.map((x) => x.r);
+
+  if (rows.length === 0) {
+    return district ? { ...loc, district } : loc;
   }
-  if (!level) {
-    rows = inArea(c.counties, dHints);
-    if (rows.length) level = 'county';
-  }
-  if (!level) return loc;
-
-  const district = common(rows, 'district');
-  const county = common(rows, 'county');
-  const subcounty = level === 'county' ? '' : common(rows, 'subcounty');
-  const parish = level === 'county' ? '' : common(rows, 'parish');
-  const village = level === 'village' ? common(rows, 'village') : '';
-
+  const villageLevel = top.every((x) => x.villageHit);
   return {
     ...loc,
-    district: district || loc.district,
-    county: county || loc.county,
-    subcounty: subcounty || loc.subcounty,
-    parish: parish || loc.parish,
-    // Official spelling of the same village; never replace a GPS village with a different one.
-    village: village && loc.villageFound ? village : loc.village,
-  };
-}
-
-/** PostgREST nested row → flat chain. */
-export function flattenChain(row: any, from: 'village' | 'parish' | 'county'): OfficialChainRow {
-  const parish = from === 'village' ? row?.parish : from === 'parish' ? row : null;
-  const subcounty = parish?.subcounty ?? null;
-  const county = from === 'county' ? row : subcounty?.county ?? null;
-  return {
-    village: from === 'village' ? row?.name ?? null : null,
-    parish: parish?.name ?? null,
-    subcounty: subcounty?.name ?? null,
-    county: county?.name ?? null,
-    district: county?.district?.name ?? null,
+    district: common(rows, 'district') || district || loc.district,
+    county: common(rows, 'county') || loc.county,
+    subcounty: common(rows, 'subcounty') || loc.subcounty,
+    parish: common(rows, 'parish') || loc.parish,
+    village: villageLevel && common(rows, 'village') ? common(rows, 'village') : loc.village,
   };
 }

@@ -1,5 +1,5 @@
 import type { ReverseGeocodeResult } from './reverseGeocode';
-import { areaHints, districtHints, flattenChain, mergeOfficialChain, villageHints, type OfficialCandidates } from './signageOfficialLocation';
+import { districtHints, mergeOfficialChain, normalizeAdminName, searchTokens, type OfficialCandidates } from './signageOfficialLocation';
 
 export interface SignageGpsLocation {
   district: string;
@@ -120,31 +120,53 @@ async function fetchJson(url: string, ms = 8000): Promise<unknown> {
   }
 }
 
-/** ilike pattern that tolerates quotes/punctuation differences ("Bendegere 'A'" vs "Bendegere A"). */
-const likePattern = (s: string) => s.trim().replace(/[^A-Za-z0-9]+/g, '%');
-const OFFICIAL_CHAIN = 'name, subcounty:ug_subcounties(name, county:ug_counties(name, district:ug_districts(name)))';
-
-/** Official dataset rows whose names match what the geocoder returned. Empty on any error. */
+/**
+ * Official dataset rows for this GPS point: the district(s) the geocoder's district / city /
+ * municipality name resolves to, and the villages in them whose cell or ward name shares a
+ * keyword with what the geocoder returned. Empty on any error.
+ */
 async function fetchOfficialCandidates(a: Record<string, string>): Promise<OfficialCandidates> {
-  const empty: OfficialCandidates = { villages: [], parishes: [], counties: [] };
-  const orIlike = (names: string[], wrap = (x: string) => x) =>
-    names.map(likePattern).filter((x) => x.replace(/%/g, '').length >= 3).map((x) => `name.ilike.${wrap(x)}`).join(',');
-  const v = orIlike(villageHints(a));
-  const p = orIlike(areaHints(a));
-  // Municipality structure: "Entebbe City" → county "Entebbe Municipality".
-  const d = orIlike(districtHints(a).map((x) => x.replace(/\b(city|municipality|district)\b/gi, '')), (x) => `%${x}%`);
+  const empty: OfficialCandidates = { districts: [], villages: [] };
+  const stems = [...new Set(districtHints(a).map(normalizeAdminName).filter((x) => x.length >= 3))]
+    .map((x) => x.replace(/[^a-z0-9 ]/g, '').replace(/ /g, '%'));
+  const tokens = searchTokens(a).map((t) => t.replace(/[^a-z0-9]/g, '')).filter(Boolean).slice(0, 8);
+  if (stems.length === 0) return empty;
   try {
     const { supabase } = await import('@/integrations/supabase/client');
-    const db = supabase as any;
-    const [villages, parishes, counties] = await Promise.all([
-      v ? db.from('ug_villages').select(`name, parish:ug_parishes(${OFFICIAL_CHAIN})`).or(v).limit(50) : { data: [] },
-      p ? db.from('ug_parishes').select(OFFICIAL_CHAIN).or(p).limit(50) : { data: [] },
-      d ? db.from('ug_counties').select('name, district:ug_districts(name)').or(d).limit(20) : { data: [] },
+    const db = supabase;
+    // District by name ("Wakiso"), else via a municipality/county of that name ("Entebbe" → Wakiso).
+    const [direct, viaCounty] = await Promise.all([
+      db.from('ug_districts').select('id, name').or(stems.map((x) => `name.ilike.${x}`).join(',')).limit(5),
+      db.from('ug_counties').select('district:ug_districts(id, name)').or(stems.map((x) => `name.ilike.${x}%`).join(',')).limit(10),
     ]);
+    type DistrictRow = { id: number; name: string };
+    const viaCountyRows = (viaCounty.data ?? []) as unknown as { district: DistrictRow | null }[];
+    const districtRows: DistrictRow[] = direct.data?.length
+      ? (direct.data as DistrictRow[])
+      : viaCountyRows.map((r) => r.district).filter((d): d is DistrictRow => !!d);
+    const ids = [...new Set(districtRows.map((d) => d.id))];
+    const districts = [...new Set(districtRows.map((d) => d.name))];
+    if (ids.length === 0 || tokens.length === 0) return { districts, villages: [] };
+
+    const geo = await db.from('mv_ug_village_geo')
+      .select('village_name, parish_name, subcounty_id, subcounty_name, district_name')
+      .in('district_id', ids)
+      .or(tokens.flatMap((t) => [`village_name.ilike.%${t}%`, `parish_name.ilike.%${t}%`]).join(','))
+      .limit(300);
+    type GeoRow = { village_name: string | null; parish_name: string | null; subcounty_id: number | null; subcounty_name: string | null; district_name: string | null };
+    const geoRows = (geo.data ?? []) as GeoRow[];
+    const subIds = [...new Set(geoRows.map((r) => r.subcounty_id).filter((x): x is number => x !== null))];
+    const subs = subIds.length
+      ? await db.from('ug_subcounties').select('id, county:ug_counties(name)').in('id', subIds)
+      : { data: [] };
+    const subRows = (subs.data ?? []) as unknown as { id: number; county: { name: string } | null }[];
+    const countyOf = new Map<number, string | null>(subRows.map((r) => [r.id, r.county?.name ?? null]));
     return {
-      villages: (villages.data ?? []).map((r: unknown) => flattenChain(r, 'village')),
-      parishes: (parishes.data ?? []).map((r: unknown) => flattenChain(r, 'parish')),
-      counties: (counties.data ?? []).map((r: unknown) => flattenChain(r, 'county')),
+      districts,
+      villages: geoRows.map((r) => ({
+        village: r.village_name, parish: r.parish_name, subcounty: r.subcounty_name,
+        county: (r.subcounty_id !== null ? countyOf.get(r.subcounty_id) : null) ?? null, district: r.district_name,
+      })),
     };
   } catch {
     return empty;
