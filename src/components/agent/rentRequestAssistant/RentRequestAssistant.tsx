@@ -26,7 +26,8 @@ import { Lc1SearchStep, type Lc1Hit } from './Lc1SearchStep';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD } from '@/hooks/useAgentCapacityMap';
+import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
+import { collectionInfoLine, fetchMyCollectionPct } from '@/lib/agentCollectionInfo';
 import { listingHasRealPhoto } from '@/hooks/useHouseListings';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
@@ -243,12 +244,19 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const rejected = request?.mode === 'resubmit' ? request.rejected : null;
   const renewal = request?.mode === 'renewal' ? request.renewal : null;
   const capIds = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
-  const { data: capMap, isLoading: capQueryLoading } = useAgentCapacityMap(capIds);
+  const { data: capMap } = useAgentCapacityMap(capIds);
   const myCap = user?.id ? capMap?.get(user.id) : undefined;
+  // The per-tenant cap is still checked (and the server enforces it).
   const perTenantMax = myCap?.unlimited_posting ? Number.MAX_SAFE_INTEGER : (myCap?.per_tenant_max ?? 500_000);
-  // The daily posting gate is for new requests; a resubmit or renewal was never gated by it.
-  const capLoading = mode === 'new' && capQueryLoading;
-  const postingBlocked = mode === 'new' && !!myCap && !myCap.unlimited_posting && !myCap.can_post_rent_today;
+  // E100 (COO decision): no daily or weekly posting gate. The agent's collection against the
+  // 50% rule is shown as information only; it never blocks a post.
+  const [collectionPct, setCollectionPct] = useState<number | null>(null);
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    let cancelled = false;
+    void fetchMyCollectionPct(user.id).then((p) => { if (!cancelled) setCollectionPct(p); });
+    return () => { cancelled = true; };
+  }, [open, user?.id]);
 
   // ----- answers -----
   const [planType, setPlanType] = useState<PlanType | null>(null);
@@ -1133,7 +1141,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     if (!user || !fees || !landlord || !tenantPhoto || posting) return;
     if (missing.length) { setError(`Still missing: ${missing.map((m) => m.label).join(', ')}.`); return; }
     if (!consent) { setError('Tick the box to accept guarantor responsibility.'); return; }
-    if (postingBlocked) { setError('Posting is closed for you right now.'); return; }
     // Required intake: every step checks its own answer; this catches anything skipped.
     const intakeMissing = (!isFullName(tenantName) && 'Type the tenant’s full name (first and last), as on the ID.')
       || familySizeProblem(familySize)
@@ -1376,11 +1383,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
   const isTextStep = ['rent', 'days', 'tenantPhone', 'nationalId', 'familySize', 'work', 'workLocation', 'address', 'lc1Phone', 'lc1Village', 'city', 'note'].includes(current);
 
-  const spokenReply = capLoading
-    ? 'Checking whether you can post today.'
-    : postingBlocked && myCap
-      ? `You can’t post a Rent Plan yet ${myCap.posting_rule === 'weekly' ? 'this week' : 'today'}. ${blockedReason(myCap)}`
-      : result
+  const spokenReply = result
         ? `Sent to the Service Centre. ${sentLine}${mode === 'new' && !result.existing ? ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.` : ''}${result.lcLetterFailed ? ' The LC letter didn’t upload. Add it later from My rent requests.' : ''}${result.intakeError ? ' Details not saved. Open Complete your requests on your home screen.' : ''}`
         : recordBlock && recordBlock.step === current
           ? `${recordHeadline(recordBlock, true)} ${recordBody(recordBlock)}`
@@ -1470,19 +1473,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             </div>
           )}
 
-          {capLoading ? (
-            <Bot><Bubble><Loader2 className="inline h-4 w-4 animate-spin" /> Checking whether you can post today…</Bubble></Bot>
-          ) : postingBlocked && myCap ? (
-            <Bot>
-              <Bubble tone="warn">
-                <b>You can’t post a Rent Plan yet {myCap.posting_rule === 'weekly' ? 'this week' : 'today'}.</b>{' '}
-                {blockedReason(myCap)}
-              </Bubble>
-            </Bot>
-          ) : (
+          {(
             <>
-              {myCap && (
-                <Bot><Bubble>Good news 🎉 You can post a rent request today! {myCap.tenants_due > 0 ? `${myCap.tenants_paid_today} of your ${myCap.tenants_due} tenants due have already paid.` : ''}</Bubble></Bot>
+              {typeof collectionPct === 'number' && (
+                <Bot><Bubble><span data-testid="collection-info">{collectionInfoLine(collectionPct)}</span></Bubble></Bot>
               )}
 
               {steps.slice(0, idx).map((s) => (
@@ -1565,7 +1559,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         </div>
       </div>
 
-      {!result && !postingBlocked && !capLoading && current !== 'review' && (
+      {!result && current !== 'review' && (
         <footer className="border-t border-border bg-card px-3 pb-safe pt-2.5">
           <div className="mx-auto flex max-w-xl items-center gap-2 pb-3">
             {isTextStep ? (
@@ -1953,15 +1947,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         // Text steps answer in the composer below.
         return null;
     }
-  }
-
-  function blockedReason(c: NonNullable<typeof myCap>): string {
-    if (c.posting_rule === 'weekly') {
-      return c.weekly_posting?.reason ?? 'Your collections last week were below the target. You can post again when a week meets it.';
-    }
-    const needed = Math.max(0, Math.ceil(c.tenants_due * DAILY_ELIGIBILITY_THRESHOLD) - c.tenants_paid_today);
-    const t = (n: number) => (n === 1 ? 'tenant' : 'tenants');
-    return `You have reached ${c.tenants_paid_today} of ${c.tenants_due} ${t(c.tenants_due)} today, and ${c.tenants_paid_yesterday} yesterday. Collect from ${needed} more ${t(needed)} today to post new Rent Plans. Any payment counts, however small.`;
   }
 }
 

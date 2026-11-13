@@ -102,6 +102,7 @@
 - [x] Add selected-portfolio rate editing through the existing server approval workflow and active-rate contract rendering.
 - [x] Run focused tests and guards (6 tests passed; all safeguards passed).
 - [ ] Verify an actual authorized rate save; external unmanaged authentication prevents signed-in browser verification.
+- [x] Allow agreement-rate editing before portfolio creation, wait for required CFO approval, and consume the approved rate atomically on countersign; matching PDF terms are rechecked before funding. UI/database regression tests and financial guards passed; real signed-in verification remains unavailable with external unmanaged authentication.
 
 # Funders Houses to fund switch
 - [x] Fix obsolete test imports after the restored discovery change.

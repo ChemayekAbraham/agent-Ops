@@ -85,7 +85,7 @@ describe('Special Advances panel', () => {
     expect(within(paid).getByText('3 monthly instalments')).toBeTruthy();
 
     const waiting = (await screen.findByText('SA-000001')).closest('tr')!;
-    expect(within(waiting).getAllByText('—')).toHaveLength(2); // no outstanding and no issue date before payout
+    expect(within(waiting).getAllByText('—')).toHaveLength(3); // no outstanding, repayment status or issue date before payout
     expect(within(waiting).getByText('90 days')).toBeTruthy();
   });
 

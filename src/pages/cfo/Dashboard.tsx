@@ -816,6 +816,7 @@ export default function CFODashboardPage() {
       onTabChange={setActiveTab}
       badges={{ advances: advanceDisbursementCount }}
       headerActions={<CFOApprovalNotificationsBell onJump={setActiveTab} />}
+      fillHeight={activeTab === 'overview'}
     >
       <CFOBreadcrumbHeader
         activeTab={activeTab}
@@ -830,7 +831,7 @@ export default function CFODashboardPage() {
         }
       />
       <SwipeOnboardingHint enabled={isMobile} />
-      <div {...(isMobile ? swipeHandlers : {})} className="min-h-[60vh]">
+      <div {...(isMobile ? swipeHandlers : {})} className={activeTab === 'overview' ? 'flex min-h-[60vh] flex-1 flex-col' : 'min-h-[60vh]'}>
         <Suspense fallback={<p role="status" className="py-12 text-center text-sm text-muted-foreground">Loading section…</p>}>{renderContent()}</Suspense>
       </div>
     </ExecutiveDashboardLayout>

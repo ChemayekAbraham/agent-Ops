@@ -26666,6 +26666,68 @@ export type Database = {
           },
         ]
       }
+      hr_pay_payroll_exclusions: {
+        Row: {
+          end_note: string | null
+          ended_at: string | null
+          ended_by: string | null
+          excluded_at: string
+          excluded_by: string
+          id: string
+          reason: string
+          staff_id: string
+        }
+        Insert: {
+          end_note?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          excluded_at?: string
+          excluded_by: string
+          id?: string
+          reason: string
+          staff_id: string
+        }
+        Update: {
+          end_note?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          excluded_at?: string
+          excluded_by?: string
+          id?: string
+          reason?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
       hr_pay_payslip_lines: {
         Row: {
           amount: number
@@ -41325,6 +41387,138 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      partner_agreement_rate_requests: {
+        Row: {
+          applied_at: string | null
+          applied_xact: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          partner_id: string
+          portfolio_id: string | null
+          rate_in_force: number
+          requested_at: string
+          requested_by: string
+          requested_rate: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_xact?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          partner_id: string
+          portfolio_id?: string | null
+          rate_in_force: number
+          requested_at?: string
+          requested_by: string
+          requested_rate: number
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_xact?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          partner_id?: string
+          portfolio_id?: string | null
+          rate_in_force?: number
+          requested_at?: string
+          requested_by?: string
+          requested_rate?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
       }
       partner_agreements: {
         Row: {
@@ -78484,6 +78678,10 @@ export type Database = {
         }[]
       }
       _bike_sweep_blocks_outflow: { Args: { p_user: string }; Returns: boolean }
+      _board_payload: {
+        Args: { p_names: boolean; p_screen: string }
+        Returns: Json
+      }
       _board_token_check: {
         Args: { p_token: string }
         Returns: {
@@ -79117,6 +79315,7 @@ export type Database = {
       _ontology_board_stage: { Args: { p_board: string }; Returns: string }
       _ontology_document_text: { Args: never; Returns: string }
       _ontology_inventory: { Args: never; Returns: Json }
+      _ops_map_payload: { Args: { p_names: boolean }; Returns: Json }
       _partner_commitment_follow_rate: {
         Args: { p_commitment_id: string; p_rate: number }
         Returns: undefined
@@ -82544,9 +82743,17 @@ export type Database = {
           id: string
         }[]
       }
-      board_display_feed: { Args: { p_token: string }; Returns: Json }
+      board_display_feed: {
+        Args: { p_screen?: string; p_token: string }
+        Returns: Json
+      }
       board_display_list: {
         Args: { p_kind?: string; p_period?: string; p_token: string }
+        Returns: Json
+      }
+      boardroom_feed: { Args: { p_screen?: string }; Returns: Json }
+      boardroom_list: {
+        Args: { p_kind?: string; p_period?: string }
         Returns: Json
       }
       bonus_restriction_config: {
@@ -83784,6 +83991,10 @@ export type Database = {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
         Returns: Json
       }
+      cfo_decide_agreement_rate_requests: {
+        Args: { p_decision: string; p_note?: string; p_request_ids: string[] }
+        Returns: Json
+      }
       cfo_decide_allocation_return: {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
         Returns: Json
@@ -84714,6 +84925,18 @@ export type Database = {
           p_actor: string
           p_amount: number
           p_countersign_only?: boolean
+          p_partner_id: string
+          p_return_option: string
+          p_support_mode: string
+        }
+        Returns: Json
+      }
+      countersign_prepare_support_with_rate: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_countersign_only?: boolean
+          p_expected_rate: number
           p_partner_id: string
           p_return_option: string
           p_support_mode: string
@@ -90154,6 +90377,10 @@ export type Database = {
         }[]
       }
       get_partner_360: { Args: { p_user_id: string }; Returns: Json }
+      get_partner_agreement_rate: {
+        Args: { p_partner_id: string }
+        Returns: Json
+      }
       get_partner_capital_management_split: {
         Args: { p_as_at?: string }
         Returns: Json
@@ -92331,6 +92558,10 @@ export type Database = {
       hr_pay_has_authority: { Args: { _fn: string }; Returns: boolean }
       hr_pay_is_approver: { Args: never; Returns: boolean }
       hr_pay_is_own_staff: { Args: { _staff_id: string }; Returns: boolean }
+      hr_pay_is_payroll_excluded: {
+        Args: { _staff_id: string }
+        Returns: boolean
+      }
       hr_pay_is_preparer: { Args: never; Returns: boolean }
       hr_pay_is_releaser: { Args: never; Returns: boolean }
       hr_pay_is_rule_admin: { Args: never; Returns: boolean }
@@ -92355,6 +92586,21 @@ export type Database = {
       }
       hr_pay_my_positions: { Args: never; Returns: string[] }
       hr_pay_my_reinvest_signing_link: { Args: never; Returns: Json }
+      hr_pay_payroll_exclusions_list: {
+        Args: { _include_history?: boolean }
+        Returns: {
+          end_note: string
+          ended_at: string
+          ended_by_name: string
+          excluded_at: string
+          excluded_by_name: string
+          full_name: string
+          is_current: boolean
+          reason: string
+          staff_id: string
+          staff_ref: string
+        }[]
+      }
       hr_pay_pending_prompt: {
         Args: never
         Returns: {
@@ -92444,6 +92690,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      hr_pay_run_excluded_payslips: {
+        Args: { _run_id: string }
+        Returns: {
+          full_name: string
+          reason: string
+          staff_ref: string
+        }[]
+      }
       hr_pay_run_reinvestments: {
         Args: { _run_id: string }
         Returns: {
@@ -92467,6 +92721,10 @@ export type Database = {
           _prepared_position: string
         }
         Returns: boolean
+      }
+      hr_pay_set_payroll_exclusion: {
+        Args: { _exclude: boolean; _reason: string; _staff_id: string }
+        Returns: Json
       }
       hr_pay_set_statutory_ids: {
         Args: {
@@ -93566,6 +93824,10 @@ export type Database = {
           quantity: number
           total_revenue: number
         }[]
+      }
+      list_agreement_rate_requests: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: Json
       }
       list_assignable_agents:
         | {
@@ -95100,6 +95362,7 @@ export type Database = {
         Args: { p_limit?: number; p_status?: string }
         Returns: Json
       }
+      ops_map_feed: { Args: never; Returns: Json }
       ops_query_tenants: {
         Args: { p_cursor?: string; p_limit?: number; p_segment_id: string }
         Returns: {
@@ -99803,6 +100066,10 @@ export type Database = {
           p_village: string
           p_village_id?: number
         }
+        Returns: Json
+      }
+      set_partner_agreement_rate: {
+        Args: { p_partner_id: string; p_requested_rate: number }
         Returns: Json
       }
       set_partner_return_policy: {

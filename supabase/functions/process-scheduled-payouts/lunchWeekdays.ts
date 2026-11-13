@@ -15,6 +15,18 @@ export function isEatWeekend(t: Date): boolean {
   return d === 0 || d === 6;
 }
 
+/** Next daily weekday, preserving the configured time-of-day. */
+export function nextDailyWeekday(from: Date): Date {
+  const next = new Date(from.getTime() + 86_400_000);
+  while (isEatWeekend(next)) next.setUTCDate(next.getUTCDate() + 1);
+  return next;
+}
+
+/** Check execution time too: an overdue Friday must not pay on Saturday. */
+export function dailyRunBlocked(frequency: string, now: Date): boolean {
+  return frequency === "daily" && isEatWeekend(now);
+}
+
 /** The next weekday 00:00 EAT slot strictly after `from`. */
 export function nextLunchWeekdaySlot(from: Date): Date {
   const eat = new Date(from.getTime() + EAT_OFFSET_MS);
