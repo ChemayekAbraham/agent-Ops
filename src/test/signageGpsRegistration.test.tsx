@@ -3,7 +3,14 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ lookup: vi.fn(), submit: vi.fn(), gps: vi.fn() }));
-vi.mock('@/lib/reverseGeocode', () => ({ reverseGeocode: mocks.lookup }));
+vi.mock('@/lib/signageGpsLocation', async (orig) => {
+  const real = await orig<typeof import('@/lib/signageGpsLocation')>();
+  return { ...real, lookupSignageGpsLocation: async (lat: number, lng: number) => {
+    const r = await mocks.lookup(lat, lng);
+    const loc = real.signageGpsLocation(r);
+    return loc ? { kind: 'ok', location: loc } : { kind: 'unresolved' };
+  } };
+});
 vi.mock('@/hooks/useWelileSignages', () => ({
   useMySignages: () => ({ data: [], isLoading: false }),
   useSubmitSignage: () => ({ mutateAsync: mocks.submit, isPending: false }),

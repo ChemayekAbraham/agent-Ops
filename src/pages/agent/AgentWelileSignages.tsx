@@ -46,8 +46,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { reverseGeocode } from '@/lib/reverseGeocode';
-import { signageGpsLocation, type SignageGpsLocation } from '@/lib/signageGpsLocation';
+import { lookupSignageGpsLocation, type SignageGpsLocation } from '@/lib/signageGpsLocation';
 import { hapticTap, hapticSuccess, hapticError } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { safeUUID } from '@/lib/safeUUID';
@@ -172,14 +171,19 @@ export default function AgentWelileSignages() {
         setGpsLng(longitude);
         setGpsAccuracy(accuracy);
         setGpsCapturedAt(new Date().toISOString());
-        const location = signageGpsLocation(await reverseGeocode(latitude, longitude));
+        const outcome = await lookupSignageGpsLocation(latitude, longitude);
         if (version !== captureVersion.current) return;
         setIsCapturingGps(false);
-        if (!location) {
-          setGpsError('The address could not be confirmed from GPS. Check your connection and capture the location again.');
+        if (outcome.kind !== 'ok') {
+          const msg = outcome.kind === 'connection'
+            ? 'No internet connection reached the address service. Check your data or Wi-Fi, then tap Capture Live Location to retry.'
+            : 'GPS worked, but no District could be found for this spot. Move a little and tap Capture Live Location to retry.';
+          setGpsError(msg);
+          toast.error(msg);
           hapticError();
           return;
         }
+        const location = outcome.location;
         setAdminLocation(location);
         setPlotOrLandmark(location.address);
         setNearbyLandmarks(location.address);

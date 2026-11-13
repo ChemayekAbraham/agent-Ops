@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { signageGpsLocation } from '@/lib/signageGpsLocation';
+import { signageGpsLocation, bigDataCloudToReverse } from '@/lib/signageGpsLocation';
 
 describe('signage GPS address mapping', () => {
   it('uses only returned Uganda address components without inventing optional levels', () => {
@@ -14,5 +14,12 @@ describe('signage GPS address mapping', () => {
   });
   it('does not treat a location outside Uganda as a signage address', () => {
     expect(signageGpsLocation({ address: 'Nairobi', raw: { address: { country_code: 'ke', county: 'Nairobi', suburb: 'Westlands' } } })).toBeNull();
+  });
+  it('fills village from road when no locality is returned', () => {
+    expect(signageGpsLocation({ address: 'x', raw: { address: { country_code: 'ug', county: 'Wakiso', road: 'Entebbe Road' } } })?.village).toBe('Entebbe Road');
+  });
+  it('maps backup geocoder district and locality', () => {
+    const r = bigDataCloudToReverse({ countryCode: 'UG', locality: 'Kireka', localityInfo: { administrative: [{ name: 'Uganda' }, { name: 'Wakiso District' }] } });
+    expect(signageGpsLocation(r)).toMatchObject({ district: 'Wakiso', village: 'Kireka' });
   });
 });
