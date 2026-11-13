@@ -1,4 +1,5 @@
 import type { ReverseGeocodeResult } from './reverseGeocode';
+import { areaHints, districtHints, flattenChain, mergeOfficialChain, villageHints, type OfficialCandidates } from './signageOfficialLocation';
 
 export interface SignageGpsLocation {
   district: string;
@@ -119,6 +120,48 @@ async function fetchJson(url: string, ms = 8000): Promise<unknown> {
   }
 }
 
+/** ilike pattern that tolerates quotes/punctuation differences ("Bendegere 'A'" vs "Bendegere A"). */
+const likePattern = (s: string) => s.trim().replace(/[^A-Za-z0-9]+/g, '%');
+const OFFICIAL_CHAIN = 'name, subcounty:ug_subcounties(name, county:ug_counties(name, district:ug_districts(name)))';
+
+/** Official dataset rows whose names match what the geocoder returned. Empty on any error. */
+async function fetchOfficialCandidates(a: Record<string, string>): Promise<OfficialCandidates> {
+  const empty: OfficialCandidates = { villages: [], parishes: [], counties: [] };
+  const orIlike = (names: string[], wrap = (x: string) => x) =>
+    names.map(likePattern).filter((x) => x.replace(/%/g, '').length >= 3).map((x) => `name.ilike.${wrap(x)}`).join(',');
+  const v = orIlike(villageHints(a));
+  const p = orIlike(areaHints(a));
+  // Municipality structure: "Entebbe City" → county "Entebbe Municipality".
+  const d = orIlike(districtHints(a).map((x) => x.replace(/\b(city|municipality|district)\b/gi, '')), (x) => `%${x}%`);
+  try {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const db = supabase as any;
+    const [villages, parishes, counties] = await Promise.all([
+      v ? db.from('ug_villages').select(`name, parish:ug_parishes(${OFFICIAL_CHAIN})`).or(v).limit(50) : { data: [] },
+      p ? db.from('ug_parishes').select(OFFICIAL_CHAIN).or(p).limit(50) : { data: [] },
+      d ? db.from('ug_counties').select('name, district:ug_districts(name)').or(d).limit(20) : { data: [] },
+    ]);
+    return {
+      villages: (villages.data ?? []).map((r: unknown) => flattenChain(r, 'village')),
+      parishes: (parishes.data ?? []).map((r: unknown) => flattenChain(r, 'parish')),
+      counties: (counties.data ?? []).map((r: unknown) => flattenChain(r, 'county')),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+/** Adds County / Sub-County / Parish from the official dataset; never blocks or breaks the GPS result. */
+async function withOfficialChain(loc: SignageGpsLocation, a: Record<string, string>): Promise<SignageGpsLocation> {
+  try {
+    const timeout = new Promise<null>((r) => setTimeout(() => r(null), 6000));
+    const c = await Promise.race([fetchOfficialCandidates(a), timeout]);
+    return c ? mergeOfficialChain(loc, a, c) : loc;
+  } catch {
+    return loc;
+  }
+}
+
 /** Primary geocoder (OpenStreetMap), then backup geocoder; reports connection failures separately. */
 export async function lookupSignageGpsLocation(lat: number, lng: number): Promise<SignageLookupOutcome> {
   let reached = false;
@@ -131,15 +174,17 @@ export async function lookupSignageGpsLocation(lat: number, lng: number): Promis
     const short = [a.road, a.neighbourhood || a.suburb || a.village || a.hamlet, a.city || a.town || a.county]
       .filter(Boolean).join(', ');
     const loc = signageGpsLocation({ address: short || data?.display_name || 'Uganda', raw: data });
-    if (loc) return { kind: 'ok', location: loc };
+    if (loc) return { kind: 'ok', location: await withOfficialChain(loc, a) };
   } catch { /* fall through to backup */ }
   try {
     const data = (await fetchJson(
       `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
     )) as BigDataCloudResponse;
     reached = true;
-    const loc = signageGpsLocation(bigDataCloudToReverse(data));
-    if (loc) return { kind: 'ok', location: loc };
+    const reverse = bigDataCloudToReverse(data);
+    const loc = signageGpsLocation(reverse);
+    const a = ((reverse?.raw as { address?: Record<string, string> } | undefined)?.address) || {};
+    if (loc) return { kind: 'ok', location: await withOfficialChain(loc, a) };
   } catch { /* both failed */ }
   return reached ? { kind: 'unresolved' } : { kind: 'connection' };
 }
