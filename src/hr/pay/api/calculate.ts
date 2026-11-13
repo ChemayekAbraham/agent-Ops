@@ -167,13 +167,39 @@ export async function getRunDetail(runId: string): Promise<RunDetail> {
   };
 }
 
-export async function calculateRun(runId: string): Promise<{ payslips: number; message: string }> {
+/** A person switched off monthly payroll (hr_pay_payroll_exclusions_list, current rows). */
+export interface PayrollExclusionRow {
+  staff_id: string;
+  staff_ref: string | null;
+  full_name: string | null;
+  reason: string | null;
+  excluded_by_name: string | null;
+  excluded_at: string | null;
+  is_current?: boolean;
+}
+
+/** Current payroll exclusions. The database owns the list; this only reads it. */
+export async function listCurrentPayrollExclusions(): Promise<PayrollExclusionRow[]> {
+  const rows = (unwrap(
+    await (supabase.rpc as any)('hr_pay_payroll_exclusions_list', { _include_history: false }),
+  ) ?? []) as PayrollExclusionRow[];
+  return rows.filter((r) => r.is_current !== false);
+}
+
+export interface CalculateRunResult {
+  payslips: number;
+  message: string;
+  /** Staff who would have had a payslip but are switched off payroll (regular runs only). */
+  excluded: PayrollExclusionRow[];
+}
+
+export async function calculateRun(runId: string): Promise<CalculateRunResult> {
   // 1. Load the run.
   const run = unwrap(
     await supabase
       .from('hr_pay_runs')
       .select(
-        'id, status, rule_version_id, rule_status_at_run, period_id, hr_pay_periods(period_month, cut_off_date)',
+        'id, run_type, status, rule_version_id, rule_status_at_run, period_id, hr_pay_periods(period_month, cut_off_date)',
       )
       .eq('id', runId)
       .single(),
@@ -276,6 +302,17 @@ export async function calculateRun(runId: string): Promise<{ payslips: number; m
       : [];
 
   const activeStaffIds = new Set(activeStaffRows.map((s) => s.id));
+
+  // 3a-ii. Staff switched off payroll keep their account and employee role but get
+  // no payslip on a regular run. Other run types are unchanged. The database also
+  // refuses approval of a regular run that holds a payslip for an excluded person.
+  const excludedOnRun: PayrollExclusionRow[] = [];
+  if (run.run_type === 'regular') {
+    for (const ex of await listCurrentPayrollExclusions()) {
+      if (activeStaffIds.delete(ex.staff_id)) excludedOnRun.push(ex);
+    }
+  }
+
   const compRows = Array.from(latestByKey.values()).filter((r) =>
     activeStaffIds.has(r.staff_id as string),
   );
@@ -673,8 +710,16 @@ export async function calculateRun(runId: string): Promise<{ payslips: number; m
       .single(),
   );
 
+  const leftOff =
+    excludedOnRun.length > 0
+      ? ` ${excludedOnRun.length} staff left off this run (switched off payroll): ${excludedOnRun
+          .map((e) => e.full_name ?? e.staff_ref ?? e.staff_id.slice(0, 8))
+          .join(', ')}.`
+      : '';
+
   return {
     payslips: inserted.length,
-    message: `${inserted.length} payslip${inserted.length === 1 ? '' : 's'} written.`,
+    message: `${inserted.length} payslip${inserted.length === 1 ? '' : 's'} written.${leftOff}`,
+    excluded: excludedOnRun,
   };
 }
