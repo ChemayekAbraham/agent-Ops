@@ -29,6 +29,7 @@ import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDr
 import { useFunderNewLocation, type FunderNewLocationController } from '@/components/funder-new/useFunderNewLocation';
 import {
   useFunderNewEmptyHouses,
+  useFunderNewEmptyHousesPage,
   useFunderNewMarketSummary,
   useFunderNewReadyPlans,
 } from '@/components/funder-new/useFunderNewOpportunities';
@@ -462,14 +463,21 @@ export function FunderHouseListingsSection({
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const fetchNextFeedRef = useRef<() => void>(() => {});
   fetchNextFeedRef.current = fetchNextFeed;
-  // Empty-house paging: fetch further pages from the server only when the chosen page needs them.
+  // Empty-house paging: the open page is fetched by offset from the server (one request per page).
   const emptyGroup = boardGroups?.find((g) => g.tag === 'empty_house') ?? null;
-  const emptyLoaded = emptyGroup?.rows.length ?? 0;
-  const emptyPages = Math.max(1, Math.ceil((emptyGroup?.count ?? 0) / EMPTY_PAGE_SIZE));
-  const emptyPageLoading = boardTab === 'empty' && emptyLoaded < Math.min(emptyPage * EMPTY_PAGE_SIZE, emptyGroup?.count ?? 0) && feedHasNext;
-  useEffect(() => {
-    if (emptyPageLoading && !feedFetchingNext) fetchNextFeedRef.current();
-  }, [emptyPageLoading, feedFetchingNext, emptyLoaded]);
+  const emptyPageQuery = useFunderNewEmptyHousesPage(filters, origin, emptyPage, EMPTY_PAGE_SIZE, boardTagsOn && boardTab === 'empty');
+  const emptyCount = emptyPageQuery.data?.total ?? emptyGroup?.count ?? 0;
+  const emptyPages = Math.max(1, Math.ceil(emptyCount / EMPTY_PAGE_SIZE));
+  const emptyPageLoading = boardTab === 'empty' && emptyPageQuery.isFetching;
+  const emptyPageRows = emptyPageQuery.data
+    ? emptyPageQuery.data.items.map((item) => ({
+        kind: 'feed' as const,
+        cardId: `empty:${itemId('empty', item)}`,
+        tag: 'empty_house' as const,
+        entry: { category: 'empty', item } as FeedEntry,
+        incomplete: null,
+      }))
+    : null;
   useEffect(() => { setEmptyPage(1); }, [filters]);
   const goToEmptyPage = (page: number) => {
     setEmptyPage(Math.min(Math.max(1, page), emptyPages));
@@ -844,7 +852,7 @@ export function FunderHouseListingsSection({
                 <span className="tabular-nums text-muted-foreground">{group.count.toLocaleString('en')}</span>
               </h3>
               <div className="grid gap-0 sm:grid-cols-2 sm:gap-3">
-                {(group.tag === 'empty_house' ? group.rows.slice((emptyPage - 1) * EMPTY_PAGE_SIZE, emptyPage * EMPTY_PAGE_SIZE) : group.rows).map((row) => {
+                {(group.tag === 'empty_house' ? (emptyPageRows ?? group.rows.slice(0, EMPTY_PAGE_SIZE)) : group.rows).map((row) => {
                   if (row.kind === 'board') {
                     const d = row.item.lat !== null && row.item.lng !== null ? straightLineDistance(deviceOrigin, { lat: row.item.lat, lng: row.item.lng }) : null;
                     return <FunderBoardItemCard key={row.cardId} item={row.item} cardId={row.cardId} distance={d} />;
@@ -873,7 +881,7 @@ export function FunderHouseListingsSection({
             </section>
           ))}
           {/* Empty houses: numbered pages. Verified and Unverified are short and load in full. */}
-          {boardTab === 'empty' && emptyGroup && emptyGroup.count > EMPTY_PAGE_SIZE ? (
+          {boardTab === 'empty' && emptyGroup && emptyCount > EMPTY_PAGE_SIZE ? (
             <nav aria-label="Empty houses pages" className="flex flex-col items-center gap-2 pt-1">
               {emptyPageLoading ? (
                 <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />Loading page {emptyPage}</p>
@@ -896,7 +904,7 @@ export function FunderHouseListingsSection({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Page {emptyPage} of {emptyPages.toLocaleString('en')} · {emptyGroup.count.toLocaleString('en')} empty houses
+                Page {emptyPage} of {emptyPages.toLocaleString('en')} · {emptyCount.toLocaleString('en')} empty houses
               </p>
             </nav>
           ) : null}
