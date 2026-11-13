@@ -112,11 +112,9 @@ export function FunderNewFilterDrawer({
         <SheetHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 px-4 pb-3 pt-4 text-left">
           <SheetTitle className="flex-1 text-lg">Filters</SheetTitle>
           <SheetDescription className="sr-only">Narrow the homes shown in the list and on the map.</SheetDescription>
-          <Button variant="ghost" size="sm" className="h-9 rounded-full px-3 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={onReset}>
+          {/* The sheet's own close button sits at the header's right edge; Reset sits just before it. */}
+          <Button variant="ghost" size="sm" className="mr-10 h-9 rounded-full px-3 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={onReset}>
             Reset
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" aria-label="Close filters" onClick={() => onOpenChange(false)}>
-            <X className="h-5 w-5" />
           </Button>
         </SheetHeader>
 
