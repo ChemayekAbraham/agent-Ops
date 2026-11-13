@@ -39,6 +39,7 @@ import { hapticTap } from '@/lib/haptics';
 
 // Virtual Houses components
 import { VirtualHouse } from '@/components/supporter/VirtualHouseCard';
+import { VirtualHousesFeed } from '@/components/supporter/VirtualHousesFeed';
 import { RentCategory } from '@/components/supporter/RentCategoryFeed';
 // FundingPoolCard removed from direct import
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
@@ -137,7 +138,7 @@ export default function SupporterDashboard({
   const { rate: ownRate } = useOwnNewPortfolioRate();
   const [loading, setLoading] = useState(false);
   const [hasCachedData, setHasCachedData] = useState(() => {
-    try { return !!localStorage.getItem(`supporter_houses_${user.id}`); } catch { return false; }
+    try { return !!localStorage.getItem(`supporter_houses_v2_${user.id}`); } catch { return false; }
   });
   const [showPaymentPartners, setShowPaymentPartners] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
@@ -250,6 +251,7 @@ export default function SupporterDashboard({
   }, []);
   const [selectedHouse, setSelectedHouse] = useState<VirtualHouse | null>(null);
   const [showHouseDetails, setShowHouseDetails] = useState(false);
+  const [showSupportedHouses, setShowSupportedHouses] = useState(false);
   const [selectedPackageCategory, setSelectedPackageCategory] = useState<RentCategory | null>(null);
   const [showPackageSheet, setShowPackageSheet] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
@@ -336,14 +338,14 @@ export default function SupporterDashboard({
   // Local-first: read cache synchronously in useState init
   const [virtualHouses, setVirtualHouses] = useState<VirtualHouse[]>(() => {
     try {
-      const raw = localStorage.getItem(`supporter_houses_${user.id}`);
+      const raw = localStorage.getItem(`supporter_houses_v2_${user.id}`);
       if (raw) return sortFunderHousesByCompleteness<VirtualHouse>(JSON.parse(raw).houses || []);
     } catch {}
     return [];
   });
   const [totalRentContributed, setTotalRentContributed] = useState(() => {
     try {
-      const raw = localStorage.getItem(`supporter_houses_${user.id}`);
+      const raw = localStorage.getItem(`supporter_houses_v2_${user.id}`);
       if (raw) return JSON.parse(raw).totalRent || 0;
     } catch {}
     return 0;
@@ -510,7 +512,7 @@ export default function SupporterDashboard({
       setLoading(false);
       // Check TTL — skip network if fresh
       try {
-        const cached = localStorage.getItem(`supporter_houses_${user.id}`);
+        const cached = localStorage.getItem(`supporter_houses_v2_${user.id}`);
         if (cached) {
           const { timestamp } = JSON.parse(cached);
           if (Date.now() - timestamp < HOUSES_CACHE_TTL) return;
@@ -529,8 +531,10 @@ export default function SupporterDashboard({
       const { data, error } = await supabase
         .from('rent_requests')
         .select('id, rent_amount, duration_days, status, funded_at, updated_at, agent_id, request_city')
-        .eq('supporter_id', user.id)
-        .order('funded_at', { ascending: false })
+        // Houses this funder supports: as the Supporter, or as the partner who self-funded the Rent Plan
+        // (most funded plans record the partner in self_funding_partner_id only).
+        .or(`supporter_id.eq.${user.id},self_funding_partner_id.eq.${user.id}`)
+        .order('funded_at', { ascending: false, nullsFirst: false })
         .limit(100);
 
       if (!error && data) {
@@ -561,7 +565,7 @@ export default function SupporterDashboard({
         setTotalRentContributed(prev => prev || totalRent); // fallback, prefer ledger
         setHasEverFunded(houses.length > 0);
 
-        localStorage.setItem(`supporter_houses_${user.id}`, JSON.stringify({
+        localStorage.setItem(`supporter_houses_v2_${user.id}`, JSON.stringify({
           houses, totalRent, timestamp: Date.now(),
         }));
         setHasCachedData(true);
@@ -605,7 +609,7 @@ export default function SupporterDashboard({
   // funder-specific actions from the old side drawer passed as menuItems.
   const supporterMenuItems = [
     { icon: CreditCard, label: 'Add Funds', onClick: () => setShowPaymentPartners(true) },
-    { icon: Home, label: 'Houses I Support', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
+    { icon: Home, label: 'Houses I Support', onClick: () => { setShowSupportedHouses(true); void fetchMyHouses(); } },
     { icon: Zap, label: 'Angel Pool', onClick: () => { setCapitalView('angel'); openHousesMap(); } },
     { icon: Share2, label: 'Referrals', onClick: () => navigate('/referrals'), separator: true },
     { icon: ScrollText, label: 'Agreement', onClick: () => { setViewAgreementTab('summary'); setShowViewAgreementModal(true); } },
@@ -886,6 +890,20 @@ export default function SupporterDashboard({
         </DialogContent>
       </Dialog>
       
+
+      {/* Houses I Support: the Rent Plans this funder backs; tapping one opens its details. */}
+      <Dialog open={showSupportedHouses} onOpenChange={setShowSupportedHouses}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader><DialogTitle>Houses I support</DialogTitle></DialogHeader>
+          {!loading && virtualHouses.length === 0 ? (
+            <p className="rounded-2xl bg-muted/50 p-4 text-center text-sm text-muted-foreground">
+              You are not supporting any houses yet. Fund a house and it shows here.
+            </p>
+          ) : (
+            <VirtualHousesFeed houses={virtualHouses} loading={loading && virtualHouses.length === 0} onHouseTap={handleHouseTap} />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {mountHouseDetails && (
       <Suspense fallback={null}>
