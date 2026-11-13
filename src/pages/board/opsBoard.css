@@ -27,7 +27,10 @@
 .ops-brand { display: flex; align-items: center; gap: calc(var(--p) * 18); min-width: 0; }
 .ops-mark { width: calc(var(--p) * 44); height: calc(var(--p) * 44); border: 1.5px solid var(--cyan); color: var(--cyan); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: calc(var(--p) * 18); flex-shrink: 0; }
 .ops-title { font-size: calc(var(--p) * 26); font-weight: 700; letter-spacing: 0.06em; }
-.ops-subtitle { font-size: calc(var(--p) * 13); color: var(--muted); letter-spacing: 0.14em; margin-top: calc(var(--p) * 2); }
+.ops-subtitle { font-size: calc(var(--p) * 13); color: var(--muted); letter-spacing: 0.14em; margin-top: calc(var(--p) * 2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ops-brand > div { min-width: 0; }
+.ops-title { white-space: nowrap; }
+.ops-top-right { flex-shrink: 0; }
 .ops-top-right { display: flex; align-items: center; gap: calc(var(--p) * 14); }
 .ops-pill { height: calc(var(--p) * 40); padding: 0 calc(var(--p) * 16); display: flex; align-items: center; gap: calc(var(--p) * 10); border: 1px solid var(--line2); font-size: calc(var(--p) * 15); font-weight: 700; letter-spacing: 0.1em; white-space: nowrap; }
 .ops-pill-red { border-color: #7A2422; color: var(--red); background: #160707; }
@@ -130,5 +133,19 @@
 .ops-grid .ops-stage-detail { display: block; font-size: calc(var(--p) * 20); color: var(--muted); }
 .ops-grid-arrow { font-size: calc(var(--p) * 20); color: var(--dim); }
 .ops-message { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; font-size: calc(var(--p) * 40); color: var(--muted); }
+
+/* E97 screen switcher on the ops screens */
+.ops-board .screen-switch { display: flex; align-items: center; gap: calc(var(--p) * 6); }
+.ops-board .screen-tab, .ops-board .screen-rotate {
+  height: calc(var(--p) * 44); padding: 0 calc(var(--p) * 14); display: inline-flex; align-items: center; gap: calc(var(--p) * 8); white-space: nowrap; flex-shrink: 0;
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: calc(var(--p) * 15); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  background: transparent; color: var(--muted); border: 1px solid var(--line2); cursor: pointer;
+}
+.ops-board .screen-tab[aria-pressed="true"] { background: var(--cyan); border-color: var(--cyan); color: var(--ground); }
+.ops-board .screen-rotate { margin-left: calc(var(--p) * 8); }
+.ops-board .screen-rotate[aria-pressed="true"] { border-color: #1F6F4A; color: var(--green); }
+.ops-board .screen-rotate-dot { width: calc(var(--p) * 10); height: calc(var(--p) * 10); border-radius: 50%; border: 2px solid currentColor; }
+.ops-board .screen-rotate[aria-pressed="true"] .screen-rotate-dot { background: currentColor; }
+.ops-board .screen-tab:focus-visible, .ops-board .screen-rotate:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) { .ops-dot { animation: none; } }

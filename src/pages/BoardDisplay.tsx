@@ -11,14 +11,19 @@ import {
   BOARD_POLL_MS,
   BOARD_PULSE_MS,
   BOARD_RETRY_MS,
+  BOARD_ROTATE_MS,
   BOARD_SORTS,
   type BoardFeed,
   type BoardList,
   type BoardMetric,
   type BoardPeriod,
+  type BoardScreen,
   type BoardSort,
   boardDays,
   boardDisplayToken,
+  boardHash,
+  nextBoardScreen,
+  readBoardHash,
   boardIsStale,
   boardMoney,
   boardUpdatedText,
@@ -31,6 +36,7 @@ import {
 } from '@/lib/boardDisplay';
 import { OpsMapScreen } from './board/OpsMapScreen';
 import { PipelineScreen } from './board/PipelineScreen';
+import { ScreenSwitcher } from './board/ScreenSwitcher';
 
 /**
  * The boardroom screen (/b/:code, /board/:code): a 16:9 TV display of the
@@ -219,6 +225,9 @@ export default function BoardDisplay() {
   const [idle, setIdle] = useState(false);
   const [period, setPeriodState] = useState<BoardPeriod>(() => readBoardPeriod(safeStorage()));
   const [open, setOpen] = useState<BoardMetric | null>(null);
+  // E97: the screen asked for (null = the link's own) and auto-rotate, from the URL hash so a TV restart keeps them.
+  const [wanted, setWanted] = useState<BoardScreen | null>(() => readBoardHash(window.location.hash).screen);
+  const [rotate, setRotate] = useState<boolean>(() => readBoardHash(window.location.hash).rotate);
   const setPeriod = (p: BoardPeriod) => {
     setPeriodState(p);
     storeBoardPeriod(safeStorage(), p);
@@ -243,6 +252,7 @@ export default function BoardDisplay() {
   }, []);
 
   // Every 30 s; after an error, again in 60 s. The last totals stay up unless the link itself is refused.
+  // A new screen asked for refetches at once (p_screen); the screen on show stays up until it arrives.
   useEffect(() => {
     let cancelled = false;
     let timer: number;
@@ -250,7 +260,7 @@ export default function BoardDisplay() {
     async function refresh() {
       let delay = BOARD_POLL_MS;
       try {
-        const data = await loadBoardDisplay(token, controller.signal);
+        const data = await loadBoardDisplay(token, controller.signal, wanted);
         if (!cancelled) {
           setFeed(data);
           setLastGood(Date.now());
@@ -272,7 +282,35 @@ export default function BoardDisplay() {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [token]);
+  }, [token, wanted]);
+
+  const canSwitch = feed?.display.canSwitch === true;
+  const shown = feed?.display.screen ?? null;
+  const screensKey = (feed?.display.screens ?? []).map((s) => s.key).join(',');
+
+  // E97 auto-rotate: a minute on each screen, Funders → Pipeline → Ops map, then round again.
+  useEffect(() => {
+    if (!rotate || !canSwitch || !shown || !feed) return;
+    const t = window.setTimeout(() => setWanted(nextBoardScreen(feed.display.screens, shown)), BOARD_ROTATE_MS);
+    return () => window.clearTimeout(t);
+    // feed is read for its screen list only; screensKey stands for it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rotate, canSwitch, shown, screensKey]);
+
+  // The URL hash follows the choice (#funders / #pipeline / #map / #rotate), with no reload and no history entry.
+  useEffect(() => {
+    if (!canSwitch) return;
+    const hash = boardHash(wanted, rotate);
+    if (window.location.hash === hash || (!hash && !window.location.hash)) return;
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+  }, [wanted, rotate, canSwitch]);
+
+  // A tap on a tab is the room's choice: that screen, and auto-rotate off.
+  const pickScreen = useCallback((s: BoardScreen) => {
+    setRotate(false);
+    setWanted(s);
+  }, []);
+  const toggleRotate = useCallback(() => setRotate((r) => !r), []);
 
   // The clock, and the cursor and buttons hide after 3 s without input.
   useEffect(() => {
@@ -324,13 +362,19 @@ export default function BoardDisplay() {
   const stale = boardIsStale(lastGood, now);
   const fatal = !!error && (error.link || !feed);
 
+  // E97: the switcher, only on a link that may switch.
+  const switcher =
+    feed && canSwitch ? (
+      <ScreenSwitcher screens={feed.display.screens} active={feed.display.screen} rotate={rotate} onPick={pickScreen} onRotate={toggleRotate} />
+    ) : null;
+
   // E96: a link set to screen 3 (the ops command map) or screen 2 (the pipeline) gets its own layout.
   // The polling, the 60 s retry and a refused link taking the whole screen stay exactly as below.
   if (feed && !fatal && feed.display.screen === 'map' && feed.map) {
-    return <OpsMapScreen label={feed.display.label} map={feed.map} now={now} stale={stale} errorText={error?.text ?? null} idle={idle} />;
+    return <OpsMapScreen switcher={switcher} label={feed.display.label} map={feed.map} now={now} stale={stale} errorText={error?.text ?? null} idle={idle} />;
   }
   if (feed && !fatal && feed.display.screen === 'pipeline') {
-    return <PipelineScreen label={feed.display.label} stages={feed.stages ?? []} now={now} stale={stale} errorText={error?.text ?? null} idle={idle} />;
+    return <PipelineScreen switcher={switcher} label={feed.display.label} stages={feed.stages ?? []} now={now} stale={stale} errorText={error?.text ?? null} idle={idle} />;
   }
 
   return (
@@ -343,6 +387,7 @@ export default function BoardDisplay() {
             <p>{feed?.display.label || 'Boardroom display'}</p>
           </div>
         </div>
+        {!fatal && switcher}
         {feed && !fatal && (
           <div className={`board-live ${stale ? 'text-warning' : 'text-success'}`} data-stale={stale || undefined}>
             <Radio aria-hidden="true" />

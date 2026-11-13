@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import {
   LAYER_DEFAULTS,
@@ -185,7 +185,10 @@ export function OpsMapScreen({
   stale,
   errorText,
   idle,
+  switcher,
 }: {
+  /** E97: the screen switcher, when the link may switch. */
+  switcher?: ReactNode;
   label: string;
   map: BoardMap;
   now: number;
@@ -202,7 +205,7 @@ export function OpsMapScreen({
 
   return (
     <main className={`ops-board ${idle ? 'ops-idle' : ''}`} data-board-state="live" data-screen="map">
-      <OpsTopBar label={label} readiness={map.readiness} readinessRule={map.readinessRule} stale={stale} errorText={errorText} now={now} officeOnly={map.names} />
+      <OpsTopBar switcher={switcher} label={label} readiness={map.readiness} readinessRule={map.readinessRule} stale={stale} errorText={errorText} now={now} officeOnly={map.names} />
       <Kpis map={map} />
       <div className="ops-main">
         <Layers map={map} visible={visible} onToggle={toggle} />

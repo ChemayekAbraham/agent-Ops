@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import type { Readiness, StageTile } from '@/lib/boardMap';
 import { kampalaDay } from '@/lib/boardMap';
 import { kampalaClock } from '@/lib/boardDisplay';
@@ -31,7 +31,10 @@ export function OpsTopBar({
   errorText,
   now,
   officeOnly,
+  switcher,
 }: {
+  /** E97: the screen switcher, when the link may switch. */
+  switcher?: ReactNode;
   label: string;
   readiness?: Readiness | null;
   readinessRule?: string | null;
@@ -51,6 +54,7 @@ export function OpsTopBar({
         </div>
       </div>
       <div className="ops-top-right ops-mono">
+        {switcher}
         {errorText && <span role="alert" className="ops-error-line">{errorText} · trying again in 60 s</span>}
         {readiness && (
           <div className={`ops-pill ops-pill-${readiness}`} data-readiness={readiness} title={readinessRule ?? undefined}>

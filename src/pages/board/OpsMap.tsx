@@ -26,6 +26,15 @@ const UGANDA_ZOOM = 7;
 /** The first view fills the box with Uganda; after that the room's pan and zoom are kept. */
 export const UGANDA_BOUNDS = { south: -1.5, west: 29.5, north: 4.25, east: 35.05 };
 
+/**
+ * E97: the room's last view, kept while the page lives. Auto-rotate takes the map off screen
+ * for two minutes; when it comes back round it opens where the room left it, not on Uganda again.
+ */
+let lastView: { center: google.maps.LatLngLiteral; zoom: number } | null = null;
+export function _resetOpsMapViewForTests() {
+  lastView = null;
+}
+
 const C = { green: '#3DD68C', amber: '#F5A524', cyan: '#38D0E8', blue: '#3D5A86', blueLine: '#5B7DB0', red: '#F0524F', white: '#D7E3EC', ground: '#05080C' };
 
 export const NIGHT_STYLE: google.maps.MapTypeStyle[] = [
@@ -137,10 +146,10 @@ export function OpsMap({ data, visible, onPick }: { data: BoardMap; visible: Rec
         if (!live || !box.current) return;
         mapsRef.current = maps;
         mapRef.current = new maps.Map(box.current, {
-          center: UGANDA, zoom: UGANDA_ZOOM, styles: NIGHT_STYLE, backgroundColor: '#05080C',
+          center: lastView?.center ?? UGANDA, zoom: lastView?.zoom ?? UGANDA_ZOOM, styles: NIGHT_STYLE, backgroundColor: '#05080C',
           disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false, keyboardShortcuts: false,
         });
-        mapRef.current.fitBounds(UGANDA_BOUNDS, 0);
+        if (!lastView) mapRef.current.fitBounds(UGANDA_BOUNDS, 0);
         setState('ready');
       })
       .catch((e: unknown) => {
@@ -175,9 +184,13 @@ export function OpsMap({ data, visible, onPick }: { data: BoardMap; visible: Rec
     for (const k of LAYER_ORDER) for (const o of l[k]) o.setMap(visible[k] ? map : null);
   }, [visible]);
 
-  // Gone with the screen.
+  // Gone with the screen: keep the room's view for when the map comes back round.
   useEffect(
     () => () => {
+      const map = mapRef.current;
+      const c = map?.getCenter?.();
+      const z = map?.getZoom?.();
+      if (c && typeof z === 'number') lastView = { center: { lat: c.lat(), lng: c.lng() }, zoom: z };
       const l = layers.current;
       if (l) for (const k of LAYER_ORDER) for (const o of l[k]) o.setMap(null);
     },

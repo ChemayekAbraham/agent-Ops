@@ -1,13 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
-import { readBoardFeed, readBoardList, type BoardMetric, type BoardPeriod } from './boardDisplay';
+import { readBoardFeed, readBoardList, type BoardMetric, type BoardPeriod, type BoardScreen } from './boardDisplay';
 
 // Never restore the operator's account: board links use only the public key and token-checked RPC.
 const boardClient = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 });
-export async function loadBoardDisplay(token: string, signal: AbortSignal) {
+/** E97: `screen` asks an office-locked link for that layout; the server ignores it on any other link. */
+export async function loadBoardDisplay(token: string, signal: AbortSignal, screen?: BoardScreen | null) {
   if (!token) throw new Error('This display link is missing its token.');
-  const { data, error } = await boardClient.rpc('board_display_feed', { p_token: token }).abortSignal(signal);
+  const args: Record<string, string> = { p_token: token };
+  if (screen) args.p_screen = screen;
+  const { data, error } = await boardClient.rpc('board_display_feed', args).abortSignal(signal);
   if (error) {
     // Keep the server's SQLSTATE: 28000 means the link itself is refused (isBoardLinkError).
     throw Object.assign(new Error(error.message), { code: error.code });

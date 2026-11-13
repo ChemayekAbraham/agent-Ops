@@ -7,8 +7,16 @@ const g = vi.hoisted(() => {
   const made = { maps: [] as FakeMap[], markers: [] as FakeMarker[], lines: [] as FakeLine[] };
   class FakeMap {
     opts: Record<string, unknown>; fits: unknown[] = [];
-    constructor(_el: unknown, opts: Record<string, unknown>) { this.opts = opts; made.maps.push(this); }
+    /** Where the room has panned and zoomed to (set by a test). */
+    view: { lat: number; lng: number; zoom: number };
+    constructor(_el: unknown, opts: Record<string, unknown>) {
+      this.opts = opts; made.maps.push(this);
+      const c = opts.center as { lat: number; lng: number };
+      this.view = { lat: c.lat, lng: c.lng, zoom: opts.zoom as number };
+    }
     fitBounds(b: unknown) { this.fits.push(b); }
+    getCenter() { return { lat: () => this.view.lat, lng: () => this.view.lng }; }
+    getZoom() { return this.view.zoom; }
   }
   class FakeMarker {
     opts: Record<string, unknown>; map: unknown = null; listeners: Record<string, () => void> = {};
@@ -24,6 +32,7 @@ vi.mock('@/lib/googleMapsScript', () => ({ loadGoogleMapsWith: () => Promise.res
 vi.mock('@/lib/boardDisplayClient', () => ({ loadBoardDisplay: g.load, loadBoardList: g.list, boardMapsKey: () => Promise.resolve('test-key') }));
 
 import BoardDisplay from '@/pages/BoardDisplay';
+import { _resetOpsMapViewForTests } from '@/pages/board/OpsMap';
 import { readBoardFeed } from '@/lib/boardDisplay';
 
 const headline = Object.fromEntries(['today', '7d', '30d', '90d', 'all'].map((p) => [p, { posted: { n: 1, ugx: 1 }, sold: { n: 0, ugx: 0 }, selected: { n: 0, ugx: 0 }, waiting: { n: 1, ugx: 1 } }]));
@@ -35,6 +44,7 @@ const feed = (screenKind: string, over: Record<string, unknown> = {}) => readBoa
 
 beforeEach(() => {
   vi.useFakeTimers();
+  _resetOpsMapViewForTests();
   g.load.mockReset();
   g.made.maps.length = 0; g.made.markers.length = 0; g.made.lines.length = 0;
   window.history.replaceState(null, '', '/board/e9f5ba50d5f9');
@@ -182,5 +192,108 @@ describe('Boardroom screen 2: PIPELINE', () => {
     await mount();
     expect(document.querySelector('.board-display')).not.toBeNull();
     expect(document.querySelector('[data-screen]')).toBeNull();
+  });
+});
+
+const SCREENS = [{ key: 'funders', label: 'Funders' }, { key: 'pipeline', label: 'Pipeline' }, { key: 'map', label: 'Ops map' }];
+/** An office-locked link: the server answers p_screen with that layout. */
+const switchable = (home = 'funders') => (_token: string, _signal: AbortSignal, wantedScreen?: string | null) => {
+  const shown = wantedScreen ?? home;
+  return Promise.resolve(feed(shown, { display: { label: 'Boardroom screen 1', screen: shown, home_screen: home, can_switch: true, screens: SCREENS } }));
+};
+const asked = () => g.load.mock.calls.map((c) => c[2] ?? null);
+const tab = (name: string) => screen.getByRole('button', { name });
+const shownScreen = () => document.querySelector('main')?.getAttribute('data-screen') ?? (document.querySelector('.board-display') ? 'funders' : null);
+
+describe('E97: switching screens on an office-locked link', () => {
+  it('three large tabs from display.screens, the one on screen highlighted, and Auto-rotate beside them', async () => {
+    g.load.mockImplementation(switchable());
+    await mount();
+    const group = screen.getByRole('group', { name: 'Screen' });
+    expect([...group.querySelectorAll('[data-screen-tab]')].map((b) => b.textContent)).toEqual(['Funders', 'Pipeline', 'Ops map']);
+    expect(tab('Funders')).toHaveAttribute('aria-pressed', 'true');
+    expect(tab('Auto-rotate')).toHaveAttribute('aria-pressed', 'false');
+    expect(shownScreen()).toBe('funders');
+  });
+
+  it('a tap refetches with p_screen and swaps the layout, with no reload; the hash follows', async () => {
+    g.load.mockImplementation(switchable());
+    await mount();
+    const path = window.location.pathname;
+    await act(async () => { fireEvent.click(tab('Pipeline')); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(asked().at(-1)).toBe('pipeline');
+    expect(shownScreen()).toBe('pipeline');
+    expect(tab('Pipeline')).toHaveAttribute('aria-pressed', 'true');
+    expect(window.location.hash).toBe('#pipeline');
+    expect(window.location.pathname).toBe(path);
+    await act(async () => { fireEvent.click(tab('Ops map')); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(shownScreen()).toBe('map');
+    expect(window.location.hash).toBe('#map');
+    // The 30 s refresh keeps asking for the chosen screen.
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(asked().at(-1)).toBe('map');
+  });
+
+  it("Auto-rotate: Funders → Pipeline → Ops map → Funders, a minute each; #rotate; the map comes back to the room's view", async () => {
+    g.load.mockImplementation(switchable());
+    await mount();
+    await act(async () => { fireEvent.click(tab('Auto-rotate')); });
+    expect(tab('Auto-rotate')).toHaveAttribute('aria-pressed', 'true');
+    expect(window.location.hash).toBe('#rotate');
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(shownScreen()).toBe('pipeline');
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(shownScreen()).toBe('map');
+    expect(g.made.maps).toHaveLength(1);
+    // The room pans and zooms in on Kampala.
+    g.made.maps[0].view = { lat: 0.33, lng: 32.58, zoom: 11 };
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(shownScreen()).toBe('funders');
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(shownScreen()).toBe('map');
+    expect(g.made.maps).toHaveLength(2);
+    expect(g.made.maps[1].opts).toMatchObject({ center: { lat: 0.33, lng: 32.58 }, zoom: 11 });
+    expect(g.made.maps[1].fits).toEqual([]);
+    expect(window.location.hash).toBe('#rotate');
+  });
+
+  it('a tap on a tab stops auto-rotate', async () => {
+    g.load.mockImplementation(switchable());
+    await mount();
+    await act(async () => { fireEvent.click(tab('Auto-rotate')); });
+    await act(async () => { fireEvent.click(tab('Ops map')); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(tab('Auto-rotate')).toHaveAttribute('aria-pressed', 'false');
+    expect(window.location.hash).toBe('#map');
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+    expect(shownScreen()).toBe('map');
+  });
+
+  it('a TV restart keeps the choice: #map opens the map, #rotate keeps rotating', async () => {
+    window.history.replaceState(null, '', '/board/e9f5ba50d5f9#map');
+    g.load.mockImplementation(switchable());
+    await mount();
+    expect(asked()[0]).toBe('map');
+    expect(shownScreen()).toBe('map');
+    cleanup();
+    window.history.replaceState(null, '', '/board/e9f5ba50d5f9#rotate');
+    await mount();
+    expect(tab('Auto-rotate')).toHaveAttribute('aria-pressed', 'true');
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(shownScreen()).toBe('pipeline');
+  });
+
+  it('a link that may not switch shows its own screen, no switcher, and leaves the hash alone', async () => {
+    window.history.replaceState(null, '', '/board/e9f5ba50d5f9#map');
+    g.load.mockImplementation(() => Promise.resolve(feed('pipeline', { display: { label: 'Boardroom screen 2', screen: 'pipeline', home_screen: 'pipeline', can_switch: false, screens: SCREENS } })));
+    await mount();
+    expect(shownScreen()).toBe('pipeline');
+    expect(screen.queryByRole('group', { name: 'Screen' })).toBeNull();
+    expect(window.location.hash).toBe('#map');
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+    expect(shownScreen()).toBe('pipeline');
   });
 });

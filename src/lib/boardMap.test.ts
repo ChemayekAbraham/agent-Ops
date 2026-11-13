@@ -14,7 +14,7 @@ import {
   stageTiles,
   ugxShort,
 } from './boardMap';
-import { readBoardFeed } from './boardDisplay';
+import { BOARD_ROTATE_MS, boardHash, nextBoardScreen, readBoardFeed, readBoardHash } from './boardDisplay';
 
 import { MAP, STAGES } from './boardMap.fixtures';
 
@@ -121,5 +121,31 @@ describe('readBoardFeed: which screen', () => {
     const f = readBoardFeed({ ...base, display: { label: 'Boardroom screen 2', screen: 'pipeline' } });
     expect(f.stages).toHaveLength(8);
     expect(f.map).toBeNull();
+  });
+});
+
+describe('E97: screen switching', () => {
+  const headline = Object.fromEntries(['today', '7d', '30d', '90d', 'all'].map((p) => [p, { posted: { n: 1, ugx: 1 }, sold: { n: 0, ugx: 0 }, selected: { n: 0, ugx: 0 }, waiting: { n: 1, ugx: 1 } }]));
+  const SCREENS = [{ key: 'funders', label: 'Funders' }, { key: 'pipeline', label: 'Pipeline' }, { key: 'map', label: 'Ops map' }];
+  it('reads home_screen, can_switch and the screens; a link that may not switch, or has one screen, does not', () => {
+    const f = readBoardFeed({ generated_at: '2026-11-13T08:00:00Z', headline, stages: STAGES, display: { label: 'B', screen: 'pipeline', home_screen: 'map', can_switch: true, screens: [...SCREENS, { key: 'bogus', label: 'X' }] } });
+    expect(f.display).toEqual({ label: 'B', screen: 'pipeline', homeScreen: 'map', canSwitch: true, screens: SCREENS });
+    expect(readBoardFeed({ generated_at: '2026-11-13T08:00:00Z', headline, display: { label: 'B', screen: 'funders', can_switch: false, screens: SCREENS } }).display.canSwitch).toBe(false);
+    expect(readBoardFeed({ generated_at: '2026-11-13T08:00:00Z', headline, display: { label: 'B', screen: 'funders', can_switch: true, screens: [SCREENS[0]] } }).display.canSwitch).toBe(false);
+    expect(readBoardFeed({ generated_at: '2026-11-13T08:00:00Z', headline, display: { label: 'B', screen: 'map', map: null } }).display.homeScreen).toBe('map');
+  });
+  it('the URL hash: #funders / #pipeline / #map / #rotate, anything else is the link\'s own screen', () => {
+    expect(readBoardHash('#map')).toEqual({ screen: 'map', rotate: false });
+    expect(readBoardHash('#ROTATE')).toEqual({ screen: null, rotate: true });
+    expect(readBoardHash('#elsewhere')).toEqual({ screen: null, rotate: false });
+    expect(readBoardHash('')).toEqual({ screen: null, rotate: false });
+    expect(boardHash('pipeline', false)).toBe('#pipeline');
+    expect(boardHash('map', true)).toBe('#rotate');
+    expect(boardHash(null, false)).toBe('');
+  });
+  it('rotates Funders → Pipeline → Ops map → Funders', () => {
+    const s = SCREENS as { key: 'funders' | 'pipeline' | 'map' }[];
+    expect([nextBoardScreen(s, 'funders'), nextBoardScreen(s, 'pipeline'), nextBoardScreen(s, 'map')]).toEqual(['pipeline', 'map', 'funders']);
+    expect(BOARD_ROTATE_MS).toBe(60_000);
   });
 });
