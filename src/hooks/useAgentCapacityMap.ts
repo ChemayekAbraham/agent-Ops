@@ -202,7 +202,10 @@ export type AgentCapacity = {
    * app, or the grant is invisible to the agent it was granted to.
    */
   posting_exempt_today: boolean;
-  /** True iff agent may post a new rent request today. */
+  /**
+   * Always true since E100 (COO decision): agents can always post and move requests.
+   * Kept so older screens read "can post"; nothing may block on the daily or weekly result.
+   */
   can_post_rent_today: boolean;
   /**
    * Number of DISTINCT days in the last 7 (from saved eligibility history)
@@ -833,9 +836,11 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // exemption and the good-days unlock. Fails open on a failed read, like
         // the daily check: the trigger still refuses what it should refuse.
         const weekly_posting = weeklyByAgent.get(id) ?? null;
-        const can_post_rent_today = weeklyEnforced
-          ? (weeklyErr || !weekly_posting ? true : weekly_posting.passes)
-          : daily_can_post;
+        // E100 (COO decision): agents can ALWAYS post and move requests. The daily and weekly
+        // results above are kept for ratings and reports only; they never block a post. Below
+        // the 50% collection rule a request still moves but waits at the COO desk.
+        void daily_can_post;
+        const can_post_rent_today = true;
         const daily_rating = classifyDailyRating(daily_gate_count, performance_pct, 1);
         out.set(id, {
           used: exp.used,

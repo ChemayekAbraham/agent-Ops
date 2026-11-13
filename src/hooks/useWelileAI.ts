@@ -23,14 +23,9 @@ export function useWelileAI() {
   const [learnedKnowledge, setLearnedKnowledge] = useState<NexaLearnedKnowledge[]>([]);
   useEffect(() => {
     let active = true;
-    const load = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { if (active) setLearnedKnowledge([]); return; }
-      const client = supabase as unknown as { from: (name: string) => any };
-      // Cache only non-private general reference data; scoped learning stays server-side.
-      const { data, error } = await client.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer,role_scope,active').eq('active',true).eq('role_scope','all').limit(20);
-      if (active && !error) setLearnedKnowledge(data ?? []);
-    };
+    // The nexa_learned_knowledge table does not exist in this database (404s);
+    // learned guidance stays server-side, so the browser keeps an empty cache.
+    const load = async () => { if (active) setLearnedKnowledge([]); };
     void load();
     return () => { active = false; abortRef.current?.abort(); };
   }, []);

@@ -80,8 +80,8 @@ export function WhyRatingPopover({
           {daily_status === 'starter'
             ? 'New agents are always allowed to post their first rent request.'
             : daily_status === 'good'
-              ? 'At or above 50% today → allowed to post new rent requests.'
-              : 'Below 50% today → blocked from posting new rent requests until you catch up.'}
+              ? 'At or above 50% today. You can always post new rent requests.'
+              : 'Below 50% today. You can still post; below 50% of what is due, requests wait at the COO desk and can\'t be funded.'}
         </p>
       </PopoverContent>
     </Popover>

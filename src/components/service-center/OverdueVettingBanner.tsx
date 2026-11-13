@@ -7,7 +7,12 @@ import { cn } from '@/lib/utils';
 
 interface Props { onJumpToOldest: () => void }
 
-/** Pinned bar at the top of the Service Centre queue. Uses the same server data as the dialog. */
+/**
+ * Bar above the Service Centre tabs. Uses the same server data as the dialog. It stays in
+ * the page flow and scrolls away with the page: pinned (sticky) on phones, its see-through
+ * background sat over the cards beneath it. Keep it unpinned, or give it a solid
+ * background and its own space if it ever has to stick.
+ */
 export function OverdueVettingBanner({ onJumpToOldest }: Props) {
   const { data, dueSoonBanner, overdueCount } = useOverdueVettingAlert({ suppressed: true });
   const prev = useRef(overdueCount);

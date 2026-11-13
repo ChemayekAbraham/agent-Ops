@@ -129,6 +129,35 @@ describe('Funders Dashboard money lines', () => {
     expect(await screen.findByRole('dialog', { name: 'With agents, landlord not paid' })).toBeTruthy();
   });
 
+  it('the E93 lines are tappable too: Sold lists the sold ones, Selected, waiting lists every one not sold yet', async () => {
+    const it2 = (id: string, tenant: string, stage: string) => ({ rent_request_id: id, tenant, agent: 'A', landlord: 'L', funder: 'F', amount: 500000, paid_out: 0, stage, selected_at: '2026-11-11T07:00:00Z', hours_since_release: 5 });
+    const flow = {
+      ...FLOW,
+      sold: { count: 1, ugx: 500000 },
+      selected_waiting: { count: 2, ugx: 1000000, oldest_hours: 30 },
+      items: [
+        it2('11111111-1111-4111-8111-111111111111', 'Sold Sam', 'sold'),
+        it2('22222222-2222-4222-8222-222222222222', 'Waiting Wanda', 'with_agent'),
+        it2('33333333-3333-4333-8333-333333333333', 'Part Pat', 'part_paid'),
+      ],
+    };
+    answers(Promise.resolve({ data: flow, error: null }), Promise.resolve({ data: QUEUE, error: null }));
+    const { container } = wrap(<FundersMoneyLines board={false} />);
+    await screen.findByText('Released to agents: 12 · UGX 8,400,000');
+    const names = (dlg: HTMLElement) => [...dlg.querySelectorAll('[data-release-tenant]')].map((e) => e.textContent);
+
+    fireEvent.click(container.querySelector('[data-flow-line="sold"]') as HTMLElement);
+    const sold = await screen.findByRole('dialog', { name: 'Sold (landlord paid, OTP)' });
+    expect(names(sold)).toEqual(['Sold Sam']);
+    expect(sold.querySelector('[data-releases-note]')!.textContent).toBe('Last 30 days');
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    fireEvent.click(container.querySelector('[data-flow-line="selected_waiting"]') as HTMLElement);
+    const sel = await screen.findByRole('dialog', { name: 'Selected, waiting' });
+    expect(names(sel).sort()).toEqual(['Part Pat', 'Waiting Wanda']);
+    expect(sel.querySelector('[data-releases-note]')!.textContent).toBe('Right now');
+  });
+
   it('sits under the top tiles of the cfo desk and reuses Op 5’s hook and words unchanged', () => {
     const page = readFileSync(resolve(__dirname, '../../DeskPage.tsx'), 'utf8');
     const tiles = page.indexOf("desk.id === 'cfo' && <FundersHeadline");

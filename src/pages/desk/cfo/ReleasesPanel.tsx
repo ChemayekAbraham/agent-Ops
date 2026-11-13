@@ -1,19 +1,80 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { CALM, FOCUS, LABEL, type Status } from '../deskTheme';
-import { STAGE_WORDS } from '../moneyFlow';
-import { waitedText } from '../AwaitingRelease';
-import { Chip, EmptyState, Sheet, moneyFull } from '../ui';
+import { CALM, FOCUS, LABEL } from '../deskTheme';
+import { when } from '../deskHistory';
+import { Chip, EmptyState, Segmented, Sheet, atLeast, moneyFull, useBreakpoint } from '../ui';
 import { FundersPlanDrawer } from './FundersPlanDrawer';
+import { SidePanel } from './HeadlineListPanel';
 import { refText, useBoardFacts } from './planDrawerApi';
-import { rowFromRelease, type Release } from './releasesApi';
+import { RELEASE_SORTS, rowFromRelease, sortReleases, stageOf, type Release, type ReleaseSort } from './releasesApi';
 
 /**
- * Releases of funder money to agents (funded_money_flow items), as a list; a
- * tap opens the plan drawer, where Recall shows while the money is still with
- * the agent. While the drawer is open the list steps aside, and comes back when
- * the drawer closes.
+ * A details list of funder selections (funded_money_flow items): Rent requests
+ * sold, Selected waiting, and the money lines. Each row leads with the tenant's
+ * name; under it, small, the agent, landlord and funder; then the Ref, amount,
+ * stage and dates. Newest selection first, with a toggle for oldest first or by
+ * amount. A tap opens the plan drawer (Recall shows there while the money is
+ * still with the agent); the list steps aside while the drawer is open.
+ * A side panel from md, a bottom sheet on a phone.
  */
+
+function Dates({ it }: { it: Release }) {
+  const parts = [
+    it.selected_at ? `Selected ${when(it.selected_at)}` : null,
+    it.released_at ? `Released ${when(it.released_at)}` : null,
+    it.otp_verified_at ? `OTP ${when(it.otp_verified_at)}` : null,
+    it.landlord_paid_at ? `Landlord paid ${when(it.landlord_paid_at)}` : null,
+  ].filter(Boolean);
+  if (!parts.length) return null;
+  return (
+    <span className="text-[11px] text-muted-foreground" style={{ display: 'block' }} data-release-dates>
+      {parts.join(' · ')}
+    </span>
+  );
+}
+
+function Row({ it, onOpen }: { it: Release; onOpen: () => void }) {
+  const st = stageOf(it.stage);
+  const paid = Number(it.paid_out ?? 0);
+  return (
+    <li className="border-t border-[var(--desk-line-soft)] first:border-t-0">
+      <button
+        type="button"
+        onClick={onOpen}
+        data-release={it.rent_request_id}
+        aria-label={`Open the plan for ${it.tenant ?? refText(it.rent_request_id)}`}
+        className={`w-full rounded-lg text-left hover:bg-[var(--desk-surface-hover)] ${CALM} ${FOCUS}`}
+        style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'start', gap: 8, padding: '10px 4px' }}
+      >
+        <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span className="text-sm font-semibold text-foreground" style={{ overflowWrap: 'anywhere' }} data-release-tenant>
+            {it.tenant ?? '—'}
+          </span>
+          <span className="text-xs text-muted-foreground" style={{ overflowWrap: 'anywhere' }}>
+            Agent: <span className="text-foreground">{it.agent ?? '—'}</span>
+          </span>
+          <span className="text-xs text-muted-foreground" style={{ overflowWrap: 'anywhere' }}>
+            Landlord: <span className="text-foreground">{it.landlord ?? '—'}</span>
+          </span>
+          <span className="text-xs text-muted-foreground" style={{ overflowWrap: 'anywhere' }}>
+            Funder: <span className="text-foreground">{it.funder ?? '—'}</span>
+          </span>
+          <span className="text-[11px] text-muted-foreground" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 8px', marginTop: 2 }}>
+            <span className="font-mono">{it.ref ? `Ref ${it.ref}` : refText(it.rent_request_id)}</span>
+            <span className="tabular-nums">{moneyFull(it.amount)}</span>
+            <Chip tone={st.tone} size="xs">
+              {st.text}
+            </Chip>
+            {paid > 0 && it.stage !== 'sold' ? <span className="tabular-nums">paid out {moneyFull(paid)}</span> : null}
+          </span>
+          <Dates it={it} />
+        </span>
+        <ChevronRight className="mt-1 h-4 w-4 text-muted-foreground" aria-hidden />
+      </button>
+    </li>
+  );
+}
+
 export function ReleasesPanel({
   title,
   items,
@@ -22,62 +83,50 @@ export function ReleasesPanel({
 }: {
   title: string;
   items: Release[];
-  /** e.g. "Last 30 days · latest 50 shown". */
+  /** e.g. "Today · landlord paid, OTP confirmed". */
   note?: string | null;
   onClose: () => void;
 }) {
   const [picked, setPicked] = useState<Release | null>(null);
+  const [sort, setSort] = useState<ReleaseSort>('newest');
   const facts = useBoardFacts();
+  const md = atLeast(useBreakpoint(), 'md');
   const closeDrawer = useCallback(() => setPicked(null), []);
+  const sorted = useMemo(() => sortReleases(items, sort), [items, sort]);
 
   if (picked) {
     return <FundersPlanDrawer row={rowFromRelease(picked)} facts={facts.data?.get(picked.rent_request_id) ?? null} release={picked} onClose={closeDrawer} />;
   }
 
-  return (
-    <Sheet title={title} onClose={onClose}>
+  const body = (
+    <>
       {note && (
         <p className={LABEL} style={{ margin: 0 }} data-releases-note>
           {note}
         </p>
       )}
+      {items.length > 1 && (
+        <Segmented ariaLabel="Order" size="sm" options={RELEASE_SORTS} value={sort} onChange={(s) => s !== null && setSort(s)} />
+      )}
       {items.length === 0 ? (
         <EmptyState>Nothing here right now.</EmptyState>
       ) : (
         <ul style={{ margin: 0, padding: 0, listStyle: 'none' }} aria-label={title} data-releases-list>
-          {items.map((it, i) => {
-            const st = STAGE_WORDS[it.stage] ?? { text: String(it.stage).replace(/_/g, ' '), tone: 'idle' as Status };
-            const paid = Number(it.paid_out ?? 0);
-            return (
-              <li key={`${it.rent_request_id}-${i}`} className="border-t border-[var(--desk-line-color)] first:border-t-0">
-                <button
-                  type="button"
-                  onClick={() => setPicked(it)}
-                  data-release={it.rent_request_id}
-                  aria-label={`Open the plan for ${it.tenant ?? refText(it.rent_request_id)}`}
-                  className={`w-full rounded-lg text-left hover:bg-[var(--desk-surface-hover)] ${CALM} ${FOCUS}`}
-                  style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', alignItems: 'center', gap: '4px 8px', padding: '10px 4px' }}
-                >
-                  <span className="font-medium text-foreground" style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-                    {it.tenant ?? '—'} <span className="font-mono text-xs text-muted-foreground">{refText(it.rent_request_id)}</span>
-                  </span>
-                  <span className="tabular-nums text-foreground" style={{ whiteSpace: 'nowrap' }}>
-                    {moneyFull(it.amount)}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
-                  <span style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                    <Chip tone={st.tone}>{st.text}</Chip>
-                    <span className={LABEL} style={{ overflowWrap: 'anywhere' }}>
-                      Agent {it.agent ?? '—'} · Landlord {it.landlord ?? '—'}
-                      {paid > 0 ? ` · paid out ${moneyFull(paid)}` : ''} · released {waitedText(it.hours_since_release)} ago
-                    </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
+          {sorted.map((it, i) => (
+            <Row key={`${it.rent_request_id}-${i}`} it={it} onOpen={() => setPicked(it)} />
+          ))}
         </ul>
       )}
+    </>
+  );
+
+  return md ? (
+    <SidePanel title={title} onClose={onClose}>
+      {body}
+    </SidePanel>
+  ) : (
+    <Sheet title={title} onClose={onClose}>
+      {body}
     </Sheet>
   );
 }

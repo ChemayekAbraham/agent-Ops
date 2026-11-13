@@ -72,7 +72,7 @@ function Row({ r, kind }: { r: HeadlineListRow; kind: HeadlineKind }) {
 }
 
 /** From md: a panel on the right, full height, the same close rules as the kit Sheet. */
-function SidePanel({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function SidePanel({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

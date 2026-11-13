@@ -28,7 +28,7 @@ import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { useLc1ForVillage } from '@/hooks/useLc1ForVillage';
 
 import { useAuth } from '@/hooks/useAuth';
-import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD } from '@/hooks/useAgentCapacityMap';
+import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
 import { useListingDaytimeGuard } from '@/hooks/useListingDaytimeGuard';
 import { DailyRatingThresholdPopover } from '@/components/shared/DailyRatingThresholdPopover';
 import {
@@ -89,7 +89,6 @@ import {
   Undo2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getTenantCoveragePresentation } from '@/components/agent/AgentDailyCapacityStrip';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
 import { notifyVerificationCreated } from '@/lib/landlordVerificationNotify';
 import { formatUGX, calculateRentRepayment } from '@/lib/rentCalculations';
@@ -302,8 +301,6 @@ function AgentCapacityBanner({ agentId }: { agentId?: string }) {
       'Very Bad': { tone: 'border-destructive/40 bg-destructive/10 text-destructive', text: 'Very few of your tenants are paying. Go and see more of them today.' },
     };
     const tier = tiers[rating] ?? tiers['Very Bad'];
-    const coverage = getTenantCoveragePresentation(cap);
-    const canPost = cap.can_post_rent_today === true;
     return (
       <div className="space-y-2">
         <div className={`rounded-xl border p-3 ${tier.tone}`}>
@@ -313,20 +310,12 @@ function AgentCapacityBanner({ agentId }: { agentId?: string }) {
           </div>
           <p className="text-[11px] leading-snug opacity-95">{tier.text} Your rating shows how you are performing; it does not decide whether you can post.</p>
         </div>
-        <div className={`rounded-xl border p-3 ${canPost ? 'border-success/30 bg-success/10 text-success' : 'border-destructive/40 bg-destructive/10 text-destructive'}`}>
-          <span className="text-xs font-extrabold uppercase tracking-wide">
-            {canPost ? 'You can post new Rent Plans today' : 'You cannot post new Rent Plans yet'}
-          </span>
+        {/* E100: posting is never blocked; this is information only. */}
+        <div className="rounded-xl border border-success/30 bg-success/10 p-3 text-success">
+          <span className="text-xs font-extrabold uppercase tracking-wide">You can post new Rent Plans</span>
           <p className="mt-1 text-[11px] leading-snug opacity-95">
             <strong>{cap.tenants_paid_today}</strong> of <strong>{cap.tenants_due}</strong> tenants paid today · <strong>{cap.tenants_paid_yesterday}</strong> yesterday.
-            {' '}You need at least half of the tenants who owe you to pay something, today or yesterday. Any payment counts, however small.
           </p>
-          {canPost && coverage.yesterdayCarrying && (
-            <p className="mt-1 text-[11px] leading-snug opacity-95">Yesterday&apos;s {cap.tenants_paid_yesterday} tenants are keeping you unlocked today.</p>
-          )}
-          {!canPost && coverage.todayRemaining > 0 && (
-            <p className="mt-1 text-[11px] font-semibold leading-snug">Collect from {coverage.todayRemaining} more tenant{coverage.todayRemaining === 1 ? '' : 's'} to unlock new Rent Plans.</p>
-          )}
         </div>
       </div>
     );
@@ -608,6 +597,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const capIds = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
+  // Loading still holds the submit: the per-tenant cap needs the agent's capacity.
   const { data: capMap, isLoading: capLoading } = useAgentCapacityMap(capIds);
   const myCap = user?.id ? capMap?.get(user.id) : undefined;
   // Weekly Good-Standing unlock: an agent rated "Good" (green) on 2+ days last
@@ -617,55 +607,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   const perTenantMax = unlimitedPosting
     ? Number.MAX_SAFE_INTEGER
     : (myCap?.per_tenant_max ?? 500_000);
-  /**
-   * Posting gate at the door: an agent blocked by the Daily Eligibility Law
-   * (graduated agent who missed yesterday's collection target) must never see
-   * this form at all. We close immediately and explain why with a toast
-   * instead of letting them fill in five steps only to be rejected on submit.
-   */
-  /**
-   * What the posting gate actually asks for, in the gate's own units.
-   *
-   * It measures tenants reached, not shillings (enforce_agent_daily_eligibility,
-   * 2026-10-20). The old wording quoted a money ratio, pasted yesterday's
-   * collections next to TODAY's target as though they were one figure, and
-   * doubled the currency prefix because formatUGX already adds it. An agent
-   * could have collected the whole amount it named from a single tenant and
-   * stayed blocked.
-   *
-   * No denominator is shown for yesterday: the view exposes today's tenants_due
-   * only, and reusing it for yesterday would misstate a day when the book moved.
-   */
-  const blockedReason = (c: NonNullable<typeof myCap>) => {
-    // Weekly rule: the server writes the reason (week, amounts, percentage needed).
-    if (c.posting_rule === 'weekly') {
-      return c.weekly_posting?.reason
-        ?? 'Your collections last week were below the target. You can post new Rent Plans again when a week meets it.';
-    }
-    const needed = Math.max(
-      0,
-      Math.ceil(c.tenants_due * DAILY_ELIGIBILITY_THRESHOLD) - c.tenants_paid_today,
-    );
-    const plural = (n: number) => (n === 1 ? 'tenant' : 'tenants');
-    return (
-      `You have reached ${c.tenants_paid_today} of ${c.tenants_due} ${plural(c.tenants_due)} today` +
-      `, and ${c.tenants_paid_yesterday} yesterday. ` +
-      `Collect from ${needed} more ${plural(needed)} today to post new Rent Plans. ` +
-      `Any payment counts, however small.`
-    );
-  };
-
-  const postingBlockedToday =
-    !!myCap && !unlimitedPosting && !myCap.can_post_rent_today;
-  useEffect(() => {
-    if (!open || capLoading || !postingBlockedToday || !myCap) return;
-    onOpenChange(false);
-    toast.error(myCap.posting_rule === 'weekly' ? 'You cannot post a rent request this week' : 'You cannot post a rent request today', {
-      description: blockedReason(myCap),
-      duration: 9000,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, capLoading, postingBlockedToday]);
+  // E100 (COO decision): agents can always post and move requests. The daily / weekly posting
+  // gate that closed this form at the door, and refused the submit, is gone. The server's own
+  // checks (verification, documents, tenant caps) still refuse what they should, word for word.
   const [savingDraft, setSavingDraft] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -2648,16 +2592,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       const offlineMsg = 'No internet right now. Your draft is saved — it will still be here when you reconnect. Try submitting again once you have a signal.';
       setSubmissionError(offlineMsg);
       toast.warning('No internet', { description: 'Your draft is saved. Submit again when you reconnect.' });
-      return;
-    }
-    // Daily Eligibility Law: only applies once an agent has graduated
-    // (reached the tenant threshold). New agents are exempt and gated only
-    // by the per-tenant cap. `can_post_rent_today` already encodes this.
-    if (myCap && !myCap.can_post_rent_today) {
-      const weekly = myCap.posting_rule === 'weekly';
-      const msg = `Blocked from posting new Rent Plans ${weekly ? 'this week' : 'today'}. ${blockedReason(myCap)}`;
-      setSubmissionError(msg);
-      toast.error(weekly ? 'Blocked this week' : 'Blocked today', { description: msg });
       return;
     }
     if (!fees) {

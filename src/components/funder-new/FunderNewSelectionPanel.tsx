@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { FileText } from 'lucide-react';
 import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, ShieldCheck, Trash2, Wallet, X, Send, TrendingUp, Sprout } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizeE164OrNull } from '@/lib/phoneUtils';
@@ -13,6 +14,9 @@ import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import { LANDLORD_PAID_STEPS } from '@/lib/selfSupportDirect';
+const SupporterAgreementViewModal = lazy(() => import('@/components/supporter/agreement/SupporterAgreementCard').then((m) => ({ default: m.SupporterAgreementViewModal })));
+import { useFunderFloatHolds } from '@/hooks/useFunderSavedTabs';
+import type { FunderSavedTab } from '@/lib/funderSavedTabs';
 
 /**
  * Monthly Returns on a selection at the signed-in partner's OWN rate for a new portfolio
@@ -159,6 +163,7 @@ export function FunderNewReviewDialog({
   onFund,
   onTopUp,
   onViewPortfolio,
+  onOpenSavedTab,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -173,12 +178,16 @@ export function FunderNewReviewDialog({
   onTopUp?: (shortfall: number) => void;
   /** Opens the supporter's own portfolio list from the success view. */
   onViewPortfolio?: () => void;
+  /** Opens Saved Items on a pill (the co-support float-hold line). */
+  onOpenSavedTab?: (tab: FunderSavedTab) => void;
 }) {
+  const holds = useFunderFloatHolds(open);
   const monthlyAt15 = useMonthlyAtOwnRate();
   const ownRatePct = formatRatePct(useOwnNewPortfolioRate().rate);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<FunderReceipt | null>(null);
+  const [contractOpen, setContractOpen] = useState(false);
   const total = items.reduce((sum, item) => sum + item.amount, 0);
   const shortfall = available === null ? null : Math.max(0, total - available);
 
@@ -249,6 +258,15 @@ export function FunderNewReviewDialog({
                     <span className="block whitespace-nowrap text-sm font-semibold">
                       {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
                     </span>
+                    {holds.line ? (
+                      holds.tab === 'co_support' && onOpenSavedTab ? (
+                        <button type="button" onClick={() => onOpenSavedTab('co_support')} className="mt-0.5 block text-left text-[11px] leading-snug text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground">
+                          {holds.line}
+                        </button>
+                      ) : (
+                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{holds.line}</span>
+                      )
+                    ) : null}
                   </span>
                 </span>
                 {shortfall !== null && (
@@ -407,6 +425,15 @@ export function FunderNewReviewDialog({
                   ))}
                 </ol>
               </div>
+
+              <Button className="h-11 w-full" onClick={() => setContractOpen(true)}>
+                <FileText className="mr-2 h-4 w-4" /> View contract
+              </Button>
+              {contractOpen ? (
+                <Suspense fallback={null}>
+                  <SupporterAgreementViewModal open={contractOpen} onOpenChange={setContractOpen} defaultTab="full" />
+                </Suspense>
+              ) : null}
 
               <div className="flex gap-2">
                 <Button variant="outline" className="h-11 flex-1" onClick={closeAll}>Done</Button>

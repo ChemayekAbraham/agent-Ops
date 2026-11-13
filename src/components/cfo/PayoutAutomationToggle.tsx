@@ -33,7 +33,7 @@ const FREQUENCIES: { value: PayoutFrequency; label: string; hint: string }[] = [
 export function describeSchedule(c: PayoutScheduleConfig): string {
   switch (c.frequency) {
     case 'daily':
-      return 'Every day';
+      return 'Monday–Friday';
     case 'weekly':
       return `Every ${WEEKDAYS[c.dayOfWeek] ?? 'Monday'}`;
     case 'interval':

@@ -9644,6 +9644,7 @@ export type Database = {
           last_seen_at: string | null
           last_seen_ip: string | null
           revoked_at: string | null
+          screen: string
           seen_count: number
           token_hash: string
         }
@@ -9657,6 +9658,7 @@ export type Database = {
           last_seen_at?: string | null
           last_seen_ip?: string | null
           revoked_at?: string | null
+          screen?: string
           seen_count?: number
           token_hash: string
         }
@@ -9670,6 +9672,7 @@ export type Database = {
           last_seen_at?: string | null
           last_seen_ip?: string | null
           revoked_at?: string | null
+          screen?: string
           seen_count?: number
           token_hash?: string
         }
@@ -16997,6 +17000,98 @@ export type Database = {
         }
         Relationships: []
       }
+      direct_pay_landlord_otps: {
+        Row: {
+          attempts: number
+          created_at: string
+          expires_at: string
+          id: string
+          max_attempts: number
+          otp_hash: string
+          payment_id: string
+          recipient_phone: string
+          send_detail: string | null
+          staff_id: string
+          status: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          expires_at: string
+          id?: string
+          max_attempts?: number
+          otp_hash: string
+          payment_id: string
+          recipient_phone: string
+          send_detail?: string | null
+          staff_id: string
+          status?: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          max_attempts?: number
+          otp_hash?: string
+          payment_id?: string
+          recipient_phone?: string
+          send_detail?: string | null
+          staff_id?: string
+          status?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_pay_landlord_otps_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "funder_offplatform_rent_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      direct_pay_pilot_partners: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          note: string | null
+          partner_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          partner_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          partner_id?: string
+        }
+        Relationships: []
+      }
+      direct_pay_saved_definitions: {
+        Row: {
+          definition: string
+          object_name: string
+          saved_at: string
+        }
+        Insert: {
+          definition: string
+          object_name: string
+          saved_at?: string
+        }
+        Update: {
+          definition?: string
+          object_name?: string
+          saved_at?: string
+        }
+        Relationships: []
+      }
       director_requisition_events: {
         Row: {
           action: string
@@ -23306,78 +23401,221 @@ export type Database = {
       }
       funder_offplatform_rent_payments: {
         Row: {
+          agent_email_requested_at: string | null
+          agent_id: string | null
+          agent_pay_ledger_group_id: string | null
           amount: number
+          amount_received: number
+          call_note: string | null
           confirm_note: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          coo_marked_at: string | null
           cover_fee_amount: number
           cover_fee_charged_at: string | null
           cover_fee_ledger_group_id: string | null
           cover_fee_status: string
           created_at: string
+          expired_at: string | null
+          flag_reason: string | null
+          flags: string[]
+          flow: string
           funder_id: string
+          hold_expires_at: string | null
+          hold_started_at: string | null
           id: string
+          landlord_id: string | null
+          landlord_otp_challenge_id: string | null
+          landlord_otp_verified_at: string | null
+          landlord_phone: string | null
+          landlord_receipt_number: string | null
+          landlord_receipt_photo_path: string | null
+          landlord_receipt_recorded_at: string | null
+          last_reminder_at: string | null
+          ledger_group_id: string | null
           method: string
           paid_at: string | null
+          portfolio_id: string | null
           provider: string | null
           proxy_agent_id: string | null
+          receipt_id: string | null
           receipt_photo_path: string | null
           reference: string | null
           reject_note: string | null
           rejected_at: string | null
           rejected_by: string | null
+          reminders_sent: number
           rent_request_id: string
           status: string
+          updated_at: string
         }
         Insert: {
+          agent_email_requested_at?: string | null
+          agent_id?: string | null
+          agent_pay_ledger_group_id?: string | null
           amount: number
+          amount_received?: number
+          call_note?: string | null
           confirm_note?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
+          coo_marked_at?: string | null
           cover_fee_amount?: number
           cover_fee_charged_at?: string | null
           cover_fee_ledger_group_id?: string | null
           cover_fee_status?: string
           created_at?: string
+          expired_at?: string | null
+          flag_reason?: string | null
+          flags?: string[]
+          flow?: string
           funder_id: string
+          hold_expires_at?: string | null
+          hold_started_at?: string | null
           id?: string
+          landlord_id?: string | null
+          landlord_otp_challenge_id?: string | null
+          landlord_otp_verified_at?: string | null
+          landlord_phone?: string | null
+          landlord_receipt_number?: string | null
+          landlord_receipt_photo_path?: string | null
+          landlord_receipt_recorded_at?: string | null
+          last_reminder_at?: string | null
+          ledger_group_id?: string | null
           method: string
           paid_at?: string | null
+          portfolio_id?: string | null
           provider?: string | null
           proxy_agent_id?: string | null
+          receipt_id?: string | null
           receipt_photo_path?: string | null
           reference?: string | null
           reject_note?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
+          reminders_sent?: number
           rent_request_id: string
           status?: string
+          updated_at?: string
         }
         Update: {
+          agent_email_requested_at?: string | null
+          agent_id?: string | null
+          agent_pay_ledger_group_id?: string | null
           amount?: number
+          amount_received?: number
+          call_note?: string | null
           confirm_note?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
+          coo_marked_at?: string | null
           cover_fee_amount?: number
           cover_fee_charged_at?: string | null
           cover_fee_ledger_group_id?: string | null
           cover_fee_status?: string
           created_at?: string
+          expired_at?: string | null
+          flag_reason?: string | null
+          flags?: string[]
+          flow?: string
           funder_id?: string
+          hold_expires_at?: string | null
+          hold_started_at?: string | null
           id?: string
+          landlord_id?: string | null
+          landlord_otp_challenge_id?: string | null
+          landlord_otp_verified_at?: string | null
+          landlord_phone?: string | null
+          landlord_receipt_number?: string | null
+          landlord_receipt_photo_path?: string | null
+          landlord_receipt_recorded_at?: string | null
+          last_reminder_at?: string | null
+          ledger_group_id?: string | null
           method?: string
           paid_at?: string | null
+          portfolio_id?: string | null
           provider?: string | null
           proxy_agent_id?: string | null
+          receipt_id?: string | null
           receipt_photo_path?: string | null
           reference?: string | null
           reject_note?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
+          reminders_sent?: number
           rent_request_id?: string
           status?: string
+          updated_at?: string
         }
         Relationships: []
+      }
+      funder_offplatform_rent_proofs: {
+        Row: {
+          amount_read: number | null
+          amount_typed: number | null
+          created_at: string
+          id: string
+          paid_at_read: string | null
+          partner_id: string
+          payment_id: string
+          photo_path: string
+          photo_sha256: string | null
+          provider: string | null
+          reader_confidence: number | null
+          reader_status: string
+          recipient_read: string | null
+          status: string
+          tid_norm: string | null
+          tid_read: string | null
+          tid_typed: string | null
+        }
+        Insert: {
+          amount_read?: number | null
+          amount_typed?: number | null
+          created_at?: string
+          id?: string
+          paid_at_read?: string | null
+          partner_id: string
+          payment_id: string
+          photo_path: string
+          photo_sha256?: string | null
+          provider?: string | null
+          reader_confidence?: number | null
+          reader_status?: string
+          recipient_read?: string | null
+          status?: string
+          tid_norm?: string | null
+          tid_read?: string | null
+          tid_typed?: string | null
+        }
+        Update: {
+          amount_read?: number | null
+          amount_typed?: number | null
+          created_at?: string
+          id?: string
+          paid_at_read?: string | null
+          partner_id?: string
+          payment_id?: string
+          photo_path?: string
+          photo_sha256?: string | null
+          provider?: string | null
+          reader_confidence?: number | null
+          reader_status?: string
+          recipient_read?: string | null
+          status?: string
+          tid_norm?: string | null
+          tid_read?: string | null
+          tid_typed?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funder_offplatform_rent_proofs_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "funder_offplatform_rent_payments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       funder_pending_portfolios: {
         Row: {
@@ -26660,6 +26898,68 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_pay_rule_versions"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_pay_payroll_exclusions: {
+        Row: {
+          end_note: string | null
+          ended_at: string | null
+          ended_by: string | null
+          excluded_at: string
+          excluded_by: string
+          id: string
+          reason: string
+          staff_id: string
+        }
+        Insert: {
+          end_note?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          excluded_at?: string
+          excluded_by: string
+          id?: string
+          reason: string
+          staff_id: string
+        }
+        Update: {
+          end_note?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          excluded_at?: string
+          excluded_by?: string
+          id?: string
+          reason?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payroll_exclusions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
           },
         ]
       }
@@ -41322,6 +41622,138 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      partner_agreement_rate_requests: {
+        Row: {
+          applied_at: string | null
+          applied_xact: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          partner_id: string
+          portfolio_id: string | null
+          rate_in_force: number
+          requested_at: string
+          requested_by: string
+          requested_rate: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_xact?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          partner_id: string
+          portfolio_id?: string | null
+          rate_in_force: number
+          requested_at?: string
+          requested_by: string
+          requested_rate: number
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_xact?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          partner_id?: string
+          portfolio_id?: string | null
+          rate_in_force?: number
+          requested_at?: string
+          requested_by?: string
+          requested_rate?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "partner_agreement_rate_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
       }
       partner_agreements: {
         Row: {
@@ -56755,6 +57187,7 @@ export type Database = {
           recorded_by: string
           reference: string
           repayment_id: string | null
+          topup_id: string | null
         }
         Insert: {
           advance_id: string
@@ -56769,6 +57202,7 @@ export type Database = {
           recorded_by: string
           reference: string
           repayment_id?: string | null
+          topup_id?: string | null
         }
         Update: {
           advance_id?: string
@@ -56783,6 +57217,7 @@ export type Database = {
           recorded_by?: string
           reference?: string
           repayment_id?: string | null
+          topup_id?: string | null
         }
         Relationships: [
           {
@@ -56797,6 +57232,13 @@ export type Database = {
             columns: ["repayment_id"]
             isOneToOne: false
             referencedRelation: "special_advance_repayments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_corrections_topup_id_fkey"
+            columns: ["topup_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_topups"
             referencedColumns: ["id"]
           },
         ]
@@ -56895,6 +57337,7 @@ export type Database = {
           number: number
           principal: number
           registration_fee: number
+          topup_id: string | null
         }
         Insert: {
           access_fee: number
@@ -56906,6 +57349,7 @@ export type Database = {
           number: number
           principal: number
           registration_fee: number
+          topup_id?: string | null
         }
         Update: {
           access_fee?: number
@@ -56917,10 +57361,56 @@ export type Database = {
           number?: number
           principal?: number
           registration_fee?: number
+          topup_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "special_advance_instalments_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_instalments_topup_id_fkey"
+            columns: ["topup_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_topups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_name_edits: {
+        Row: {
+          advance_id: string
+          created_at: string
+          edited_by: string
+          id: string
+          new_name: string
+          old_name: string | null
+          reason: string
+        }
+        Insert: {
+          advance_id: string
+          created_at?: string
+          edited_by: string
+          id?: string
+          new_name: string
+          old_name?: string | null
+          reason: string
+        }
+        Update: {
+          advance_id?: string
+          created_at?: string
+          edited_by?: string
+          id?: string
+          new_name?: string
+          old_name?: string | null
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_name_edits_advance_id_fkey"
             columns: ["advance_id"]
             isOneToOne: false
             referencedRelation: "special_advances"
@@ -57202,6 +57692,84 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      special_advance_topups: {
+        Row: {
+          access_fee: number
+          advance_id: string
+          calc_version: string
+          id: string
+          idempotency_key: string
+          ledger_group_id: string
+          payout_method: string
+          payout_proof_path: string | null
+          payout_reference: string | null
+          principal: number
+          reason: string
+          recorded_at: string
+          recorded_by: string
+          reference: string
+          reversed_by_correction: string | null
+          term_days: number
+          topup_date: string
+          total_repayable: number
+        }
+        Insert: {
+          access_fee: number
+          advance_id: string
+          calc_version: string
+          id?: string
+          idempotency_key: string
+          ledger_group_id: string
+          payout_method: string
+          payout_proof_path?: string | null
+          payout_reference?: string | null
+          principal: number
+          reason: string
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+          reversed_by_correction?: string | null
+          term_days: number
+          topup_date: string
+          total_repayable: number
+        }
+        Update: {
+          access_fee?: number
+          advance_id?: string
+          calc_version?: string
+          id?: string
+          idempotency_key?: string
+          ledger_group_id?: string
+          payout_method?: string
+          payout_proof_path?: string | null
+          payout_reference?: string | null
+          principal?: number
+          reason?: string
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+          reversed_by_correction?: string | null
+          term_days?: number
+          topup_date?: string
+          total_repayable?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_topups_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_topups_reversed_by_correction_fkey"
+            columns: ["reversed_by_correction"]
+            isOneToOne: false
+            referencedRelation: "special_advance_corrections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       special_advance_write_offs: {
         Row: {
@@ -69919,6 +70487,112 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_school_fee_requests: {
+        Row: {
+          class_grade: string | null
+          created_at: string
+          daily_rate: number
+          guarantor_name: string | null
+          guarantor_phone: string | null
+          guardian_name: string
+          guardian_phone: string
+          id: string
+          note: string | null
+          plan_days: number
+          plan_due_date: string
+          profile_id: string
+          requested_by: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          student_name: string
+          term_end: string
+          term_fee: number
+          term_id: string | null
+          term_start: string | null
+          total_on_schedule: number
+          updated_at: string
+        }
+        Insert: {
+          class_grade?: string | null
+          created_at?: string
+          daily_rate: number
+          guarantor_name?: string | null
+          guarantor_phone?: string | null
+          guardian_name: string
+          guardian_phone: string
+          id?: string
+          note?: string | null
+          plan_days: number
+          plan_due_date: string
+          profile_id: string
+          requested_by: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school_id: string
+          status?: string
+          student_name: string
+          term_end: string
+          term_fee: number
+          term_id?: string | null
+          term_start?: string | null
+          total_on_schedule: number
+          updated_at?: string
+        }
+        Update: {
+          class_grade?: string | null
+          created_at?: string
+          daily_rate?: number
+          guarantor_name?: string | null
+          guarantor_phone?: string | null
+          guardian_name?: string
+          guardian_phone?: string
+          id?: string
+          note?: string | null
+          plan_days?: number
+          plan_due_date?: string
+          profile_id?: string
+          requested_by?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school_id?: string
+          status?: string
+          student_name?: string
+          term_end?: string
+          term_fee?: number
+          term_id?: string | null
+          term_start?: string | null
+          total_on_schedule?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_fee_requests_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "welile_school_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_school_fee_requests_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "welile_schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_school_fee_requests_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "welile_school_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_school_fee_structures: {
         Row: {
           amount: number
@@ -78239,6 +78913,10 @@ export type Database = {
         }[]
       }
       _bike_sweep_blocks_outflow: { Args: { p_user: string }; Returns: boolean }
+      _board_payload: {
+        Args: { p_names: boolean; p_screen: string }
+        Returns: Json
+      }
       _board_token_check: {
         Args: { p_token: string }
         Returns: {
@@ -78251,6 +78929,7 @@ export type Database = {
           last_seen_at: string | null
           last_seen_ip: string | null
           revoked_at: string | null
+          screen: string
           seen_count: number
           token_hash: string
         }
@@ -78574,6 +79253,76 @@ export type Database = {
       _desk_take_stage_snapshot: { Args: never; Returns: number }
       _desk_viewer_ok: { Args: { p_roles: string[] }; Returns: boolean }
       _direct_client_call: { Args: never; Returns: boolean }
+      _direct_pay_agent_pay: { Args: { p_payment_id: string }; Returns: Json }
+      _direct_pay_agent_receipt_email: {
+        Args: { p_payment_id: string }
+        Returns: undefined
+      }
+      _direct_pay_can_act: { Args: { p_uid: string }; Returns: boolean }
+      _direct_pay_can_view: { Args: { p_uid: string }; Returns: boolean }
+      _direct_pay_cover_charge: {
+        Args: { p_payment_id: string }
+        Returns: string
+      }
+      _direct_pay_evaluate: { Args: { p_payment_id: string }; Returns: Json }
+      _direct_pay_flags: { Args: { p_payment_id: string }; Returns: string[] }
+      _direct_pay_health_core: { Args: never; Returns: Json }
+      _direct_pay_issue_receipt: {
+        Args: { p_payment_id: string; p_staff: string }
+        Returns: {
+          agent_id: string | null
+          amount: number
+          created_at: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          landlord_id: string | null
+          landlord_phone: string | null
+          payout_id: string
+          processed_by: string | null
+          receipt_code: string
+          receipt_number: string
+          replaces_receipt_id: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          short_link_code: string | null
+          sms_attempts: number
+          sms_last_attempt_at: string | null
+          sms_last_error: string | null
+          sms_sent_at: string | null
+          snapshot: Json
+          status: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "landlord_payout_receipts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _direct_pay_landlord_paid: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
+      }
+      _direct_pay_notify: {
+        Args: { p_event: string; p_payment_id: string }
+        Returns: undefined
+      }
+      _direct_pay_on: { Args: never; Returns: boolean }
+      _direct_pay_partner_view: {
+        Args: { p_code?: string; p_payment_id: string }
+        Returns: Json
+      }
+      _direct_pay_plan_lock: {
+        Args: { p_rent_request_id: string }
+        Returns: undefined
+      }
+      _direct_pay_tenant_owes: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
+      }
       _docs_rule_applies: { Args: { p_created: string }; Returns: boolean }
       _dormant_bike_leases: {
         Args: { p_agent?: string }
@@ -78871,6 +79620,7 @@ export type Database = {
       _ontology_board_stage: { Args: { p_board: string }; Returns: string }
       _ontology_document_text: { Args: never; Returns: string }
       _ontology_inventory: { Args: never; Returns: Json }
+      _ops_map_payload: { Args: { p_names: boolean }; Returns: Json }
       _partner_commitment_follow_rate: {
         Args: { p_commitment_id: string; p_rate: number }
         Returns: undefined
@@ -79170,6 +79920,10 @@ export type Database = {
         }
         Returns: string
       }
+      _return_cycle_misdated_only: {
+        Args: { p_month: string; p_portfolio_id: string }
+        Returns: boolean
+      }
       _return_cycle_posted_total: { Args: { p_claim: string }; Returns: number }
       _rt_compute: {
         Args: { e: Json; p_as_of: string; p_with_visits?: boolean }
@@ -79340,6 +80094,14 @@ export type Database = {
           p_term_days: number
         }
         Returns: string[]
+      }
+      _special_advance_topup_schedule: {
+        Args: {
+          a: Database["public"]["Tables"]["special_advances"]["Row"]
+          p_principal: number
+          p_today: string
+        }
+        Returns: Json
       }
       _special_advance_wallet_receipt: {
         Args: { p_repayment_id: string }
@@ -82290,9 +83052,17 @@ export type Database = {
           id: string
         }[]
       }
-      board_display_feed: { Args: { p_token: string }; Returns: Json }
+      board_display_feed: {
+        Args: { p_screen?: string; p_token: string }
+        Returns: Json
+      }
       board_display_list: {
         Args: { p_kind?: string; p_period?: string; p_token: string }
+        Returns: Json
+      }
+      boardroom_feed: { Args: { p_screen?: string }; Returns: Json }
+      boardroom_list: {
+        Args: { p_kind?: string; p_period?: string }
         Returns: Json
       }
       bonus_restriction_config: {
@@ -83530,6 +84300,10 @@ export type Database = {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
         Returns: Json
       }
+      cfo_decide_agreement_rate_requests: {
+        Args: { p_decision: string; p_note?: string; p_request_ids: string[] }
+        Returns: Json
+      }
       cfo_decide_allocation_return: {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
         Returns: Json
@@ -84460,6 +85234,18 @@ export type Database = {
           p_actor: string
           p_amount: number
           p_countersign_only?: boolean
+          p_partner_id: string
+          p_return_option: string
+          p_support_mode: string
+        }
+        Returns: Json
+      }
+      countersign_prepare_support_with_rate: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_countersign_only?: boolean
+          p_expected_rate: number
           p_partner_id: string
           p_return_option: string
           p_support_mode: string
@@ -85423,6 +86209,71 @@ export type Database = {
           withdrawal_id: string
         }[]
       }
+      direct_pay_agent_items: { Args: { p_limit?: number }; Returns: Json }
+      direct_pay_agent_record_receipt: {
+        Args: {
+          p_payment_id: string
+          p_photo_path?: string
+          p_receipt_number: string
+        }
+        Returns: Json
+      }
+      direct_pay_approve: {
+        Args: {
+          p_call_note: string
+          p_flag_reason?: string
+          p_otp: string
+          p_payment_id: string
+        }
+        Returns: Json
+      }
+      direct_pay_claim: { Args: { p_rent_request_id: string }; Returns: Json }
+      direct_pay_health: { Args: never; Returns: Json }
+      direct_pay_health_alert: { Args: never; Returns: Json }
+      direct_pay_my_payments: { Args: never; Returns: Json }
+      direct_pay_ops_queue: {
+        Args: {
+          p_after_at?: string
+          p_after_flagged?: boolean
+          p_after_id?: string
+          p_limit?: number
+          p_view?: string
+        }
+        Returns: Json
+      }
+      direct_pay_otp_authorize: {
+        Args: { p_payment_id: string }
+        Returns: Json
+      }
+      direct_pay_otp_issue: {
+        Args: { p_payment_id: string; p_staff: string }
+        Returns: Json
+      }
+      direct_pay_otp_mark: {
+        Args: { p_challenge_id: string; p_detail?: string; p_sent: boolean }
+        Returns: undefined
+      }
+      direct_pay_record_proof: {
+        Args: {
+          p_amount_typed: number
+          p_partner: string
+          p_payment_id: string
+          p_photo_path: string
+          p_photo_sha256: string
+          p_provider: string
+          p_read: Json
+          p_tid_typed: string
+        }
+        Returns: Json
+      }
+      direct_pay_refresh: { Args: { p_payment_id: string }; Returns: Json }
+      direct_pay_reject: {
+        Args: { p_payment_id: string; p_reason: string }
+        Returns: Json
+      }
+      direct_pay_release: { Args: { p_payment_id: string }; Returns: Json }
+      direct_pay_send_reminders: { Args: never; Returns: Json }
+      direct_pay_tick: { Args: never; Returns: Json }
       disable_campaign_link: {
         Args: { p_link_id: string; p_reason?: string }
         Returns: undefined
@@ -89900,6 +90751,10 @@ export type Database = {
         }[]
       }
       get_partner_360: { Args: { p_user_id: string }; Returns: Json }
+      get_partner_agreement_rate: {
+        Args: { p_partner_id: string }
+        Returns: Json
+      }
       get_partner_capital_management_split: {
         Args: { p_as_at?: string }
         Returns: Json
@@ -92077,6 +92932,10 @@ export type Database = {
       hr_pay_has_authority: { Args: { _fn: string }; Returns: boolean }
       hr_pay_is_approver: { Args: never; Returns: boolean }
       hr_pay_is_own_staff: { Args: { _staff_id: string }; Returns: boolean }
+      hr_pay_is_payroll_excluded: {
+        Args: { _staff_id: string }
+        Returns: boolean
+      }
       hr_pay_is_preparer: { Args: never; Returns: boolean }
       hr_pay_is_releaser: { Args: never; Returns: boolean }
       hr_pay_is_rule_admin: { Args: never; Returns: boolean }
@@ -92101,6 +92960,21 @@ export type Database = {
       }
       hr_pay_my_positions: { Args: never; Returns: string[] }
       hr_pay_my_reinvest_signing_link: { Args: never; Returns: Json }
+      hr_pay_payroll_exclusions_list: {
+        Args: { _include_history?: boolean }
+        Returns: {
+          end_note: string
+          ended_at: string
+          ended_by_name: string
+          excluded_at: string
+          excluded_by_name: string
+          full_name: string
+          is_current: boolean
+          reason: string
+          staff_id: string
+          staff_ref: string
+        }[]
+      }
       hr_pay_pending_prompt: {
         Args: never
         Returns: {
@@ -92190,6 +93064,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      hr_pay_run_excluded_payslips: {
+        Args: { _run_id: string }
+        Returns: {
+          full_name: string
+          reason: string
+          staff_ref: string
+        }[]
+      }
       hr_pay_run_reinvestments: {
         Args: { _run_id: string }
         Returns: {
@@ -92213,6 +93095,10 @@ export type Database = {
           _prepared_position: string
         }
         Returns: boolean
+      }
+      hr_pay_set_payroll_exclusion: {
+        Args: { _exclude: boolean; _reason: string; _staff_id: string }
+        Returns: Json
       }
       hr_pay_set_statutory_ids: {
         Args: {
@@ -93312,6 +94198,10 @@ export type Database = {
           quantity: number
           total_revenue: number
         }[]
+      }
+      list_agreement_rate_requests: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: Json
       }
       list_assignable_agents:
         | {
@@ -94846,6 +95736,7 @@ export type Database = {
         Args: { p_limit?: number; p_status?: string }
         Returns: Json
       }
+      ops_map_feed: { Args: never; Returns: Json }
       ops_query_tenants: {
         Args: { p_cursor?: string; p_limit?: number; p_segment_id: string }
         Returns: {
@@ -98973,6 +99864,16 @@ export type Database = {
       resume_expired_repayment_pauses: { Args: never; Returns: Json }
       retire_tenant_document: { Args: { p_doc_id: string }; Returns: Json }
       retry_funder_house_progress_notices: { Args: never; Returns: undefined }
+      return_cycle_correction_eligible: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          cycle_date: string
+          cycle_return: number
+          misdated_amount: number
+          misdated_paid_on: string
+          portfolio_id: string
+        }[]
+      }
       return_rent_request_for_correction: {
         Args: { p_reason: string; p_request_id: string; p_stage: string }
         Returns: string
@@ -99551,6 +100452,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_partner_agreement_rate: {
+        Args: { p_partner_id: string; p_requested_rate: number }
+        Returns: Json
+      }
       set_partner_return_policy: {
         Args: {
           p_enabled: boolean
@@ -99877,6 +100782,14 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      special_advance_add_note: {
+        Args: { p_id: string; p_note: string }
+        Returns: Json
+      }
+      special_advance_add_topup: {
+        Args: { p_expected_updated_at: string; p_id: string; p_request: Json }
+        Returns: Json
+      }
       special_advance_approve: {
         Args: { p_expected_updated_at: string; p_id: string; p_reason?: string }
         Returns: Json
@@ -99889,6 +100802,35 @@ export type Database = {
       special_advance_create: { Args: { p_request: Json }; Returns: Json }
       special_advance_disburse: {
         Args: { p_expected_updated_at: string; p_id: string; p_payout: Json }
+        Returns: Json
+      }
+      special_advance_edit_name: {
+        Args: {
+          p_expected_updated_at: string
+          p_id: string
+          p_name: string
+          p_reason: string
+        }
+        Returns: Json
+      }
+      special_advance_edit_principal: {
+        Args: {
+          p_expected_updated_at: string
+          p_id: string
+          p_principal: number
+          p_reason: string
+        }
+        Returns: Json
+      }
+      special_advance_edit_terms: {
+        Args: {
+          p_expected_updated_at: string
+          p_id: string
+          p_payout_date: string
+          p_principal: number
+          p_reason: string
+          p_term_days: number
+        }
         Returns: Json
       }
       special_advance_get: { Args: { p_id: string }; Returns: Json }
@@ -99937,6 +100879,10 @@ export type Database = {
         Returns: Json
       }
       special_advance_statement: { Args: { p_id: string }; Returns: Json }
+      special_advance_topup_quote: {
+        Args: { p_id: string; p_principal: number }
+        Returns: Json
+      }
       special_advance_write_off: {
         Args: { p_id: string; p_request: Json }
         Returns: Json
@@ -103769,6 +104715,89 @@ export type Database = {
           src: string
           unit_id: string
         }[]
+      }
+      welile_school_fee_request_review: {
+        Args: { p_decision: string; p_note: string; p_request_id: string }
+        Returns: {
+          class_grade: string | null
+          created_at: string
+          daily_rate: number
+          guarantor_name: string | null
+          guarantor_phone: string | null
+          guardian_name: string
+          guardian_phone: string
+          id: string
+          note: string | null
+          plan_days: number
+          plan_due_date: string
+          profile_id: string
+          requested_by: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          student_name: string
+          term_end: string
+          term_fee: number
+          term_id: string | null
+          term_start: string | null
+          total_on_schedule: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_fee_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      welile_school_fee_request_submit: {
+        Args: {
+          p_guarantor_name: string
+          p_guarantor_phone: string
+          p_guardian_name: string
+          p_guardian_phone: string
+          p_note: string
+          p_profile_id: string
+          p_term_end: string
+          p_term_fee: number
+          p_term_id: string
+          p_term_start: string
+        }
+        Returns: {
+          class_grade: string | null
+          created_at: string
+          daily_rate: number
+          guarantor_name: string | null
+          guarantor_phone: string | null
+          guardian_name: string
+          guardian_phone: string
+          id: string
+          note: string | null
+          plan_days: number
+          plan_due_date: string
+          profile_id: string
+          requested_by: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_id: string
+          status: string
+          student_name: string
+          term_end: string
+          term_fee: number
+          term_id: string | null
+          term_start: string | null
+          total_on_schedule: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_fee_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       welile_school_partnership_editable: {
         Args: { p_school_id: string }

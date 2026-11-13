@@ -82,7 +82,7 @@ export interface SpecialAdvanceQuote {
 
 export interface SpecialAdvanceEvent {
   event_type: 'created' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reopened' | 'reversed'
-    | 'correction_posted' | 'written_off' | 'write_off_posted' | 'provision_posted' | 'recovery_recorded';
+    | 'correction_posted' | 'written_off' | 'write_off_posted' | 'provision_posted' | 'recovery_recorded' | 'topup_posted' | 'note_added' | 'principal_edited' | 'name_edited';
   from_status: string | null;
   to_status: string;
   actor_id: string;
@@ -149,6 +149,17 @@ export function outstandingAccessFee(p: Pick<SpecialAdvancePosition, 'outstandin
   return combinedAccessFee({ access_fee: p.outstanding_access_fee, registration_fee: p.outstanding_registration_fee });
 }
 
+/**
+ * Repayment progress for the register's Repayment status column, read only from the server figures
+ * (`paid_out`, `outstanding`, `total_repayable`) — never recomputed. Not paid out yet shows '—'.
+ */
+export function repaymentStatusLabel(a: { paid_out?: boolean; outstanding?: number; total_repayable: number }): string {
+  if (!a.paid_out || a.outstanding === undefined) return '—';
+  if (a.outstanding <= 0) return 'Fully repaid';
+  if (a.outstanding >= a.total_repayable) return 'Not started';
+  return 'Partly repaid';
+}
+
 export interface SpecialAdvancePosition {
   total_repayable: number;
   total_paid: number;
@@ -183,6 +194,42 @@ export interface SpecialAdvanceStatement extends SpecialAdvance {
   provision_history?: Array<ProvisionLine & { review: string; recorded_at: string }>;
   write_offs?: SpecialAdvanceWriteOff[];
   recoveries?: SpecialAdvanceRecovery[];
+  /** Top-ups recorded and paid out against this advance, oldest first (migration 20261119120000). */
+  topups?: SpecialAdvanceTopup[];
+}
+
+/* ── Top-ups (CFO, 12 Nov 2026; migration 20261119120000) ──────────────────────────────────────────────
+ * Recorded AND paid out in one CFO action: a Welile-user borrower's wallet is credited at once; an external borrower is
+ * paid by mobile money / bank (reference + proof). Fee at the agreed rate over the top-up's term plus the fixed fee;
+ * own instalments at the agreed frequency, ending on the original final due date. The original agreement is untouched. */
+export interface SpecialAdvanceTopup {
+  id: string; reference: string; advance_id: string; topup_date: string; principal: number; access_fee: number;
+  total_repayable: number; term_days: number; reason: string; payout_method: 'wallet' | 'mobile_money' | 'bank_transfer';
+  payout_reference: string | null; payout_proof_path: string | null; ledger_group_id: string; recorded_by: string; recorded_at: string;
+  /** Set when a posted correction reversed this top-up: it no longer counts (migration 20261119140000). */
+  reversed_by_correction?: string | null;
+}
+export interface SpecialAdvanceTopupQuote {
+  term_days: number; end_date: string; outstanding_now: number; outstanding_after: number; payout_method: 'wallet' | null;
+  schedule: { principal: number; access_fee: number; total_repayable: number; instalments: number;
+    schedule: Array<{ number: number; due_date: string; amount: number; access_fee: number; principal: number }> };
+}
+export const TOPUP_REASON_MIN = 15;
+export const TOPUP_REASON_MAX = 1000;
+export const TOPUP_MIN_PRINCIPAL = 10_000;
+
+/** Marker the server stamps on an already-issued advance that was recorded (special_advance_record_historical). */
+export const RECORDED_ADVANCE_MARKER = 'Recorded already-issued outside-Welile advance; no new payment';
+
+/** Edit (principal only) is offered for a recorded, paid-out advance with no repayment or top-up yet.
+ *  The server (special_advance_edit_principal) re-checks all of this and recalculates fee and instalments. */
+export function isRecordedAdvance(a: { decision_reason: string | null }): boolean {
+  return a.decision_reason === RECORDED_ADVANCE_MARKER;
+}
+
+export function canEditRecordedPrincipal(a: { decision_reason: string | null; status: string; repayments?: unknown[]; topups?: unknown[] }): boolean {
+  return a.decision_reason === RECORDED_ADVANCE_MARKER && a.status === 'disbursed'
+    && (a.repayments?.length ?? 0) === 0 && (a.topups?.length ?? 0) === 0;
 }
 
 /* ── Impairment, write-off and recovery (Phase C, CFO decisions D7-D10, 2026-11-02; migration 20261102220000) ──
@@ -303,11 +350,12 @@ export function buildWriteOffRequest(input: {
 /* ── Corrections (Phase B, CFO decisions D11, 2026-11-02; migration 20261102210000) ──────────────────
  * One step (CFO decision 2026-11-03): the CFO records and posts a correction (reason + proof file) in a single
  * authorised action. It posts opposite legs on the original categories; nothing posted is ever edited. */
-export type CorrectionKind = 'repayment_reversal' | 'payout_reversal';
+export type CorrectionKind = 'repayment_reversal' | 'payout_reversal' | 'topup_reversal';
 
 export const CORRECTION_KIND_LABEL: Record<CorrectionKind, string> = {
   repayment_reversal: 'Reverse a repayment',
   payout_reversal: 'Reverse an external payout',
+  topup_reversal: 'Reverse a top-up',
 };
 export const CORRECTION_REASON_MIN = 20;
 export const CORRECTION_REASON_MAX = 1000;
@@ -320,6 +368,9 @@ export interface SpecialAdvanceCorrection {
   kind: CorrectionKind;
   repayment_id: string | null;
   repayment: { id: string; amount: number; received_date: string; method: string; reference: string } | null;
+  /** topup_reversal only (migration 20261119140000). */
+  topup_id?: string | null;
+  topup?: { id: string; reference: string; principal: number; access_fee: number; total_repayable: number; payout_method: string; topup_date: string } | null;
   amount: number;
   reason: string;
   proof_path: string;
@@ -334,6 +385,7 @@ export interface SpecialAdvanceCorrection {
 export function buildCorrectionRequest(input: {
   kind: CorrectionKind;
   repaymentId?: string | null;
+  topupId?: string | null;
   reason: string;
   proofPath: string;
   idempotencyKey: string;
@@ -341,6 +393,7 @@ export function buildCorrectionRequest(input: {
   return {
     kind: input.kind,
     ...(input.kind === 'repayment_reversal' ? { repayment_id: input.repaymentId } : {}),
+    ...(input.kind === 'topup_reversal' ? { topup_id: input.topupId } : {}),
     reason: input.reason.trim(),
     proof_path: input.proofPath,
     idempotency_key: input.idempotencyKey,
@@ -458,6 +511,13 @@ export function describeSpecialAdvanceError(err: unknown): string {
   if (msg.includes('PROOF_ALREADY_USED')) return 'This proof file is already attached to another payment.';
   if (msg.includes('PROOF_PATH_INVALID')) return 'The proof file does not belong to this advance. Upload it again.';
   if (msg.includes('IDEMPOTENCY_CONFLICT')) return 'This request was already submitted with different details. Start again.';
+  if (msg.includes('PRINCIPAL_EDIT_ONLY_RECORDED')) return 'Only an already-issued advance that was recorded can be edited.';
+  if (msg.includes('PRINCIPAL_EDIT_HAS_ACTIVITY')) return 'The principal can no longer be edited: a repayment or top-up has been recorded.';
+  if (msg.includes('PRINCIPAL_EDIT_NOT_ALLOWED')) return 'Only a paid-out advance can be edited.';
+  if (msg.includes('NAME_INVALID')) return 'Enter a name of 2 to 120 characters.';
+  if (msg.includes('NAME_UNCHANGED')) return 'Enter a name different from the current one.';
+  if (msg.includes('PRINCIPAL_UNCHANGED')) return 'Enter a principal different from the current one.';
+  if (msg.includes('PRINCIPAL_EDIT_SCHEDULE_CHANGED')) return 'This principal would change the number of instalments. Use a different amount.';
   if (msg.includes('STALE_VERSION')) return 'This advance was changed by someone else. Reload it and try again.';
   // Corrections (Phase B, D11)
   if (msg.includes('REPAYMENT_NOT_FOUND')) return 'That repayment is not on this advance.';
@@ -491,6 +551,21 @@ export function describeSpecialAdvanceError(err: unknown): string {
   if (msg.includes('SPECIAL_ADVANCE_NOT_APPROVED')) return 'Only an approved advance can be paid out.';
   if (msg.includes('SPECIAL_ADVANCE_ALREADY_PAID_OUT')) return 'This advance has already been paid out.';
   if (msg.includes('SPECIAL_ADVANCE_NOT_REPAYABLE')) return 'Repayments can only be recorded for an advance that is paid out and not settled.';
+  // Top-ups (migration 20261119120000)
+  if (msg.includes('TOPUP_AFTER_END')) {
+    const end = (detail as { end_date?: string } | null)?.end_date;
+    return `The original final due date${end ? ` (${end})` : ''} has passed; a top-up must be repaid by then.`;
+  }
+  if (msg.includes('SPECIAL_ADVANCE_NOT_TOPUPABLE')) return 'Only a paid-out advance with its schedule running can be topped up.';
+  if (msg.includes('TOPUP_REFERENCE_ALREADY_RECORDED')) return 'A payout with this transaction reference is already recorded.';
+  if (msg.includes('PAYOUT_REVERSAL_HAS_TOPUP')) return 'This advance has a top-up: reverse the top-up first, then the payout.';
+  if (msg.includes('TOPUP_NOT_FOUND')) return 'That top-up is not on this advance.';
+  if (msg.includes('TOPUP_ALREADY_REVERSED')) return 'This top-up has already been reversed.';
+  if (msg.includes('TOPUP_HAS_REPAYMENTS')) return 'A repayment has been applied to this top-up. Reverse that repayment first, then the top-up.';
+  if (msg.includes('TOPUP_FUNDS_NOT_IN_WALLET')) {
+    const d = (detail as { available?: number; needed?: number } | null) ?? {};
+    return `The borrower's wallet no longer holds the top-up (available UGX ${(d.available ?? 0).toLocaleString()}, needed UGX ${(d.needed ?? 0).toLocaleString()}). Nothing was taken.`;
+  }
   if (msg.includes('SPECIAL_ADVANCE_NOT_FOUND')) return 'Special Advance not found.';
   return msg || 'The Special Advance request could not be completed.';
 }

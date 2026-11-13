@@ -64,6 +64,7 @@ export const LANDLORD_OPS_SECTIONS: LandlordOpsNavSection[] = [
     title: 'PAYOUTS',
     items: [
       { key: 'payouts-review', label: 'Payout Review', path: 'payouts/review', icon: ClipboardCheck, badgeKey: 'payouts' },
+      { key: 'payouts-direct-payments', label: 'Direct landlord payments', path: 'payouts/direct-payments', icon: PhoneCall },
       { key: 'payouts-paid', label: 'Landlords Paid', path: 'payouts/paid', icon: Banknote },
       { key: 'payouts-float', label: 'Agent Landlord Float', path: 'payouts/float', icon: Landmark },
       { key: 'payouts-idle-float', label: 'Float Not Paid Out', path: 'payouts/idle-float', icon: Undo2 },

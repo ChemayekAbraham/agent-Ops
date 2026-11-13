@@ -64,12 +64,12 @@ import AgentWeeklyPerformancePage from '@/pages/agent/AgentWeeklyPerformance';
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('Weekly Performance page', () => {
-  it('shows the posting status, both groups, tenants and history from the RPC', async () => {
+  it('shows the posting status (E100: always open), both groups, tenants and history from the RPC', async () => {
     mocks.rpc.mockResolvedValue({ data: fixture, error: null });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><MemoryRouter><AgentWeeklyPerformancePage /></MemoryRouter></QueryClientProvider>);
 
-    await waitFor(() => expect(screen.getByText('You cannot post new Rent Plans')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('You can post new Rent Plans')).toBeTruthy());
     expect(mocks.rpc).toHaveBeenCalledWith('get_my_weekly_performance', { p_weeks: 6 });
     expect(screen.getByText(/you collected 9.2% of what your current Rent Plans were due/)).toBeTruthy();
     expect(screen.getAllByText('Current Rent Plans').length).toBe(2);
@@ -111,7 +111,7 @@ describe('Weekly Performance page', () => {
         </MemoryRouter>
       </QueryClientProvider>,
     );
-    await waitFor(() => expect(screen.getByText('You cannot post new Rent Plans')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('You can post new Rent Plans')).toBeTruthy());
     fireEvent.click(screen.getByLabelText('Back to dashboard'));
     await waitFor(() => expect(screen.getByText('AGENT DASHBOARD HERE')).toBeTruthy());
   });

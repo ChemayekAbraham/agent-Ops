@@ -1,4 +1,4 @@
-import { isLunchDaily, isEatWeekend, nextLunchWeekdaySlot } from "./lunchWeekdays.ts";
+import { isLunchDaily, isEatWeekend, nextLunchWeekdaySlot, nextDailyWeekday, dailyRunBlocked } from "./lunchWeekdays.ts";
 import "../_shared/smsFooterInterceptor.ts";
 import { SCHEDULED_PAYOUT_CATEGORIES } from "./categories.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -65,8 +65,7 @@ function computeNextRun(from: Date, payout: any): Date {
   const next = new Date(from);
   switch (payout.frequency) {
     case "daily":
-      next.setDate(next.getDate() + 1);
-      return next;
+      return nextDailyWeekday(from);
     case "weekly": {
       const target = ((Number(payout.day_of_week ?? 1) % 7) + 7) % 7;
       let diff = (target - next.getDay() + 7) % 7;
@@ -133,11 +132,17 @@ Deno.serve(async (req) => {
 
     for (const payout of duePays) {
       try {
-        // Lunch allowance never pays on Saturday or Sunday (EAT): move to next weekday, no missed record.
-        if (isLunchDaily(payout) && isEatWeekend(new Date(payout.next_run_at))) {
-          await adminClient.from("scheduled_payouts")
-            .update({ next_run_at: nextLunchWeekdaySlot(new Date(Math.max(new Date(payout.next_run_at).getTime(), Date.now() - 6 * 3600_000))).toISOString() })
+        // All daily orders are weekday-only in Kampala, including overdue retries.
+        if (dailyRunBlocked(payout.frequency, now)) continue;
+        if (payout.frequency === "daily" && isEatWeekend(new Date(payout.next_run_at))) {
+          const scheduled = new Date(payout.next_run_at);
+          const next = isLunchDaily(payout)
+            ? nextLunchWeekdaySlot(new Date(Math.max(scheduled.getTime(), now.getTime() - 6 * 3600_000)))
+            : nextDailyWeekday(scheduled);
+          const { error: deferError } = await adminClient.from("scheduled_payouts")
+            .update({ next_run_at: next.toISOString() })
             .eq("id", payout.id);
+          if (deferError) throw deferError;
           continue;
         }
         // ── Per-cycle idempotency ────────────────────────────────────────

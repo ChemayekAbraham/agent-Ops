@@ -9,7 +9,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Bookmark, Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText, ChevronDown, ChevronLeft, ChevronUp } from 'lucide-react';
+import { Calculator, BadgeCheck, MapPin, Wallet, CreditCard, Share2, Zap, Home, ScrollText, ChevronDown, ChevronLeft, ChevronUp } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -39,11 +39,10 @@ import { hapticTap } from '@/lib/haptics';
 
 // Virtual Houses components
 import { VirtualHouse } from '@/components/supporter/VirtualHouseCard';
+import { VirtualHousesFeed } from '@/components/supporter/VirtualHousesFeed';
 import { RentCategory } from '@/components/supporter/RentCategoryFeed';
 // FundingPoolCard removed from direct import
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
-import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
-import { useFunderBookedHouses } from '@/hooks/useFunderBookedHouses';
 import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewOpportunities';
 import { useFunderNewLocation } from '@/components/funder-new/useFunderNewLocation';
 import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from '@/components/funder-new/types';
@@ -89,6 +88,7 @@ const VirtualHouseDetailsSheet = lazyNamed(() => import('@/components/supporter/
 const InvestmentPackageSheet = lazyNamed(() => import('@/components/supporter/InvestmentPackageSheet'), 'InvestmentPackageSheet');
 const FunderSavedItemsDialog = lazyNamed(() => import('@/components/funder-new/FunderSavedItemsDialog'), 'FunderSavedItemsDialog');
 const FunderNewReviewDialog = lazyNamed(() => import('@/components/funder-new/FunderNewSelectionPanel'), 'FunderNewReviewDialog');
+const DirectPayPartnerPayments = lazyNamed(() => import('@/components/direct-pay/DirectPayPartner'), 'DirectPayPartnerPayments');
 const FunderActivationModal = lazyNamed(() => import('@/components/supporter/FunderActivationModal'), 'FunderActivationModal');
 const FunderNewMapSection = lazyNamed(loadHousesMap, 'FunderNewMapSection');
 const MapBottomSheet = lazyNamed(loadMapSheet, 'MapBottomSheet');
@@ -139,7 +139,7 @@ export default function SupporterDashboard({
   const { rate: ownRate } = useOwnNewPortfolioRate();
   const [loading, setLoading] = useState(false);
   const [hasCachedData, setHasCachedData] = useState(() => {
-    try { return !!localStorage.getItem(`supporter_houses_${user.id}`); } catch { return false; }
+    try { return !!localStorage.getItem(`supporter_houses_v2_${user.id}`); } catch { return false; }
   });
   const [showPaymentPartners, setShowPaymentPartners] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
@@ -149,10 +149,6 @@ export default function SupporterDashboard({
   const [justAccepted, setJustAccepted] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showSavedItems, setShowSavedItems] = useState(false);
-  const { count: bookmarkedCount } = useFunderSavedItems();
-  // Saved Items holds both bookmarks and the houses booked for this Supporter.
-  const { heldCount: bookedCount } = useFunderBookedHouses();
-  const savedCount = bookmarkedCount + bookedCount;
   const [showMap, setShowMap] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapExpandRequest, setMapExpandRequest] = useState(0);
@@ -256,6 +252,7 @@ export default function SupporterDashboard({
   }, []);
   const [selectedHouse, setSelectedHouse] = useState<VirtualHouse | null>(null);
   const [showHouseDetails, setShowHouseDetails] = useState(false);
+  const [showSupportedHouses, setShowSupportedHouses] = useState(false);
   const [selectedPackageCategory, setSelectedPackageCategory] = useState<RentCategory | null>(null);
   const [showPackageSheet, setShowPackageSheet] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
@@ -342,14 +339,14 @@ export default function SupporterDashboard({
   // Local-first: read cache synchronously in useState init
   const [virtualHouses, setVirtualHouses] = useState<VirtualHouse[]>(() => {
     try {
-      const raw = localStorage.getItem(`supporter_houses_${user.id}`);
+      const raw = localStorage.getItem(`supporter_houses_v2_${user.id}`);
       if (raw) return sortFunderHousesByCompleteness<VirtualHouse>(JSON.parse(raw).houses || []);
     } catch {}
     return [];
   });
   const [totalRentContributed, setTotalRentContributed] = useState(() => {
     try {
-      const raw = localStorage.getItem(`supporter_houses_${user.id}`);
+      const raw = localStorage.getItem(`supporter_houses_v2_${user.id}`);
       if (raw) return JSON.parse(raw).totalRent || 0;
     } catch {}
     return 0;
@@ -516,7 +513,7 @@ export default function SupporterDashboard({
       setLoading(false);
       // Check TTL — skip network if fresh
       try {
-        const cached = localStorage.getItem(`supporter_houses_${user.id}`);
+        const cached = localStorage.getItem(`supporter_houses_v2_${user.id}`);
         if (cached) {
           const { timestamp } = JSON.parse(cached);
           if (Date.now() - timestamp < HOUSES_CACHE_TTL) return;
@@ -535,8 +532,10 @@ export default function SupporterDashboard({
       const { data, error } = await supabase
         .from('rent_requests')
         .select('id, rent_amount, duration_days, status, funded_at, updated_at, agent_id, request_city')
-        .eq('supporter_id', user.id)
-        .order('funded_at', { ascending: false })
+        // Houses this funder supports: as the Supporter, or as the partner who self-funded the Rent Plan
+        // (most funded plans record the partner in self_funding_partner_id only).
+        .or(`supporter_id.eq.${user.id},self_funding_partner_id.eq.${user.id}`)
+        .order('funded_at', { ascending: false, nullsFirst: false })
         .limit(100);
 
       if (!error && data) {
@@ -567,7 +566,7 @@ export default function SupporterDashboard({
         setTotalRentContributed(prev => prev || totalRent); // fallback, prefer ledger
         setHasEverFunded(houses.length > 0);
 
-        localStorage.setItem(`supporter_houses_${user.id}`, JSON.stringify({
+        localStorage.setItem(`supporter_houses_v2_${user.id}`, JSON.stringify({
           houses, totalRent, timestamp: Date.now(),
         }));
         setHasCachedData(true);
@@ -611,16 +610,8 @@ export default function SupporterDashboard({
   // funder-specific actions from the old side drawer passed as menuItems.
   const supporterMenuItems = [
     { icon: CreditCard, label: 'Add Funds', onClick: () => setShowPaymentPartners(true) },
-    { icon: Wallet, label: 'My Wallet', onClick: () => setShowFunderHub(true) },
-    { icon: TrendingUp, label: 'My Portfolios', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
-    { icon: Home, label: 'Houses I Support', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
-    { icon: Bookmark, label: 'Saved Items', onClick: () => setShowSavedItems(true), badge: savedCount || undefined },
+    { icon: Home, label: 'Houses I Support', onClick: () => { setShowSupportedHouses(true); void fetchMyHouses(); } },
     { icon: Zap, label: 'Angel Pool', onClick: () => { setCapitalView('angel'); openHousesMap(); } },
-    { icon: Calculator, label: 'Rent profit share Calculator', onClick: () => setShowCalculator(true) },
-    { icon: TrendingUp, label: 'Rent profit share Analytics', onClick: () => navigate('/supporter-earnings') },
-    { icon: History, label: 'History', onClick: () => navigate('/transactions') },
-    { icon: FileText, label: 'Statement', onClick: () => navigate('/financial-statement') },
-    { icon: Receipt, label: 'Receipts', onClick: () => navigate('/my-receipts') },
     { icon: Share2, label: 'Referrals', onClick: () => navigate('/referrals'), separator: true },
     { icon: ScrollText, label: 'Agreement', onClick: () => { setViewAgreementTab('summary'); setShowViewAgreementModal(true); } },
   ];
@@ -741,6 +732,7 @@ export default function SupporterDashboard({
           })()}
 
           {/* ═══ MARKET HERO (same section as /dashboard/funder-new) ═══ */}
+          <Suspense fallback={null}><DirectPayPartnerPayments /></Suspense>
           <FunderNewHero
             summary={marketSummary.data}
             isLoading={marketSummary.isLoading}
@@ -901,6 +893,20 @@ export default function SupporterDashboard({
       </Dialog>
       
 
+      {/* Houses I Support: the Rent Plans this funder backs; tapping one opens its details. */}
+      <Dialog open={showSupportedHouses} onOpenChange={setShowSupportedHouses}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader><DialogTitle>Houses I support</DialogTitle></DialogHeader>
+          {!loading && virtualHouses.length === 0 ? (
+            <p className="rounded-2xl bg-muted/50 p-4 text-center text-sm text-muted-foreground">
+              You are not supporting any houses yet. Fund a house and it shows here.
+            </p>
+          ) : (
+            <VirtualHousesFeed houses={virtualHouses} loading={loading && virtualHouses.length === 0} onHouseTap={handleHouseTap} />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {mountHouseDetails && (
       <Suspense fallback={null}>
       <VirtualHouseDetailsSheet
@@ -966,6 +972,8 @@ export default function SupporterDashboard({
                 email: (profile?.email || user.email || '').trim() || null,
                 amount: Number(mapFundItem.monthly_rent || 0),
                 contribution_type: 'once_off',
+                // Booking for themselves: the server uses this funder's own details and links the note to them.
+                self_booking: true,
               },
               p_house_ids: houseIds,
             });

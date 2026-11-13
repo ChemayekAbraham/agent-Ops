@@ -40,6 +40,7 @@ const STAGE_LABEL: Record<PartnerRateRequestStage, string> = {
 const SOURCE_LABEL: Record<PartnerRateRequestRow['source'], string> = {
   new_portfolio: 'New portfolio',
   rate_change: 'Rate change',
+  agreement_rate: 'Agreement rate',
 };
 
 const when = (iso: string | null) => (iso ? format(new Date(iso), 'd MMM yyyy, HH:mm') : '—');
@@ -86,13 +87,14 @@ export function PartnerRateApprovalsPanel() {
     if (decision === 'reject' && !note.trim()) { setError('A reason is required to reject.'); return; }
     setError(null);
     try {
-      const result = await decide.mutateAsync({ requestIds: selectedIds, decision, note });
+      const selectedRows = rows.filter((r) => selected.has(r.request_id));
+      const result = await decide.mutateAsync({ requestIds: selectedRows.filter((r) => r.source !== 'agreement_rate').map((r) => r.request_id), agreementRequestIds: selectedRows.filter((r) => r.source === 'agreement_rate').map((r) => r.request_id), decision, note });
       setLastResult(result);
       const verb = decision === 'approve' ? 'approved' : 'rejected';
       toast.success(`${result.decided} request(s) ${verb}`, {
         description: [
           result.skipped ? `${result.skipped} skipped (already decided).` : null,
-          decision === 'approve' ? 'Approved rates apply from the next cycle.' : null,
+          decision === 'approve' ? 'Agreement rates apply when the portfolio is created; existing portfolio rates apply from the next cycle.' : null,
         ].filter(Boolean).join(' ') || undefined,
       });
       setSelected(new Set());
@@ -111,7 +113,7 @@ export function PartnerRateApprovalsPanel() {
         </h2>
         <p className="text-sm text-muted-foreground">
           Rates staff typed that differ from the standard rate. Until you approve, a new portfolio earns the standard rate
-          and an edited one keeps its rate. An approved rate applies from the next cycle.
+          and an edited one keeps its rate. Agreement rates wait for approval before countersigning and portfolio creation.
         </p>
       </div>
 
@@ -125,7 +127,7 @@ export function PartnerRateApprovalsPanel() {
         <p role="status" className="text-sm text-muted-foreground">
           Last decision: {lastResult.decided} {lastResult.decision === 'rejected' ? 'rejected' : 'approved'}
           {lastResult.skipped ? `, ${lastResult.skipped} skipped (already decided)` : ''}
-          {lastResult.decision === 'approved' ? '. Approved rates apply from the next cycle.' : '.'}
+          {lastResult.decision === 'approved' ? '. Agreement rates apply at creation; existing portfolio rates apply from the next cycle.' : '.'}
         </p>
       )}
 
@@ -190,7 +192,7 @@ export function PartnerRateApprovalsPanel() {
                     </TableCell>
                   )}
                   <TableCell className="min-w-[8rem]">{r.partner_name || '—'}</TableCell>
-                  <TableCell className="font-mono text-xs">{r.portfolio_code || '—'}</TableCell>
+                  <TableCell className="font-mono text-xs">{r.portfolio_code || (r.source === 'agreement_rate' ? 'Not yet created' : '—')}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.investment_amount == null ? '—' : formatUGX(Number(r.investment_amount))}</TableCell>
                   <TableCell>{SOURCE_LABEL[r.source] ?? r.source}</TableCell>
                   <TableCell className="whitespace-nowrap tabular-nums">
@@ -211,7 +213,7 @@ export function PartnerRateApprovalsPanel() {
                   </TableCell>
                   <TableCell className="min-w-[8rem]">
                     <Badge variant={r.stage === 'pending' ? 'secondary' : r.stage === 'rejected' ? 'destructive' : 'outline'}>
-                      {STAGE_LABEL[r.stage] ?? r.stage}
+                      {r.source === 'agreement_rate' && r.stage === 'approved_next_cycle' ? 'Approved – ready to countersign' : STAGE_LABEL[r.stage] ?? r.stage}
                     </Badge>
                     {r.decided_at && <span className="block text-xs text-muted-foreground">{when(r.decided_at)}</span>}
                     {r.applied_at && <span className="block text-xs text-muted-foreground">Applied {when(r.applied_at)}</span>}
@@ -231,7 +233,7 @@ export function PartnerRateApprovalsPanel() {
             <DialogDescription>
               {selectedIds.length} request(s).{' '}
               {decision === 'approve'
-                ? 'Each approved rate applies from the portfolio’s next cycle; the current cycle is paid at the rate in force.'
+                ? 'Agreement rates apply when countersigning creates the portfolio. Existing portfolio changes apply from the next cycle.'
                 : 'Rejected portfolios keep the rate in force.'}
             </DialogDescription>
           </DialogHeader>

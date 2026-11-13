@@ -11,6 +11,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }, roles:
 
 import { FundersHeadline } from '../FundersHeadline';
 import { dayText, parseHeadlineList } from '../headlineListApi';
+import { waitingFrom } from '../releasesApi';
 import type { Period } from '../cfoApi';
 
 /* The shape funders_headline_list returns (read from the live definition). */
@@ -43,14 +44,25 @@ const LIST: Record<string, unknown> = {
   },
   waiting: { period: '7d', kind: 'waiting', count: 0, ugx: 0, rows: [] },
 };
-const DASH = { headline: { posted: { n: 2, ugx: 2_500_000 }, sold: { n: 0, ugx: 0 }, waiting: { n: 2, ugx: 2_500_000 } }, rows: [] };
-/* funded_money_flow(p_days): one release, for Tenant 1's request, money still with the agent. */
+const DASH = { headline: { posted: { n: 5, ugx: 6_000_000 }, sold: { n: 0, ugx: 0 }, waiting: { n: 5, ugx: 6_000_000 } }, rows: [] };
+/*
+ * funded_money_flow(p_days), E93: Tenant 1 sold (landlord paid, OTP confirmed); two more
+ * selected and waiting, the older one 80 h ago (red).
+ */
+const OLD = 'b0000000-0000-4000-8000-000000000001';
+const NEW = 'b0000000-0000-4000-8000-000000000002';
 const FLOW = {
-  released: { count: 1, ugx: 650_000 },
-  with_agent: { count: 1, ugx: 650_000, oldest_hours: 5 },
-  part_paid: { count: 0, ugx_paid: 0, ugx_left: 0 },
-  live: { count: 0, ugx: 0 },
-  items: [{ rent_request_id: ROW(1).id, tenant: 'Tenant 1', agent: 'Agent 1', landlord: 'Landlord 1', amount: 650_000, paid_out: 0, stage: 'with_agent', hours_since_release: 5 }],
+  released: { count: 3, ugx: 2_800_000 },
+  with_agent: { count: 1, ugx: 900_000, oldest_hours: 80 },
+  part_paid: { count: 1, ugx_paid: 100_000, ugx_left: 550_000 },
+  live: { count: 1, ugx: 1_250_000 },
+  sold: { count: 1, ugx: 1_250_000 },
+  selected_waiting: { count: 2, ugx: 1_550_000, oldest_hours: 80 },
+  items: [
+    { rent_request_id: NEW, ref: 'B0000000', tenant: 'Selected New', agent: 'Agent N', landlord: 'Landlord N', funder: 'Funder N', amount: 650_000, paid_out: 100_000, stage: 'part_paid', selected_at: '2026-11-11T07:00:00Z', released_at: '2026-11-11T08:00:00Z', otp_verified_at: null, landlord_paid_at: null, hours_since_release: 20 },
+    { rent_request_id: ROW(1).id, ref: 'A1B2C3D1', tenant: 'Tenant 1', agent: 'Agent 1', landlord: 'Landlord 1', funder: 'Jane Funder', amount: 1_250_000, paid_out: 1_250_000, stage: 'sold', selected_at: '2026-11-10T07:00:00Z', released_at: '2026-11-10T08:00:00Z', otp_verified_at: '2026-11-10T11:00:00Z', landlord_paid_at: '2026-11-10T11:05:00Z', hours_since_release: 40 },
+    { rent_request_id: OLD, ref: 'B0000000', tenant: 'Selected Old', agent: 'Agent O', landlord: 'Landlord O', funder: 'Funder O', amount: 900_000, paid_out: 0, stage: 'with_agent', selected_at: '2026-11-08T07:00:00Z', released_at: '2026-11-08T08:00:00Z', otp_verified_at: null, landlord_paid_at: null, hours_since_release: 80 },
+  ],
 };
 let flow: unknown = FLOW;
 let lists: Record<string, unknown> = LIST;
@@ -91,25 +103,44 @@ const mount = () =>
 const tile = (name: RegExp) => screen.findByRole('button', { name });
 
 describe('Funders headline tiles open their list', () => {
-  it('the three tiles are buttons that read as tappable', async () => {
+  it('four tiles, all buttons that read as tappable; Selected, waiting sits right of sold', async () => {
     mount();
-    for (const t of [/^Rent requests posted/, /^Rent requests sold/, /^Waiting for funder/]) {
+    const names = [/^Rent requests posted/, /^Rent requests sold/, /^Selected, waiting/, /^Waiting for funder/];
+    for (const t of names) {
       const b = await tile(t);
       expect(b.getAttribute('aria-haspopup')).toBe('dialog');
       expect(b.className).toContain('active:scale-[0.98]');
       expect(b.className).toContain('cursor-pointer');
     }
-    expect((await tile(/^Rent requests sold/)).textContent).toContain("Released to an agent's landlord float");
-    expect((await tile(/^Waiting for funder/)).textContent).toContain('Posted minus released');
+    const order = [...document.querySelectorAll('[data-funders-headline-tile]')].map((t) => t.querySelector('h3')!.textContent);
+    expect(order).toEqual(['Rent requests posted', 'Rent requests sold', 'Selected, waiting', 'Waiting for funder']);
+    expect((await tile(/^Rent requests sold/)).textContent).toContain('Landlord paid — OTP confirmed');
+    expect((await tile(/^Selected, waiting/)).textContent).toContain('Funder selected, landlord not yet paid');
+    expect((await tile(/^Waiting for funder/)).textContent).toContain('Posted minus sold and selected');
   });
 
-  it('sold = released to an agent in the period; waiting = posted minus released, so they add up', async () => {
+  it('sold = landlord paid; selected, waiting with the oldest wait; waiting = posted − (sold + selected)', async () => {
     mount();
-    const sold = await tile(/^Rent requests sold: 1, UGX 650K/);
-    expect(sold).toBeTruthy();
-    // 2 posted (UGX 2.5M) − 1 released (UGX 650K) = 1 waiting (UGX 1.85M), not the server's landlord-paid "sold".
-    expect(await tile(/^Waiting for funder: 1, UGX 1\.9M/)).toBeTruthy();
+    expect(await tile(/^Rent requests sold: 1, UGX 1\.3M/)).toBeTruthy();
+    const sel = await tile(/^Selected, waiting: 2, UGX 1\.6M/);
+    const oldest = sel.querySelector('[data-oldest]') as HTMLElement;
+    expect(oldest.textContent).toBe('oldest 3 d 8 h');
+    expect(oldest.getAttribute('data-oldest')).toBe('bad');
+    // 5 posted (UGX 6M) − 1 sold (UGX 1.25M) − 2 selected (UGX 1.55M) = 2 (UGX 3.2M).
+    expect(await tile(/^Waiting for funder: 2, UGX 3\.2M/)).toBeTruthy();
     expect(rpcMock).toHaveBeenCalledWith('funded_money_flow', { p_days: 7 });
+  });
+
+  it('waiting is never below zero', () => {
+    expect(waitingFrom({ n: 2, ugx: 1_000 }, { n: 1, ugx: 800 }, { n: 3, ugx: 900 })).toEqual({ n: 0, ugx: 0 });
+    expect(waitingFrom({ n: 5, ugx: 6_000_000 }, { n: 1, ugx: 1_250_000 }, { n: 2, ugx: 1_550_000 })).toEqual({ n: 2, ugx: 3_200_000 });
+  });
+
+  it('the oldest wait is amber past 24 h', async () => {
+    flow = { ...FLOW, selected_waiting: { count: 2, ugx: 1_550_000, oldest_hours: 30 } };
+    mount();
+    const sel = await tile(/^Selected, waiting/);
+    expect(sel.querySelector('[data-oldest]')!.getAttribute('data-oldest')).toBe('warn');
   });
 
   it('the period chips ask for p_days 1 / 7 / 30 / 90 / 365', async () => {
@@ -121,13 +152,12 @@ describe('Funders headline tiles open their list', () => {
     }
   });
 
-  it('a release the server has not answered is never shown as zero', async () => {
-    flow = new Promise(() => {});
+  it('figures the server has not answered are never shown as zero', async () => {
     rpcMock.mockImplementation((fn: string, args: { p_kind?: string }) =>
       fn === 'funded_money_flow' ? new Promise(() => {}) : Promise.resolve(fn === 'funders_dashboard' ? { data: DASH, error: null } : { data: lists[args.p_kind ?? 'posted'], error: null }),
     );
     mount();
-    expect((await screen.findAllByRole('status', { name: 'Loading the headline' })).length).toBe(3);
+    expect((await screen.findAllByRole('status', { name: 'Loading the headline' })).length).toBe(4);
     expect(screen.queryByRole('button', { name: /^Rent requests sold/ })).toBeNull();
   });
 
@@ -153,20 +183,41 @@ describe('Funders headline tiles open their list', () => {
     expect(first.querySelector('[data-sold-line]')).toBeNull();
   });
 
-  it('sold: lists the releases of the period with their stage; a tap opens the plan drawer', async () => {
+  it('sold: the landlord-paid ones, tenant name first, agent / landlord / funder under it; a tap opens the plan', async () => {
     mount();
     fireEvent.click(await tile(/^Rent requests sold/));
     const dlg = await screen.findByRole('dialog', { name: 'Rent requests sold' });
     expect(rpcMock).not.toHaveBeenCalledWith('funders_headline_list', expect.objectContaining({ p_kind: 'sold' }));
-    expect(dlg.querySelector('[data-releases-note]')!.textContent).toBe("7 days · released to an agent's landlord float in the last 7 days");
-    const rel = dlg.querySelector(`[data-release="${ROW(1).id}"]`) as HTMLElement;
-    expect(rel.textContent).toContain('Tenant 1');
-    expect(within(rel).getByText('With agent')).toBeTruthy();
+    expect(dlg.querySelector('[data-releases-note]')!.textContent).toBe('7 days · landlord paid, OTP confirmed, in the last 7 days');
+    const rows = [...dlg.querySelectorAll('[data-release]')] as HTMLElement[];
+    expect(rows.map((r) => r.getAttribute('data-release'))).toEqual([ROW(1).id]);
+    const rel = rows[0];
+    expect(rel.querySelector('[data-release-tenant]')!.textContent).toBe('Tenant 1');
+    expect(rel.textContent).not.toContain(ROW(1).id);
+    for (const line of ['Agent: Agent 1', 'Landlord: Landlord 1', 'Funder: Jane Funder', 'Ref A1B2C3D1', 'UGX 1,250,000']) expect(rel.textContent).toContain(line);
+    expect(within(rel).getByText('Sold · landlord paid')).toBeTruthy();
+    expect(rel.querySelector('[data-release-dates]')!.textContent).toMatch(/^Selected .* · Released .* · OTP .* · Landlord paid /);
     fireEvent.click(rel);
     expect(await screen.findByRole('dialog', { name: 'Rent Plan Ref A1B2C3D1' })).toBeTruthy();
   });
 
-  it('waiting: the posted list without the released requests', async () => {
+  it('selected, waiting: newest selection first, with oldest-first and amount toggles', async () => {
+    mount();
+    fireEvent.click(await tile(/^Selected, waiting/));
+    const dlg = await screen.findByRole('dialog', { name: 'Selected, waiting' });
+    const names = () => [...dlg.querySelectorAll('[data-release-tenant]')].map((e) => e.textContent);
+    expect(dlg.querySelector('[data-releases-note]')!.textContent).toBe('Right now, whatever the period · funder selected, landlord not yet paid');
+    expect(names()).toEqual(['Selected New', 'Selected Old']);
+    fireEvent.click(within(dlg).getByRole('button', { name: 'Oldest first' }));
+    expect(names()).toEqual(['Selected Old', 'Selected New']);
+    fireEvent.click(within(dlg).getByRole('button', { name: 'Amount' }));
+    expect(names()).toEqual(['Selected Old', 'Selected New']);
+    fireEvent.click(within(dlg).getByRole('button', { name: 'Newest first' }));
+    expect(names()).toEqual(['Selected New', 'Selected Old']);
+    expect(dlg.textContent).toContain('Funder: Funder O');
+  });
+
+  it('waiting: the posted list without the sold and selected requests', async () => {
     mount();
     fireEvent.click(await tile(/^Waiting for funder/));
     const dlg = await screen.findByRole('dialog', { name: 'Waiting for funder' });
