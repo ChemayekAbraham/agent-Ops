@@ -284,7 +284,7 @@ export interface AdvanceWalletPayout {
 }
 
 /**
- * CFO release step (migration 20261119160000): pays a CEO-approved advance to the staff member's Welile wallet and
+ * CFO release step (migration 20261123120000): pays a CEO-approved advance to the staff member's Welile wallet and
  * marks it disbursed, in one server transaction. Paid once per advance: a retry returns the payout already made.
  */
 export async function payAdvanceToWallet(advanceId: string): Promise<AdvanceWalletPayout> {

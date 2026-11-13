@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Salary advances: the release step pays the staff wallet (supabase/migrations/20261119160000_hr_pay_advance_pay_to_wallet.sql).
+ * Salary advances: the release step pays the staff wallet (supabase/migrations/20261123120000_hr_pay_advance_pay_to_wallet.sql).
  *
  * PGlite with production's code: the salary-advance guard of 13 Nov 2026 verbatim (and as the migration changes it),
  * create_ledger_transaction, the overdraft trigger, wallet routing, the category allowlist and production's unique
@@ -16,8 +16,8 @@ vi.setConfig({ testTimeout: 120_000, hookTimeout: 600_000 });
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8').replace(/\r/g, '');
 const MIG = (f: string) => read(`supabase/migrations/${f}`);
-const PAY = MIG('20261119160000_hr_pay_advance_pay_to_wallet.sql');
-const PAY_RB = read('supabase/rollbacks/20261119160000_hr_pay_advance_pay_to_wallet.rollback.sql');
+const PAY = MIG('20261123120000_hr_pay_advance_pay_to_wallet.sql');
+const PAY_RB = read('supabase/rollbacks/20261123120000_hr_pay_advance_pay_to_wallet.rollback.sql');
 const PROD_GUARD = read('scripts/fixtures/hr-pay-advance-guard-prod-2026-11-13.sql');
 
 function extractFn(file: string, signature: string): string {
@@ -190,7 +190,7 @@ describe('before: production as on 13 Nov 2026', () => {
   });
 });
 
-describe('20261119160000 migration', () => {
+describe('20261123120000 migration', () => {
   it('applies over production\'s guard only, once', async () => {
     expect(await run(PAY)).toBeUndefined();
     expect((await run(PAY))?.message).toMatch(/precondition failed/);

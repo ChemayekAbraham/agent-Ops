@@ -1,4 +1,4 @@
--- ROLLBACK of 20261119160000_hr_pay_advance_pay_to_wallet (only on CFO instruction). Payouts already made stay on the ledger.
+-- ROLLBACK of 20261123120000_hr_pay_advance_pay_to_wallet (only on CFO instruction). Payouts already made stay on the ledger.
 DROP FUNCTION IF EXISTS public.hr_pay_advance_pay_to_wallet(uuid);
 CREATE OR REPLACE FUNCTION public.hr_pay_advance_guard()
  RETURNS trigger

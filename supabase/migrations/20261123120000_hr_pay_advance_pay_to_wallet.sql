@@ -3,7 +3,7 @@
 -- advances were shown as disbursed but never paid (paid by hand 13 Nov, docs/finance/corrections/2026-11-13_...).
 -- Now: hr_pay_advance_pay_to_wallet pays the advance to the staff wallet (CR L1 / DR A27, as a staff-loan payout) and
 -- marks it disbursed in one transaction; the guard refuses ceo_approved -> approved from anywhere else.
--- Preflight pins production's guard of 13 Nov 2026. Rollback: supabase/rollbacks/20261119160000_hr_pay_advance_pay_to_wallet.rollback.sql
+-- Preflight pins production's guard of 13 Nov 2026. Rollback: supabase/rollbacks/20261123120000_hr_pay_advance_pay_to_wallet.rollback.sql
 
 DO $pre$
 BEGIN
