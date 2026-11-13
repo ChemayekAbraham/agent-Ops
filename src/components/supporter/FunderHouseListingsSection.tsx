@@ -780,17 +780,18 @@ export function FunderHouseListingsSection({
             </div>
           ) : null}
           {/* Three tabs: Verified (with booked and funded), Unverified, Empty houses. */}
-          <div role="tablist" aria-label="Houses to fund" className="grid grid-cols-3 gap-1 rounded-full bg-muted p-1">
+          {/* Sizes follow the bar's own width (container units), so the three capsules fit a phone. */}
+          <div role="tablist" aria-label="Houses to fund" className="flex gap-0.5 rounded-full bg-muted p-0.5 [container-type:inline-size]">
             {BOARD_LIST_TABS.map((tab) => {
               const count = boardGroups.filter((g) => tab.tags.includes(g.tag)).reduce((sum, g) => sum + g.count, 0);
               const active = boardTab === tab.key;
               return (
                 <button key={tab.key} type="button" role="tab" aria-selected={active} onClick={() => setBoardTab(tab.key)}
-                  className={cn('flex min-h-[40px] min-w-0 items-center justify-center gap-1.5 rounded-full px-2 text-xs font-semibold transition-colors sm:text-sm',
+                  className={cn('flex min-h-[36px] min-w-0 flex-auto items-center justify-center gap-1 rounded-full px-1.5 text-[length:clamp(10.5px,3.4cqw,14px)] font-semibold transition-colors',
                     active ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground')}>
                   <span className="truncate">{tab.label}</span>
                   {/* Compact count (2.4K) so the full tab label still fits on a phone. */}
-                  <span className={cn('shrink-0 rounded-full px-1.5 text-[11px] tabular-nums', active ? 'bg-primary-foreground/20' : 'bg-background')}
+                  <span className={cn('shrink-0 rounded-full px-1 text-[length:clamp(9px,2.6cqw,11px)] leading-[1.5] tabular-nums', active ? 'bg-primary-foreground/20' : 'bg-background')}
                     title={count.toLocaleString('en')}>
                     {new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(count)}
                   </span>
