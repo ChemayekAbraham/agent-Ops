@@ -7,7 +7,16 @@ export interface SignageGpsLocation {
   parish: string;
   village: string;
   address: string;
+  /** True when a real locality name came back; a road-only fallback does not count. */
+  villageFound: boolean;
+  /** True when a street/road name came back for the plot/landmark line. */
+  landmarkFound: boolean;
 }
+
+const LOCALITY_KEYS = [
+  'village', 'hamlet', 'neighbourhood', 'suburb', 'quarter',
+  'town', 'city', 'locality', 'city_district',
+] as const;
 
 /** Only address components returned for this GPS point; missing levels stay blank. */
 export function signageGpsLocation(result: ReverseGeocodeResult | null): SignageGpsLocation | null {
@@ -16,8 +25,11 @@ export function signageGpsLocation(result: ReverseGeocodeResult | null): Signage
   if (!result || !a || a.country_code?.toLowerCase() !== 'ug') return null;
   // Nominatim identifies Uganda districts in county; do not substitute regions/states.
   const district = (a.district || a.county || '').trim();
-  const village = (a.village || a.hamlet || a.neighbourhood || a.suburb || a.quarter || a.town || a.city || a.locality || a.city_district || a.road || '').trim();
-  if (!district || !village) return null;
+  if (!district) return null;
+  const locality = LOCALITY_KEYS.map((k) => (a[k] || '').trim()).find(Boolean) || '';
+  const road = (a.road || '').trim();
+  // Best available name for the Village / Locality line: a real locality, else the road.
+  const village = locality || road;
   return {
     district,
     county: a.district ? a.county || '' : '',
@@ -25,8 +37,17 @@ export function signageGpsLocation(result: ReverseGeocodeResult | null): Signage
     parish: a.parish || '',
     village,
     address: result.address,
+    villageFound: !!locality,
+    landmarkFound: !!road,
   };
 }
+
+/** The village actually saved: the GPS name when the lookup found one, otherwise what the agent typed. */
+export function resolvedSignageVillage(location: SignageGpsLocation | null, typed: string): string {
+  if (!location) return '';
+  return location.villageFound ? location.village : typed.trim();
+}
+
 export type SignageLookupOutcome =
   | { kind: 'ok'; location: SignageGpsLocation }
   | { kind: 'unresolved' }
