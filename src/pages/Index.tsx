@@ -59,7 +59,7 @@ export default function Index() {
     // authRole may not be set yet on cold load; helper falls back to /tenant.
     // A persona landing goes to the proxy dashboard for a proxy agent with no collections, unless the user picked
     // a home screen in Settings. Staff roles keep their own dashboards.
-    if (isPersonaLanding(authRole) && getPreferredDefaultRole() === 'auto') {
+    if (isPersonaLanding(authRole) && getPreferredDefaultRole(user?.id) === 'auto') {
       return <PersonaLanding userId={user.id} fallback={roleToSlug(authRole)} />;
     }
     return <Navigate to={roleToSlug(authRole)} replace />;

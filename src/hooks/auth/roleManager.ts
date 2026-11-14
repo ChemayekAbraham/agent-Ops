@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { setCachedRoles } from '@/lib/sessionCache';
 import type { AppRole } from './types';
 import { getPreferredDefaultRole } from '@/hooks/useAppPreferences';
+import { getLastUsedRole, pickFallbackRole } from '@/lib/roleMemory';
 
 export const DEFAULT_ROLE: AppRole = 'tenant';
 export const DEFAULT_ROLES: AppRole[] = ['tenant'];
@@ -10,16 +11,35 @@ export const DEFAULT_ROLES: AppRole[] = ['tenant'];
 /** Standard roles every user should have */
 const STANDARD_ROLES: AppRole[] = ['supporter', 'agent', 'tenant', 'landlord'];
 
-/**
- * Deterministic fallback order used when the user has made no explicit choice
- * (no admin-forced role, no device/server preference, no last-used role and no
- * intended role). Database row order is not stable, so relying on it made the
- * post-sign-in landing dashboard arbitrary.
- */
-const FALLBACK_ROLE_PRIORITY: AppRole[] = ['tenant', 'agent', 'landlord', 'supporter'];
+// The tenant-first fallback lives in roleMemory so AuthProvider can use it
+// without importing this module (tests replace this module wholesale).
+export { pickFallbackRole };
 
-function pickFallbackRole(userRoles: AppRole[]): AppRole {
-  return FALLBACK_ROLE_PRIORITY.find((r) => userRoles.includes(r)) ?? userRoles[0];
+/**
+ * The dashboard a person lands on when they have not picked one this session.
+ * Every input is about THIS account: an admin-forced role, the home screen
+ * they chose (only if saved by this account), the merchant-agent rule, the
+ * role they last used (stored per account), the role they signed up for, and
+ * finally tenant-first. Exported for tests.
+ */
+export function chooseLandingRole(input: {
+  userRoles: AppRole[];
+  forcedDefault: AppRole | null;
+  preferred: string;
+  cashoutDefault: AppRole | null;
+  lastUsedRole: AppRole | null;
+  intendedRole: AppRole | null | undefined;
+}): AppRole {
+  const { userRoles, forcedDefault, preferred, cashoutDefault, lastUsedRole, intendedRole } = input;
+  const holds = (r: string | null | undefined): r is AppRole => !!r && userRoles.includes(r as AppRole);
+  if (holds(forcedDefault)) return forcedDefault;
+  if (preferred !== 'auto' && holds(preferred)) return preferred;
+  // Merchant agents default straight to the agent console (ignoring a stale
+  // last-used role) so the pending withdrawals queue is visible.
+  if (cashoutDefault) return cashoutDefault;
+  if (holds(lastUsedRole)) return lastUsedRole;
+  if (holds(intendedRole)) return intendedRole;
+  return pickFallbackRole(userRoles);
 }
 
 /**
@@ -157,11 +177,12 @@ async function fetchUserRolesOnce(
         } catch {/* non-blocking */}
       }
 
-      // Then check user's device preference, then last-used role, then intended role
-      const preferred = getPreferredDefaultRole();
+      // Then this account's device preference, last-used role and intended
+      // role. Both device values are per account: a shared phone must not
+      // hand the previous person's dashboard to the next one.
+      const preferred = getPreferredDefaultRole(userId);
       const intendedRole = authUser?.user_metadata?.intended_role as AppRole | undefined;
-      let lastUsedRole: AppRole | null = null;
-      try { lastUsedRole = localStorage.getItem('welile_last_role') as AppRole | null; } catch {}
+      const lastUsedRole: AppRole | null = getLastUsedRole(userId);
 
       // A user has made an explicit role choice when an admin forced one or they
       // set a device preference by hand. For merchant (cash-out) agents we treat
@@ -175,15 +196,9 @@ async function fetchUserRolesOnce(
         hasDevicePreference
         || (!cashoutDefault && !!lastUsedRole && userRoles.includes(lastUsedRole));
 
-      const defaultForUser =
-        forcedDefault
-        ?? ((preferred !== 'auto' && userRoles.includes(preferred as AppRole)) ? preferred as AppRole
-        // Merchant agents default straight to the agent console (ignoring a
-        // stale last-used role) so the pending withdrawals queue is visible.
-        : (cashoutDefault
-        ?? ((lastUsedRole && userRoles.includes(lastUsedRole)) ? lastUsedRole
-        : ((intendedRole && userRoles.includes(intendedRole)) ? intendedRole
-        : pickFallbackRole(userRoles)))));
+      const defaultForUser = chooseLandingRole({
+        userRoles, forcedDefault, preferred, cashoutDefault, lastUsedRole, intendedRole,
+      });
 
       if (!currentRole || !userRoles.includes(currentRole)) {
         setRole(defaultForUser);
