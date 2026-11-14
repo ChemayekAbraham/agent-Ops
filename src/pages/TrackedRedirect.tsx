@@ -16,9 +16,10 @@ export default function TrackedRedirect() {
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase
+      const { data: rows, error } = await supabase
         .rpc('resolve_short_link', { p_code: code })
-        .maybeSingle();
+        .limit(1);
+      const data = rows?.[0];
 
       if (cancelled) return;
 

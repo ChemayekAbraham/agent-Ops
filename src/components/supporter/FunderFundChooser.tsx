@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { DirectPayStartButton } from '@/components/direct-pay/DirectPayPartner';
 import { useQuery } from '@tanstack/react-query';
 import { Banknote, Building2, Check, Copy, Loader2, Phone, Smartphone, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -215,6 +216,7 @@ function ChooserBody({
       {contactQuery.isLoading && (
         <p className="flex items-center gap-2 px-1 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking verification</p>
       )}
+      <DirectPayStartButton rentRequestId={target.rentRequestId} />
       {showDirect && contact?.payoutMomoNumber && (
         <ChoiceButton
           icon={<Smartphone className="h-5 w-5" />}

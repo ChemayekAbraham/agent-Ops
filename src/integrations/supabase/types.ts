@@ -17000,6 +17000,98 @@ export type Database = {
         }
         Relationships: []
       }
+      direct_pay_landlord_otps: {
+        Row: {
+          attempts: number
+          created_at: string
+          expires_at: string
+          id: string
+          max_attempts: number
+          otp_hash: string
+          payment_id: string
+          recipient_phone: string
+          send_detail: string | null
+          staff_id: string
+          status: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          expires_at: string
+          id?: string
+          max_attempts?: number
+          otp_hash: string
+          payment_id: string
+          recipient_phone: string
+          send_detail?: string | null
+          staff_id: string
+          status?: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          max_attempts?: number
+          otp_hash?: string
+          payment_id?: string
+          recipient_phone?: string
+          send_detail?: string | null
+          staff_id?: string
+          status?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_pay_landlord_otps_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "funder_offplatform_rent_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      direct_pay_pilot_partners: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          note: string | null
+          partner_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          partner_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          partner_id?: string
+        }
+        Relationships: []
+      }
+      direct_pay_saved_definitions: {
+        Row: {
+          definition: string
+          object_name: string
+          saved_at: string
+        }
+        Insert: {
+          definition: string
+          object_name: string
+          saved_at?: string
+        }
+        Update: {
+          definition?: string
+          object_name?: string
+          saved_at?: string
+        }
+        Relationships: []
+      }
       director_requisition_events: {
         Row: {
           action: string
@@ -23309,78 +23401,221 @@ export type Database = {
       }
       funder_offplatform_rent_payments: {
         Row: {
+          agent_email_requested_at: string | null
+          agent_id: string | null
+          agent_pay_ledger_group_id: string | null
           amount: number
+          amount_received: number
+          call_note: string | null
           confirm_note: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          coo_marked_at: string | null
           cover_fee_amount: number
           cover_fee_charged_at: string | null
           cover_fee_ledger_group_id: string | null
           cover_fee_status: string
           created_at: string
+          expired_at: string | null
+          flag_reason: string | null
+          flags: string[]
+          flow: string
           funder_id: string
+          hold_expires_at: string | null
+          hold_started_at: string | null
           id: string
+          landlord_id: string | null
+          landlord_otp_challenge_id: string | null
+          landlord_otp_verified_at: string | null
+          landlord_phone: string | null
+          landlord_receipt_number: string | null
+          landlord_receipt_photo_path: string | null
+          landlord_receipt_recorded_at: string | null
+          last_reminder_at: string | null
+          ledger_group_id: string | null
           method: string
           paid_at: string | null
+          portfolio_id: string | null
           provider: string | null
           proxy_agent_id: string | null
+          receipt_id: string | null
           receipt_photo_path: string | null
           reference: string | null
           reject_note: string | null
           rejected_at: string | null
           rejected_by: string | null
+          reminders_sent: number
           rent_request_id: string
           status: string
+          updated_at: string
         }
         Insert: {
+          agent_email_requested_at?: string | null
+          agent_id?: string | null
+          agent_pay_ledger_group_id?: string | null
           amount: number
+          amount_received?: number
+          call_note?: string | null
           confirm_note?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
+          coo_marked_at?: string | null
           cover_fee_amount?: number
           cover_fee_charged_at?: string | null
           cover_fee_ledger_group_id?: string | null
           cover_fee_status?: string
           created_at?: string
+          expired_at?: string | null
+          flag_reason?: string | null
+          flags?: string[]
+          flow?: string
           funder_id: string
+          hold_expires_at?: string | null
+          hold_started_at?: string | null
           id?: string
+          landlord_id?: string | null
+          landlord_otp_challenge_id?: string | null
+          landlord_otp_verified_at?: string | null
+          landlord_phone?: string | null
+          landlord_receipt_number?: string | null
+          landlord_receipt_photo_path?: string | null
+          landlord_receipt_recorded_at?: string | null
+          last_reminder_at?: string | null
+          ledger_group_id?: string | null
           method: string
           paid_at?: string | null
+          portfolio_id?: string | null
           provider?: string | null
           proxy_agent_id?: string | null
+          receipt_id?: string | null
           receipt_photo_path?: string | null
           reference?: string | null
           reject_note?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
+          reminders_sent?: number
           rent_request_id: string
           status?: string
+          updated_at?: string
         }
         Update: {
+          agent_email_requested_at?: string | null
+          agent_id?: string | null
+          agent_pay_ledger_group_id?: string | null
           amount?: number
+          amount_received?: number
+          call_note?: string | null
           confirm_note?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
+          coo_marked_at?: string | null
           cover_fee_amount?: number
           cover_fee_charged_at?: string | null
           cover_fee_ledger_group_id?: string | null
           cover_fee_status?: string
           created_at?: string
+          expired_at?: string | null
+          flag_reason?: string | null
+          flags?: string[]
+          flow?: string
           funder_id?: string
+          hold_expires_at?: string | null
+          hold_started_at?: string | null
           id?: string
+          landlord_id?: string | null
+          landlord_otp_challenge_id?: string | null
+          landlord_otp_verified_at?: string | null
+          landlord_phone?: string | null
+          landlord_receipt_number?: string | null
+          landlord_receipt_photo_path?: string | null
+          landlord_receipt_recorded_at?: string | null
+          last_reminder_at?: string | null
+          ledger_group_id?: string | null
           method?: string
           paid_at?: string | null
+          portfolio_id?: string | null
           provider?: string | null
           proxy_agent_id?: string | null
+          receipt_id?: string | null
           receipt_photo_path?: string | null
           reference?: string | null
           reject_note?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
+          reminders_sent?: number
           rent_request_id?: string
           status?: string
+          updated_at?: string
         }
         Relationships: []
+      }
+      funder_offplatform_rent_proofs: {
+        Row: {
+          amount_read: number | null
+          amount_typed: number | null
+          created_at: string
+          id: string
+          paid_at_read: string | null
+          partner_id: string
+          payment_id: string
+          photo_path: string
+          photo_sha256: string | null
+          provider: string | null
+          reader_confidence: number | null
+          reader_status: string
+          recipient_read: string | null
+          status: string
+          tid_norm: string | null
+          tid_read: string | null
+          tid_typed: string | null
+        }
+        Insert: {
+          amount_read?: number | null
+          amount_typed?: number | null
+          created_at?: string
+          id?: string
+          paid_at_read?: string | null
+          partner_id: string
+          payment_id: string
+          photo_path: string
+          photo_sha256?: string | null
+          provider?: string | null
+          reader_confidence?: number | null
+          reader_status?: string
+          recipient_read?: string | null
+          status?: string
+          tid_norm?: string | null
+          tid_read?: string | null
+          tid_typed?: string | null
+        }
+        Update: {
+          amount_read?: number | null
+          amount_typed?: number | null
+          created_at?: string
+          id?: string
+          paid_at_read?: string | null
+          partner_id?: string
+          payment_id?: string
+          photo_path?: string
+          photo_sha256?: string | null
+          provider?: string | null
+          reader_confidence?: number | null
+          reader_status?: string
+          recipient_read?: string | null
+          status?: string
+          tid_norm?: string | null
+          tid_read?: string | null
+          tid_typed?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funder_offplatform_rent_proofs_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "funder_offplatform_rent_payments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       funder_pending_portfolios: {
         Row: {
@@ -70904,18 +71139,18 @@ export type Database = {
           agent_reward_status: string
           agent_reward_tx_ref: string | null
           business_category: string | null
-          consenting_relation: string
+          consenting_relation: string | null
           coo_approved_at: string | null
           coo_approved_by: string | null
           coo_review_notes: string | null
           county_name: string | null
           created_at: string
-          district_name: string
+          district_name: string | null
           foot_traffic: string
-          gps_accuracy_meters: number
-          gps_captured_at: string
-          gps_latitude: number
-          gps_longitude: number
+          gps_accuracy_meters: number | null
+          gps_captured_at: string | null
+          gps_latitude: number | null
+          gps_longitude: number | null
           gps_source: string | null
           id: string
           installation_decline_reason: string | null
@@ -70925,24 +71160,27 @@ export type Database = {
           installed_at: string | null
           installer_name: string | null
           nearby_landmarks: string | null
+          nearby_signage_m: number | null
+          nearby_signage_ref: string | null
           operating_hours: string | null
           owner_alt_phone: string | null
-          owner_full_name: string
+          owner_full_name: string | null
           owner_payment_method: string
-          owner_payment_name: string
-          owner_payment_number: string
-          owner_phone: string
+          owner_payment_name: string | null
+          owner_payment_number: string | null
+          owner_phone: string | null
           owner_rent_disbursed_at: string | null
           owner_rent_disbursed_by: string | null
           owner_rent_due_at: string | null
           owner_rent_status: string
           owner_rent_tx_ref: string | null
+          owner_user_id: string | null
           parish_name: string | null
           permission_confirmed: boolean
           photos: Json
           plot_or_landmark: string | null
-          property_name: string
-          property_type: string
+          property_name: string | null
+          property_type: string | null
           proposed_dimensions: string | null
           proposed_surface: string | null
           reference_no: string | null
@@ -70955,11 +71193,14 @@ export type Database = {
           road_visibility: string | null
           status: string
           sub_county_name: string | null
+          submitted_at: string | null
+          terminated_by: string | null
+          termination_reason: string | null
           updated_at: string
           verification_notes: string | null
           verified_at: string | null
           verified_by: string | null
-          village_name: string
+          village_name: string | null
         }
         Insert: {
           accessibility_notes?: string | null
@@ -70972,18 +71213,18 @@ export type Database = {
           agent_reward_status?: string
           agent_reward_tx_ref?: string | null
           business_category?: string | null
-          consenting_relation: string
+          consenting_relation?: string | null
           coo_approved_at?: string | null
           coo_approved_by?: string | null
           coo_review_notes?: string | null
           county_name?: string | null
           created_at?: string
-          district_name: string
+          district_name?: string | null
           foot_traffic?: string
-          gps_accuracy_meters: number
-          gps_captured_at?: string
-          gps_latitude: number
-          gps_longitude: number
+          gps_accuracy_meters?: number | null
+          gps_captured_at?: string | null
+          gps_latitude?: number | null
+          gps_longitude?: number | null
           gps_source?: string | null
           id?: string
           installation_decline_reason?: string | null
@@ -70993,24 +71234,27 @@ export type Database = {
           installed_at?: string | null
           installer_name?: string | null
           nearby_landmarks?: string | null
+          nearby_signage_m?: number | null
+          nearby_signage_ref?: string | null
           operating_hours?: string | null
           owner_alt_phone?: string | null
-          owner_full_name: string
+          owner_full_name?: string | null
           owner_payment_method?: string
-          owner_payment_name: string
-          owner_payment_number: string
-          owner_phone: string
+          owner_payment_name?: string | null
+          owner_payment_number?: string | null
+          owner_phone?: string | null
           owner_rent_disbursed_at?: string | null
           owner_rent_disbursed_by?: string | null
           owner_rent_due_at?: string | null
           owner_rent_status?: string
           owner_rent_tx_ref?: string | null
+          owner_user_id?: string | null
           parish_name?: string | null
           permission_confirmed?: boolean
           photos?: Json
           plot_or_landmark?: string | null
-          property_name: string
-          property_type: string
+          property_name?: string | null
+          property_type?: string | null
           proposed_dimensions?: string | null
           proposed_surface?: string | null
           reference_no?: string | null
@@ -71023,11 +71267,14 @@ export type Database = {
           road_visibility?: string | null
           status?: string
           sub_county_name?: string | null
+          submitted_at?: string | null
+          terminated_by?: string | null
+          termination_reason?: string | null
           updated_at?: string
           verification_notes?: string | null
           verified_at?: string | null
           verified_by?: string | null
-          village_name: string
+          village_name?: string | null
         }
         Update: {
           accessibility_notes?: string | null
@@ -71040,18 +71287,18 @@ export type Database = {
           agent_reward_status?: string
           agent_reward_tx_ref?: string | null
           business_category?: string | null
-          consenting_relation?: string
+          consenting_relation?: string | null
           coo_approved_at?: string | null
           coo_approved_by?: string | null
           coo_review_notes?: string | null
           county_name?: string | null
           created_at?: string
-          district_name?: string
+          district_name?: string | null
           foot_traffic?: string
-          gps_accuracy_meters?: number
-          gps_captured_at?: string
-          gps_latitude?: number
-          gps_longitude?: number
+          gps_accuracy_meters?: number | null
+          gps_captured_at?: string | null
+          gps_latitude?: number | null
+          gps_longitude?: number | null
           gps_source?: string | null
           id?: string
           installation_decline_reason?: string | null
@@ -71061,24 +71308,27 @@ export type Database = {
           installed_at?: string | null
           installer_name?: string | null
           nearby_landmarks?: string | null
+          nearby_signage_m?: number | null
+          nearby_signage_ref?: string | null
           operating_hours?: string | null
           owner_alt_phone?: string | null
-          owner_full_name?: string
+          owner_full_name?: string | null
           owner_payment_method?: string
-          owner_payment_name?: string
-          owner_payment_number?: string
-          owner_phone?: string
+          owner_payment_name?: string | null
+          owner_payment_number?: string | null
+          owner_phone?: string | null
           owner_rent_disbursed_at?: string | null
           owner_rent_disbursed_by?: string | null
           owner_rent_due_at?: string | null
           owner_rent_status?: string
           owner_rent_tx_ref?: string | null
+          owner_user_id?: string | null
           parish_name?: string | null
           permission_confirmed?: boolean
           photos?: Json
           plot_or_landmark?: string | null
-          property_name?: string
-          property_type?: string
+          property_name?: string | null
+          property_type?: string | null
           proposed_dimensions?: string | null
           proposed_surface?: string | null
           reference_no?: string | null
@@ -71091,11 +71341,14 @@ export type Database = {
           road_visibility?: string | null
           status?: string
           sub_county_name?: string | null
+          submitted_at?: string | null
+          terminated_by?: string | null
+          termination_reason?: string | null
           updated_at?: string
           verification_notes?: string | null
           verified_at?: string | null
           verified_by?: string | null
-          village_name?: string
+          village_name?: string | null
         }
         Relationships: []
       }
@@ -79018,6 +79271,76 @@ export type Database = {
       _desk_take_stage_snapshot: { Args: never; Returns: number }
       _desk_viewer_ok: { Args: { p_roles: string[] }; Returns: boolean }
       _direct_client_call: { Args: never; Returns: boolean }
+      _direct_pay_agent_pay: { Args: { p_payment_id: string }; Returns: Json }
+      _direct_pay_agent_receipt_email: {
+        Args: { p_payment_id: string }
+        Returns: undefined
+      }
+      _direct_pay_can_act: { Args: { p_uid: string }; Returns: boolean }
+      _direct_pay_can_view: { Args: { p_uid: string }; Returns: boolean }
+      _direct_pay_cover_charge: {
+        Args: { p_payment_id: string }
+        Returns: string
+      }
+      _direct_pay_evaluate: { Args: { p_payment_id: string }; Returns: Json }
+      _direct_pay_flags: { Args: { p_payment_id: string }; Returns: string[] }
+      _direct_pay_health_core: { Args: never; Returns: Json }
+      _direct_pay_issue_receipt: {
+        Args: { p_payment_id: string; p_staff: string }
+        Returns: {
+          agent_id: string | null
+          amount: number
+          created_at: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          landlord_id: string | null
+          landlord_phone: string | null
+          payout_id: string
+          processed_by: string | null
+          receipt_code: string
+          receipt_number: string
+          replaces_receipt_id: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          short_link_code: string | null
+          sms_attempts: number
+          sms_last_attempt_at: string | null
+          sms_last_error: string | null
+          sms_sent_at: string | null
+          snapshot: Json
+          status: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "landlord_payout_receipts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _direct_pay_landlord_paid: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
+      }
+      _direct_pay_notify: {
+        Args: { p_event: string; p_payment_id: string }
+        Returns: undefined
+      }
+      _direct_pay_on: { Args: never; Returns: boolean }
+      _direct_pay_partner_view: {
+        Args: { p_code?: string; p_payment_id: string }
+        Returns: Json
+      }
+      _direct_pay_plan_lock: {
+        Args: { p_rent_request_id: string }
+        Returns: undefined
+      }
+      _direct_pay_tenant_owes: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
+      }
       _docs_rule_applies: { Args: { p_created: string }; Returns: boolean }
       _dormant_bike_leases: {
         Args: { p_agent?: string }
@@ -79614,6 +79937,10 @@ export type Database = {
           p_op: Database["public"]["Tables"]["pending_wallet_operations"]["Row"]
         }
         Returns: string
+      }
+      _return_cycle_misdated_only: {
+        Args: { p_month: string; p_portfolio_id: string }
+        Returns: boolean
       }
       _return_cycle_posted_total: { Args: { p_claim: string }; Returns: number }
       _rt_compute: {
@@ -81468,15 +81795,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      agent_submit_signage_installation: {
-        Args: {
-          p_installed_at: string
-          p_note?: string
-          p_photo_url: string
-          p_signage_id: string
-        }
-        Returns: Json
       }
       agent_suspend_subagent: {
         Args: { p_days: number; p_reason: string; p_sub_agent_id: string }
@@ -84154,6 +84472,10 @@ export type Database = {
         Args: { p_reason: string; p_request_ids: string[] }
         Returns: Json
       }
+      cfo_return_signage: {
+        Args: { p_reason: string; p_signage_id: string }
+        Returns: Json
+      }
       cfo_s12_audit: {
         Args: { p_collection_id: string }
         Returns: {
@@ -84351,6 +84673,10 @@ export type Database = {
           tin: string
           user_id: string
         }[]
+      }
+      cfo_terminate_signage: {
+        Args: { p_reason: string; p_signage_id: string }
+        Returns: Json
       }
       cfo_transfer_agent_advance: {
         Args: {
@@ -85900,6 +86226,71 @@ export type Database = {
           withdrawal_id: string
         }[]
       }
+      direct_pay_agent_items: { Args: { p_limit?: number }; Returns: Json }
+      direct_pay_agent_record_receipt: {
+        Args: {
+          p_payment_id: string
+          p_photo_path?: string
+          p_receipt_number: string
+        }
+        Returns: Json
+      }
+      direct_pay_approve: {
+        Args: {
+          p_call_note: string
+          p_flag_reason?: string
+          p_otp: string
+          p_payment_id: string
+        }
+        Returns: Json
+      }
+      direct_pay_claim: { Args: { p_rent_request_id: string }; Returns: Json }
+      direct_pay_health: { Args: never; Returns: Json }
+      direct_pay_health_alert: { Args: never; Returns: Json }
+      direct_pay_my_payments: { Args: never; Returns: Json }
+      direct_pay_ops_queue: {
+        Args: {
+          p_after_at?: string
+          p_after_flagged?: boolean
+          p_after_id?: string
+          p_limit?: number
+          p_view?: string
+        }
+        Returns: Json
+      }
+      direct_pay_otp_authorize: {
+        Args: { p_payment_id: string }
+        Returns: Json
+      }
+      direct_pay_otp_issue: {
+        Args: { p_payment_id: string; p_staff: string }
+        Returns: Json
+      }
+      direct_pay_otp_mark: {
+        Args: { p_challenge_id: string; p_detail?: string; p_sent: boolean }
+        Returns: undefined
+      }
+      direct_pay_record_proof: {
+        Args: {
+          p_amount_typed: number
+          p_partner: string
+          p_payment_id: string
+          p_photo_path: string
+          p_photo_sha256: string
+          p_provider: string
+          p_read: Json
+          p_tid_typed: string
+        }
+        Returns: Json
+      }
+      direct_pay_refresh: { Args: { p_payment_id: string }; Returns: Json }
+      direct_pay_reject: {
+        Args: { p_payment_id: string; p_reason: string }
+        Returns: Json
+      }
+      direct_pay_release: { Args: { p_payment_id: string }; Returns: Json }
+      direct_pay_send_reminders: { Args: never; Returns: Json }
+      direct_pay_tick: { Args: never; Returns: Json }
       disable_campaign_link: {
         Args: { p_link_id: string; p_reason?: string }
         Returns: undefined
@@ -87249,6 +87640,7 @@ export type Database = {
         Args: { p_step?: number }
         Returns: Json
       }
+      general_ledger_total_count: { Args: never; Returns: number }
       generate_campaign_short_code: { Args: never; Returns: string }
       generate_daily_merchant_commission_report: {
         Args: { p_date?: string }
@@ -92425,6 +92817,10 @@ export type Database = {
         Args: { _gross: number; _run_id: string; _staff_id: string }
         Returns: number
       }
+      hr_pay_advance_pay_to_wallet: {
+        Args: { p_advance_id: string }
+        Returns: Json
+      }
       hr_pay_advance_people: {
         Args: never
         Returns: {
@@ -94760,16 +95156,6 @@ export type Database = {
           version_code: string
         }[]
       }
-      my_signage_installations_due: {
-        Args: never
-        Returns: {
-          id: string
-          installation_decline_reason: string
-          installation_started_at: string
-          property_name: string
-          reference_no: string
-        }[]
-      }
       my_staff_loan_eligibility: { Args: never; Returns: Json }
       my_staff_mfa_status: { Args: never; Returns: Json }
       my_withdrawal_pin_status: { Args: never; Returns: Json }
@@ -95041,10 +95427,6 @@ export type Database = {
       ops_case_weekly_digest: { Args: never; Returns: number }
       ops_case_window: { Args: { p_severity: string }; Returns: string }
       ops_cases_sync_sources: { Args: never; Returns: Json }
-      ops_decide_signage_installation: {
-        Args: { p_approve: boolean; p_reason?: string; p_signage_id: string }
-        Returns: Json
-      }
       ops_decide_subagent_tenant_transfer: {
         Args: { p_approve: boolean; p_reason: string; p_transfer_id: string }
         Returns: Json
@@ -99490,6 +99872,16 @@ export type Database = {
       resume_expired_repayment_pauses: { Args: never; Returns: Json }
       retire_tenant_document: { Args: { p_doc_id: string }; Returns: Json }
       retry_funder_house_progress_notices: { Args: never; Returns: undefined }
+      return_cycle_correction_eligible: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          cycle_date: string
+          cycle_return: number
+          misdated_amount: number
+          misdated_paid_on: string
+          portfolio_id: string
+        }[]
+      }
       return_rent_request_for_correction: {
         Args: { p_reason: string; p_request_id: string; p_stage: string }
         Returns: string

@@ -4,7 +4,7 @@ import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { formatUGX } from '@/lib/rentCalculations';
 
 /**
- * Owner-approved Agent Care / Field Care line for self-support details (2026-11-10).
+ * Owner-approved Cover fee line for self-support details.
  * Renders nothing while the fee switch is off or the fee is 0, so screens look as before.
  */
 export function AgentCareNote({
@@ -20,20 +20,20 @@ export function AgentCareNote({
   const rentValue = Number(rent || 0);
   const feeValue = fee(rentValue);
   if (!enabled || feeValue <= 0) return null;
-  const label = kind === 'house' ? 'Field Care' : 'Agent Care';
+  const label = 'Cover fee';
 
   return (
     <div className={`flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground ${className}`}>
       <p className="min-w-0">
         {kind === 'house' ? (
           <>
-            Includes <span className="font-semibold text-foreground">Welile Field Care:</span> a local agent checks this
-            house and follows up the placement. Your full amount earns Rent profit share.
+            Includes <span className="font-semibold text-foreground">Cover fee:</span> a local agent checks this
+            house and follows up the placement. Your full amount earns Rent Profit Share.
           </>
         ) : (
           <>
-            <span className="font-semibold text-foreground">Agent Care included:</span> tenant checks and payment
-            follow-up on the ground. You earn Rent profit share on the full amount.
+            <span className="font-semibold text-foreground">Cover fee included:</span> tenant checks and payment
+            follow-up on the ground. You earn Rent Profit Share on the full amount.
           </>
         )}
       </p>

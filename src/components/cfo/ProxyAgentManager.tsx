@@ -117,7 +117,7 @@ export function ProxyAgentManager() {
       for (let from = 0; ; from += pageSize) {
         const { data, error } = await (supabase as any)
           .from('user_roles')
-          .select('user_id, profiles:user_id(id, full_name, phone)')
+          .select('user_id')
           .eq('role', bulkRole as any)
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -125,9 +125,18 @@ export function ProxyAgentManager() {
         all.push(...batch);
         if (batch.length < pageSize) break;
       }
-      return all
-        .map((r: any) => r.profiles)
-        .filter((p: any) => p && p.id && p.full_name);
+      // user_roles has no foreign key to profiles. Resolve distinct IDs separately.
+      const userIds = [...new Set<string>(all.map((r: any) => r.user_id).filter(Boolean))];
+      const profiles = [];
+      for (let i = 0; i < userIds.length; i += 100) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone')
+          .in('id', userIds.slice(i, i + 100));
+        if (error) throw error;
+        profiles.push(...(data || []));
+      }
+      return profiles.filter((p) => p.id && p.full_name);
     },
   });
 

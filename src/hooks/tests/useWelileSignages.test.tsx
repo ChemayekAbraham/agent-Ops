@@ -47,7 +47,7 @@ describe('Signages approval requests', () => {
       await expect(result.current.mutateAsync({ signageId: 'signage', decision: 'approve' })).rejects.toThrow('could not be confirmed');
     });
   });
-  it('uses the COO decision RPC before authorizing installation', async () => {
+  it('uses the COO decision RPC, which sends the application to the CFO for payment', async () => {
     mocks.rpc.mockResolvedValue({ data: { id: 'signage', status: 'awaiting_cfo' }, error: null });
     const { result } = renderHook(() => useReviewSignage('coo'), { wrapper });
     await act(async () => { await result.current.mutateAsync({ signageId: 'signage', decision: 'approve', notes: 'Location checked' }); });

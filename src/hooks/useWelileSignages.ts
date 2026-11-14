@@ -26,7 +26,7 @@ const INSERT_COLUMNS = [
 const db = () => supabase as any;
 
 // Explicit projection: never download base64 application/installation photos with a queue.
-export const SIGNAGE_QUEUE_COLUMNS = 'id,reference_no,agent_id,agent_name,agent_phone,property_name,property_type,business_category,owner_full_name,owner_phone,owner_alt_phone,consenting_relation,permission_confirmed,owner_payment_method,owner_payment_number,owner_payment_name,gps_latitude,gps_longitude,gps_accuracy_meters,gps_captured_at,gps_source,repeat_owner_phone,district_name,county_name,sub_county_name,parish_name,village_name,plot_or_landmark,foot_traffic,road_visibility,operating_hours,nearby_landmarks,proposed_surface,proposed_dimensions,accessibility_notes,status,rejection_reason,review_notes,reviewed_by,reviewed_at,coo_approved_by,coo_approved_at,coo_review_notes,installed_at,installer_name,verified_by,verified_at,verification_notes,activated_at,removal_effective_at,agent_reward_status,agent_reward_disbursed_at,agent_reward_disbursed_by,agent_reward_tx_ref,owner_rent_status,owner_rent_disbursed_at,owner_rent_disbursed_by,owner_rent_tx_ref,created_at,updated_at';
+export const SIGNAGE_QUEUE_COLUMNS = 'id,reference_no,submitted_at,nearby_signage_ref,nearby_signage_m,installation_started_at,installation_submitted_at,installation_decline_reason,termination_reason,owner_rent_due_at,agent_id,agent_name,agent_phone,property_name,property_type,business_category,owner_full_name,owner_phone,owner_alt_phone,consenting_relation,permission_confirmed,owner_payment_method,owner_payment_number,owner_payment_name,gps_latitude,gps_longitude,gps_accuracy_meters,gps_captured_at,gps_source,repeat_owner_phone,district_name,county_name,sub_county_name,parish_name,village_name,plot_or_landmark,foot_traffic,road_visibility,operating_hours,nearby_landmarks,proposed_surface,proposed_dimensions,accessibility_notes,status,rejection_reason,review_notes,reviewed_by,reviewed_at,coo_approved_by,coo_approved_at,coo_review_notes,installed_at,installer_name,verified_by,verified_at,verification_notes,activated_at,removal_effective_at,agent_reward_status,agent_reward_disbursed_at,agent_reward_disbursed_by,agent_reward_tx_ref,owner_rent_status,owner_rent_disbursed_at,owner_rent_disbursed_by,owner_rent_tx_ref,created_at,updated_at';
 
 function useSignageQueryUser() {
   const { user, session, loading } = useAuth();
@@ -66,8 +66,8 @@ export function useLoadSignageDetail() {
   return (signageId: string) => queryClient.fetchQuery(signageDetailQuery(userId, signageId));
 }
 
-function pickInsert(rec: Partial<SignageRecord>): Record<string, unknown> {
-  const out: Record<string, unknown> = { status: 'submitted' };
+function pickInsert(rec: Partial<SignageRecord>, status: 'draft' | 'submitted' = 'submitted'): Record<string, unknown> {
+  const out: Record<string, unknown> = { status };
   for (const k of INSERT_COLUMNS) {
     const v = (rec as any)[k];
     if (v !== undefined) out[k] = v;
@@ -76,8 +76,8 @@ function pickInsert(rec: Partial<SignageRecord>): Record<string, unknown> {
 }
 
 /** Insert by client id; a duplicate id means it was already saved, which counts as success. */
-async function insertSignage(rec: Partial<SignageRecord>) {
-  const { error } = await db().from('welile_signages').insert([pickInsert(rec)]);
+async function insertSignage(rec: Partial<SignageRecord>, status: 'draft' | 'submitted' = 'submitted') {
+  const { error } = await db().from('welile_signages').insert([pickInsert(rec, status)]);
   if (error && !(error.code === '23505' && error.message?.includes('welile_signages_pkey'))) {
     throw new Error(error.message?.includes('welile_signages_unique_gps')
       ? 'A signage application already exists at these GPS coordinates. Choose a different spot.' : error.message);
@@ -119,11 +119,12 @@ function useLegacySignageSync(userId?: string) {
       const remaining = all.filter((r) => !mine.includes(r));
       for (const rec of mine) {
         try {
+          // Saved as a draft: the agent reviews it and captures fresh GPS before submitting.
           await insertSignage({
             ...rec,
             id: rec.id && UUID_RE.test(rec.id) ? rec.id : safeUUID(),
             agent_id: userId,
-          });
+          }, 'draft');
           synced++;
         } catch (e) {
           console.warn('[signage sync] kept on device:', e);
@@ -181,12 +182,52 @@ export function useSignageOpsQueue() {
   });
 }
 
+type SignagePayload = Omit<SignageRecord, 'id' | 'reference_no' | 'agent_id' | 'created_at' | 'updated_at' | 'status'>;
+
+/** Fields an agent may set on a draft (no server-managed or identity columns). */
+function draftUpdates(payload: Partial<SignageRecord>): Record<string, unknown> {
+  const updates = pickInsert(payload, 'draft');
+  delete updates.id; delete updates.agent_id; delete updates.agent_name; delete updates.agent_phone;
+  return updates;
+}
+
+/** Save the form as a draft (new or existing). Drafts may be incomplete and are visible only to the agent. */
+export function useSaveSignageDraft() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ draftId, payload }: { draftId?: string; payload: Partial<SignageRecord> }) => {
+      if (!user?.id) throw new Error('Sign in to save a draft.');
+      if (draftId) {
+        const { data, error } = await db().from('welile_signages').update(draftUpdates(payload))
+          .eq('id', draftId).eq('agent_id', user.id).eq('status', 'draft').select('id').maybeSingle();
+        if (error) throw new Error(error.message);
+        if (!data) throw new Error('This draft was already submitted or removed. Refresh.');
+        return draftId;
+      }
+      const id = safeUUID();
+      await insertSignage({
+        ...payload, id, agent_id: user.id,
+        agent_name: user.user_metadata?.full_name || user.email || 'Agent',
+        agent_phone: user.user_metadata?.phone || '',
+      }, 'draft');
+      return id;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
+      toast.success('Draft saved. Continue it any time from your Pipeline.');
+    },
+    onError: (err: Error) => toast.error('Could not save the draft: ' + err.message),
+  });
+}
+
 export function useSubmitSignage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: Omit<SignageRecord, 'id' | 'reference_no' | 'agent_id' | 'created_at' | 'updated_at' | 'status'>) => {
+    mutationFn: async (args: SignagePayload & { draftId?: string }) => {
+      const { draftId, ...payload } = args;
       if (!user?.id) throw new Error('You must be signed in to submit a signage.');
       if (!hasDeviceSignageGps(payload)) {
         throw new Error('Mandatory Live GPS capture required. Coordinates cannot be blank.');
@@ -198,15 +239,24 @@ export function useSubmitSignage() {
         throw new Error('You are offline. The application was not saved — reconnect and try again.');
       }
 
-      const id = safeUUID();
+      const id = draftId || safeUUID();
       try {
-        await insertSignage({
-          ...payload,
-          id,
-          agent_id: user.id,
-          agent_name: user.user_metadata?.full_name || user.email || 'Agent',
-          agent_phone: user.user_metadata?.phone || '',
-        });
+        if (draftId) {
+          // Submitting a draft: the server locks it and runs every submission check.
+          const { data, error } = await db().from('welile_signages').update({ ...draftUpdates(payload), status: 'submitted' })
+            .eq('id', draftId).eq('agent_id', user.id).eq('status', 'draft').select('id').maybeSingle();
+          if (error) throw new Error(error.message?.includes('welile_signages_unique_gps')
+            ? 'A signage application already exists at these GPS coordinates. Choose a different spot.' : error.message);
+          if (!data) throw new Error('This draft was already submitted or removed');
+        } else {
+          await insertSignage({
+            ...payload,
+            id,
+            agent_id: user.id,
+            agent_name: user.user_metadata?.full_name || user.email || 'Agent',
+            agent_phone: user.user_metadata?.phone || '',
+          });
+        }
       } catch (e: any) {
         throw new Error(`The application was not saved: ${e?.message || 'network error'}. Please try again.`);
       }
@@ -279,7 +329,7 @@ export function useReviewSignage(stage: 'agent_ops' | 'coo' = 'agent_ops') {
       toast.success(targetStatus === 'awaiting_coo'
         ? 'Awaiting COO. Sent to the COO for approval.'
         : stage === 'coo' && targetStatus === 'awaiting_cfo'
-          ? 'COO approved. Sent to the CFO for disbursement.'
+          ? 'COO approved. Sent to the CFO for payment.'
           : 'Signage review decision recorded.');
     },
     onError: (err: Error) => toast.error('Could not save the decision: ' + err.message),
@@ -357,29 +407,40 @@ export function useCfoDisburseSignage() {
     },
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success(data.already_paid ? 'This payment was already credited; no duplicate payment made.'
-        : data.status === 'active' ? 'Payment credited to Welile wallet.'
-          : 'Agent reward credited. Signage is awaiting CFO approval.');
+      toast.success(data.already_paid
+        ? (data.status === 'active' ? 'Agent reward was already paid; the signage is now Active. No duplicate payment made.' : 'This payment was already credited; no duplicate payment made.')
+        : 'Payment credited to the Welile wallet.');
     },
     onError: (err: any) => toast.error(err.message),
   });
 }
 
-export function useCfoApproveSignage() {
+function useCfoSignageAction(rpc: string, done: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (signageId: string) => {
-      const { data, error } = await withUserSession(() => db().rpc('cfo_approve_signage', { p_signage_id: signageId }));
+    mutationFn: async ({ signageId, reason }: { signageId: string; reason: string }) => {
+      if (reason.trim().length < 10) throw new Error('Please give a reason of at least 10 characters.');
+      const { data, error } = await withUserSession(() => db().rpc(rpc, { p_signage_id: signageId, p_reason: reason.trim() }));
       if (error) throw new Error(error.message);
-      if (data?.signage_id !== signageId || data.status !== 'active') throw new Error('Approval could not be confirmed. Refresh before trying again.');
+      if (data?.signage_id !== signageId) throw new Error('The action could not be confirmed. Refresh before trying again.');
       return data;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success('CFO approved. Signage is Active; no owner payment was made.');
+      toast.success(done);
     },
     onError: (error: Error) => toast.error(error.message),
   });
+}
+
+/** CFO sends an application back to the agent for changes (no payment). */
+export function useCfoReturnSignage() {
+  return useCfoSignageAction('cfo_return_signage', 'Sent back to the agent for changes. No payment made.');
+}
+
+/** CFO ends the owner contract; no further owner payouts. */
+export function useCfoTerminateSignage() {
+  return useCfoSignageAction('cfo_terminate_signage', 'Contract terminated. No further owner payouts.');
 }
 
 /** Agents cannot delete; this cancels a still-pending application. */
