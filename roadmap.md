@@ -1,3 +1,9 @@
+# Frontend error watcher (14 November)
+- [x] Verify live columns: wallet sender_id/recipient_id and user_roles.user_id exist; no staff_profiles.full_name or partner_agreements.agreement_code selects in current frontend. Short-link callers already use maybeSingle; five missing-table browser calls absent.
+- [x] Guard missing direct-payment list reads and normalize house integer filters; 43 focused tests and all guards pass, automatic build OK. Existing avatar failure/initials tests pass unchanged.
+- [ ] Trace remaining production errors to their callers; requires exact failing request URLs and caller/page details, since current frontend does not contain the reported invalid selects/filters.
+- [ ] Verify authenticated production flows/error reduction; external unmanaged authentication prevents signed-in checks. No database or deployment changes.
+
 # Direct landlord payment screens
 - [x] Build partner claim, held-plan/proof/status screens using only the direct-pay data layer.
 - [x] Build Landlord Ops infinite review queue and agent receipt recording; preserve server-only decisions.
