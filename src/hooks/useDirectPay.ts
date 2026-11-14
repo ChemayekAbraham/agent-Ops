@@ -75,7 +75,14 @@ export function useMyDirectPayments(enabled = true) {
     queryKey: directPayKeys.mine,
     enabled,
     staleTime: 30_000,
-    queryFn: () => call<DirectPayView[]>('direct_pay_my_payments'),
+    queryFn: async (): Promise<DirectPayView[]> => {
+      const { data, error, status } = await rpc('direct_pay_my_payments');
+      // Missing optional service is an empty list, not a retried error.
+      // Do not mask authorization, connectivity, or other server failures.
+      if (status === 404 || error?.code === 'PGRST202' || error?.code === '42883') return [];
+      if (error) throw error;
+      return data ?? [];
+    },
     refetchInterval: (q) => ((q.state.data ?? []).some((p) => p.status === 'held' || p.status === 'pending') ? 60_000 : false),
   });
 }

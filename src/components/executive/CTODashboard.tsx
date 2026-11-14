@@ -262,8 +262,14 @@ function CTODashboardOverview({ activeTab }: { activeTab?: string }) {
     queryKey: ['cto-table-counts'],
     queryFn: async () => {
       const tables = ['profiles', 'rent_requests', 'landlords', 'referrals', 'general_ledger', 'notifications', 'deposit_requests', 'investor_portfolios'] as const;
-      const results: Record<string, number> = {};
+      const results: Record<string, number | null> = {};
       await Promise.all(tables.map(async (table) => {
+        if (table === 'general_ledger') {
+          // Unfiltered exact count times out under RLS (~880k rows); use the role-gated RPC instead.
+          const { data, error } = await supabase.rpc('general_ledger_total_count');
+          results[table] = error || data == null ? null : Number(data);
+          return;
+        }
         const { count } = await supabase.from(table).select('*', { count: 'exact', head: true });
         results[table] = count || 0;
       }));
@@ -294,7 +300,7 @@ function CTODashboardOverview({ activeTab }: { activeTab?: string }) {
   const securityAlerts = (systemEvents || []).filter(n =>
     n.type === 'security' || n.title?.toLowerCase().includes('fraud') || n.title?.toLowerCase().includes('frozen')
   ).length;
-  const totalRows = tableCounts ? Object.values(tableCounts).reduce((a, b) => a + b, 0) : 0;
+  const totalRows = tableCounts ? Object.values(tableCounts).reduce((a, b) => a + (b ?? 0), 0) : 0;
   const avgProcessingHrs = processingStats?.avgProcessingMs
     ? (processingStats.avgProcessingMs / 3600000).toFixed(1)
     : '—';
@@ -319,13 +325,13 @@ function CTODashboardOverview({ activeTab }: { activeTab?: string }) {
     { key: 'message', label: 'Details', className: 'max-w-[200px] truncate' },
   ];
 
-  const tableStatsColumns: Column<{ table: string; rows: number }>[] = [
+  const tableStatsColumns: Column<{ table: string; rows: number | null }>[] = [
     { key: 'table', label: 'Table' },
-    { key: 'rows', label: 'Row Count', render: (v) => Number(v).toLocaleString() },
+    { key: 'rows', label: 'Row Count', render: (v) => v == null ? 'Unavailable' : Number(v).toLocaleString() },
   ];
 
   const tableStatsData = tableCounts
-    ? Object.entries(tableCounts).map(([table, rows]) => ({ table, rows })).sort((a, b) => b.rows - a.rows)
+    ? Object.entries(tableCounts).map(([table, rows]) => ({ table, rows })).sort((a, b) => (b.rows ?? -1) - (a.rows ?? -1))
     : [];
 
   return (

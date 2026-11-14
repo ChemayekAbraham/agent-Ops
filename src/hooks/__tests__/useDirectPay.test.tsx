@@ -18,12 +18,14 @@ const db = vi.hoisted(() => ({
   signed: [] as string[][],
   uploads: 0,
   queue: [] as unknown[],
+  mine: { data: [], error: null, status: 200 } as { data: unknown; error: { code: string; message: string } | null; status: number },
 }));
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     rpc: vi.fn(async (fn: string, args: Record<string, unknown>) => {
       db.rpc.push({ fn, args });
+      if (fn === 'direct_pay_my_payments') return db.mine;
       if (fn === 'direct_pay_ops_queue') return { data: db.queue.shift() ?? { can_act: true, rows: [] }, error: null };
       return { data: { ok: true, code: null, payment_id: 'p1', status: 'held' }, error: null };
     }),
@@ -57,6 +59,7 @@ import {
   useDirectPayQueue,
   useDirectPayUploadProof,
   useDirectPayUploadLandlordReceiptPhoto,
+  useMyDirectPayments,
 } from '../useDirectPay';
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -66,9 +69,30 @@ function wrapper({ children }: { children: ReactNode }) {
 
 beforeEach(() => {
   db.rpc = []; db.invoke = []; db.signed = []; db.uploads = 0; db.queue = [];
+  db.mine = { data: [], error: null, status: 200 };
 });
 
 describe('useDirectPay', () => {
+  it('treats a missing payment-list RPC as empty without retries or polling', async () => {
+    db.mine = { data: null, error: { code: 'PGRST202', message: 'Function missing' }, status: 404 };
+    const { result } = renderHook(() => useMyDirectPayments(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual([]);
+    expect(db.rpc.filter(c => c.fn === 'direct_pay_my_payments')).toHaveLength(1);
+  });
+  it('does not conceal authorization failures as an empty payment list', async () => {
+    db.mine = { data: null, error: { code: '42501', message: 'Permission denied' }, status: 403 };
+    const { result } = renderHook(() => useMyDirectPayments(), { wrapper });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toMatchObject({ code: '42501' });
+    expect(result.current.data).toBeUndefined();
+  });
+  it('retains the server payment rows when the service exists', async () => {
+    db.mine = { data: [{ payment_id: 'p1', status: 'confirmed' }], error: null, status: 200 };
+    const { result } = renderHook(() => useMyDirectPayments(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(db.mine.data);
+  });
   it('agent receipt evidence uses the existing own-folder upload without financial calls', async () => {
     const { result } = renderHook(() => useDirectPayUploadLandlordReceiptPhoto(), { wrapper });
     let path: string | null = null;

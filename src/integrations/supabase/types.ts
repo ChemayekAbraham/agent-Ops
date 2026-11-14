@@ -87640,6 +87640,7 @@ export type Database = {
         Args: { p_step?: number }
         Returns: Json
       }
+      general_ledger_total_count: { Args: never; Returns: number }
       generate_campaign_short_code: { Args: never; Returns: string }
       generate_daily_merchant_commission_report: {
         Args: { p_date?: string }
