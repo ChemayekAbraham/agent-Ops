@@ -1005,7 +1005,7 @@ export default function TenantsOnboarding() {
                   </p>
                 )}
               </div>
-              <Button className="w-full" onClick={() => navigate('/dashboard/tenant')}>
+              <Button className="w-full" onClick={() => navigate('/dashboard/tenant?tab=rent-plan')}>
                 {repaying ? 'See my Rent Plan' : 'Track my request'}
               </Button>
               <p className="text-xs text-muted-foreground">

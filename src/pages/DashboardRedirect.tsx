@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, type AppRole } from '@/hooks/useAuth';
 import { roleToSlug, slugToRole } from '@/lib/roleRoutes';
-import { getPreferredDefaultRole, isAgentAutoDefaultDisabled } from '@/hooks/useAppPreferences';
+import { getPreferredDefaultRole, isAgentAutoDefaultDisabled, readOwnedRoutingPrefs } from '@/hooks/useAppPreferences';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchServerRoutingPrefs } from '@/lib/routingPrefsServer';
 import { Loader2 } from 'lucide-react';
@@ -82,19 +82,17 @@ export default function DashboardRedirect() {
     // entries. If it doesn't (fresh device, cleared storage, private mode,
     // etc.) we'll consult the server before falling through to the
     // auto-agent rule, so the user's choice still applies across devices.
-    const hasLocalRoutingPrefs = (() => {
-      try {
-        const raw = localStorage.getItem('welile_app_preferences');
-        if (!raw) return false;
-        const parsed = JSON.parse(raw);
-        return 'defaultRole' in parsed || 'disableAgentAutoDefault' in parsed;
-      } catch { return false; }
-    })();
+    // Only prefs saved by THIS account count: on a shared phone the record
+    // may hold another person's choice, which must fall through to this
+    // account's server copy instead.
+    const ownedPrefs = readOwnedRoutingPrefs(user.id);
+    const hasLocalRoutingPrefs =
+      !!ownedPrefs && ('defaultRole' in ownedPrefs || 'disableAgentAutoDefault' in ownedPrefs);
 
     // Pick the first hint the user actually still holds.
     // Priority: explicit URL/query hint → user's chosen default →
     // "agent if they have ever posted a rent request" auto-rule → cached auth.role.
-    const preferred = getPreferredDefaultRole();
+    const preferred = getPreferredDefaultRole(user.id);
     const preferredRole: AppRole | null =
       preferred !== 'auto' ? (preferred as AppRole) : null;
 
@@ -139,7 +137,7 @@ export default function DashboardRedirect() {
     const cacheKey = `welile_has_posted_rent_request_${user.id}`;
     let cachedAgentRule: string | null = null;
     try { cachedAgentRule = localStorage.getItem(cacheKey); } catch {}
-    const agentRuleApplies = roles.includes('agent') && !isAgentAutoDefaultDisabled();
+    const agentRuleApplies = roles.includes('agent') && !isAgentAutoDefaultDisabled(user.id);
 
     // Start downloading the dashboard this person will most likely land on now,
     // while the lookups below run, instead of after the redirect.
@@ -244,7 +242,7 @@ export default function DashboardRedirect() {
     function runAgentAutoRule() {
     // Re-read: the server prefs above may have run while the lookup finished,
     // or turned the agent rule off on another device.
-    if (roles.includes('agent') && !isAgentAutoDefaultDisabled()) {
+    if (roles.includes('agent') && !isAgentAutoDefaultDisabled(user.id)) {
       let cached: string | null = null;
       try { cached = localStorage.getItem(cacheKey); } catch {}
       if (cached === '1') { goAgent(); return; }
