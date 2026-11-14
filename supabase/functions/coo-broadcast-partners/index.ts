@@ -266,8 +266,10 @@ Deno.serve(async (req) => {
       if (allEmails.length) {
         for (let i = 0; i < allEmails.length; i += CHUNK) {
           const slice = allEmails.slice(i, i + CHUNK);
-          const { data: sup } = await admin
-            .from('email_suppressions').select('email').in('email', slice);
+          // Same suppression source used by unsubscribe and the email queue.
+          const { data: sup, error: suppressionError } = await admin
+            .from('suppressed_emails').select('email').in('email', slice);
+          if (suppressionError) throw suppressionError;
           for (const s of sup || []) suppressed.add((s as any).email);
         }
       }

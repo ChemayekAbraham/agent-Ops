@@ -63,7 +63,8 @@ Deno.serve(async req => {
           if(error) return reply('Escalation unavailable',503);
           answer=`Your question has been sent to Benjamin’s Desk. Sign in at ${toAuthGatedUrl('/dashboard')} to send and receive private account questions. Welile support: https://wa.me/256777607640`;
         } else {
-          const {data:knowledge}=await admin.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer').eq('active',true).eq('role_scope','all').limit(20);
+          // Learned knowledge is not deployed; public guides and safety checks remain active.
+          const knowledge: [] = [];
           const aiKey=Deno.env.get('LOVABLE_API_KEY'); if(!aiKey) return reply('AI unavailable',503);
           answer=await buildWhatsAppAiReply(aiKey,buildNexaSystemPrompt([], false, returnsRate)+' Never claim a phone inquiry creates an account or proves ownership. Never supply passwords, reveal account existence or promise unverified signup bonuses. Use the secure consent-based signup flow.'+knowledgeContext(knowledge ?? []),text,req.signal);
           answer=groundReply(answer,false); // no tools on this path: any status claim is unbacked

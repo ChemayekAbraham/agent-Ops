@@ -165,3 +165,12 @@
 - [x] nexa_learned_knowledge browser call removed; houses not queried by app
 - [x] avatar fallback + failure cache already in place
 - [ ] investor_portfolios 400 (blocked: no failing request in logs)
+
+# Exact API request follow-up (14 November)
+- [x] Replace broken role/profile embedding with separate batched profile reads.
+- [x] Skip missing learned-knowledge reads in welile-ai-chat and whatsapp-webhook.
+- [x] Replace broadcast's nonexistent suppression table with verified suppressed_emails; fail closed on read errors.
+- [x] Resolve short links as arrays to avoid singular-response 406s on missing codes.
+- [x] 16 targeted regressions and all guards pass; automatic build OK. Real missing short-link flow renders 404 with array Accept header and no page errors; scoped changes committed.
+- [ ] Identify unmatched production staff/wallet/agreement/identity callers; no matching signatures in current source, needs originating client/version or function deployment source.
+- [ ] Verify production error reduction after deployment; no deployment requested and authenticated checks unavailable with external unmanaged Supabase.
