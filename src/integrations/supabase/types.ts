@@ -79480,6 +79480,27 @@ export type Database = {
         Returns: boolean
       }
       _hr_pay_bonus_read_ok: { Args: never; Returns: boolean }
+      _identity_gaps_rows: {
+        Args: never
+        Returns: {
+          agent: string
+          bad_id_number: boolean
+          created_at: string
+          desk: string
+          face_unchecked: boolean
+          face_verdict: string
+          id_shared: boolean
+          nin_masked: string
+          no_face_photo: boolean
+          no_id_number: boolean
+          no_id_photo: boolean
+          photo_not_a_face: boolean
+          rent_request_id: string
+          req: string
+          status: string
+          tenant: string
+        }[]
+      }
       _incomplete_owner: { Args: { p_missing: string[] }; Returns: string }
       _is_active_employee: { Args: { p_uid: string }; Returns: boolean }
       _is_all_desk: { Args: { p_uid: string }; Returns: boolean }
@@ -97591,6 +97612,10 @@ export type Database = {
         }[]
       }
       pipeline_i_can_view: { Args: { p_request_id: string }; Returns: boolean }
+      pipeline_identity_gaps: {
+        Args: { p_include_aug_batch?: boolean }
+        Returns: Json
+      }
       pipeline_incomplete_queue: { Args: { p_limit?: number }; Returns: Json }
       pipeline_link_call: {
         Args: {
