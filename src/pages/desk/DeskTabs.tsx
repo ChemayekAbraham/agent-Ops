@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { CALM, FOCUS, prefersReducedMotion } from './deskTheme';
 import { Sheet } from './ui/Sheet';
+import { CountChip } from './ui/Chip';
 
 /**
  * The desk tab bar across the top of every desk.
@@ -77,14 +78,27 @@ export function tabStyle(active: boolean): CSSProperties {
   };
 }
 
+/** The small count after a desk's name; nothing while unknown (never a false 0). */
+function TabCount({ n }: { n: number | null | undefined }) {
+  if (n === null || n === undefined) return null;
+  return (
+    <span className="ml-1.5" style={{ display: 'inline-flex' }} data-tab-count title={`${n} open concerns`}>
+      <CountChip n={n} tone={n > 0 ? 'warn' : 'idle'} />
+    </span>
+  );
+}
+
 export function DeskTabs({
   desks,
   activeId,
   board,
+  counts,
 }: {
   desks: { id: string; name: string }[];
   activeId: string;
   board: boolean;
+  /** A count chip after a desk's name (the Command centre's open concerns). Absent or null: no chip. */
+  counts?: Record<string, number | null | undefined>;
 }) {
   const navRef = useRef<HTMLElement | null>(null);
   const [fade, setFade] = useState<Fade>('none');
@@ -153,6 +167,7 @@ export function DeskTabs({
             }`}
           >
             {d.name}
+            <TabCount n={counts?.[d.id]} />
           </Link>
         );
       })}
@@ -169,10 +184,12 @@ export function DeskSwitcher({
   desks,
   activeId,
   board,
+  counts,
 }: {
   desks: { id: string; name: string }[];
   activeId: string;
   board: boolean;
+  counts?: Record<string, number | null | undefined>;
 }) {
   const [open, setOpen] = useState(false);
   const current = desks.find((d) => d.id === activeId);
@@ -219,6 +236,7 @@ export function DeskSwitcher({
                       style={{ display: 'flex', alignItems: 'center', minHeight: 48, padding: '10px 14px' }}
                     >
                       {d.name}
+                      <TabCount n={counts?.[d.id]} />
                     </Link>
                   </li>
                 );

@@ -30,6 +30,7 @@ import type { Period as FundersPeriod } from './cfo/cfoApi';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
 import { DeskSwitcher, DeskTabs } from './DeskTabs';
+import { useOpenConcernsCount } from './concerns/concernsQueueApi';
 import { DecisionButton, Sheet, atLeast, useBreakpoint, type Breakpoint } from './ui';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
 import { ReadyBoard, type DrawerContext, type DrawerStart, type OpenDrawer } from './ReadyBoard';
@@ -319,6 +320,9 @@ export function DeskHeader({
   board: boolean;
   bp: Breakpoint;
 }) {
+  // E64: open concerns on the Command centre tab, for people who can open that desk.
+  const openConcerns = useOpenConcernsCount(allowed.some((d) => d.id === 'command'));
+  const tabCounts = { command: openConcerns };
   if (!atLeast(bp, 'md')) {
     return (
       <header
@@ -327,7 +331,7 @@ export function DeskHeader({
         style={{ position: 'sticky', top: 0, zIndex: 30, display: 'flex', alignItems: 'center', gap: 8, minHeight: 52, maxHeight: 56, margin: '0 -1rem', padding: '2px 1rem', minWidth: 0 }}
       >
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', alignItems: 'center' }}>
-          <DeskSwitcher desks={allowed} activeId={desk.id} board={board} />
+          <DeskSwitcher desks={allowed} activeId={desk.id} board={board} counts={tabCounts} />
         </div>
         <LivePill dotOnly={bp === 'xs'} />
         <ShortClock />
@@ -355,7 +359,7 @@ export function DeskHeader({
         <Toolbar updated={updated} failed={failed} board={board} bp={bp} />
       </div>
 
-      {allowed.length > 1 && <DeskTabs desks={allowed} activeId={desk.id} board={board} />}
+      {allowed.length > 1 && <DeskTabs desks={allowed} activeId={desk.id} board={board} counts={tabCounts} />}
     </header>
   );
 }

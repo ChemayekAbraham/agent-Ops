@@ -101,10 +101,21 @@ const TAP_STYLE = { minHeight: 44, minWidth: 44, padding: '0 2px', border: 0, ba
  * a bottom sheet below. `label` names the panel for screen readers and is the
  * sheet's title.
  */
-export function Explain({ label, badge, children }: { label: string; badge: ReactNode; children: ReactNode }) {
+export function Explain({
+  label,
+  badge,
+  children,
+  sheet,
+}: {
+  label: string;
+  badge: ReactNode;
+  children: ReactNode;
+  /** Always the sheet, even from md: inside a DataList table cell (overflow hidden) a popover would be cut off. */
+  sheet?: boolean;
+}) {
   const md = atLeast(useBreakpoint(), 'md');
   const [open, setOpen] = useState(false);
-  if (md) {
+  if (md && !sheet) {
     return (
       <DeskPopover label={label} trigger={badge} triggerClass={TAP} triggerStyle={TAP_STYLE}>
         {() => <span style={{ ...stackLayout(8), display: 'flex' }} data-explain>{children}</span>}
@@ -117,11 +128,14 @@ export function Explain({ label, badge, children }: { label: string; badge: Reac
         {badge}
       </button>
       {open && (
-        <Sheet title={label} onClose={() => setOpen(false)}>
-          <div style={stackLayout(10)} data-explain>
-            {children}
-          </div>
-        </Sheet>
+        // Taps inside the sheet stay in the sheet: never the clickable row it sits in.
+        <span onClick={(e) => e.stopPropagation()} style={{ display: 'contents' }}>
+          <Sheet title={label} onClose={() => setOpen(false)}>
+            <div style={stackLayout(10)} data-explain>
+              {children}
+            </div>
+          </Sheet>
+        </span>
       )}
     </>
   );
