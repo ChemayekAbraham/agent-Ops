@@ -109,7 +109,8 @@ export interface FormFunnel {
   itemDone(item: FunnelItem): void;
   submitOk(rentRequestId: string): void;
   submitFail(error: string, items?: FunnelItem[] | null): void;
-  close(): void;
+  /** Closed without posting; `meta` e.g. { saved_draft: true }. */
+  close(meta?: Record<string, unknown>): void;
 }
 
 /**
@@ -179,10 +180,10 @@ export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormF
       const list = clean(items);
       emit('submit_fail', { p_error: error || 'unknown', p_items: list.length ? list : null });
     },
-    close() {
+    close(meta) {
       if (!opened || posted || closed) return;
       closed = true;
-      emit('close');
+      emit('close', meta ? { p_meta: meta } : {});
     },
   };
 }

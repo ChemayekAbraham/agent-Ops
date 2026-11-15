@@ -83,6 +83,10 @@ import {
 import { counted, createUploadCounter, sendButtonLabel, type SendProgress } from '@/lib/sendProgress';
 import { landlordCodeFromSearch, normalizeLandlordCode, recordLandlordReferral } from '@/lib/landlordReferral';
 import { createFormFunnel, funnelErrorCode, type FunnelItem, type FunnelStep } from '@/lib/formFunnel';
+import {
+  DRAFT_SAVED_MESSAGE, closeDraft, downloadDraftPhoto, draftsAvailable, fetchMyDrafts, newDraftFolder, onDraftsAvailability,
+  saveDraft, uploadDraftPhoto, type DraftPhoto, type DraftPhotoKind, type PostingDraftPayload,
+} from '@/lib/postingDrafts';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
@@ -341,6 +345,28 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     if (open) funnel.open(); else funnel.close();
   }, [open, tracking, funnel]);
   useEffect(() => () => funnel.close(), [funnel]);
+
+  // ----- E109: save and finish later -----
+  const [draftId, setDraftId] = useState<string | null>(request?.mode === 'new' ? request.draft?.id ?? null : null);
+  const [saveOffer, setSaveOffer] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftNote, setDraftNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [refusalItems, setRefusalItems] = useState<FunnelItem[]>([]);
+  const [draftsOk, setDraftsOk] = useState<boolean | null>(draftsAvailable());
+  const [jumpToMissing, setJumpToMissing] = useState(false);
+  /** Photos already stored for a draft, so a second save does not upload them again. */
+  const draftPaths = useRef(new WeakMap<File, DraftPhoto>());
+  const draftFolder = useRef(newDraftFolder());
+  useEffect(() => onDraftsAvailability(() => setDraftsOk(draftsAvailable())), []);
+  useEffect(() => {
+    // Learn once whether the draft RPCs exist; until they do, the button stays hidden.
+    if (open && tracking && draftsAvailable() === null) fetchMyDrafts().catch(() => {});
+  }, [open, tracking]);
+  /** A blocked press: logged for the funnel, and "Save and finish later" is offered. */
+  const blockedNow = (items: FunnelItem[], error?: string | null) => {
+    funnel.blocked(items, error);
+    setSaveOffer(true);
+  };
   useEffect(() => {
     if (!open || !tracking || typeof document === 'undefined') return;
     const onHide = () => { if (document.visibilityState === 'hidden') funnel.close(); };
@@ -497,6 +523,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setLandlordCode(typeof window === 'undefined' ? '' : landlordCodeFromSearch(window.location.search));
     setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
     setFixOffer(null); setWrongTries({});
+    setDraftId(null); setSaveOffer(false); setDraftNote(null); setRefusalItems([]); draftFolder.current = newDraftFolder();
     // "Post another": a new funnel session.
     if (tracking) funnel.open();
   }, [tracking, funnel]);
@@ -513,6 +540,65 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         // A failed look-up does not block: the database still refuses a duplicate.
         .catch((e) => { console.warn('[T4] open-request check failed', e); if (!cancelled) setOpenStatus(null); });
     };
+    if (request.mode === 'new' && request.draft) {
+      const f = (request.draft.payload?.fields ?? {}) as Record<string, any>;
+      const str = (v: unknown) => (typeof v === 'string' ? v : '');
+      if (f.planType) setPlanType(f.planType);
+      setRentText(str(f.rentText));
+      if (f.duration) setDuration(f.duration);
+      if (f.repaymentPeriod) setRepaymentPeriod(String(f.repaymentPeriod));
+      setTenantPhone(str(f.tenantPhone));
+      if (f.tenantNameParts) setTenantNameParts(f.tenantNameParts);
+      setNationalId(str(f.nationalId));
+      setLanguage(str(f.language));
+      if (typeof f.noSmartphone === 'boolean') setNoSmartphone(f.noSmartphone);
+      setFamilySize(str(f.familySize));
+      setWork(str(f.work));
+      setWorkLocation(str(f.workLocation));
+      if (f.landlord) setLandlord(f.landlord);
+      if (f.house) setHouse(f.house);
+      if (typeof f.houseChoiceMade === 'boolean') setHouseChoiceMade(f.houseChoiceMade);
+      if (f.location) setLocation(f.location);
+      setAddress(str(f.address));
+      setDistrict(str(f.district));
+      setCategory(str(f.category));
+      if (f.faceCheck) setFaceCheck(f.faceCheck);
+      if (f.gps) setGps(f.gps);
+      setLc1Phone(str(f.lc1Phone));
+      if (f.lc1Match) setLc1Match(f.lc1Match);
+      if (f.lc1Mode) setLc1Mode(f.lc1Mode);
+      if (f.lc1NameParts) setLc1NameParts(f.lc1NameParts);
+      setLc1Village(str(f.lc1Village));
+      setCity(str(f.city));
+      if (typeof f.noLc1Letter === 'boolean') setNoLc1Letter(f.noLc1Letter);
+      setNoLc1Reason(str(f.noLc1Reason));
+      setPayoutDay(str(f.payoutDay));
+      if (str(f.landlordCode)) setLandlordCode(str(f.landlordCode));
+      const ph = request.draft.payload?.photos;
+      void (async () => {
+        const back = async (d: DraftPhoto | null | undefined, name: string): Promise<Photo | null> => {
+          const file = await downloadDraftPhoto(d, name);
+          if (!file || !d) return null;
+          draftPaths.current.set(file, d);
+          return { file, preview: URL.createObjectURL(file) };
+        };
+        const [house4, tp, front, backSide, letter] = await Promise.all([
+          Promise.all([0, 1, 2, 3].map((i) => back(ph?.house?.[i], `house_${i}.jpg`))),
+          back(ph?.tenantPhoto, 'tenant_photo.jpg'),
+          back(ph?.idFront, 'id_front.jpg'),
+          back(ph?.idBack, 'id_back.jpg'),
+          back(ph?.lcLetter, 'lc_letter.jpg'),
+        ]);
+        if (cancelled) return;
+        setHousePhotos(house4);
+        setTenantPhoto(tp);
+        setIdFront(front);
+        setIdBack(backSide);
+        setLcLetter(letter);
+        setJumpToMissing(true);
+      })();
+      return () => { cancelled = true; };
+    }
     if (request.mode === 'new') {
       const p = request.prefill;
       if (!p) return;
@@ -918,7 +1004,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
   /** Rejects a wrong answer: says what is wrong, offers a fix if there is one, adds a tip on the third try. */
   const reject = (s: StepId, problem: string, text = draft) => {
-    if (tracking) funnel.blocked([STEP_FUNNEL_ITEM[s] ?? 'other']);
+    if (tracking) blockedNow([STEP_FUNNEL_ITEM[s] ?? 'other']);
     const tries = (wrongTries[s] ?? 0) + 1;
     setWrongTries((t) => ({ ...t, [s]: tries }));
     const tip = tries >= 3 ? tipFor(s) : null;
@@ -943,11 +1029,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     }
     if (verdict.status === 'free') return true;
     if (verdict.status === 'unknown') {
-      if (tracking) funnel.blocked(['other'], 'record_check_unavailable');
+      if (tracking) blockedNow(['other'], 'record_check_unavailable');
       setError('I couldn’t check Welile’s records just now. Check your connection and send it again.');
       return false;
     }
-    if (tracking) funnel.blocked(['duplicate']);
+    if (tracking) blockedNow(['duplicate']);
     setRecordBlock(blockFor(step, verdict.hit === 'self', value));
     return false;
   }
@@ -1198,18 +1284,18 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     if (mode === 'renewal') return postRenewalPlan();
     if (!user || !fees || !landlord || !tenantPhoto || posting) return;
     if (missing.length) {
-      funnel.blocked(t4FunnelItems(missing.map((m) => m.key)));
+      blockedNow(t4FunnelItems(missing.map((m) => m.key)));
       setError(`Still missing: ${missing.map((m) => m.label).join(', ')}.`);
       return;
     }
-    if (!consent) { funnel.blocked(['agreement']); setError('Tick the box to accept guarantor responsibility.'); return; }
+    if (!consent) { blockedNow(['agreement']); setError('Tick the box to accept guarantor responsibility.'); return; }
     // Required intake: every step checks its own answer; this catches anything skipped.
     const intakeMissing = (!isFullName(tenantName) && 'Type the tenant’s full name (first and last), as on the ID.')
       || familySizeProblem(familySize)
       || workProblem(work)
       || lc1LetterProblem({ hasLetter: !!lcLetter, noLetterYet: noLc1Letter, reason: noLc1Reason });
     if (intakeMissing) {
-      funnel.blocked([
+      blockedNow([
         !isFullName(tenantName) ? 'other'
           : familySizeProblem(familySize) ? 'family_size'
             : workProblem(work) ? 'work'
@@ -1232,7 +1318,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     const [phoneNow, ninNow] = await Promise.all([checkTenantPhone(tenantPhone, agentSelf), checkNationalId(nationalId, agentSelf)]);
     for (const [step, verdict, value] of [['tenantPhone', phoneNow, tenantPhone], ['nationalId', ninNow, nationalId]] as const) {
       if (verdict.status === 'taken') {
-        funnel.blocked(['duplicate']);
+        blockedNow(['duplicate']);
         setPosting(false);
         setSendProgress(null);
         setCurrent(step);
@@ -1240,7 +1326,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         return;
       }
       if (verdict.status === 'unknown') {
-        funnel.blocked(['other'], 'record_check_unavailable');
+        blockedNow(['other'], 'record_check_unavailable');
         setPosting(false);
         setSendProgress(null);
         setError('I couldn’t check Welile’s records just now. Check your connection and tap Post again.');
@@ -1284,6 +1370,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     });
     if (res.ok) {
       funnel.submitOk(res.rentRequestId);
+      if (draftId) void closeDraft(draftId, 'posted', res.rentRequestId);
       setPosting(false);
       setSendProgress({ phase: 'sent' });
       hapticSuccess();
@@ -1312,7 +1399,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     // The server refused: a blocked press and a failed submit, with the server's error code.
     const refusalItems: FunnelItem[] = [REFUSAL_FUNNEL_ITEM[fail.reason] ?? 'other'];
     const refusalCode = funnelErrorCode(fail.message, fail.reason);
-    funnel.blocked(refusalItems, refusalCode);
+    setRefusalItems(refusalItems);
+    blockedNow(refusalItems, refusalCode);
     funnel.submitFail(refusalCode, refusalItems);
     if (fail.raw && promptIfNotVetted(fail.raw, fail.message)) {
       setError(agentNotVettedReason(fail.raw) ?? agentNotVettedReason(fail.message) ?? fail.message);
@@ -1361,6 +1449,85 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       if (item) funnel.itemDone(item);
     }
   }, [doneKey, open, tracking, funnel]);
+  useEffect(() => {
+    if (!jumpToMissing) return;
+    setJumpToMissing(false);
+    const first = missing.map((m) => ITEM_STEP[m.key]).find((st): st is StepId => !!st && steps.includes(st));
+    setFurthest('review');
+    setCurrent(first ?? 'review');
+  }, [jumpToMissing, missing, steps]);
+
+  /** Everything entered so far, photos as storage paths (uploaded now when new). */
+  const handleSaveDraft = async () => {
+    if (!user || savingDraft) return;
+    setSavingDraft(true);
+    setDraftNote(null);
+    try {
+      const store = async (ph: Photo | null, kind: DraftPhotoKind, i = 0): Promise<DraftPhoto | null> => {
+        if (!ph?.file) return null;
+        const known = draftPaths.current.get(ph.file);
+        if (known) return known;
+        const stored = await uploadDraftPhoto(user.id, draftFolder.current, kind, ph.file, i);
+        draftPaths.current.set(ph.file, stored);
+        return stored;
+      };
+      const [house4, tp, front, backSide, letter] = await Promise.all([
+        Promise.all(housePhotos.map((ph, i) => store(ph, 'house', i))),
+        store(tenantPhoto, 'tenant_photo'),
+        store(idFront, 'id_front'),
+        store(idBack, 'id_back'),
+        store(lcLetter, 'lc1_letter'),
+      ]);
+      const payload: PostingDraftPayload = {
+        v: 1,
+        fields: {
+          planType, rentText, duration, repaymentPeriod, tenantPhone, tenantNameParts, nationalId, language, noSmartphone,
+          familySize, work, workLocation, landlord, house, houseChoiceMade, location, address, district, category,
+          faceCheck, gps, lc1Phone, lc1Match, lc1Mode, lc1NameParts, lc1Village, city, noLc1Letter, noLc1Reason, payoutDay, landlordCode,
+        },
+        photos: { house: house4, tenantPhoto: tp, idFront: front, idBack: backSide, lcLetter: letter },
+      };
+      const missingItems = Array.from(new Set([...t4FunnelItems(missing.map((m) => m.key)), ...refusalItems]));
+      const res = await saveDraft({
+        payload,
+        missing: missingItems.length ? missingItems : ['other'],
+        tenantName: tenantName || null,
+        tenantPhone: tenantPhone || null,
+        draftId,
+        session: funnel.session,
+      });
+      if ('id' in res) {
+        setDraftId(res.id || draftId);
+        setDraftNote({ ok: true, text: DRAFT_SAVED_MESSAGE });
+        funnel.close({ saved_draft: true });
+      } else if (!res.missingRpc) {
+        // The RPC not being there hides the button (draftsOk); anything else is said as it came.
+        setDraftNote({ ok: false, text: res.message });
+      }
+    } catch (e) {
+      setDraftNote({ ok: false, text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+  const showSaveDraft = tracking && draftsOk === true && !result;
+  const saveDraftBlock = (
+    <div className="flex flex-col gap-1" data-testid="save-draft">
+      <button
+        type="button"
+        onClick={() => void handleSaveDraft()}
+        disabled={savingDraft}
+        className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-primary/40 bg-background text-sm font-semibold text-primary disabled:opacity-60"
+      >
+        {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {savingDraft ? 'Saving…' : draftId ? 'Save changes for later' : 'Save and finish later'}
+      </button>
+      {draftNote && (
+        <p className={cn('text-xs', draftNote.ok ? 'text-success' : 'text-destructive')} role="status">{draftNote.text}</p>
+      )}
+    </div>
+  );
+
   const fixItem = (k: T4ItemKey) => {
     const s = ITEM_STEP[k];
     if (!s) return;
@@ -1657,6 +1824,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
       {!result && current !== 'review' && (
         <footer className="border-t border-border bg-card px-3 pb-safe pt-2.5">
+          {showSaveDraft && saveOffer && <div className="mx-auto max-w-xl pb-2">{saveDraftBlock}</div>}
           <div className="mx-auto flex max-w-xl items-center gap-2 pb-3">
             {isTextStep ? (
               <form
@@ -2040,10 +2208,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             )}
             {mode === 'new' && <GuarantorConsentCheckbox checked={consent} onCheckedChange={(c) => { setConsent(c); setError(null); }} />}
             <MissingChecklist items={missing} onFix={fixItem} />
+            {showSaveDraft && (missing.length > 0 || saveOffer) && saveDraftBlock}
             {/* A tap on the disabled button lands on this wrapper: still a blocked press (E108). */}
             <div
               className="flex flex-col"
-              onClick={() => { if (tracking && !posting && missing.length > 0) funnel.blocked(t4FunnelItems(missing.map((m) => m.key))); }}
+              onClick={() => { if (tracking && !posting && missing.length > 0) blockedNow(t4FunnelItems(missing.map((m) => m.key))); }}
               data-testid="send-button-wrap"
             >
             <button

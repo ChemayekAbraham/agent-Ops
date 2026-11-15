@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { PostingDraftsList } from '@/components/agent/PostingDraftsList';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -302,6 +303,8 @@ export function AgentMyRentRequestsSheet({ open, onOpenChange }: AgentMyRentRequ
         </SheetHeader>
 
         <ScrollArea className="flex-1 px-4 py-3">
+          {/* E109: requests saved to finish later. Continue reopens the chat over this sheet. */}
+          <PostingDraftsList onContinue={() => onOpenChange(false)} />
           <div className="mb-4">
             <AgentRejectedRequestsSection />
           </div>
