@@ -58,6 +58,9 @@ const ProxyPartnerWithdrawalHarness = lazyWithRetry(
 const RentRequestChatHarness = lazyWithRetry(
   () => import("@/pages/__e2e/RentRequestChatHarness"),
 );
+const PromissoryNoteHarness = lazyWithRetry(
+  () => import("@/pages/__e2e/PromissoryNoteHarness"),
+);
 const FunderV3Harness = lazyWithRetry(
   () => import("@/pages/__e2e/FunderV3Harness"),
 );
@@ -739,6 +742,16 @@ function AppRoutes() {
               element={
                 <Suspense fallback={null}>
                   <DeskReviewHarness />
+                </Suspense>
+              }
+            />
+          )}
+          {import.meta.env.DEV && (
+            <Route
+              path="/__e2e/promissory-note"
+              element={
+                <Suspense fallback={null}>
+                  <PromissoryNoteHarness />
                 </Suspense>
               }
             />
