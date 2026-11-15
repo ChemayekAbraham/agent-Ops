@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useCcSubjectCallHistory } from '@/hooks/useCcSubjectCallHistory';
-import { formatUGX } from '@/lib/rentCalculations';
+import { awarenessLabel, callResultLabel, consentLabel } from '@/lib/awarenessCallLabels';
 import { CcEmptyState, CcPill, formatHumanLabel } from './ccUi';
 
 export interface LandlordTimelineDrawerProps {
@@ -79,7 +79,7 @@ export function LandlordTimelineDrawer({
         const { data } = await supabase
           .from('rent_requests')
           .select(
-            'id, rent_amount, status, landlord_called, landlord_called_at, landlord_called_by, landlord_call_notes, created_at',
+            'id, rent_amount, status, landlord_called, landlord_call_notes, created_at',
           )
           .eq('landlord_id', effectiveLandlordId)
           .order('created_at', { ascending: false })
@@ -101,27 +101,27 @@ export function LandlordTimelineDrawer({
       const awarenessMap = new Map<string, any>();
 
       if (planIds.length > 0) {
-        const { data } = await (supabase as any)
+        const { data } = await supabase
           .from('rent_pipeline_awareness_calls')
           .select(
-            'id, rent_request_id, subject_type, answered, aware_of_welile, consents_to_program, aware_payout_otp, call_summary, called_by_name, created_at, phone_called',
+            'id, rent_request_id, subject_type, call_result, aware_30m, landlord_consent, aware_payout_otp, note, caller_id, recorded_at, subject_phone',
           )
           .eq('subject_type', 'landlord')
           .in('rent_request_id', planIds)
-          .order('created_at', { ascending: false })
+          .order('recorded_at', { ascending: false })
           .limit(50);
         for (const row of data ?? []) awarenessMap.set(row.id, row);
       }
 
       if (userId) {
-        const { data } = await (supabase as any)
+        const { data } = await supabase
           .from('rent_pipeline_awareness_calls')
           .select(
-            'id, rent_request_id, subject_type, answered, aware_of_welile, consents_to_program, aware_payout_otp, call_summary, called_by_name, created_at, phone_called',
+            'id, rent_request_id, subject_type, call_result, aware_30m, landlord_consent, aware_payout_otp, note, caller_id, recorded_at, subject_phone',
           )
           .eq('subject_type', 'landlord')
           .eq('subject_user_id', userId)
-          .order('created_at', { ascending: false })
+          .order('recorded_at', { ascending: false })
           .limit(50);
         for (const row of data ?? []) awarenessMap.set(row.id, row);
       }
@@ -163,45 +163,28 @@ export function LandlordTimelineDrawer({
     // Awareness calls
     for (const aw of extraHistory.data?.awarenessCalls ?? []) {
       const outcomeParts: string[] = [];
-      if (aw.answered) outcomeParts.push('Answered');
-      else outcomeParts.push('Not Answered');
-      if (aw.consents_to_program === 'yes') outcomeParts.push('Consented to Program');
-      if (aw.aware_payout_otp === 'yes') outcomeParts.push('Confirmed Payout Security');
+      outcomeParts.push(callResultLabel(aw.call_result));
+      if (aw.landlord_consent) outcomeParts.push(consentLabel(aw.landlord_consent));
+      if (aw.aware_payout_otp) outcomeParts.push(`Payment code: ${awarenessLabel(aw.aware_payout_otp)}`);
 
       list.push({
         id: `aw-${aw.id}`,
         source: 'awareness',
-        occurredAt: aw.created_at,
+        occurredAt: aw.recorded_at,
         title: 'Rent Plan Awareness Call',
         outcomeLabel: outcomeParts.join(' · ') || 'Recorded',
-        callerName: aw.called_by_name ?? null,
-        phone: aw.phone_called ?? null,
-        notes: aw.call_summary ?? null,
-        meta: aw.aware_of_welile
-          ? `Aware of Welile: ${formatHumanLabel(String(aw.aware_of_welile))}`
+        callerName: null,
+        phone: aw.subject_phone ?? null,
+        notes: aw.note ?? null,
+        meta: aw.aware_30m
+          ? `30M access: ${awarenessLabel(aw.aware_30m)}`
           : null,
-        tone: aw.answered ? 'violet' : 'slate',
+        tone: aw.call_result === 'answered' ? 'violet' : 'slate',
       });
     }
 
-    // Verification calls on Rent Plans
-    for (const rp of extraHistory.data?.rentPlans ?? []) {
-      if (rp.landlord_called || rp.landlord_called_at) {
-        const when = rp.landlord_called_at || rp.created_at;
-        list.push({
-          id: `ver-rp-${rp.id}`,
-          source: 'verification',
-          occurredAt: when,
-          title: 'Rent Plan Verification Call',
-          outcomeLabel: 'Landlord Verified on Rent Plan',
-          callerName: null,
-          phone: null,
-          notes: rp.landlord_call_notes ?? null,
-          meta: rp.rent_amount ? `Rent Plan amount: ${formatUGX(Number(rp.rent_amount))}` : null,
-          tone: 'emerald',
-        });
-      }
-    }
+    // Rent Plans have no landlord-call timestamp; their creation date must
+    // not stand in for a verification event. Dated calls are listed above.
 
     // Landlord profile verification
     const lr = extraHistory.data?.landlordRec;

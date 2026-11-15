@@ -1026,7 +1026,7 @@ function RecentRequestsPreview({ onOpen }: { onOpen: () => void }) {
     queryFn: async () => {
       const { data } = await supabase
         .from('rent_requests')
-        .select('id, agent_id, amount_requested, status, created_at, tenant_id')
+        .select('id, agent_id, rent_amount, status, created_at, tenant_id')
         .order('created_at', { ascending: false })
         .limit(10);
       if (!data || data.length === 0) return [];
@@ -1046,7 +1046,7 @@ function RecentRequestsPreview({ onOpen }: { onOpen: () => void }) {
           <span className="text-xs text-muted-foreground w-16">{format(new Date(r.created_at), 'd MMM HH:mm')}</span>
           <span className="flex-1 truncate">{r.tenant_name} <span className="text-muted-foreground">← {r.agent_name}</span></span>
           <Badge variant="outline" className="text-[10px]">{r.status}</Badge>
-          <span className="font-semibold tabular-nums text-xs">{fmtMoney(r.amount_requested || 0)}</span>
+          <span className="font-semibold tabular-nums text-xs">{fmtMoney(r.rent_amount || 0)}</span>
         </div>
       ))}
       <button onClick={onOpen} className="w-full text-xs text-primary hover:underline flex items-center justify-center gap-1 pt-2">

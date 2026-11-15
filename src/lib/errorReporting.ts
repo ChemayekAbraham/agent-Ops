@@ -125,8 +125,11 @@ export async function reportClientError(input: ErrorReportInput): Promise<boolea
   if (input.source !== 'manual' && shouldDedupe(signature)) return true;
 
   try {
+    // Anonymous callers cannot insert reports. Skip without a warning or retry.
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) return true;
     const { error } = await supabase.from('client_error_reports').insert({
-      user_id: currentTags.userId,
+      user_id: session.user.id,
       role: currentTags.role,
       label: input.label ?? null,
       route,
@@ -142,6 +145,9 @@ export async function reportClientError(input: ErrorReportInput): Promise<boolea
       },
     });
     if (error) {
+      // A session can expire between the check and insert. Treat denial as
+      // handled so the error boundary does not offer to resend it.
+      if (error.code === '42501' || error.code === 'PGRST301' || /permission denied|row-level security|jwt.*expired/i.test(error.message)) return true;
       console.warn('[errorReporting] insert failed:', error.message);
       return false;
     }
