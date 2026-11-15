@@ -86,10 +86,10 @@ const next = async () => {
   fireEvent.click(continueBtn());
 };
 
-function renderPage() {
+function renderPage(path = '/tenants-onboarding') {
   return render(
     <HelmetProvider>
-      <MemoryRouter initialEntries={['/tenants-onboarding']}>
+      <MemoryRouter initialEntries={[path]}>
         <TenantsOnboarding />
       </MemoryRouter>
     </HelmetProvider>,
@@ -97,8 +97,8 @@ function renderPage() {
 }
 
 /** Walks steps 1-4; leaves the form on step 5 (landlord and LC1). */
-async function fillToVerification({ housePhotos = 3, nin = 'CM9001234567AB', idFront = true, idBack = true } = {}) {
-  renderPage();
+async function fillToVerification({ housePhotos = 3, nin = 'CM9001234567AB', idFront = true, idBack = true, path = '/tenants-onboarding' } = {}) {
+  renderPage(path);
   fireEvent.click(await screen.findByRole('button', { name: /Daily income earner/ }));
   await next();
   type('500,000', '300000');
@@ -264,5 +264,66 @@ describe('Tenant "Request rent here": Submit stays locked until everything is in
     fireEvent.click(screen.getByRole('button', { name: /Submit rent request/ }));
     expect(await screen.findByText(/Add the LC1 chairperson's name and phone, or a photo of the LC1 letter/)).toBeInTheDocument();
     expect(mocks.rpc).not.toHaveBeenCalledWith('tenant_save_intake_details', expect.anything());
+  });
+});
+
+describe('E107: landlord referral code', () => {
+  // The page keeps a draft (with the code) in localStorage; each test starts clean.
+  beforeEach(() => { try { localStorage.clear(); } catch { /* ignore */ } });
+
+  /** Steps 5 and 6 to the end screen, from fillToVerification. */
+  async function submitFromVerification() {
+    await next();
+    fireEvent.click(screen.getByRole('button', { name: 'Pick landlord' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pick LC1' }));
+    await addLcLetter();
+  }
+
+  it('?ref=L4K7Q2M9X fills the optional code field; an agent id in ?ref does not', async () => {
+    await fillToVerification({ path: '/tenants-onboarding?ref=l4k7q2m9x' });
+    await next();
+    expect(screen.getByLabelText('Landlord referral code')).toHaveValue('L4K7Q2M9X');
+    // A landlord code is not an agent: it is never sent as the tenant's referrer.
+    expect(mocks.rpc).not.toHaveBeenCalledWith('claim_tenant_referrer', expect.anything());
+  });
+
+  it('an agent invite link (?ref=<agent id>) leaves the code empty and still claims the agent', async () => {
+    const agentId = '11111111-2222-4333-8444-555555555555';
+    await fillToVerification({ path: `/tenants-onboarding?ref=${agentId}&become=tenant` });
+    await next();
+    expect(screen.getByLabelText('Landlord referral code')).toHaveValue('');
+    expect(mocks.rpc).toHaveBeenCalledWith('claim_tenant_referrer', { p_referrer_id: agentId });
+  });
+
+  it('an unknown code never blocks: the request is sent and "Code not recognised" is shown', async () => {
+    mocks.rpc.mockImplementation(async (fn: string) => (
+      fn === 'landlord_referral_record' ? { data: { ok: false, reason: 'unknown_code' }, error: null } : { data: { ok: true }, error: null }
+    ));
+    await fillToVerification({ path: '/tenants-onboarding?ref=LZZZZZZZZ' });
+    await submitFromVerification();
+    await next();
+    fireEvent.click(screen.getByRole('checkbox'));
+    const submit = screen.getByRole('button', { name: /Submit rent request/ });
+    await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.click(submit);
+
+    expect(await screen.findByText('Sent to Welile. An agent near you will be assigned to visit and confirm your house.')).toBeInTheDocument();
+    expect(mocks.rpc).toHaveBeenCalledWith('landlord_referral_record', { p_rent_request_id: 'req-1', p_code: 'LZZZZZZZZ' });
+    expect(screen.getByTestId('landlord-referral-note')).toHaveTextContent('Landlord referral code LZZZZZZZZ: Code not recognised. Your request was still sent.');
+  });
+
+  it('a code typed by hand is recorded too; no code means no call', async () => {
+    await fillToVerification();
+    await submitFromVerification();
+    fireEvent.change(screen.getByLabelText('Landlord referral code'), { target: { value: 'l4k7-q2m9x' } });
+    expect(screen.getByLabelText('Landlord referral code')).toHaveValue('L4K7Q2M9X');
+    await next();
+    fireEvent.click(screen.getByRole('checkbox'));
+    const submit = screen.getByRole('button', { name: /Submit rent request/ });
+    await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.click(submit);
+    expect(await screen.findByText(/Sent to Welile\. An agent near you/)).toBeInTheDocument();
+    expect(mocks.rpc).toHaveBeenCalledWith('landlord_referral_record', { p_rent_request_id: 'req-1', p_code: 'L4K7Q2M9X' });
+    expect(screen.queryByTestId('landlord-referral-note')).toBeNull();
   });
 });

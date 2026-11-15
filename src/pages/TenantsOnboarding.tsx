@@ -48,6 +48,7 @@ import {
   type TenantItemKey,
 } from '@/lib/tenantSelfRequest';
 import { createSendTimer } from '@/lib/sendProgress';
+import { isLandlordReferralCode, landlordCodeFromSearch, normalizeLandlordCode, recordLandlordReferral } from '@/lib/landlordReferral';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { NationalIdConsentDialog } from '@/components/shared/NationalIdConsentDialog';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
@@ -187,7 +188,7 @@ export default function TenantsOnboarding() {
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState<{ id: string; intakeError: string | null } | null>(null);
+  const [submitted, setSubmitted] = useState<{ id: string; intakeError: string | null; referralError?: string | null } | null>(null);
 
   /* Existing-application gate. A tenant who already has a request in progress
      (or a live plan) must not fill this form again — it would put them through
@@ -271,6 +272,8 @@ export default function TenantsOnboarding() {
   const [newLandlordPhone, setNewLandlordPhone] = useState('');
   const [lc1, setLc1] = useState<Lc1Selection | null>(null);
   const [note, setNote] = useState('');
+  /* Landlord referral code (E107): optional, prefilled from a landlord's link (?ref=L…). */
+  const [landlordCode, setLandlordCode] = useState(() => landlordCodeFromSearch(routeLocation.search));
 
   /* ------------------------------------------------------ referral claim ---
      The short link arrives as /tenants-onboarding?ref=<agent id>. That id is
@@ -287,7 +290,8 @@ export default function TenantsOnboarding() {
   useEffect(() => {
     if (!user) return;
     const ref = new URLSearchParams(routeLocation.search).get('ref');
-    if (!ref || ref === user.id) return;
+    // A landlord referral code (L + 8) is not an agent; it is recorded with the request.
+    if (!ref || ref === user.id || isLandlordReferralCode(ref)) return;
     void (async () => {
       try {
         await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<unknown>)(
@@ -335,6 +339,8 @@ export default function TenantsOnboarding() {
       if (typeof d.newLandlordName === 'string') setNewLandlordName(d.newLandlordName);
       if (typeof d.newLandlordPhone === 'string') setNewLandlordPhone(d.newLandlordPhone);
       if (typeof d.note === 'string') setNote(d.note);
+      // A code in today's link wins over one in an older draft.
+      if (typeof d.landlordCode === 'string') setLandlordCode((cur) => cur || normalizeLandlordCode(String(d.landlordCode)));
       setSaveState('saved');
     } catch { /* a corrupt or unavailable draft is not worth failing over */ }
     // Restore once per user, on mount.
@@ -348,7 +354,7 @@ export default function TenantsOnboarding() {
         localStorage.setItem(draftKey, JSON.stringify({
           earner, rentInput, durationDays, firstName, lastName, phone, nin, nationalIdName,
           occupation, familySize, workLocation, language, noSmartphone, houseType, address,
-          newLandlordName, newLandlordPhone, note,
+          newLandlordName, newLandlordPhone, note, landlordCode,
         }));
         setSaveState('saved');
       } catch {
@@ -359,7 +365,7 @@ export default function TenantsOnboarding() {
     return () => clearTimeout(t);
   }, [draftKey, submitted, earner, rentInput, durationDays, firstName, lastName,
       phone, nin, nationalIdName, occupation, familySize, workLocation, language, noSmartphone, houseType, address,
-      newLandlordName, newLandlordPhone, note]);
+      newLandlordName, newLandlordPhone, note, landlordCode]);
 
   const rentAmount = Number(rentInput.replace(/\D/g, '')) || 0;
   const calc = useMemo(
@@ -723,19 +729,27 @@ export default function TenantsOnboarding() {
       const requestId = String(dataObj?.rent_request_id || '');
       // The intake Agent Ops checks. The request is kept even if this fails; its message is shown as-is.
       setSubmitStage({ stage: 'saving' });
-      const intake = requestId
-        ? await timer.step('intake', saveTenantIntake(requestId, {
-            familySize: parseFamilySize(familySize),
-            workBusiness: occupation,
-            workLocation,
-            lc1Contact: lc1?.name?.trim() && lc1?.phone ? `${lc1.name.trim()}, ${lc1.phone}` : null,
-            lcLetterBucket: typeof dataObj?.lc_letter_bucket === 'string' ? dataObj.lc_letter_bucket : null,
-            lcLetterPath: typeof dataObj?.lc_letter_path === 'string' ? dataObj.lc_letter_path : null,
-          }))
-        : { ok: false, message: 'The request was created but no reference came back. Contact Welile support.' };
+      // The landlord referral code is recorded alongside; it never blocks the request (E107).
+      const [intake, referral] = await Promise.all([
+        requestId
+          ? timer.step('intake', saveTenantIntake(requestId, {
+              familySize: parseFamilySize(familySize),
+              workBusiness: occupation,
+              workLocation,
+              lc1Contact: lc1?.name?.trim() && lc1?.phone ? `${lc1.name.trim()}, ${lc1.phone}` : null,
+              lcLetterBucket: typeof dataObj?.lc_letter_bucket === 'string' ? dataObj.lc_letter_bucket : null,
+              lcLetterPath: typeof dataObj?.lc_letter_path === 'string' ? dataObj.lc_letter_path : null,
+            }))
+          : Promise.resolve({ ok: false, message: 'The request was created but no reference came back. Contact Welile support.' }),
+        requestId ? recordLandlordReferral(requestId, landlordCode) : Promise.resolve(null),
+      ]);
       outcome = 'ok';
       setSubmitStage({ stage: 'sent' });
-      setSubmitted({ id: requestId, intakeError: intake.ok ? null : intake.message });
+      setSubmitted({
+        id: requestId,
+        intakeError: intake.ok ? null : intake.message,
+        referralError: referral && 'message' in referral ? referral.message : null,
+      });
       /* The draft has served its purpose — drop it so a returning tenant does
          not reopen a stale copy of a request they already sent. */
       try {
@@ -1040,6 +1054,15 @@ export default function TenantsOnboarding() {
                   Sent to Welile. An agent near you will be assigned to visit and confirm your house.
                 </p>
               </div>
+
+              {submitted.referralError && (
+                <div role="status" className="flex items-start gap-2.5 rounded-xl border border-warning/40 bg-warning/5 p-3.5" data-testid="landlord-referral-note">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                  <p className="text-[13px] leading-relaxed">
+                    <span className="font-bold">Landlord referral code {normalizeLandlordCode(landlordCode)}:</span> {submitted.referralError}. Your request was still sent.
+                  </p>
+                </div>
+              )}
 
               {submitted.intakeError && (
                 <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-destructive/40 bg-destructive/5 p-3.5">
@@ -1762,6 +1785,12 @@ export default function TenantsOnboarding() {
                 <Field label="Anything else we should know?">
                   <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)}
                     placeholder="Optional — tell us anything that helps the verification team." />
+                </Field>
+
+                <Field label="Landlord referral code" hint="Optional. From your landlord's link: L followed by 8 letters or numbers.">
+                  <Input value={landlordCode} onChange={(e) => setLandlordCode(normalizeLandlordCode(e.target.value))}
+                    placeholder="e.g. L4K7Q2M9X" autoCapitalize="characters" autoComplete="off" spellCheck={false}
+                    aria-label="Landlord referral code" className="font-mono uppercase" />
                 </Field>
               </div>
             )}

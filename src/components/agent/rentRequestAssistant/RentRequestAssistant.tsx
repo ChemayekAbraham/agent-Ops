@@ -81,6 +81,8 @@ import {
   type TenantRecord,
 } from '@/lib/t4RentRequestSubmit';
 import { counted, createUploadCounter, sendButtonLabel, type SendProgress } from '@/lib/sendProgress';
+import { landlordCodeFromSearch, normalizeLandlordCode, recordLandlordReferral } from '@/lib/landlordReferral';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
   computeAssistantFees,
@@ -298,6 +300,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [noLc1Reason, setNoLc1Reason] = useState('');
   const [payoutDay, setPayoutDay] = useState('');
   const [consent, setConsent] = useState(false);
+  /** Landlord referral code (E107): optional, prefilled from the page link (?ref=L…). */
+  const [landlordCode, setLandlordCode] = useState(() => (typeof window === 'undefined' ? '' : landlordCodeFromSearch(window.location.search)));
   // ----- resubmit / renewal -----
   const [resubmitDays, setResubmitDays] = useState('');
   const [note, setNote] = useState('');
@@ -376,6 +380,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     lc1NoteError: string | null;
     /** Document photos that were not stored or attached, with the server's message. */
     docErrors: string[];
+    /** The landlord referral code was not recorded ("Code not recognised", or the server's words). */
+    referralError?: string | null;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const greeting = useMemo(greetingNow, [open]);
@@ -437,6 +443,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setDistrict(''); setCategory(''); setHousePhotos([null, null, null, null]); setTenantPhoto(null); setFaceCheck(null);
     setGps(null); setLc1Phone(''); setLc1Match(null); setLc1Mode(null); setLc1NameParts({ firstName: '', otherNames: '', lastName: '' });
     setLc1Village(''); setCity(''); setLcLetter(null); setNoLc1Letter(false); setNoLc1Reason(''); setPayoutDay(''); setConsent(false);
+    setLandlordCode(typeof window === 'undefined' ? '' : landlordCodeFromSearch(window.location.search));
     setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
     setFixOffer(null); setWrongTries({});
   }, []);
@@ -1217,6 +1224,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         lc1NoteError: res.lc1NoteError,
         docErrors: [],
       });
+      // E107: the landlord referral code is recorded on the saved request. It never blocks or
+      // delays the request; an unknown code is only noted on the "sent" screen.
+      const newId = res.rentRequestId;
+      void recordLandlordReferral(newId, landlordCode).then((o) => {
+        if (o && 'message' in o) setResult((r) => (r && r.id === newId ? { ...r, referralError: o.message } : r));
+      });
       onSuccess?.(res.rentRequestId);
       request?.onDone?.(res.rentRequestId);
       return;
@@ -1534,6 +1547,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                   )}
                   {result.lc1AttachError && (
                     <Bot><Bubble tone="warn"><b>LC1 letter not saved:</b> {result.lc1AttachError}</Bubble></Bot>
+                  )}
+                  {result.referralError && (
+                    <Bot><Bubble tone="warn"><span data-testid="landlord-referral-note"><b>Landlord referral code {landlordCode}:</b> {result.referralError}. The request was still sent.</span></Bubble></Bot>
                   )}
                   {result.intakeError && (
                     <Bot>
@@ -1916,10 +1932,27 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
               <Row k="Household" v={answerOf('familySize')} />
               <Row k="Work" v={`${work}${workLocation ? ` · ${workLocation}` : ''}`} />
               <Row k="Landlord paid on" v={`The ${ordinal(payoutDay)}`} />
+              {landlordCode && <Row k="Landlord referral code" v={landlordCode} />}
               </>
               )}
             </div>
             {mode === 'renewal' && <p className="text-sm text-muted-foreground">Next you set the new rent and days, then {tenantNameParts.firstName || 'the tenant'} confirms with the code we text them.</p>}
+            {mode === 'new' && (
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-semibold">Landlord referral code <span className="font-normal text-muted-foreground">(optional)</span></span>
+                <Input
+                  value={landlordCode}
+                  onChange={(e) => setLandlordCode(normalizeLandlordCode(e.target.value))}
+                  placeholder="e.g. L4K7Q2M9X"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-label="Landlord referral code"
+                  className="h-11 font-mono uppercase"
+                />
+                <span className="text-xs text-muted-foreground">From the landlord&apos;s link: L followed by 8 letters or numbers.</span>
+              </label>
+            )}
             {mode === 'new' && <GuarantorConsentCheckbox checked={consent} onCheckedChange={(c) => { setConsent(c); setError(null); }} />}
             <MissingChecklist items={missing} onFix={fixItem} />
             <button
