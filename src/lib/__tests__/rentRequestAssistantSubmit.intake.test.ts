@@ -155,3 +155,32 @@ describe('DOCS-1: the three document photos go in the insert', () => {
     expect(res).toMatchObject({ ok: false, message: refusal });
   });
 });
+
+describe('E63: no rent cap', () => {
+  const fees400 = { rentAmount: 400000, durationDays: 30, accessFee: 1, requestFee: 1, totalRepayment: 400002, dailyRepayment: 13334 };
+
+  it('posts 400,000 as it is: no cap check before the insert', async () => {
+    serveRpcs();
+    const inserts: unknown[] = [];
+    mocks.from.mockImplementation((table: string) => {
+      const b = builder(table === 'rent_requests' ? { data: { id: 'req-1' }, error: null } : { data: [], error: null });
+      if (table === 'rent_requests') b.insert = vi.fn((row: unknown) => { inserts.push(row); return b; });
+      return b;
+    });
+    const res = await submitAssistantRentRequest(input({ fees: fees400 }));
+    expect(res.ok).toBe(true);
+    expect(inserts[0]).toMatchObject({ rent_amount: 400000 });
+    expect(mocks.rpc.mock.calls.map(([fn]) => fn)).not.toContain('agent_per_tenant_max');
+    expect(mocks.rpc.mock.calls.map(([fn]) => fn)).not.toContain('get_agent_rent_request_capacity');
+  });
+
+  it('shows the server’s tenant-arrears refusal exactly as it is', async () => {
+    serveRpcs();
+    const refusal = 'This tenant is behind on rent: only 42% of their current Rent Plan is repaid. A new request needs at least 60%.';
+    mocks.from.mockImplementation((table: string) => builder(
+      table === 'rent_requests' ? { data: null, error: { message: refusal } } : { data: [], error: null },
+    ));
+    const res = await submitAssistantRentRequest(input({ fees: fees400 }));
+    expect(res).toMatchObject({ ok: false, message: refusal });
+  });
+});

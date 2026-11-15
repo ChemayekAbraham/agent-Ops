@@ -337,13 +337,8 @@ function humanizeCapacityError(message: string): string | null {
     return message.replace(/^.*WEEKLY_ELIGIBILITY_BLOCKED:\s*/i, '').trim()
       || 'Your collections last week were below the target. You cannot post a new rent request this week.';
   }
-  if (m.includes('100,000,000') || m.includes('exposure cap')) {
-    return 'You have reached your UGX 100,000,000 active rent exposure cap. Collect on existing rent requests to free up headroom.';
-  }
-  if (m.includes('behind on rent') || m.includes('arrears')) {
-    return message; // already friendly
-  }
-  if (m.includes('exceeds your available capacity')) {
+  // E63: no rent caps. Any other amount refusal (tenant arrears) is shown as the server wrote it.
+  if (m.includes('behind on rent') || m.includes('arrears') || m.includes('exposure cap') || m.includes('exceeds your available capacity')) {
     return message;
   }
   return null;
@@ -596,17 +591,8 @@ function QueuedSubmitBanner({ status }: { status: 'idle' | 'queued' | 'cancellin
 export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, prefillTenantName, prefillTenantPhone, prefillRentAmount, prefillDraft, draftId, preselectHouse, presentation = 'dialog' }: AgentRentRequestDialogProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const capIds = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
-  // Loading still holds the submit: the per-tenant cap needs the agent's capacity.
-  const { data: capMap, isLoading: capLoading } = useAgentCapacityMap(capIds);
-  const myCap = user?.id ? capMap?.get(user.id) : undefined;
-  // Weekly Good-Standing unlock: an agent rated "Good" (green) on 2+ days last
-  // week may post any new rent request, for any amount — no cap, no daily block.
-  const unlimitedPosting = !!myCap?.unlimited_posting;
-  const goodDaysLastWeek = myCap?.good_days_last_week ?? 0;
-  const perTenantMax = unlimitedPosting
-    ? Number.MAX_SAFE_INTEGER
-    : (myCap?.per_tenant_max ?? 500_000);
+  // E63: no rent cap per tenant. Any amount can be entered and submitted; the server's own
+  // rules (tenant arrears) refuse what they should, and their message is shown as it is.
   // E100 (COO decision): agents can always post and move requests. The daily / weekly posting
   // gate that closed this form at the door, and refused the submit, is gone. The server's own
   // checks (verification, documents, tenant caps) still refuse what they should, word for word.
@@ -649,23 +635,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   const [chatBeat, setChatBeat] = useState(0);
   const [chatError, setChatError] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
-
-  // Persisted open/closed state for the "posting cap" details section so it
-  // stays collapsed (or expanded) across page refreshes.
-  const POSTING_CAP_DETAILS_KEY = 'welile-posting-cap-details-open';
-  const [postingCapOpen, setPostingCapOpen] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(POSTING_CAP_DETAILS_KEY) === '1';
-  });
-  const handlePostingCapToggle = useCallback((e: React.SyntheticEvent<HTMLDetailsElement>) => {
-    const isOpen = e.currentTarget.open;
-    setPostingCapOpen(isOpen);
-    try {
-      window.localStorage.setItem(POSTING_CAP_DETAILS_KEY, isOpen ? '1' : '0');
-    } catch {
-      /* ignore storage errors */
-    }
-  }, []);
 
   // Income type
   const [incomeType, setIncomeType] = useState<IncomeType | null>(null);
@@ -1574,33 +1543,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     outstandingRentAmount, outstandingDaysRemaining,
   });
 
-  const handleSaveForLater = async () => {
-    if (!user) { toast.error('You must be signed in'); return; }
-    if (!tenantName.trim() || !tenantPhone.trim() || !amount) {
-      toast.error('Tenant name, phone and rent amount are required to save a draft');
-      return;
-    }
-    setSavingDraft(true);
-    try {
-      const { error } = await supabase.from('rent_request_drafts' as any).insert({
-        agent_id: user.id,
-        tenant_name: tenantName.trim(),
-        tenant_phone: tenantPhone.replace(/\s/g, ''),
-        rent_amount: amount,
-        required_per_tenant_max: amount,
-        payload: buildDraftPayload(),
-        status: 'pending',
-      });
-      if (error) throw error;
-      toast.success('Saved! We\'ll mark it ready when your tier unlocks this size.');
-      onOpenChange(false);
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to save draft');
-    } finally {
-      setSavingDraft(false);
-    }
-  };
-
   // ===== Autosave: keep the agent's progress safe as they fill the form =====
   // Photos/GPS can't be serialized, but every typed field + the current wizard
   // step are persisted to localStorage so an ordinary agent never loses their
@@ -2341,7 +2283,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           tenant_name: tenantName.trim(),
           tenant_phone: tenantPhone.replace(/\s/g, '') || '',
           rent_amount: amount,
-          required_per_tenant_max: amount,
           payload: buildDraftPayload(),
           status: 'pending' as const,
         };
@@ -3273,7 +3214,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   // True while the submit must wait: capacity still loading on first open, or a
   // draft auto-save is in flight. These are the two transient states that made
   // the button briefly feel "unpressable".
-  const submitWaiting = capLoading || autoDraftStatus === 'saving';
+  const submitWaiting = autoDraftStatus === 'saving';
 
   /**
    * Submit entry point used by every Submit button. If the form isn't ready
@@ -4569,27 +4510,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                           : vAmount(rentAmount) || getFieldError('rentAmount')
                       }
                     />
-                    {amount > 0 && (
-                      <p className="text-xs font-semibold">
-                        {unlimitedPosting ? (
-                          <span className="text-success">
-                            ✅ Unlimited posting unlocked — you can post <span className="font-extrabold">any amount</span> this week.
-                          </span>
-                        ) : amount > perTenantMax ? (
-                          <span className="text-amber-600 dark:text-amber-400">
-                            You are <span className="font-extrabold">{formatUGX(amount - perTenantMax)}</span> over your <span className="font-extrabold">{formatUGX(perTenantMax)}</span> posting cap.
-                          </span>
-                        ) : amount === perTenantMax ? (
-                          <span className="text-success">
-                            You are exactly at your <span className="font-extrabold">{formatUGX(perTenantMax)}</span> posting cap.
-                          </span>
-                        ) : (
-                          <span className="text-success">
-                            You are <span className="font-extrabold">{formatUGX(perTenantMax - amount)}</span> under your <span className="font-extrabold">{formatUGX(perTenantMax)}</span> posting cap.
-                          </span>
-                        )}
-                      </p>
-                    )}
                   </div>
                   {/* Weekly repayment auto-calc: (rent + 33%) ÷ 4 */}
                   {incomeType === 'weekly-monthly' && earnerCycle === 'weekly' && amount > 0 && (
@@ -5798,253 +5718,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                 </div>
               )}
 
-              {/* Real-time cap breakdown — always visible once an amount is
-                  entered. Shows the agent's tier, per-tenant posting cap and
-                  whether the typed amount passes the threshold, live. */}
-              {amount > 0 && (!chatMode || beat === 'review') && (() => {
-                // Weekly Good-Standing unlock takes over the whole panel: no
-                // cap, no meter — just a clear "you can post anything" message.
-                if (unlimitedPosting) {
-                  return (
-                    <div className="p-4 rounded-2xl border-2 bg-success/10 border-success/40 space-y-3 scroll-mt-4">
-                      <p className="text-base font-extrabold flex items-center gap-2 text-success">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-                        Unlimited posting unlocked this week
-                      </p>
-                      <div className="text-sm font-semibold text-foreground space-y-1.5">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Last week's rating</span>
-                          <span className="font-extrabold text-success">
-                            Good on {goodDaysLastWeek} day{goodDaysLastWeek === 1 ? '' : 's'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Cap per tenant</span>
-                          <span className="font-extrabold text-success">No limit</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">You entered</span>
-                          <span className="font-extrabold text-success">{formatUGX(amount)}</span>
-                        </div>
-                      </div>
-                      <div className="text-xs leading-relaxed text-success/90 space-y-2">
-                        <p>
-                          Because you were rated <span className="font-bold">Good</span> (green) on{' '}
-                          <span className="font-bold">{goodDaysLastWeek} days last week</span>,
-                          you've earned <span className="font-bold">unlimited posting</span> for this week.
-                        </p>
-                        <p>
-                          You can post <span className="font-bold">any new rent request</span> for{' '}
-                          <span className="font-bold">any amount</span> — there is no cap and no daily block.
-                          Keep collecting daily to keep this unlocked next week.
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-                const overCap = amount > perTenantMax;
-                const pct = perTenantMax > 0
-                  ? Math.min(100, Math.round((amount / perTenantMax) * 100))
-                  : 100;
-                return (
-                  <div
-                    className={`p-4 rounded-2xl border-2 space-y-3 scroll-mt-4 ${
-                      overCap
-                        ? 'bg-amber-500/10 border-amber-500/40'
-                        : 'bg-success/10 border-success/40'
-                    }`}
-                  >
-                    <p
-                      className={`text-base font-extrabold flex items-center gap-2 ${
-                        overCap ? 'text-amber-700 dark:text-amber-400' : 'text-success'
-                      }`}
-                    >
-                      {overCap ? (
-                        <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                      ) : (
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-                      )}
-                      {overCap ? 'Over your current posting cap' : 'Within your posting cap'}
-                    </p>
-
-                    <details className="group" open={postingCapOpen} onToggle={handlePostingCapToggle}>
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-1 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
-                        <span>{overCap ? 'See why & how to unlock' : 'See cap details'}</span>
-                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
-                      </summary>
-                      <div className="pt-3 space-y-3">
-                    <div className="text-sm font-semibold text-foreground space-y-1.5">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Your tier</span>
-                        <span className="font-extrabold">
-                          {myCap?.tier ?? 'Starter'}
-                          {typeof myCap?.response_rate === 'number' && (
-                            <span className="font-normal text-muted-foreground">
-                              {' '}· {Math.round((myCap.response_rate ?? 0) * 100)}% 7-day
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Cap per tenant</span>
-                        <span className="font-extrabold">{formatUGX(perTenantMax)}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">You entered</span>
-                        <span className={`font-extrabold ${overCap ? 'text-amber-700 dark:text-amber-400' : 'text-success'}`}>
-                          {formatUGX(amount)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Live usage meter against the cap */}
-                    <div className="space-y-1">
-                      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            overCap ? 'bg-amber-500' : 'bg-success'
-                          }`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <p className="text-[11px] font-medium text-muted-foreground text-right">
-                        {perTenantMax > 0 ? `${pct}% of cap used` : 'No posting allowance at this tier'}
-                      </p>
-                    </div>
-
-                    {/* Plain-language explanation anyone can understand */}
-                    <div
-                      className={`text-xs leading-relaxed space-y-2 ${
-                        overCap
-                          ? 'text-amber-700/90 dark:text-amber-400/90'
-                          : 'text-success/90'
-                      }`}
-                    >
-                      {overCap ? (
-                        perTenantMax <= 0 ? (
-                          <>
-                            <p className="font-bold">Right now you can't post any new rent request.</p>
-                            <p>
-                              This is because very few of your tenants have been paying
-                              over the last 7 days. The system watches how often your
-                              tenants pay — not how much — and yours is currently too low.
-                            </p>
-                            <p>
-                              <span className="font-bold">What to do:</span> visit your
-                              tenants and get at least a few of them to pay something
-                              (even a small amount) each day. As more of them start
-                              paying, your posting will open up again.
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-bold">
-                              The amount you typed is bigger than what you are allowed to post per tenant.
-                            </p>
-                            <p>
-                              You are on the <span className="font-bold">{myCap?.tier}</span> level.
-                              At this level, the most you can post for one tenant is{' '}
-                              <span className="font-bold">{formatUGX(perTenantMax)}</span>.
-                              You typed <span className="font-bold">{formatUGX(amount)}</span>,
-                              which is <span className="font-bold">{formatUGX(amount - perTenantMax)}</span>{' '}
-                              over the limit, so the system cannot accept it yet.
-                            </p>
-                            <p>
-                              <span className="font-bold">Why this happens:</span> your level
-                              depends on how many of your tenants pay something during the
-                              last 7 days. The more of them pay regularly, the higher your
-                              level and the bigger the amount you are allowed to post.
-                            </p>
-                            <p>
-                              <span className="font-bold">Your two options now:</span>
-                            </p>
-                            <ul className="list-disc pl-4 space-y-1">
-                              <li>
-                                Lower this request to <span className="font-bold">{formatUGX(perTenantMax)}</span>{' '}
-                                or less and post it today, or
-                              </li>
-                              <li>
-                                Save it for later and keep collecting from your tenants so
-                                your level goes up.
-                              </li>
-                            </ul>
-                            <p>
-                              <span className="font-bold">How to unlock bigger amounts:</span>{' '}
-                              get tenants paying on 4 out of every 10 days to reach{' '}
-                              <span className="font-bold">UGX 3,000,000</span> per tenant, or
-                              7 out of 10 days to reach <span className="font-bold">UGX 6,000,000</span> per tenant.
-                            </p>
-                          </>
-                        )
-                      ) : (
-                        <>
-                          <p className="font-bold">Good — this amount is fine to post.</p>
-                          <p>
-                            You are on the <span className="font-bold">{myCap?.tier}</span> level,
-                            which lets you post up to{' '}
-                            <span className="font-bold">{formatUGX(perTenantMax)}</span> for one tenant.
-                            The <span className="font-bold">{formatUGX(amount)}</span> you typed is
-                            within that limit, so you can go ahead and submit this request.
-                          </p>
-                        </>
-                      )}
-
-                      {/* Super-simple step-by-step with a concrete example */}
-                      <div className="mt-3 pt-3 border-t border-dashed border-current/20 space-y-2">
-                        <p className="font-bold text-[11px] uppercase tracking-wide opacity-70">
-                          Quick example
-                        </p>
-                        <ol className="list-decimal pl-4 space-y-1.5 text-xs">
-                          <li>
-                            Your current limit is <span className="font-bold">{formatUGX(perTenantMax)}</span> per tenant.
-                          </li>
-                          <li>
-                            If a tenant's rent is <span className="font-bold">{formatUGX(Math.min(amount || 500000, perTenantMax))}</span>, that is okay — it fits inside your limit.
-                          </li>
-                          <li>
-                            If the rent is <span className="font-bold">{formatUGX(perTenantMax + 200000)}</span>, it is <span className="font-bold">{formatUGX(200000)}</span> too much — the system will stop you.
-                          </li>
-                          <li>
-                            To post bigger amounts, collect from more tenants more often so your level goes up.
-                          </li>
-                        </ol>
-                      </div>
-
-                      {/* How to unlock — step-by-step checklist */}
-                      <div className="mt-3 pt-3 border-t border-dashed border-current/20 space-y-2">
-                        <p className="font-bold text-[11px] uppercase tracking-wide opacity-70">
-                          How to unlock a bigger posting cap
-                        </p>
-                        <ol className="list-decimal pl-4 space-y-1.5 text-xs">
-                          <li>
-                            <span className="font-bold">Visit your tenants and collect rent</span> — even small amounts count.
-                            You should see your <strong>Today&apos;s collection %</strong> go up on the agent home screen.
-                          </li>
-                          <li>
-                            <span className="font-bold">Keep collecting for a few days</span>. Your daily rating improves when tenants pay on more days.
-                            You will see your tier label change from <strong>{myCap?.tier ?? 'Starter'}</strong> upward.
-                          </li>
-                          <li>
-                            <span className="font-bold">Reach Fair (4 out of 10 days)</span> and your cap will jump to{' '}
-                            <span className="font-bold">{formatUGX(3_000_000)}</span> per tenant.
-                            The breakdown panel will show <strong>Fair</strong> and the new limit.
-                          </li>
-                          <li>
-                            <span className="font-bold">Reach Positive (7 out of 10 days)</span> and your cap will jump to{' '}
-                            <span className="font-bold">{formatUGX(6_000_000)}</span> per tenant.
-                            The breakdown panel will show <strong>Positive</strong> and the new limit.
-                          </li>
-                        </ol>
-                        <p className="text-[11px] opacity-70">
-                          Each time your tier goes up, come back to this screen and the cap shown above will update automatically.
-                        </p>
-                      </div>
-                    </div>
-                      </div>
-                    </details>
-                  </div>
-                );
-              })()}
 
               {/* Informational note on the Review step. Verification of the
                   landlord and the LC1 chairperson happens later in the approval
@@ -6120,20 +5793,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   <Button type="button" onClick={goNextStep} className="flex-1">
                     Next
                   </Button>
-                ) : amount > perTenantMax ? (
-                  <Button
-                    type="button"
-                    onClick={handleSaveForLater}
-                    className="flex-1"
-                    disabled={savingDraft || !amount}
-                    variant="secondary"
-                  >
-                    {savingDraft ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>
-                    ) : (
-                      `Save for later (over ${formatUGX(perTenantMax)} cap)`
-                    )}
-                  </Button>
                 ) : (
                   <Button
                     onClick={submitQueued ? promptCancelQueued : requestSubmit}
@@ -6188,7 +5847,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           <RentRequestChatFooter
             onBack={retreatChat}
             onSend={isReviewBeat(beat)
-              ? (incomeType !== 'outstanding' && amount > perTenantMax ? handleSaveForLater : requestSubmit)
+              ? requestSubmit
               : advanceChat}
             onSkip={isSkippableBeat(beat) ? () => {
               setChatError(null);
@@ -6198,7 +5857,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               setDetailStep(detailStepForBeat(chatBeats[next]));
             } : undefined}
             sendLabel={isReviewBeat(beat)
-              ? (incomeType !== 'outstanding' && amount > perTenantMax ? 'Save for later' : 'Submit')
+              ? 'Submit'
               : 'Send'}
             error={chatError}
             busy={loading || requestState === 'submitting'}

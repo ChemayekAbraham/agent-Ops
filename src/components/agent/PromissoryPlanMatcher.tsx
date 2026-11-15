@@ -250,7 +250,7 @@ export function PromissoryPlanMatcher({
         onClick={() => togglePlan(p)}
         disabled={disabled || blocked}
         aria-pressed={checked}
-        className={`w-full text-left rounded-lg border p-2 transition-colors ${
+        className={`w-full min-w-0 text-left rounded-lg border p-2 transition-colors ${
           checked ? 'border-primary bg-primary/5' : 'border-border'
         } ${blocked ? 'opacity-45' : ''}`}
       >
@@ -265,7 +265,7 @@ export function PromissoryPlanMatcher({
               <Home className="h-3 w-3 shrink-0" />
               {p.tenant_location || p.request_city || 'Location not recorded'}
             </p>
-            <div className="flex items-center gap-1 mt-0.5">
+            <div className="flex flex-wrap items-center gap-1 mt-0.5">
               <Badge variant="outline" className="text-[9px] px-1 py-0">Rent plan</Badge>
               {p.house_category && (
                 <Badge variant="secondary" className="text-[9px] px-1 py-0">
@@ -295,7 +295,7 @@ export function PromissoryPlanMatcher({
         onClick={() => toggleHouse(h)}
         disabled={disabled || blocked}
         aria-pressed={checked}
-        className={`w-full text-left rounded-lg border p-2 transition-colors ${
+        className={`w-full min-w-0 text-left rounded-lg border p-2 transition-colors ${
           checked ? 'border-primary bg-primary/5' : 'border-border'
         } ${blocked ? 'opacity-45' : ''}`}
       >
@@ -310,7 +310,7 @@ export function PromissoryPlanMatcher({
               <Home className="h-3 w-3 shrink-0" />
               {houseAddressLine(h)}
             </p>
-            <div className="flex items-center gap-1 mt-0.5">
+            <div className="flex flex-wrap items-center gap-1 mt-0.5">
               <Badge className="text-[9px] px-1 py-0">Empty house</Badge>
               {h.house_category && (
                 <Badge variant="secondary" className="text-[9px] px-1 py-0">
@@ -335,7 +335,7 @@ export function PromissoryPlanMatcher({
       : [...plans.map(renderPlan), ...houses.map(renderHouse)];
 
   return (
-    <div className="rounded-xl border border-border p-3 space-y-2.5">
+    <div className="rounded-xl border border-border p-3 space-y-2.5 min-w-0 w-full overflow-hidden">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-semibold">
@@ -365,7 +365,7 @@ export function PromissoryPlanMatcher({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 min-w-0">
             {[
               { label: 'Pool available', value: formatUGX(pool) },
               { label: 'Earmarked', value: formatUGX(selectedTotal) },
@@ -390,7 +390,7 @@ export function PromissoryPlanMatcher({
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -398,7 +398,7 @@ export function PromissoryPlanMatcher({
               className="h-8 text-xs flex-1 w-full"
               disabled={disabled}
             />
-            <div className="flex items-center rounded-lg border border-border overflow-hidden shrink-0 w-full sm:w-auto">
+            <div className="flex items-center rounded-lg border border-border overflow-hidden min-w-0 w-full sm:w-auto sm:shrink-0">
               {(
                 [
                   { key: 'houses', label: 'Houses first' },
@@ -409,7 +409,7 @@ export function PromissoryPlanMatcher({
                   key={opt.key}
                   type="button"
                   onClick={() => setSortMode(opt.key)}
-                  className={`px-2 h-8 text-[10px] font-semibold flex items-center justify-center gap-1 flex-1 sm:flex-none transition-colors ${
+                  className={`px-2 h-8 min-w-0 text-[10px] font-semibold flex items-center justify-center gap-1 flex-1 sm:flex-none transition-colors ${
                     sortMode === opt.key
                       ? 'bg-primary text-primary-foreground'
                       : 'text-muted-foreground hover:text-foreground'
@@ -422,7 +422,7 @@ export function PromissoryPlanMatcher({
             </div>
           </div>
 
-          <div className="max-h-56 overflow-y-auto space-y-1.5 pr-0.5">
+          <div className="max-h-56 overflow-y-auto overflow-x-hidden space-y-1.5 pr-0.5 min-w-0">
             {anythingLoading ? (
               <>
                 <Skeleton className="h-12 w-full rounded-lg" />

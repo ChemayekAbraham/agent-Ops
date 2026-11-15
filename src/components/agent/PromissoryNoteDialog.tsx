@@ -30,6 +30,7 @@ import { noteDueByMessage, promissoryFulfilmentError } from '@/lib/promissoryNot
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { PromissoryPlanMatcher } from '@/components/agent/PromissoryPlanMatcher';
 import { normalizeWa } from '@/lib/whatsapp';
+import { cleanPhoneInput, isValidPhone } from '@/lib/partnerPhone';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { afterColon } from '@/lib/selfSupportFeeMessages';
@@ -48,14 +49,7 @@ interface PromissoryNoteDialogProps {
   initialHouse?: HouseOpportunity | null;
 }
 
-const phoneDigits = (v: string) => v.replace(/\D/g, '');
-/** Keep what the person typed/pasted, just drop junk characters. */
-const cleanPhoneInput = (v: string) => v.replace(/[^\d+\s()\-.]/g, '').slice(0, 24);
-/** Accepts any international number: 7–15 digits (E.164 range). */
-const isValidPhone = (v: string) => {
-  const d = phoneDigits(v);
-  return d.length >= 7 && d.length <= 15;
-};
+// Same rules as the Empty-house sheet (src/lib/partnerPhone.ts).
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 
@@ -440,7 +434,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode: requeste
   const previewMonthlyReturn = monthlyReturnFor(parsedAmount, newContractRate);
 
   const renderStepIndicator = () => (
-    <div className="flex items-center justify-center gap-1.5 py-1">
+    // Wraps or shrinks on a 360 px phone with large text; never wider than the dialog.
+    <div className="flex flex-wrap items-center justify-center gap-1.5 py-1 min-w-0" data-testid="promissory-steps">
       {steps.map((s, idx) => (
         <button
           key={s.key}
@@ -453,7 +448,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode: requeste
             }
           }}
           className={cn(
-            'flex h-7 min-w-[3.25rem] items-center justify-center rounded-full text-[10px] font-semibold transition-colors',
+            'flex h-7 min-w-[2.75rem] shrink items-center justify-center rounded-full px-2 text-[10px] font-semibold transition-colors',
             idx === stepIndex
               ? 'bg-primary text-primary-foreground'
               : idx < stepIndex
@@ -825,7 +820,9 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode: requeste
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent stable className="max-w-md p-0 overflow-hidden">
+      {/* The content is a CSS grid: one column that may shrink below its content's width, so
+          long house titles in the Tenants step can never push the Next button off a phone. */}
+      <DialogContent stable className="max-w-md p-0 overflow-hidden grid-cols-[minmax(0,1fr)]">
         <DialogHeader className="px-5 pt-5 pb-2">
           <DialogTitle className="flex items-center gap-2 text-base">
             <FileText className="h-5 w-5 text-primary" />
@@ -873,15 +870,15 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode: requeste
             </div>
           </div>
         ) : (
-          <div className="flex flex-col h-[calc(85vh-4rem)]">
-            <div className="px-5 pb-2">{renderStepIndicator()}</div>
+          <div className="flex flex-col h-[calc(85vh-4rem)] min-w-0 w-full">
+            <div className="px-5 pb-2 min-w-0">{renderStepIndicator()}</div>
 
-            <div className="flex-1 overflow-y-auto px-5 pb-2 space-y-4">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 pb-2 space-y-4 min-w-0 w-full">
               {renderStepContent()}
             </div>
 
             {!isLastStep && (
-              <div className="border-t border-border bg-background px-5 py-3 flex items-center justify-between gap-3">
+              <div className="border-t border-border bg-background px-5 py-3 flex items-center justify-between gap-3 min-w-0 w-full">
                 <Button
                   type="button"
                   variant="ghost"
@@ -892,7 +889,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode: requeste
                   <ChevronLeft className="h-4 w-4" />
                   Back
                 </Button>
-                <Button type="button" onClick={goNext} className="gap-2 text-xs h-10 px-5">
+                <Button type="button" onClick={goNext} className="gap-2 text-xs h-10 px-5 shrink-0">
                   Next
                   <Check className="h-3.5 w-3.5" />
                 </Button>
