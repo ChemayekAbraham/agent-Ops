@@ -82,6 +82,7 @@ import {
 } from '@/lib/t4RentRequestSubmit';
 import { counted, createUploadCounter, sendButtonLabel, type SendProgress } from '@/lib/sendProgress';
 import { landlordCodeFromSearch, normalizeLandlordCode, recordLandlordReferral } from '@/lib/landlordReferral';
+import { createFormFunnel, funnelErrorCode, type FunnelItem, type FunnelStep } from '@/lib/formFunnel';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
@@ -213,6 +214,35 @@ const ITEM_STEP: Partial<Record<T4ItemKey, StepId>> = {
   tenantPhoto: 'tenantPhoto', gps: 'gps', lc1: 'lc1', lcLetter: 'lcLetter', payoutDay: 'payoutDay', note: 'note',
 };
 
+/** E108 funnel: the stable step name for each question. */
+const FUNNEL_STEP: Record<StepId, FunnelStep> = {
+  type: 'start',
+  rent: 'repayment', plan: 'repayment', days: 'repayment',
+  tenantPhone: 'tenant', tenantName: 'tenant', nationalId: 'tenant', language: 'tenant',
+  familySize: 'tenant', work: 'tenant', workLocation: 'tenant',
+  smartphone: 'smartphone',
+  landlord: 'house_landlord', house: 'house_landlord', location: 'house_landlord', address: 'house_landlord',
+  category: 'house_landlord', photos: 'house_landlord', city: 'house_landlord', payoutDay: 'house_landlord',
+  gps: 'gps',
+  lc1: 'lc1', lc1Phone: 'lc1', lc1Name: 'lc1', lc1Village: 'lc1',
+  tenantPhoto: 'documents', idFront: 'documents', idBack: 'documents', lcLetter: 'documents',
+  note: 'review', review: 'review',
+};
+/** E108 funnel: the item code for each checklist item (anything else is 'other'). */
+const T4_FUNNEL_ITEM: Partial<Record<T4ItemKey, FunnelItem>> = {
+  photos: 'house_photos', landlord: 'landlord', rent: 'rent', gps: 'gps', familySize: 'family_size', work: 'work',
+  lcLetter: 'lc1_letter', idFront: 'id_front', idBack: 'id_back', tenantPhoto: 'tenant_photo', tenantPhone: 'phone',
+  consent: 'agreement', openRequest: 'duplicate',
+};
+/** E108 funnel: what a wrong answer to a question is missing. */
+const STEP_FUNNEL_ITEM: Partial<Record<StepId, FunnelItem>> = {
+  rent: 'rent', tenantPhone: 'phone', familySize: 'family_size', work: 'work', landlord: 'landlord',
+  photos: 'house_photos', gps: 'gps', idFront: 'id_front', idBack: 'id_back', lcLetter: 'lc1_letter', tenantPhoto: 'tenant_photo',
+};
+const t4FunnelItems = (keys: T4ItemKey[]): FunnelItem[] => keys.map((k) => T4_FUNNEL_ITEM[k] ?? 'other');
+/** E108 funnel: what a server refusal of a new request is about. */
+const REFUSAL_FUNNEL_ITEM: Record<string, FunnelItem> = { landlord_missing: 'landlord', duplicate: 'duplicate' };
+
 type PlanType = 'daily' | 'weekly' | 'monthly';
 type Lc1Match = { id: string; name: string; verified: boolean; village: string } | null;
 /** A photo taken now, or one already on file (file null, preview = its URL). */
@@ -300,6 +330,23 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [noLc1Reason, setNoLc1Reason] = useState('');
   const [payoutDay, setPayoutDay] = useState('');
   const [consent, setConsent] = useState(false);
+  /**
+   * E108 demand funnel for new requests ("Open rent request form"): open, steps, blocked
+   * presses, items done, post and close. Fire-and-forget; never shown, never awaited.
+   */
+  const funnel = useMemo(() => createFormFunnel('agent_post'), []);
+  const tracking = mode === 'new';
+  useEffect(() => {
+    if (!tracking) return;
+    if (open) funnel.open(); else funnel.close();
+  }, [open, tracking, funnel]);
+  useEffect(() => () => funnel.close(), [funnel]);
+  useEffect(() => {
+    if (!open || !tracking || typeof document === 'undefined') return;
+    const onHide = () => { if (document.visibilityState === 'hidden') funnel.close(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, [open, tracking, funnel]);
   /** Landlord referral code (E107): optional, prefilled from the page link (?ref=L…). */
   const [landlordCode, setLandlordCode] = useState(() => (typeof window === 'undefined' ? '' : landlordCodeFromSearch(window.location.search)));
   // ----- resubmit / renewal -----
@@ -434,6 +481,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const idx = steps.indexOf(current);
   const furthestIdx = Math.max(steps.indexOf(furthest), idx);
 
+  useEffect(() => {
+    if (open && tracking) funnel.step(FUNNEL_STEP[current]);
+  }, [current, open, tracking, funnel]);
+
   const reset = useCallback(() => {
     setPlanType(null); setRentText(''); setDuration('30'); setRepaymentPeriod('7');
     setTenantPhone(''); setTenantNameParts({ firstName: '', otherNames: '', lastName: '' }); setNationalId('');
@@ -446,7 +497,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setLandlordCode(typeof window === 'undefined' ? '' : landlordCodeFromSearch(window.location.search));
     setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
     setFixOffer(null); setWrongTries({});
-  }, []);
+    // "Post another": a new funnel session.
+    if (tracking) funnel.open();
+  }, [tracking, funnel]);
 
   // Fill the form from what opened it. The host mounts a fresh form for each request.
   useEffect(() => {
@@ -865,6 +918,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
   /** Rejects a wrong answer: says what is wrong, offers a fix if there is one, adds a tip on the third try. */
   const reject = (s: StepId, problem: string, text = draft) => {
+    if (tracking) funnel.blocked([STEP_FUNNEL_ITEM[s] ?? 'other']);
     const tries = (wrongTries[s] ?? 0) + 1;
     setWrongTries((t) => ({ ...t, [s]: tries }));
     const tip = tries >= 3 ? tipFor(s) : null;
@@ -889,9 +943,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     }
     if (verdict.status === 'free') return true;
     if (verdict.status === 'unknown') {
+      if (tracking) funnel.blocked(['other'], 'record_check_unavailable');
       setError('I couldn’t check Welile’s records just now. Check your connection and send it again.');
       return false;
     }
+    if (tracking) funnel.blocked(['duplicate']);
     setRecordBlock(blockFor(step, verdict.hit === 'self', value));
     return false;
   }
@@ -1141,14 +1197,27 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     if (mode === 'resubmit') return postResubmit();
     if (mode === 'renewal') return postRenewalPlan();
     if (!user || !fees || !landlord || !tenantPhoto || posting) return;
-    if (missing.length) { setError(`Still missing: ${missing.map((m) => m.label).join(', ')}.`); return; }
-    if (!consent) { setError('Tick the box to accept guarantor responsibility.'); return; }
+    if (missing.length) {
+      funnel.blocked(t4FunnelItems(missing.map((m) => m.key)));
+      setError(`Still missing: ${missing.map((m) => m.label).join(', ')}.`);
+      return;
+    }
+    if (!consent) { funnel.blocked(['agreement']); setError('Tick the box to accept guarantor responsibility.'); return; }
     // Required intake: every step checks its own answer; this catches anything skipped.
     const intakeMissing = (!isFullName(tenantName) && 'Type the tenant’s full name (first and last), as on the ID.')
       || familySizeProblem(familySize)
       || workProblem(work)
       || lc1LetterProblem({ hasLetter: !!lcLetter, noLetterYet: noLc1Letter, reason: noLc1Reason });
-    if (intakeMissing) { setError(`${intakeMissing} Tap the answer above to fix it.`); return; }
+    if (intakeMissing) {
+      funnel.blocked([
+        !isFullName(tenantName) ? 'other'
+          : familySizeProblem(familySize) ? 'family_size'
+            : workProblem(work) ? 'work'
+              : 'lc1_letter',
+      ]);
+      setError(`${intakeMissing} Tap the answer above to fix it.`);
+      return;
+    }
     setPosting(true);
     setSendProgress(null);
     setError(null);
@@ -1163,6 +1232,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     const [phoneNow, ninNow] = await Promise.all([checkTenantPhone(tenantPhone, agentSelf), checkNationalId(nationalId, agentSelf)]);
     for (const [step, verdict, value] of [['tenantPhone', phoneNow, tenantPhone], ['nationalId', ninNow, nationalId]] as const) {
       if (verdict.status === 'taken') {
+        funnel.blocked(['duplicate']);
         setPosting(false);
         setSendProgress(null);
         setCurrent(step);
@@ -1170,6 +1240,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         return;
       }
       if (verdict.status === 'unknown') {
+        funnel.blocked(['other'], 'record_check_unavailable');
         setPosting(false);
         setSendProgress(null);
         setError('I couldn’t check Welile’s records just now. Check your connection and tap Post again.');
@@ -1212,6 +1283,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       noLc1Reason: null,
     });
     if (res.ok) {
+      funnel.submitOk(res.rentRequestId);
       setPosting(false);
       setSendProgress({ phase: 'sent' });
       hapticSuccess();
@@ -1237,6 +1309,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setPosting(false);
     setSendProgress(null);
     const fail = res as Extract<AssistantSubmitResult, { ok: false }>;
+    // The server refused: a blocked press and a failed submit, with the server's error code.
+    const refusalItems: FunnelItem[] = [REFUSAL_FUNNEL_ITEM[fail.reason] ?? 'other'];
+    const refusalCode = funnelErrorCode(fail.message, fail.reason);
+    funnel.blocked(refusalItems, refusalCode);
+    funnel.submitFail(refusalCode, refusalItems);
     if (fail.raw && promptIfNotVetted(fail.raw, fail.message)) {
       setError(agentNotVettedReason(fail.raw) ?? agentNotVettedReason(fail.message) ?? fail.message);
       return;
@@ -1276,6 +1353,14 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     resubmitsLeft: !rejected || resubmitAttemptsLeft(rejected.reopen_count, rejected.rejected_reason) !== 0,
   };
   const missing = t4Missing(mode, facts, rejected?.registration_type, openStatus);
+  const doneKey = (Object.keys(facts) as T4ItemKey[]).filter((k) => facts[k]).sort().join(',');
+  useEffect(() => {
+    if (!open || !tracking) return;
+    for (const k of doneKey.split(',')) {
+      const item = T4_FUNNEL_ITEM[k as T4ItemKey];
+      if (item) funnel.itemDone(item);
+    }
+  }, [doneKey, open, tracking, funnel]);
   const fixItem = (k: T4ItemKey) => {
     const s = ITEM_STEP[k];
     if (!s) return;
@@ -1955,12 +2040,18 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             )}
             {mode === 'new' && <GuarantorConsentCheckbox checked={consent} onCheckedChange={(c) => { setConsent(c); setError(null); }} />}
             <MissingChecklist items={missing} onFix={fixItem} />
+            {/* A tap on the disabled button lands on this wrapper: still a blocked press (E108). */}
+            <div
+              className="flex flex-col"
+              onClick={() => { if (tracking && !posting && missing.length > 0) funnel.blocked(t4FunnelItems(missing.map((m) => m.key))); }}
+              data-testid="send-button-wrap"
+            >
             <button
               type="button"
               onClick={() => void post()}
               disabled={posting || sendProgress?.phase === 'sent' || missing.length > 0 || (mode === 'resubmit' && !original)}
               aria-live="polite"
-              className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary font-display text-base font-bold text-primary-foreground shadow-lg disabled:opacity-50"
+              className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary font-display text-base font-bold text-primary-foreground shadow-lg disabled:pointer-events-none disabled:opacity-50"
               data-testid="send-button"
             >
               {sendProgress?.phase === 'sent'
@@ -1969,6 +2060,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                   ? <><Loader2 className="h-5 w-5 animate-spin" /> {sendButtonLabel(sendProgress, 'Sending…')}</>
                   : <><Send className="h-5 w-5" /> {mode === 'resubmit' ? 'Resubmit rent request' : mode === 'renewal' ? 'Renew Rent Plan' : 'Post rent request'}</>}
             </button>
+            </div>
           </div>
         );
       default:

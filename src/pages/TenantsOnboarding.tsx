@@ -49,6 +49,7 @@ import {
 } from '@/lib/tenantSelfRequest';
 import { createSendTimer } from '@/lib/sendProgress';
 import { isLandlordReferralCode, landlordCodeFromSearch, normalizeLandlordCode, recordLandlordReferral } from '@/lib/landlordReferral';
+import { createFormFunnel, funnelErrorCode, type FunnelItem, type FunnelStep } from '@/lib/formFunnel';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { NationalIdConsentDialog } from '@/components/shared/NationalIdConsentDialog';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
@@ -101,6 +102,18 @@ const EARNERS = [
     icon: CalendarDays,
   },
 ] as const;
+
+/** E108 funnel: the stable name of each step of this form. */
+const TENANT_FUNNEL_STEP: Record<number, FunnelStep> = {
+  1: 'start', 2: 'repayment', 3: 'tenant', 4: 'house_landlord', 5: 'lc1', 6: 'review',
+};
+/** E108 funnel: the item code for each thing the request needs (anything else is 'other'). */
+const TENANT_FUNNEL_ITEM: Partial<Record<TenantItemKey, FunnelItem>> = {
+  rent: 'rent', phone: 'phone', idFront: 'id_front', idBack: 'id_back', passportPhoto: 'tenant_photo',
+  familySize: 'family_size', work: 'work', gps: 'gps', housePhotos: 'house_photos',
+  landlord: 'landlord', landlordPhone: 'landlord', lcLetter: 'lc1_letter', declared: 'agreement',
+};
+const TENANT_ALL_ITEMS = Object.keys(TENANT_FUNNEL_ITEM) as TenantItemKey[];
 
 /**
  * What the submit button says while it works, from the real step: the photos travel with
@@ -187,6 +200,22 @@ export default function TenantsOnboarding() {
   }, [authLoading, user, returnTo]);
 
   const [step, setStep] = useState(1);
+  /* E108 demand funnel: open, steps, blocked presses, items done, submit and close.
+     Fire-and-forget; never shown to the tenant, never awaited. */
+  const funnel = useMemo(() => createFormFunnel('tenant_self'), []);
+  const postedRef = useRef(false);
+  useEffect(() => {
+    funnel.open();
+    const onHide = () => { if (document.visibilityState === 'hidden') funnel.close(); };
+    const onLeave = () => funnel.close();
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', onLeave);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', onLeave);
+      funnel.close();
+    };
+  }, [funnel]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{ id: string; intakeError: string | null; referralError?: string | null } | null>(null);
 
@@ -566,6 +595,19 @@ export default function TenantsOnboarding() {
   });
   const missingOn = (step: number) => missing.filter((m) => m.step === step);
 
+  useEffect(() => {
+    if (!postedRef.current) funnel.step(TENANT_FUNNEL_STEP[step] ?? 'start');
+  }, [step, funnel]);
+  const missingKey = missing.map((m) => m.key).join(',');
+  useEffect(() => {
+    const open = new Set(missingKey.split(','));
+    for (const k of TENANT_ALL_ITEMS) {
+      const item = TENANT_FUNNEL_ITEM[k];
+      if (item && !open.has(k)) funnel.itemDone(item);
+    }
+  }, [missingKey, funnel]);
+  const funnelItemsFor = (keys: TenantItemKey[]): FunnelItem[] => keys.map((k) => TENANT_FUNNEL_ITEM[k] ?? 'other');
+
   const stepError = (s: number): string | null => {
     if (s === 2 && rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT)) {
       return `Enter a rent between ${formatUGX(MIN_RENT)} and ${formatUGX(MAX_RENT)}`;
@@ -586,14 +628,22 @@ export default function TenantsOnboarding() {
     return missingOn(s)[0]?.label ?? null;
   };
 
+  /** The items a step is blocked on, for the funnel. */
+  const stepBlockItems = (s: number): FunnelItem[] => {
+    if (s === 2 && rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT)) return ['rent'];
+    if (s === 3 && (phoneTakenByOther || (cleanNin(nin) && ninTakenByOther))) return ['duplicate'];
+    if (s === 3 && photoCheck && !photoCheck.checking && !photoCheck.error && photoCheck.is_face === false) return ['tenant_photo'];
+    return funnelItemsFor(missingOn(s).map((m) => m.key));
+  };
+
   const goNext = () => {
     const e = stepError(step);
-    if (e) { toast.error(e); return; }
+    if (e) { funnel.blocked(stepBlockItems(step)); toast.error(e); return; }
     setStep((s) => Math.min(6, s + 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const goTo = (n: number) => {
-    if (n > step) { const e = stepError(step); if (e) { toast.error(e); return; } }
+    if (n > step) { const e = stepError(step); if (e) { funnel.blocked(stepBlockItems(step)); toast.error(e); return; } }
     setStep(n);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -607,9 +657,9 @@ export default function TenantsOnboarding() {
     if (!consentParams) {
       for (let s = 2; s <= 5; s++) {
         const e = stepError(s);
-        if (e) { setStep(s); toast.error(e); return; }
+        if (e) { funnel.blocked(stepBlockItems(s)); setStep(s); toast.error(e); return; }
       }
-      if (missing.length) { toast.error(missing[0].label); return; }
+      if (missing.length) { funnel.blocked(funnelItemsFor(missing.map((m) => m.key))); toast.error(missing[0].label); return; }
       setSubmitError(null);
       setSubmitting(true);
     } else {
@@ -745,6 +795,7 @@ export default function TenantsOnboarding() {
       ]);
       outcome = 'ok';
       setSubmitStage({ stage: 'sent' });
+      if (requestId) { postedRef.current = true; funnel.submitOk(requestId); }
       setSubmitted({
         id: requestId,
         intakeError: intake.ok ? null : intake.message,
@@ -762,6 +813,11 @@ export default function TenantsOnboarding() {
       const errMsg = e instanceof Error ? e.message : 'An unexpected error occurred';
       // The server's message is shown as it came; only a lost connection gets plain words.
       const msg = /failed to fetch|networkerror/i.test(errMsg) ? humaniseSubmitError(errMsg) : errMsg;
+      // The server refused (or the network did): a blocked press and a failed submit.
+      const refusalItems: FunnelItem[] = [/already (registered|has)|duplicate|open request/i.test(errMsg) ? 'duplicate' : 'other'];
+      const refusalCode = funnelErrorCode(errMsg, /failed to fetch|networkerror/i.test(errMsg) ? 'network' : 'other');
+      funnel.blocked(refusalItems, refusalCode);
+      funnel.submitFail(refusalCode, refusalItems);
       toast.error('Could not submit your request', { description: msg, duration: 8000 });
       setSubmitError(msg);
     } finally {
@@ -1959,10 +2015,16 @@ export default function TenantsOnboarding() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
               {step < 6 ? (
+                /* A tap on the disabled button lands on this wrapper: still a blocked press (E108). */
+                <span className="inline-flex" data-testid="continue-wrap"
+                  onClick={() => { if (stepError(step)) funnel.blocked(stepBlockItems(step)); }}>
                 <Button type="button" onClick={goNext} disabled={!!stepError(step)}>
                   Continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+                </span>
               ) : (
+                <span className="inline-flex" data-testid="submit-wrap"
+                  onClick={() => { if (!submitting && !creatingAccount && missing.length) funnel.blocked(funnelItemsFor(missing.map((m) => m.key))); }}>
                 <Button type="button"
                   onClick={() => {
                     if (user) void submit();
@@ -1992,6 +2054,7 @@ export default function TenantsOnboarding() {
                     </span>
                   </span>
                 </Button>
+                </span>
               )}
             </div>
           </CardContent>

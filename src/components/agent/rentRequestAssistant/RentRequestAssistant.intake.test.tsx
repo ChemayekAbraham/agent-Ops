@@ -86,3 +86,21 @@ describe('Rent request assistant: required intake', () => {
     expect(screen.getByText('Tailor')).toBeInTheDocument();
   });
 });
+
+describe('E108 funnel: a blocked Next sends the right item codes', () => {
+  it('a wrong family size is a blocked press on "family_size", in the "tenant" step of the agent_post session', async () => {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const rpc = supabase.rpc as unknown as ReturnType<typeof vi.fn>;
+    rpc.mockClear();
+    await reachFamilySize();
+    answer('0');
+    expect(await screen.findByText(/between 1 and 30/)).toBeInTheDocument();
+    const logs = rpc.mock.calls.filter(([fn]) => fn === 'request_form_log').map(([, row]) => row as Record<string, unknown>);
+    expect(logs[0]).toMatchObject({ p_event: 'open', p_form: 'agent_post' });
+    expect(logs.filter((r) => r.p_event === 'step').map((r) => r.p_step)).toEqual(['start', 'repayment', 'tenant', 'smartphone', 'tenant']);
+    expect(logs.at(-1)).toMatchObject({ p_event: 'blocked', p_items: ['family_size'], p_step: 'tenant', p_form: 'agent_post' });
+    expect(new Set(logs.map((r) => r.p_session)).size).toBe(1);
+    // Items that became valid on the way were logged once each.
+    expect(logs.filter((r) => r.p_event === 'item_done').map((r) => (r.p_items as string[])[0])).toEqual(expect.arrayContaining(['rent', 'phone']));
+  });
+});

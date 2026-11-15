@@ -327,3 +327,34 @@ describe('E107: landlord referral code', () => {
     expect(screen.queryByTestId('landlord-referral-note')).toBeNull();
   });
 });
+
+describe('E108 funnel: a blocked Continue sends the right item codes', () => {
+  beforeEach(() => { try { localStorage.clear(); } catch { /* ignore */ } });
+
+  it('Continue with 2 house photos is a blocked press on "house_photos" in the tenant_self session', async () => {
+    await fillToVerification({ housePhotos: 2 });
+    expect(continueBtn()).toBeDisabled();
+    // A tap on the disabled button lands on its wrapper.
+    fireEvent.click(screen.getByTestId('continue-wrap'));
+    const logs = mocks.rpc.mock.calls.filter(([fn]) => fn === 'request_form_log').map(([, row]) => row as Record<string, unknown>);
+    expect(logs[0]).toMatchObject({ p_event: 'open', p_form: 'tenant_self' });
+    expect(logs.filter((r) => r.p_event === 'step').map((r) => r.p_step)).toEqual(['start', 'repayment', 'tenant', 'house_landlord']);
+    expect(logs.at(-1)).toMatchObject({ p_event: 'blocked', p_items: ['house_photos'], p_step: 'house_landlord', p_form: 'tenant_self' });
+    expect(new Set(logs.map((r) => r.p_session)).size).toBe(1);
+  });
+
+  it('a successful submit logs submit_ok with the request id', async () => {
+    await fillToVerification();
+    await next();
+    fireEvent.click(screen.getByRole('button', { name: 'Pick landlord' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pick LC1' }));
+    await addLcLetter();
+    await next();
+    fireEvent.click(screen.getByRole('checkbox'));
+    const submit = screen.getByRole('button', { name: /Submit rent request/ });
+    await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.click(submit);
+    expect(await screen.findByText(/Sent to Welile\. An agent near you/)).toBeInTheDocument();
+    expect(mocks.rpc).toHaveBeenCalledWith('request_form_log', expect.objectContaining({ p_event: 'submit_ok', p_rent_request_id: 'req-1', p_form: 'tenant_self' }));
+  });
+});
