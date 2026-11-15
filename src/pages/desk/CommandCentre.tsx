@@ -20,6 +20,7 @@ import { AT_COO, DeskSearchBox, SearchResults } from './deskSearch';
 import { ReviewDrawer } from './ReviewDrawer';
 import { ArrearsTile, BalanceMeter, CohortBoard, DemandAlarm } from './coo/cooSignals';
 import { PremortemTab } from './coo/PremortemTab';
+import { PostingFunnelCard } from './coo/PostingFunnel';
 
 /**
  * Search every desk from the Command Centre (E72, p_desk 'command'). A request
@@ -383,6 +384,8 @@ export function CommandCentre({
       </div>
       {/* E105: how each month's plans are paying. */}
       <CohortBoard board={false} />
+      {/* E108: where agents stop between opening the form and posting. */}
+      <PostingFunnelCard board={false} />
       {pipelineCards && (
         <>
           <MorningBrief board={false} enabled />

@@ -11,6 +11,7 @@ import { CommandCentre } from './CommandCentre';
 import { AgentArrearsTab } from './arrears/AgentArrearsTab';
 import { TenantArrearsTab } from './arrears/TenantArrearsTab';
 import { ReferralLandlords } from './ReferralLandlords';
+import { PostingFunnelCard } from './coo/PostingFunnel';
 import { TileGrid } from './Tiles';
 import { SkeletonLead, SkeletonTiles } from './Skeleton';
 import { DeskPrefsProvider, KampalaClock, clockTime, useDeskPrefs } from './deskPrefs';
@@ -653,6 +654,7 @@ function DeskView({
         ) : (
           <p className="text-sm text-muted-foreground">The Service Centre desk is switched off right now. Try again later.</p>
         )}
+        {checklistOn && <PostingFunnelCard board={board} />}
         {drawer}
       </div>
     );
@@ -693,6 +695,8 @@ function DeskView({
         </section>
 
         {desk.id === 'agent-ops' && <AgentRankingFold board={board} />}
+        {/* E108: where rent requests get stuck before they are posted. */}
+        {(desk.id === 'agent-ops' || desk.id === 'service-centre') && <PostingFunnelCard board={board} />}
         <AgentsLiveFold deskId={desk.id} board={board} />
         <WaitingOnFold deskId={desk.id} board={board} />
         <DoneTodayFold deskId={desk.id} board={board} />
