@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MessageCircle, MessageSquare, Share2 } from 'lucide-react';
-import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { rpc } from './reviewApi';
 import { LABEL } from './deskTheme';
 import { fmt } from './format';
@@ -13,11 +12,12 @@ import { ACTION_BUTTON, CallButtons } from './arrears/ArrearsParts';
  * Landlord Ops · Referral landlords (E107): landlords whose tenants have paid
  * at least 80% of what is due so far, each with a referral code. "Share code"
  * sends the landlord a thank-you with the code and the tenant apply link
- * (/tenants-onboarding, which reads a landlord code from ?ref=).
+ * (https://welileapp.com/tenants-onboarding, which reads a landlord code from ?ref=).
  */
 
 export const MIN_PCT = 80;
-/** The tenant self-apply page; it takes a landlord code as ?ref=CODE. */
+/** The tenant self-apply page on the public site; it takes a landlord code as ?ref=CODE. There is no /apply route. */
+export const SHARE_ORIGIN = 'https://welileapp.com';
 export const APPLY_PATH = '/tenants-onboarding';
 
 type Candidate = {
@@ -32,7 +32,7 @@ type Candidate = {
   referred: number;
 };
 
-export function referralMessage(code: string, origin: string = getPublicOrigin()): string {
+export function referralMessage(code: string, origin: string = SHARE_ORIGIN): string {
   const link = `${origin}${APPLY_PATH}`;
   return `Welile: thank you, your tenants pay well. Share code ${code} with people who need rent support — they apply at ${link}?ref=${code}.`;
 }

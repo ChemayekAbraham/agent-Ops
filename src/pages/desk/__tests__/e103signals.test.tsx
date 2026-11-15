@@ -14,7 +14,8 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }, roles: ['coo'] }) }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock('@/lib/getPublicOrigin', () => ({ getPublicOrigin: () => 'https://welile.example', CANONICAL_ORIGIN: 'https://welile.example' }));
+// The share link is always the public site, whatever host the desk runs on.
+vi.mock('@/lib/getPublicOrigin', () => ({ getPublicOrigin: () => 'https://preview.example', CANONICAL_ORIGIN: 'https://preview.example' }));
 
 import { ArrearsTile, BalanceMeter, CohortBoard, DemandAlarm } from '../coo/cooSignals';
 import { PremortemTab } from '../coo/PremortemTab';
@@ -77,6 +78,47 @@ describe('Demand alarm', () => {
     await waitFor(() => expect(h.rpc).toHaveBeenCalledWith('coo_alarm_ack', { p_id: 7 }));
   });
 
+  it('E110: the change markers of the 7 days it compares, by kind; a tap lists that day', async () => {
+    answer({
+      coo_alarms_view: { data: { today: { ...TODAY, fired: false }, alarms: [] }, error: null },
+      change_markers: {
+        data: [
+          { at: '2026-11-01T08:00:00Z', day: '2026-11-01', kind: 'rule', label: 'Too old to show' },
+          { at: '2026-11-12T08:00:00Z', day: '2026-11-12', kind: 'rule', label: 'LC1 letter now required' },
+          { at: '2026-11-12T09:00:00Z', day: '2026-11-12', kind: 'release:publish', label: 'Desk release 42' },
+          { at: '2026-11-14T09:00:00Z', day: '2026-11-14', kind: 'switch', label: 'Agent Ops desk live' },
+        ],
+        error: null,
+      },
+    });
+    wrap(<DemandAlarm board={false} />);
+    const strip = await findEl('[data-marker-strip="2026-11-09..2026-11-15"]');
+    expect(h.rpc).toHaveBeenCalledWith('change_markers', { p_days: 30 });
+    const ticks = Array.from(strip.querySelectorAll('[data-strip-day]'));
+    expect(ticks.map((t) => [t.getAttribute('data-strip-day'), t.getAttribute('data-marker-kind')])).toEqual([
+      ['2026-11-12', 'release'],
+      ['2026-11-14', 'switch'],
+    ]);
+    expect(ticks[0].getAttribute('title')).toBe('Rule change: LC1 letter now required\nRelease: Desk release 42');
+    fireEvent.click(ticks[0]);
+    expect(strip.querySelector('[data-picked-markers="2026-11-12"]')?.textContent).toContain('Release: Desk release 42');
+  });
+
+  it('no markers function yet (PGRST202): the alarm shows without them', async () => {
+    h.rpc.mockImplementation((fn: string) =>
+      Promise.resolve(
+        fn === 'coo_alarms_view'
+          ? { data: { today: TODAY, alarms: [] }, error: null }
+          : { data: null, error: { code: 'PGRST202', message: 'Could not find the function public.change_markers' } },
+      ),
+    );
+    wrap(<DemandAlarm board={false} />);
+    const banner = await findEl('[data-demand-alarm]');
+    await waitFor(() => expect(h.rpc).toHaveBeenCalledWith('change_markers', { p_days: 30 }));
+    expect(banner.querySelector('[data-marker-strip]')).toBeNull();
+    expect(banner.querySelector('[role="alert"]')).toBeNull();
+  });
+
   it('quiet when it did not fire, and nothing to acknowledge', async () => {
     answer({ coo_alarms_view: { data: { today: { ...TODAY, fired: false }, alarms: [] }, error: null } });
     wrap(<DemandAlarm board={false} />);
@@ -132,6 +174,17 @@ describe('Cohort board', () => {
     expect(Array.from(table.querySelectorAll('[data-cohort]')).map((r) => r.getAttribute('data-cohort'))).toEqual(['Nov 2026', 'Oct 2026', 'Sep 2026']);
     expect(Array.from(table.querySelectorAll('[data-pct-tone]')).map((c) => c.getAttribute('data-pct-tone'))).toEqual(['ok', 'warn', 'bad']);
     expect(table.querySelector('[data-cohort="Oct 2026"]')?.textContent).toContain('UGX 33,000,000');
+  });
+  it('E110: each month shows the changes made in it', async () => {
+    answer({
+      cohort_board: { data: { cohorts: [{ month: 'Nov 2026', month_start: '2026-11-01', plans: 1, rent_funded: 1, due: 1, collected: 1, pct: 100, repaying: 1, silent_7d: 0, completed: 0 }, { month: 'Oct 2026', month_start: '2026-10-01', plans: 1, rent_funded: 1, due: 1, collected: 1, pct: 100, repaying: 1, silent_7d: 0, completed: 0 }] }, error: null },
+      change_markers: { data: [{ at: '2026-10-30T08:00:00Z', day: '2026-10-30', kind: 'switch', label: 'Board on' }, { at: '2026-11-03T08:00:00Z', day: '2026-11-03', kind: 'rule', label: 'Rule' }], error: null },
+    });
+    wrap(<CohortBoard board={false} />);
+    const nov = await findEl('[data-cohort="Nov 2026"] [data-marker-strip]');
+    expect(nov.getAttribute('data-marker-strip')).toBe('2026-11-01..2026-11-30');
+    expect(Array.from(nov.querySelectorAll('[data-strip-day]')).map((t) => t.getAttribute('data-strip-day'))).toEqual(['2026-11-03']);
+    expect(document.querySelector('[data-cohort="Oct 2026"] [data-strip-day="2026-10-30"]')).toBeTruthy();
   });
   it('empty', async () => {
     answer({ cohort_board: { data: { cohorts: [] }, error: null } });
@@ -244,7 +297,7 @@ describe('Landlord Ops · Referral landlords', () => {
     for (const t of ['Katabi, Wakiso', '6', '92%', 'LAB12CD34', 'Referred 2']) expect(row.textContent).toContain(t);
     fireEvent.click(within(row).getByRole('button', { name: 'Share code' }));
     const sheet = await screen.findByRole('dialog', { name: 'Share code LAB12CD34' });
-    const text = 'Welile: thank you, your tenants pay well. Share code LAB12CD34 with people who need rent support — they apply at https://welile.example/tenants-onboarding?ref=LAB12CD34.';
+    const text = 'Welile: thank you, your tenants pay well. Share code LAB12CD34 with people who need rent support — they apply at https://welileapp.com/tenants-onboarding?ref=LAB12CD34.';
     expect(sheet.querySelector('[data-share-text]')?.textContent).toBe(text);
     expect(sheet.querySelector('[data-share-sms]')?.getAttribute('href')).toBe(`sms:0755000222?body=${encodeURIComponent(text)}`);
     expect(sheet.querySelector('[data-share-whatsapp]')?.getAttribute('href')).toBe(`https://wa.me/256755000222?text=${encodeURIComponent(text)}`);

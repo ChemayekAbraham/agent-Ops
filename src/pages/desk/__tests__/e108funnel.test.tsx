@@ -16,7 +16,8 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }, roles:
 // jsdom has no layout: give the charts a size so recharts draws.
 vi.mock('recharts', async (orig) => {
   const m = await orig<typeof import('recharts')>();
-  return { ...m, ResponsiveContainer: ({ children }: { children: ReactNode }) => <div style={{ width: 600, height: 200 }}>{children}</div> };
+  const { cloneElement } = await import('react');
+  return { ...m, ResponsiveContainer: ({ children }: { children: React.ReactElement }) => <div>{cloneElement(children, { width: 600, height: 200 })}</div> };
 });
 
 import { PostingFunnelCard, itemWords, readFunnel } from '../coo/PostingFunnel';
@@ -41,9 +42,21 @@ const FUNNEL = {
     ],
     last_block_before_quitting: [{ item: 'id_front', sessions: 30 }, { item: 'lc1_letter', sessions: 12 }],
     abandoned_at_step: [{ step: 'documents', sessions: 25 }],
-    submit_failures: [{ reason: 'Network error', n: 4 }],
+    submit_failures: [{ code: 'NETWORK', times: 4, agents: 3 }],
   },
   resubmit_checklist: [{ item: 'lc1_letter', agents: 9 }, { item: 'id_back', agents: 3 }],
+  by_vetting: [
+    { status: 'unverified', agents_opened: 80, agents_posted: 12 },
+    { status: 'verified', agents_opened: 35, agents_posted: 30 },
+    { status: 'rejected', agents_opened: 0, agents_posted: 0 },
+  ],
+  drafts: { open: 14, agents: 9, missing: [{ item: 'lc1_letter', drafts: 8 }, { item: 'house_photos', drafts: 5 }] },
+  markers: [
+    { at: '2026-10-10T08:00:00Z', day: '2026-10-10', kind: 'rule', label: 'LC1 letter now required' },
+    { at: '2026-10-20T08:00:00Z', day: '2026-10-20', kind: 'release:commit', label: 'Form release' },
+    { at: '2026-10-20T09:00:00Z', day: '2026-10-20', kind: 'switch', label: 'Agent form switch' },
+    { at: '2026-09-01T08:00:00Z', day: '2026-09-01', kind: 'rule', label: 'Off the chart' },
+  ],
 };
 const EMPTY = { agents_opened: 0, agents_posted: 0, conversion_pct: null, requests: 0, daily: [], milestones: [], tracked: { blocking_items: [], last_block_before_quitting: [], abandoned_at_step: [], submit_failures: 0 }, resubmit_checklist: [] };
 
@@ -101,9 +114,46 @@ describe('Where rent requests get stuck', () => {
 
     expect(within(screen.getByRole('list', { name: 'Last block before quitting' })).getByText('ID photo front')).toBeTruthy();
     expect(within(screen.getByRole('list', { name: 'Gave up at step' })).getByText('Documents')).toBeTruthy();
-    expect(within(screen.getByRole('list', { name: 'Submit failures' })).getByText('Network error')).toBeTruthy();
+    expect(document.querySelector('[data-submit-failure="NETWORK"]')?.textContent).toBe('NETWORK4× · 3 agents');
     const checklist = screen.getByRole('list', { name: 'Send-back checklist' });
     expect(checklist.textContent).toBe('LC1 letter9ID photo back3');
+  });
+
+  it('E110: by vetting status marks agents who opened but are not verified; open drafts and what they miss', async () => {
+    h.rpc.mockResolvedValue({ data: FUNNEL, error: null });
+    wrap(<PostingFunnelCard board={false} />);
+    const table = await findEl('[data-by-vetting]');
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    expect(rows.map((r) => [r.getAttribute('data-vetting'), r.getAttribute('data-flag')])).toEqual([
+      ['unverified', 'true'],
+      ['verified', null],
+      ['rejected', null],
+    ]);
+    expect(rows[0].textContent).toBe('Not verifiedopened, not verified8012');
+    expect(document.querySelector('[data-drafts]')?.textContent).toBe('14 open drafts · 9 agents');
+    expect(screen.getByRole('list', { name: 'Missing from drafts' }).textContent).toBe('LC1 letter8House photos5');
+  });
+
+  it('E110: markers are vertical lines on the daily charts, by kind; a tap shows the labels', async () => {
+    h.rpc.mockResolvedValue({ data: FUNNEL, error: null });
+    wrap(<PostingFunnelCard board={false} />);
+    await findEl('[data-funnel-headline]');
+    const flags = await waitFor(() => {
+      const els = Array.from(document.querySelectorAll('[aria-label="Agents who opened and posted, by day"] [data-marker-day]'));
+      expect(els.length).toBeGreaterThan(0);
+      return els;
+    });
+    // One line per day on the chart (the off-chart day is left out); a day's colour is its biggest kind.
+    expect(flags.map((f) => [f.getAttribute('data-marker-day'), f.getAttribute('data-marker-kind')])).toEqual([
+      ['2026-10-10', 'rule'],
+      ['2026-10-20', 'release'],
+    ]);
+    expect(flags[1].querySelector('title')?.textContent).toBe('Release: Form release\nSwitch: Agent form switch');
+    fireEvent.click(flags[1]);
+    expect((await findEl('[data-picked-markers="2026-10-20"]')).textContent).toContain('Switch: Agent form switch');
+    // The kinds in words beside their colours (light magenta is under 3:1, so words are a must).
+    const legend = screen.getByLabelText('Change markers');
+    for (const w of ['Release', 'Rule change', 'Switch']) expect(within(legend).getByText(w)).toBeTruthy();
   });
 
   it('the day and form switches ask the server again', async () => {
@@ -113,7 +163,7 @@ describe('Where rent requests get stuck', () => {
     fireEvent.click(screen.getByRole('button', { name: '30 days' }));
     await waitFor(() => expect(h.rpc).toHaveBeenCalledWith('posting_funnel', { p_days: 30, p_form: 'agent_post' }));
     fireEvent.click(screen.getByRole('button', { name: 'Tenant self-apply' }));
-    await waitFor(() => expect(h.rpc).toHaveBeenCalledWith('posting_funnel', { p_days: 30, p_form: 'tenant_self_apply' }));
+    await waitFor(() => expect(h.rpc).toHaveBeenCalledWith('posting_funnel', { p_days: 30, p_form: 'tenant_self' }));
   });
 
   it('empty: zeros as sent, "—" for a conversion it did not send, and plain empty lines', async () => {

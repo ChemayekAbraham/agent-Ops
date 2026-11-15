@@ -2,7 +2,8 @@ import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { rpc } from '../reviewApi';
-import { LABEL } from '../deskTheme';
+import { MarkerLegend, MARKER_CSS, PickedMarks, marksByDay, markerLines, readMarkers, type DayMarks, type Marker } from './markers';
+import { LABEL, statusText } from '../deskTheme';
 import { fmt } from '../format';
 import { isMissingDbObject } from '../deskLive';
 import { Card, EmptyState, ErrorLine, LoadingRows, Segmented, stackLayout } from '../ui';
@@ -24,12 +25,31 @@ export const FUNNEL_DAYS = [7, 14, 30] as const;
 export type FunnelDays = (typeof FUNNEL_DAYS)[number];
 export const FUNNEL_FORMS = [
   { key: 'agent_post', label: 'Agent' },
-  { key: 'tenant_self_apply', label: 'Tenant self-apply' },
+  { key: 'tenant_self', label: 'Tenant self-apply' },
 ] as const;
 export type FunnelForm = (typeof FUNNEL_FORMS)[number]['key'];
 
-/** Item keys in words. Unknown keys read as their words ("house_photo" → "House photo"). */
+/**
+ * Item and step keys in words (src/lib/formFunnel.ts FUNNEL_ITEMS and
+ * FUNNEL_STEPS, plus older names). Unknown keys read as their words.
+ */
 export const ITEM_WORDS: Record<string, string> = {
+  house_photos: 'House photos',
+  landlord: 'Landlord details',
+  rent: 'Rent amount',
+  family_size: 'Family size',
+  work: 'Work details',
+  phone: 'Phone number',
+  duplicate: 'Duplicate request',
+  other: 'Other',
+  start: 'Start',
+  repayment: 'Repayment plan',
+  tenant: 'Tenant details',
+  house_landlord: 'House and landlord',
+  smartphone: 'Smartphone',
+  documents: 'Documents',
+  review: 'Review',
+  unknown: 'Unknown',
   id_front: 'ID photo front',
   id_back: 'ID photo back',
   national_id: 'National ID number',
@@ -51,7 +71,7 @@ export const ITEM_WORDS: Record<string, string> = {
   nok: 'Next of kin',
   rent_amount: 'Rent amount',
   tenancy_agreement: 'Tenancy agreement',
-  agreement: 'Tenancy agreement',
+  agreement: 'Guarantor agreement',
   caretaker_phone: 'Caretaker phone',
   meter_photo: 'Meter photo',
 };
@@ -91,8 +111,11 @@ export type Funnel = {
   blocking: Blocking[];
   lastBlock: Pair[];
   abandonedAt: Pair[];
-  submitFailures: Pair[] | number | null;
+  submitFailures: { code: string; times: number | null; agents: number | null }[] | number | null;
   checklist: Pair[];
+  byVetting: { status: string; agents_opened: number | null; agents_posted: number | null }[];
+  drafts: { open: number | null; agents: number | null; missing: Pair[] } | null;
+  markers: Marker[];
 };
 
 export function readFunnel(data: unknown): Funnel {
@@ -123,8 +146,26 @@ export function readFunnel(data: unknown): Funnel {
       .sort((a: Blocking, b: Blocking) => (b.abandoned_after ?? -1) - (a.abandoned_after ?? -1)),
     lastBlock: pairs(t.last_block_before_quitting, ['item', 'label', 'step'], ['sessions', 'n', 'count', 'agents']),
     abandonedAt: pairs(t.abandoned_at_step, ['step', 'label', 'item'], ['sessions', 'n', 'count', 'agents']),
-    submitFailures: typeof sf === 'number' || typeof sf === 'string' ? num(sf) : sf ? pairs(sf, ['reason', 'error', 'code', 'label', 'item'], ['n', 'count', 'sessions']) : null,
+    submitFailures:
+      typeof sf === 'number' || typeof sf === 'string'
+        ? num(sf)
+        : Array.isArray(sf)
+          ? sf.map((x: Record<string, unknown>) => ({ code: String(x.code ?? x.reason ?? x.error ?? 'unknown'), times: num(x.times ?? x.n ?? x.count), agents: num(x.agents) }))
+          : null,
     checklist: pairs(d.resubmit_checklist, ['item', 'label'], ['agents', 'n', 'count']),
+    byVetting: (Array.isArray(d.by_vetting) ? d.by_vetting : []).map((x: Record<string, unknown>) => ({
+      status: String(x.status ?? 'no record'),
+      agents_opened: num(x.agents_opened),
+      agents_posted: num(x.agents_posted),
+    })),
+    drafts:
+      d.drafts && typeof d.drafts === 'object'
+        ? (() => {
+            const dr = d.drafts as Record<string, unknown>;
+            return { open: num(dr.open), agents: num(dr.agents), missing: pairs(dr.missing, ['item', 'label'], ['drafts', 'n', 'count']) };
+          })()
+        : null,
+    markers: readMarkers(d.markers),
   };
 }
 
@@ -177,14 +218,23 @@ function PairList({ rows, words, label }: { rows: Pair[]; words?: boolean; label
   );
 }
 
-function DailyCharts({ daily }: { daily: Daily[] }) {
+/** An agent who opened the form but is not verified: the vetting row to look at. */
+export const openedUnverified = (r: { status: string; agents_opened: number | null }) => r.status !== 'verified' && (r.agents_opened ?? 0) > 0;
+const VETTING_WORDS: Record<string, string> = { verified: 'Verified', unverified: 'Not verified', submitted: 'Submitted, waiting', rejected: 'Rejected', 'no record': 'No vetting record' };
+
+function DailyCharts({ daily, markers }: { daily: Daily[]; markers: Marker[] }) {
   const [table, setTable] = useState(false);
+  const [picked, setPicked] = useState<DayMarks | null>(null);
   if (daily.length === 0) return <p className="text-sm text-muted-foreground">No days came back.</p>;
   const data = daily.map((d) => ({ ...d, label: shortDay(d.day) }));
+  // Markers sit on the day they happened, when that day is on the chart.
+  const onChart = new Set(daily.map((d) => d.day.slice(0, 10)));
+  const marks = marksByDay(markers.filter((m) => onChart.has(m.day)));
+  const xFor = (day: string) => (onChart.has(day) ? shortDay(day) : null);
   const axis = { stroke: 'var(--viz-grid)', tick: { fill: 'var(--viz-ink)', fontSize: 11 } };
   return (
-    <div className="funnel-viz" style={stackLayout(10)}>
-      <style>{VIZ_CSS}</style>
+    <div className="funnel-viz change-markers" style={stackLayout(10)}>
+      <style>{VIZ_CSS + MARKER_CSS}</style>
       {/* Two charts, one axis each: counts, then the conversion rate. */}
       <div style={{ height: 180 }} aria-label="Agents who opened and posted, by day" role="img">
         <ResponsiveContainer width="100%" height="100%">
@@ -196,6 +246,7 @@ function DailyCharts({ daily }: { daily: Daily[] }) {
             <Legend wrapperStyle={{ fontSize: 12, color: 'var(--viz-ink)' }} />
             <Line type="monotone" dataKey="agents_opened" name="Agents opened" stroke="var(--viz-opened)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
             <Line type="monotone" dataKey="agents_posted" name="Agents posted" stroke="var(--viz-posted)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+            {markerLines(marks, xFor, setPicked)}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -207,9 +258,12 @@ function DailyCharts({ daily }: { daily: Daily[] }) {
             <YAxis {...axis} width={40} unit="%" />
             <Tooltip formatter={(v: number) => [`${v}%`, 'Conversion']} contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--popover-foreground))', fontSize: 12 }} />
             <Line type="monotone" dataKey="conversion_pct" name="Conversion" stroke="var(--viz-opened)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+            {markerLines(marks, xFor, setPicked)}
           </LineChart>
         </ResponsiveContainer>
       </div>
+      {marks.length > 0 && <MarkerLegend />}
+      <PickedMarks picked={picked} onClose={() => setPicked(null)} />
       <button type="button" className="w-fit text-xs text-muted-foreground underline underline-offset-4" onClick={() => setTable((t) => !t)} aria-expanded={table}>
         {table ? 'Hide the table' : 'Show as a table'}
       </button>
@@ -300,7 +354,7 @@ export function PostingFunnelCard({ board }: { board: boolean }) {
           </p>
 
           <Section title="By day" note="last 28 days">
-            <DailyCharts daily={f.daily} />
+            <DailyCharts daily={f.daily} markers={f.markers} />
           </Section>
 
           <Section title="Steps reached" note="from button taps — direction, not exact">
@@ -345,7 +399,22 @@ export function PostingFunnelCard({ board }: { board: boolean }) {
             </Section>
             <Section title="Submit failures">
               {Array.isArray(f.submitFailures) ? (
-                <PairList rows={f.submitFailures} label="Submit failures" />
+                f.submitFailures.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">None.</p>
+                ) : (
+                  <ul style={{ ...stackLayout(4), margin: 0, padding: 0, listStyle: 'none' }} aria-label="Submit failures">
+                    {f.submitFailures.map((x) => (
+                      <li key={x.code} className="flex justify-between gap-3 text-sm" data-submit-failure={x.code}>
+                        <span className="text-foreground" style={{ overflowWrap: 'anywhere' }}>
+                          {x.code}
+                        </span>
+                        <span className="tabular-nums text-foreground">
+                          {fmt('int', x.times)}×{x.agents !== null ? ` · ${fmt('int', x.agents)} agents` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )
               ) : (
                 <p className="text-sm tabular-nums text-foreground" style={{ margin: 0 }} data-submit-failures>
                   {fmt('int', f.submitFailures)}
@@ -357,6 +426,49 @@ export function PostingFunnelCard({ board }: { board: boolean }) {
           <Section title="Send-back checklist" note="what send-backs ask for, by agents">
             <PairList rows={f.checklist} words label="Send-back checklist" />
           </Section>
+
+          <Section title="By vetting status" note="agents who opened the form but are not verified are marked">
+            {f.byVetting.length === 0 ? (
+              <p className="text-sm text-muted-foreground">None.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="w-full text-sm" data-by-vetting>
+                  <thead>
+                    <tr>
+                      <th className={`${LABEL} px-2 py-1 text-left font-normal`}>Status</th>
+                      <th className={`${LABEL} px-2 py-1 text-right font-normal`}>Agents opened</th>
+                      <th className={`${LABEL} px-2 py-1 text-right font-normal`}>Agents posted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {f.byVetting.map((v) => {
+                      const flag = openedUnverified(v);
+                      return (
+                        <tr key={v.status} className={`border-t border-[var(--desk-line-color)] ${flag ? 'bg-[hsl(var(--warning)/0.12)]' : ''}`} data-vetting={v.status} data-flag={flag || undefined}>
+                          <td className="px-2 py-1 text-foreground">
+                            {VETTING_WORDS[v.status] ?? v.status}
+                            {flag && <span className={`ml-2 text-xs ${statusText.warn}`}>opened, not verified</span>}
+                          </td>
+                          <td className={`px-2 py-1 text-right tabular-nums ${flag ? `font-semibold ${statusText.warn}` : 'text-foreground'}`}>{fmt('int', v.agents_opened)}</td>
+                          <td className="px-2 py-1 text-right tabular-nums text-foreground">{fmt('int', v.agents_posted)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
+
+          {f.drafts && (
+            <Section title="Drafts not posted">
+              <p className="text-sm text-foreground" style={{ margin: 0 }} data-drafts>
+                <span className="font-semibold tabular-nums">{fmt('int', f.drafts.open)}</span> open drafts ·{' '}
+                <span className="tabular-nums">{fmt('int', f.drafts.agents)}</span> agents
+              </p>
+              <PairList rows={f.drafts.missing} words label="Missing from drafts" />
+            </Section>
+          )}
         </div>
       )}
     </Card>

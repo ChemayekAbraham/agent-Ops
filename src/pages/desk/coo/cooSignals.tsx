@@ -8,6 +8,7 @@ import { Card, Chip, EmptyState, ErrorLine, LoadingRows, Sheet, moneyFull, pctWh
 import { plainError, useArrearsTotals } from '../arrears/arrearsApi';
 import { TierCounts } from '../arrears/TenantArrearsTab';
 import { dayText } from '../arrears/ArrearsParts';
+import { MarkerStrip, daysBefore, monthEnd, useChangeMarkerList } from './markers';
 
 /**
  * The COO / CEO signals on the Command Centre (E103–E105, E102 totals):
@@ -60,6 +61,8 @@ export function DemandAlarm({ board }: { board: boolean }) {
   const q = useCooAlarms();
   const qc = useQueryClient();
   const [acking, setAcking] = useState<number | null>(null);
+  // E110: what changed in the 7 days the alarm compares.
+  const markers = useChangeMarkerList(30);
   if (q.error && refused(q.error)) return null;
   if (q.isLoading) return <LoadingRows rows={1} label="Loading the demand alarm" />;
   if (q.error) return <ErrorLine>{plainError(q.error, SIGNAL_WORDS)}</ErrorLine>;
@@ -102,6 +105,7 @@ export function DemandAlarm({ board }: { board: boolean }) {
               {t.rule}
             </p>
           )}
+          <MarkerStrip markers={markers} from={daysBefore(t.day, 6)} to={t.day} label="Changes in these 7 days" />
         </div>
       )}
       {!board && alarms.length > 0 && (
@@ -246,6 +250,7 @@ export function useCohortBoard() {
 
 export function CohortBoard({ board }: { board: boolean }) {
   const q = useCohortBoard();
+  const markers = useChangeMarkerList(30);
   if (q.error && refused(q.error)) return null;
   const th = `${LABEL} px-2 py-1.5 text-right font-normal`;
   const td = 'px-2 py-1.5 text-right tabular-nums text-foreground';
@@ -272,6 +277,7 @@ export function CohortBoard({ board }: { board: boolean }) {
                 <th className={th}>Repaying</th>
                 <th className={th}>Silent 7d</th>
                 <th className={th}>Completed</th>
+                <th className={`${LABEL} px-2 py-1.5 text-left font-normal`}>Changes</th>
               </tr>
             </thead>
             <tbody>
@@ -288,6 +294,9 @@ export function CohortBoard({ board }: { board: boolean }) {
                   <td className={td}>{fmt('int', c.repaying)}</td>
                   <td className={td}>{fmt('int', c.silent_7d)}</td>
                   <td className={td}>{fmt('int', c.completed)}</td>
+                  <td className="px-2 py-1.5 align-top">
+                    {c.month_start && <MarkerStrip markers={markers} from={c.month_start} to={monthEnd(c.month_start)} label="" />}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -302,6 +311,7 @@ export function CohortBoard({ board }: { board: boolean }) {
 
 export function ArrearsTile({ board }: { board: boolean }) {
   const q = useArrearsTotals();
+  const markers = useChangeMarkerList(30);
   if (q.error && refused(q.error)) return null;
   const t = q.data?.totals;
   return (
@@ -324,6 +334,7 @@ export function ArrearsTile({ board }: { board: boolean }) {
           <p className={LABEL} style={{ margin: 0 }}>
             Tenants called {fmt('int', t.tenant_called)} / agents called {fmt('int', t.agent_called)}
           </p>
+          {q.data?.day && <MarkerStrip markers={markers} from={daysBefore(q.data.day, 6)} to={q.data.day} label="Changes in the 7 days to it" />}
         </div>
       ) : (
         <EmptyState>No arrears figures came back.</EmptyState>
