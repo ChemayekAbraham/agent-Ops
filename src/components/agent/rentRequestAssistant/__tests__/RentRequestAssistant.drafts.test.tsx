@@ -3,7 +3,7 @@
  * Continue at the first missing item, and the post closing the draft.
  */
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mocks = vi.hoisted(() => ({
@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   submit: vi.fn(),
   open: vi.fn(),
   drafts: { data: [] as unknown, error: null as unknown },
+  gate: { blocked: false, vetted: true, funding_frozen: false, notice: null } as Record<string, unknown>,
 }));
 vi.mock('@/integrations/supabase/client', () => {
   const builder = () => {
@@ -91,8 +92,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   resetDraftsAvailability();
   mocks.drafts = { data: [], error: null };
+  mocks.gate = { blocked: false, vetted: true, funding_frozen: false, notice: null };
   mocks.rpc.mockImplementation(async (fn: string) => {
     switch (fn) {
+      case 'agent_vetting_gate_status': return { data: mocks.gate, error: null };
       case 'posting_drafts_mine': return mocks.drafts;
       case 'posting_draft_save': return { data: { id: 'd1' }, error: null };
       case 'posting_draft_close': return { data: { ok: true }, error: null };
@@ -151,6 +154,34 @@ describe('E109: save and finish later', () => {
   });
 
   it('save → Saved list → Continue at the first missing item → post closes the draft', async () => {
+    const payload = fullPayload();
+    expect(new Blob([JSON.stringify(payload)]).size).toBeLessThan(MAX_DRAFT_BYTES);
+    mocks.drafts = { data: [{ id: 'd1', tenant_name: 'John Mukasa', tenant_phone: '0783123456', missing: 'Family size', expires_at: '2026-11-23T08:00:00Z', payload }], error: null };
+
+    // The Saved list: Continue opens the chat with the saved request.
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PostingDraftsList />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('Missing: Family size')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    const request = mocks.open.mock.calls[0][0];
+    expect(request).toMatchObject({ mode: 'new', draft: { id: 'd1' } });
+
+    // The chat opens at the first missing item, everything else filled in.
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={request} />);
+    await finishAndPost();
+    const sent = mocks.submit.mock.calls[0][0] as { familySize: number; housePhotos: File[]; tenantName: string };
+    expect(sent.familySize).toBe(4);
+    expect(sent.housePhotos).toHaveLength(4);
+    expect(sent.tenantName).toBe('John Mukasa');
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('posting_draft_close', { p_draft_id: 'd1', p_status: 'posted', p_rent_request_id: 'req-1' }));
+  });
+});
+
+/** A saved request with everything but the family size. */
+function fullPayload(): PostingDraftPayload {
     const path = (b: string, n: string) => ({ bucket: b, path: `agent-1/draft-x/${n}.jpg` });
     const payload: PostingDraftPayload = {
       v: 1,
@@ -171,35 +202,47 @@ describe('E109: save and finish later', () => {
         idBack: path('tenant-ids', 'id_back'), lcLetter: path('lc-letters', 'lc1_letter'),
       },
     };
-    expect(new Blob([JSON.stringify(payload)]).size).toBeLessThan(MAX_DRAFT_BYTES);
-    mocks.drafts = { data: [{ id: 'd1', tenant_name: 'John Mukasa', tenant_phone: '0783123456', missing: 'Family size', expires_at: '2026-11-23T08:00:00Z', payload }], error: null };
+    return payload;
+}
 
-    // The Saved list: Continue opens the chat with the saved request.
-    render(
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <PostingDraftsList />
-      </QueryClientProvider>,
-    );
-    expect(await screen.findByText('Missing: Family size')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    const request = mocks.open.mock.calls[0][0];
-    expect(request).toMatchObject({ mode: 'new', draft: { id: 'd1' } });
-
-    // The chat opens at the first missing item, everything else filled in.
-    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={request} />);
+/** From the family size question to a posted request. */
+async function finishAndPost() {
     expect((await screen.findAllByText(/How many people live in John’s household/, {}, { timeout: 3000 })).length).toBeGreaterThan(0);
     answer('4');
-    const consent = await screen.findByLabelText('Guarantor consent');
-    fireEvent.click(consent);
+    fireEvent.click(await screen.findByLabelText('Guarantor consent'));
     const post = await screen.findByRole('button', { name: /Post rent request/ });
     await waitFor(() => expect(post).toBeEnabled());
     fireEvent.click(post);
-
     await waitFor(() => expect(mocks.submit).toHaveBeenCalled());
-    const sent = mocks.submit.mock.calls[0][0] as { familySize: number; housePhotos: File[]; rentRequestId?: string; tenantName: string };
-    expect(sent.familySize).toBe(4);
-    expect(sent.housePhotos).toHaveLength(4);
-    expect(sent.tenantName).toBe('John Mukasa');
-    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('posting_draft_close', { p_draft_id: 'd1', p_status: 'posted', p_rent_request_id: 'req-1' }));
+}
+
+const NOTICE = 'You can post rent requests. They wait at the COO until you complete your agent verification.';
+
+describe('E111: agents always post', () => {
+  it('an unverified agent opens the form, sees the notice, posts, and sees it again on the sent screen', async () => {
+    mocks.gate = { blocked: false, vetted: false, funding_frozen: true, notice: NOTICE };
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd9', payload: fullPayload() } }} />);
+    const top = await screen.findByTestId('vetting-notice');
+    expect(top).toHaveTextContent(NOTICE);
+    expect(within(top).getByRole('link', { name: 'Complete verification' })).toHaveAttribute('href', '/dashboard/agent/verification');
+    expect(mocks.rpc).toHaveBeenCalledWith('agent_vetting_gate_status', { p_agent_id: 'agent-1' });
+    await finishAndPost();
+    expect((await screen.findAllByText('Sent to the Service Centre')).length).toBeGreaterThan(0);
+    expect(screen.getByTestId('vetting-notice')).toHaveTextContent(NOTICE);
+    expect(screen.queryByTestId('vetting-blocked')).toBeNull();
+  });
+
+  it('only blocked = true stops posting, with the old block', async () => {
+    mocks.gate = { blocked: true, vetted: false, funding_frozen: true, notice: NOTICE, reason: 'Agent Ops must verify you first.' };
+    const seen = vi.fn();
+    window.addEventListener('agent-not-vetted', seen);
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    expect(await screen.findByTestId('vetting-blocked')).toHaveTextContent('Complete your agent verification to post rent requests. Agent Ops must verify you first.');
+    await waitFor(() => expect(seen).toHaveBeenCalled());
+    expect(screen.queryByLabelText('Your answer')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Weekly earner/ })).toBeNull();
+    expect(screen.queryByTestId('vetting-notice')).toBeNull();
+    window.removeEventListener('agent-not-vetted', seen);
   });
 });
+

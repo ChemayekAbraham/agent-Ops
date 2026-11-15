@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { PostingDraftsList } from '@/components/agent/PostingDraftsList';
+import { useAgentGateStatus } from '@/hooks/useAgentGateStatus';
+import { AGENT_VERIFICATION_PATH } from '@/hooks/useAgentVetting';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -95,6 +97,11 @@ function buildScheduleDays(createdAt: string, durationDays: number) {
 export function AgentMyRentRequestsSheet({ open, onOpenChange }: AgentMyRentRequestsSheetProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  // E111: while the agent is not verified, their open requests wait at the COO / funders' board.
+  const gate = useAgentGateStatus(user?.id, open);
+  const waitingAtCoo = (req: { agent_id?: string | null; status: string | null }) =>
+    gate?.vetted === false && req.agent_id === user?.id
+    && !['funded', 'disbursed', 'repaying', 'completed', 'rejected', 'cancelled', 'deleted_by_agent'].includes(req.status || '');
   const [requests, setRequests] = useState<AgentRentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -334,8 +341,15 @@ export function AgentMyRentRequestsSheet({ open, onOpenChange }: AgentMyRentRequ
                               {req.tenant?.full_name || 'Unknown Tenant'}
                             </span>
                           </div>
-                          {getStatusBadgeForRequest(req)}
+                          {!waitingAtCoo(req) && getStatusBadgeForRequest(req)}
                         </div>
+                        {waitingAtCoo(req) && (
+                          <a href={AGENT_VERIFICATION_PATH} data-testid="waiting-at-coo"
+                            className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-medium text-primary">
+                            <Clock className="h-4 w-4 shrink-0" aria-hidden />
+                            Waiting at COO: complete your verification
+                          </a>
+                        )}
 
                         {/* Landlord verification status banner */}
                         {req.landlord?.verified ? (

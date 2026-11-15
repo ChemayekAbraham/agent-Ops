@@ -17,7 +17,7 @@
  * Submit stays off until t4Missing() is empty (SC-2 and Agent Ops gate items).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Square, UserPlus, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, ShieldCheck, Square, UserPlus, Volume2, VolumeX } from 'lucide-react';
 import welileLogo from '@/assets/welile-logo.png';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -33,7 +33,9 @@ import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/La
 import RegisterLandlordDialog from '@/components/agent/RegisterLandlordDialog';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
 import { GuarantorConsentCheckbox } from '@/components/agent/GuarantorConsentCheckbox';
-import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
+import { NOT_VETTED_EVENT, promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
+import { useAgentGateStatus } from '@/hooks/useAgentGateStatus';
+import { AGENT_VERIFICATION_PATH } from '@/hooks/useAgentVetting';
 import { agentNotVettedReason } from '@/lib/agentVetting';
 import { optimizeImage } from '@/lib/imageOptimizer';
 import { runPassportFaceCheck, faceCheckBlocker, type PassportFaceCheck } from '@/lib/passportFaceCheck';
@@ -283,6 +285,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   // E100 (COO decision): no daily or weekly posting gate. The agent's collection against the
   // 50% rule is shown as information only; it never blocks a post.
   const [collectionPct, setCollectionPct] = useState<number | null>(null);
+  /*
+   * E111: agents always post. An unverified agent's request passes every desk and waits at
+   * the COO / funders' board until Agent Ops verifies them; `notice` says so. Only
+   * `blocked` (the switch turned back on) stops a new request, with the old block.
+   */
+  const gate = useAgentGateStatus(user?.id, open && mode === 'new');
+  const gateBlocked = mode === 'new' && gate?.blocked === true;
+  const vettingNotice = mode === 'new' && !gateBlocked ? gate?.notice ?? null : null;
+  useEffect(() => {
+    if (!gateBlocked) return;
+    window.dispatchEvent(new CustomEvent(NOT_VETTED_EVENT, {
+      detail: gate?.reason || 'Complete your agent verification before posting a rent request.',
+    }));
+  }, [gateBlocked, gate?.reason]);
   useEffect(() => {
     if (!open || !user?.id) return;
     let cancelled = false;
@@ -1282,6 +1298,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const post = async () => {
     if (mode === 'resubmit') return postResubmit();
     if (mode === 'renewal') return postRenewalPlan();
+    if (gateBlocked) return;
     if (!user || !fees || !landlord || !tenantPhoto || posting) return;
     if (missing.length) {
       blockedNow(t4FunnelItems(missing.map((m) => m.key)));
@@ -1733,8 +1750,24 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             </div>
           )}
 
-          {(
+          {gateBlocked ? (
+            <Bot>
+              <Bubble tone="warn">
+                <span data-testid="vetting-blocked">
+                  <b>Complete your agent verification to post rent requests.</b>{' '}
+                  {gate?.reason ?? ''}{' '}
+                  <a href={AGENT_VERIFICATION_PATH} className="font-semibold underline underline-offset-4">Go to verification</a>
+                </span>
+              </Bubble>
+            </Bot>
+          ) : (
             <>
+              {vettingNotice && !result && (
+                <div className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm" role="note" data-testid="vetting-notice">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <span>{vettingNotice} <a href={AGENT_VERIFICATION_PATH} className="font-semibold text-primary underline underline-offset-4">Complete verification</a></span>
+                </div>
+              )}
               {typeof collectionPct === 'number' && (
                 <Bot><Bubble><span data-testid="collection-info">{collectionInfoLine(collectionPct)}</span></Bubble></Bot>
               )}
@@ -1790,6 +1823,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                       {mode === 'new' && !result.existing && ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.`}
                     </Bubble>
                   </Bot>
+                  {vettingNotice && (
+                    <div className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm" role="note" data-testid="vetting-notice">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <span>{vettingNotice} <a href={AGENT_VERIFICATION_PATH} className="font-semibold text-primary underline underline-offset-4">Complete verification</a></span>
+                </div>
+                  )}
                   {result.lcLetterFailed && <Bot><Bubble tone="warn">The LC letter didn’t upload. Add it later from My rent requests.</Bubble></Bot>}
                   {result.docErrors.map((e) => (
                     <Bot key={e}><Bubble tone="warn"><b>Not saved:</b> {e}</Bubble></Bot>
@@ -1822,7 +1861,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         </div>
       </div>
 
-      {!result && current !== 'review' && (
+      {!result && !gateBlocked && current !== 'review' && (
         <footer className="border-t border-border bg-card px-3 pb-safe pt-2.5">
           {showSaveDraft && saveOffer && <div className="mx-auto max-w-xl pb-2">{saveDraftBlock}</div>}
           <div className="mx-auto flex max-w-xl items-center gap-2 pb-3">
