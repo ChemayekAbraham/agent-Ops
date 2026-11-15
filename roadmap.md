@@ -1,3 +1,9 @@
+# Frontend error watcher (15 November)
+- [x] Audit generated columns: fix DailyRentReport landlord names and LandlordTimelineDrawer awareness selects/order with recorded_at; remove nonexistent Rent Plan call fields and never substitute creation time for verification time.
+- [x] Make anonymous error reporting silent using the current cached session; 19 focused tests and all guards pass, automatic build OK.
+- [ ] Trace wallet_transactions.user_id, rent request/draft full_name/phone/user_id, staff_profiles.full_name, neexa_messages.content/metadata, invalid user_id filter and partner enum insert; no matching current client signatures, requires exact originating request URLs/client version.
+- [ ] Verify authenticated production error reduction; blocked by external unmanaged authentication and unavailable originating request details.
+
 # Frontend error watcher (14 November)
 - [x] Verify live columns: wallet sender_id/recipient_id and user_roles.user_id exist; no staff_profiles.full_name or partner_agreements.agreement_code selects in current frontend. Short-link callers already use maybeSingle; five missing-table browser calls absent.
 - [x] Guard missing direct-payment list reads and normalize house integer filters; 43 focused tests and all guards pass, automatic build OK. Existing avatar failure/initials tests pass unchanged.
