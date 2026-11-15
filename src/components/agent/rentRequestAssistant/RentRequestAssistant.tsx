@@ -26,7 +26,6 @@ import { Lc1SearchStep, type Lc1Hit } from './Lc1SearchStep';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
 import { collectionInfoLine, fetchMyCollectionPct } from '@/lib/agentCollectionInfo';
 import { listingHasRealPhoto } from '@/hooks/useHouseListings';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
@@ -243,11 +242,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const mode = request?.mode ?? 'new';
   const rejected = request?.mode === 'resubmit' ? request.rejected : null;
   const renewal = request?.mode === 'renewal' ? request.renewal : null;
-  const capIds = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
-  const { data: capMap } = useAgentCapacityMap(capIds);
-  const myCap = user?.id ? capMap?.get(user.id) : undefined;
-  // The per-tenant cap is still checked (and the server enforces it).
-  const perTenantMax = myCap?.unlimited_posting ? Number.MAX_SAFE_INTEGER : (myCap?.per_tenant_max ?? 500_000);
+  // E63: no rent cap per tenant. Any monthly rent can be entered; the server's own rule
+  // (tenant arrears) refuses what it should, and its message is shown as it is.
   // E100 (COO decision): no daily or weekly posting gate. The agent's collection against the
   // 50% rule is shown as information only; it never blocks a post.
   const [collectionPct, setCollectionPct] = useState<number | null>(null);
@@ -773,7 +769,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             ? `Hmm, ${formatUGX(n)} looks too small for a month’s rent. Did you mean ${formatUGX(n * 1000)}? 🤔`
             : `${formatUGX(n)} is below the UGX 50,000 minimum for a Rent Plan. Check the amount with the tenant 🙏`;
         }
-        if (myCap && n > perTenantMax) return `${formatUGX(n)} is more than your cap of ${formatUGX(perTenantMax)} per tenant 😕 Check the amount, or pick a house within your cap.`;
         return null;
       }
       case 'tenantPhone':

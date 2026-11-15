@@ -293,6 +293,54 @@ describe('E100: no posting gate', () => {
   });
 });
 
+describe('E63: no rent cap in the form', () => {
+  // 0% collected today, and a capacity record from before E63 that still says 200,000 per tenant.
+  const zeroPct = { can_post_rent_today: true, unlimited_posting: false, per_tenant_max: 200_000, tier: 'Very Bad', tenants_due: 10, tenants_paid_today: 0 };
+  const askedLast = (re: RegExp) => screen.findAllByText(re).then((els) => els[els.length - 1]);
+
+  it.each([[300000, 'UGX 300,000'], [400000, 'UGX 400,000']])('new request: %s is taken as it is, with no cap message', async (rent, shown) => {
+    cap.data = new Map([['agent-1', zeroPct]]);
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'agent_eligibility_of' ? { data: { pct: 0 }, error: null } : { data: { ok: true }, error: null }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
+    expect(await askedLast(/Monthly rent \(one month only\)/)).toBeInTheDocument();
+    // The numbers-only tip still comes on the third answer it can't read.
+    answer('about three hundred');
+    answer('about three hundred');
+    answer('about three hundred');
+    expect(await screen.findByText(/type the numbers only, like 450000/)).toBeInTheDocument();
+    answer(String(rent));
+    // Past the rent question: the next step's Continue is there, the amount shows with commas.
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+    expect(await askedLast(/What’s their phone number/)).toBeInTheDocument();
+    expect(screen.getAllByText(new RegExp(shown.replace(/[,]/g, ',')))).not.toHaveLength(0);
+    expect(screen.queryByText(/more than your cap|per tenant|within your cap/)).toBeNull();
+  });
+
+  it.each([300000, 400000])('resubmit: %s reaches Resubmit and goes in the patch', async (rent) => {
+    cap.data = new Map([['agent-1', zeroPct]]);
+    mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ rent_amount: 250000, rejected_reason: null }) }} />);
+    await waitFor(() => expect(group('gate')).toBeNull());
+    // The request on file loads first.
+    fireEvent.click(await screen.findByRole('button', { name: /^Change answer: UGX\s250,000$/ }, { timeout: 5000 }));
+    answer(String(rent));
+    expect(screen.queryByText(/more than your cap|within your cap/)).toBeNull();
+    // A new rent asks the days again, then goes back to where the agent was.
+    await screen.findAllByText(/How many days/);
+    answer('30');
+    await screen.findByTestId('t4-missing');
+    fix(/What you changed/);
+    answer('Corrected the monthly rent with the landlord');
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    expect(mocks.rpc).toHaveBeenCalledWith('agent_resubmit_rent_request', expect.objectContaining({
+      p_request_id: 'req-9', p_patch: expect.objectContaining({ rent_amount: rent }),
+    }));
+  });
+});
+
 describe('send progress on the button', () => {
   it('says Saving… while the request is being saved, then shows it sent', async () => {
     mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };

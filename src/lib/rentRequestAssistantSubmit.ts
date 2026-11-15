@@ -617,9 +617,7 @@ async function submitTimed(input: AssistantSubmitInput, timer: ReturnType<typeof
         raw: error,
       };
     }
-    if (lower.includes('100,000,000') || lower.includes('exposure cap')) {
-      return { ok: false, reason: 'other', message: 'You have reached your UGX 100,000,000 active rent exposure cap. Collect on existing rent requests to free up headroom.', raw: error };
-    }
+    // E63: no rent caps; an amount refusal (tenant arrears) falls through and shows as written.
     if (/row-level security|RLS/.test(msg)) {
       return { ok: false, reason: 'session', message: 'Permission denied: your session may have expired. Please sign out and sign in again.', raw: error };
     }
