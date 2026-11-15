@@ -88,7 +88,7 @@ export function useCFOImpactDrilldown(
       if (metric === 'tenants') {
         let q = supabase
           .from('rent_requests')
-          .select('tenant_id, amount, status, created_at', { count: 'exact' })
+          .select('tenant_id, rent_amount, status, created_at', { count: 'exact' })
           .in('status', ['disbursed', 'repaying', 'completed', 'funded'])
           .order('created_at', { ascending: false })
           .limit(PAGE_SIZE);
@@ -113,7 +113,7 @@ export function useCFOImpactDrilldown(
             id: r.tenant_id,
             name: p?.full_name || 'Unnamed',
             phone: p?.phone || null,
-            amount: Number(r.amount || 0),
+            amount: Number(r.rent_amount || 0),
             date: r.created_at,
             meta: r.status,
           });

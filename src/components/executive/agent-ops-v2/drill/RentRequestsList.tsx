@@ -53,7 +53,7 @@ export function RentRequestsList({ range }: { range: DateRange }) {
       const to = from + PAGE_SIZE - 1;
       const { data: reqs, error } = await supabase
         .from('rent_requests')
-        .select('id, created_at, amount, status, tenant_id')
+        .select('id, created_at, rent_amount, status, tenant_id')
         .gte('created_at', rangeStart)
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -70,7 +70,7 @@ export function RentRequestsList({ range }: { range: DateRange }) {
       const rows: RequestRow[] = (reqs ?? []).map((r: any) => ({
         id: r.id,
         created_at: r.created_at,
-        amount: Number(r.amount ?? 0),
+        amount: Number(r.rent_amount ?? 0),
         status: r.status,
         tenant_id: r.tenant_id,
         tenant_name: r.tenant_id ? profMap.get(r.tenant_id) ?? null : null,
@@ -100,7 +100,7 @@ export function RentRequestsList({ range }: { range: DateRange }) {
           const row: RequestRow = {
             id: r.id,
             created_at: r.created_at,
-            amount: Number(r.amount ?? 0),
+            amount: Number(r.rent_amount ?? 0),
             status: r.status,
             tenant_id: r.tenant_id,
             tenant_name: tenantName,
@@ -123,7 +123,7 @@ export function RentRequestsList({ range }: { range: DateRange }) {
           const r = payload.new as any;
           setLiveRows((prev) =>
             prev.map((x) =>
-              x.id === r.id ? { ...x, status: r.status, amount: Number(r.amount ?? x.amount) } : x,
+              x.id === r.id ? { ...x, status: r.status, amount: Number(r.rent_amount ?? x.amount) } : x,
             ),
           );
         },

@@ -3217,7 +3217,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
             const [{ data: tenantProfile }, { data: landlordRow }] = await Promise.all([
               supabase.from('profiles').select('full_name, phone').eq('id', (existing as any).tenant_id).maybeSingle(),
               (existing as any).landlord_id
-                ? supabase.from('landlords').select('name, address').eq('id', (existing as any).landlord_id).maybeSingle()
+                ? supabase.from('landlords').select('name, property_address').eq('id', (existing as any).landlord_id).maybeSingle()
                 : Promise.resolve({ data: null } as any),
             ]);
             setResubmitTarget({
@@ -3226,7 +3226,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               tenant_name: tenantProfile?.full_name ?? 'Tenant',
               tenant_phone: tenantProfile?.phone ?? undefined,
               landlord_name: (landlordRow as any)?.name ?? '—',
-              landlord_address: (landlordRow as any)?.address ?? undefined,
+              landlord_address: (landlordRow as any)?.property_address ?? undefined,
               reviewer_name: 'Reviewer',
               stage_label: STAGE_LABEL[(existing as any).rejected_at_stage ?? 'pending'] ?? 'Reviewer',
             } as AgentRejectedRequest);
