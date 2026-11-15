@@ -25925,6 +25925,41 @@ export type Database = {
           },
         ]
       }
+      hr_pay_advance_prompt_snoozes: {
+        Row: {
+          advance_id: string
+          snooze_count: number
+          snooze_until: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          advance_id: string
+          snooze_count?: number
+          snooze_until: string
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          advance_id?: string
+          snooze_count?: number
+          snooze_until?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_advance_prompt_snoozes_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "hr_pay_advances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_pay_advance_recoveries: {
         Row: {
           advance_id: string
@@ -92842,6 +92877,22 @@ export type Database = {
         Args: { p_advance_id: string }
         Returns: Json
       }
+      hr_pay_advance_pending_prompt: {
+        Args: never
+        Returns: {
+          advance_id: string
+          currency: string
+          principal: number
+          purpose: string
+          requested_at: string
+          snooze_count: number
+          staff_name: string
+          staff_ref: string
+          status: string
+          step: string
+          total_pending: number
+        }[]
+      }
       hr_pay_advance_people: {
         Args: never
         Returns: {
@@ -92849,6 +92900,10 @@ export type Database = {
           full_name: string
           staff_ref: string
         }[]
+      }
+      hr_pay_advance_prompt_snooze: {
+        Args: { p_advance_id: string }
+        Returns: string
       }
       hr_pay_advance_recovered_totals: {
         Args: never
