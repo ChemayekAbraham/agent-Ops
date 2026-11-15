@@ -8,6 +8,9 @@ import { DESKS, DESK_ALIASES, feedsOf, landingDesk, show, type Desk, type Getter
 import { useDeskFeeds, type FeedState, type Row } from './useDeskFeed';
 import { DeskTable, type ReviewHook } from './DeskTable';
 import { CommandCentre } from './CommandCentre';
+import { AgentArrearsTab } from './arrears/AgentArrearsTab';
+import { TenantArrearsTab } from './arrears/TenantArrearsTab';
+import { ReferralLandlords } from './ReferralLandlords';
 import { TileGrid } from './Tiles';
 import { SkeletonLead, SkeletonTiles } from './Skeleton';
 import { DeskPrefsProvider, KampalaClock, clockTime, useDeskPrefs } from './deskPrefs';
@@ -69,6 +72,10 @@ const QUEUE_TABLE: Record<string, string> = {
 const EXTRA_TAB: Record<string, string> = {
   'partner-ops': 'Funder board — preview',
   ontology: 'Ontology',
+  // E102: the arrears watch, per desk; E107: landlords whose tenants pay well.
+  'agent-ops': 'Arrears calls',
+  'tenant-ops': 'Arrears calls',
+  'landlord-ops': 'Referral landlords',
 };
 
 function ToolButton({
@@ -595,6 +602,9 @@ function DeskView({
     <>
       {extraTab && tab === 'extra' && desk.id === 'partner-ops' && <FunderBoard board={board} />}
       {extraTab && tab === 'extra' && desk.id === 'ontology' && <OntologyTab board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'agent-ops' && <AgentArrearsTab board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'tenant-ops' && <TenantArrearsTab board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'landlord-ops' && <ReferralLandlords board={board} />}
     </>
   );
 
