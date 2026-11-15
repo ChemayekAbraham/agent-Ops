@@ -370,6 +370,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [refusalItems, setRefusalItems] = useState<FunnelItem[]>([]);
   const [draftsOk, setDraftsOk] = useState<boolean | null>(draftsAvailable());
   const [jumpToMissing, setJumpToMissing] = useState(false);
+  /** Where Continue must open regardless of the checklist order (a passport photo that now fails). */
+  const jumpFirst = useRef<StepId | null>(null);
   /** Photos already stored for a draft, so a second save does not upload them again. */
   const draftPaths = useRef(new WeakMap<File, DraftPhoto>());
   const draftFolder = useRef(newDraftFolder());
@@ -578,7 +580,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       setAddress(str(f.address));
       setDistrict(str(f.district));
       setCategory(str(f.category));
-      if (f.faceCheck) setFaceCheck(f.faceCheck);
+      // A face-check result stored with a draft is never trusted: the photo is checked again below.
       if (f.gps) setGps(f.gps);
       setLc1Phone(str(f.lc1Phone));
       if (f.lc1Match) setLc1Match(f.lc1Match);
@@ -608,6 +610,18 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         if (cancelled) return;
         setHousePhotos(house4);
         setTenantPhoto(tp);
+        // Re-run the passport face check on the photo that came back, before choosing where to
+        // open: a photo that fails now is caught here, whatever was true when it was saved.
+        if (tp?.file) {
+          setFaceCheck({ status: 'checking' });
+          const check = await runPassportFaceCheck(tp.file, { source: 'agent_rent_request' });
+          if (cancelled) return;
+          setFaceCheck(check);
+          // A photo that fails now opens first; its step says "No face found. Tap the photo to retake it."
+          if (faceCheckBlocker(check)) jumpFirst.current = 'tenantPhoto';
+        } else {
+          setFaceCheck(null);
+        }
         setIdFront(front);
         setIdBack(backSide);
         setLcLetter(letter);
@@ -1469,7 +1483,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   useEffect(() => {
     if (!jumpToMissing) return;
     setJumpToMissing(false);
-    const first = missing.map((m) => ITEM_STEP[m.key]).find((st): st is StepId => !!st && steps.includes(st));
+    const forced = jumpFirst.current && steps.includes(jumpFirst.current) ? jumpFirst.current : null;
+    jumpFirst.current = null;
+    const first = forced ?? missing.map((m) => ITEM_STEP[m.key]).find((st): st is StepId => !!st && steps.includes(st));
     setFurthest('review');
     setCurrent(first ?? 'review');
   }, [jumpToMissing, missing, steps]);
@@ -1500,7 +1516,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         fields: {
           planType, rentText, duration, repaymentPeriod, tenantPhone, tenantNameParts, nationalId, language, noSmartphone,
           familySize, work, workLocation, landlord, house, houseChoiceMade, location, address, district, category,
-          faceCheck, gps, lc1Phone, lc1Match, lc1Mode, lc1NameParts, lc1Village, city, noLc1Letter, noLc1Reason, payoutDay, landlordCode,
+          // Not saved: the face-check result (re-run on Continue) and guarantor consent (ticked again).
+          gps, lc1Phone, lc1Match, lc1Mode, lc1NameParts, lc1Village, city, noLc1Letter, noLc1Reason, payoutDay, landlordCode,
         },
         photos: { house: house4, tenantPhoto: tp, idFront: front, idBack: backSide, lcLetter: letter },
       };

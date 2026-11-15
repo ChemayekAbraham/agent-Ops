@@ -12,6 +12,11 @@ const mocks = vi.hoisted(() => ({
   open: vi.fn(),
   drafts: { data: [] as unknown, error: null as unknown },
   gate: { blocked: false, vetted: true, funding_frozen: false, notice: null } as Record<string, unknown>,
+  faceCheck: vi.fn(),
+}));
+vi.mock('@/lib/passportFaceCheck', async (orig) => ({
+  ...(await orig<typeof import('@/lib/passportFaceCheck')>()),
+  runPassportFaceCheck: mocks.faceCheck,
 }));
 vi.mock('@/integrations/supabase/client', () => {
   const builder = () => {
@@ -93,6 +98,7 @@ beforeEach(() => {
   resetDraftsAvailability();
   mocks.drafts = { data: [], error: null };
   mocks.gate = { blocked: false, vetted: true, funding_frozen: false, notice: null };
+  mocks.faceCheck.mockResolvedValue({ status: 'ok', verdict: 'pass', isFace: true, isPassportPhoto: true, sha256: 'fresh' });
   mocks.rpc.mockImplementation(async (fn: string) => {
     switch (fn) {
       case 'agent_vetting_gate_status': return { data: mocks.gate, error: null };
@@ -132,6 +138,9 @@ describe('E109: save and finish later', () => {
     expect(args.p_draft_id).toBeNull();
     expect(args.p_missing).toEqual(expect.arrayContaining(['rent', 'house_photos', 'landlord', 'gps', 'id_front', 'id_back', 'lc1_letter', 'tenant_photo', 'phone']));
     expect(args.p_payload.fields.planType).toBe('weekly');
+    // Never saved: the face-check result and guarantor consent.
+    expect(args.p_payload.fields).not.toHaveProperty('faceCheck');
+    expect(args.p_payload.fields).not.toHaveProperty('consent');
     expect(new Blob([JSON.stringify(args.p_payload)]).size).toBeLessThan(MAX_DRAFT_BYTES);
     expect(args.p_session).toBe(logs('open')[0].p_session);
     expect(logs('close').at(-1)).toMatchObject({ p_meta: expect.objectContaining({ saved_draft: true }) });
@@ -172,7 +181,10 @@ describe('E109: save and finish later', () => {
     // The chat opens at the first missing item, everything else filled in.
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={request} />);
     await finishAndPost();
-    const sent = mocks.submit.mock.calls[0][0] as { familySize: number; housePhotos: File[]; tenantName: string };
+    const sent = mocks.submit.mock.calls[0][0] as { familySize: number; housePhotos: File[]; tenantName: string; faceCheckSha256: string | null };
+    // The passport photo was checked again on Continue; the stored result ('abc') was not used.
+    expect(mocks.faceCheck).toHaveBeenCalledWith(expect.any(File), { source: 'agent_rent_request' });
+    expect(sent.faceCheckSha256).toBe('fresh');
     expect(sent.familySize).toBe(4);
     expect(sent.housePhotos).toHaveLength(4);
     expect(sent.tenantName).toBe('John Mukasa');
@@ -215,6 +227,22 @@ async function finishAndPost() {
     fireEvent.click(post);
     await waitFor(() => expect(mocks.submit).toHaveBeenCalled());
 }
+
+describe('Saved drafts: the passport face check runs again on Continue', () => {
+  it('a draft whose stored check says "passed" but whose photo fails now is caught: it opens at the passport photo', async () => {
+    mocks.faceCheck.mockResolvedValue({ status: 'no_face', verdict: 'fail', isFace: false, isPassportPhoto: false, sha256: 'bad' });
+    // The saved payload claims a passed check (older drafts carried one).
+    const payload = fullPayload();
+    expect(payload.fields.faceCheck).toMatchObject({ status: 'ok', verdict: 'pass' });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd2', payload } }} />);
+    expect((await screen.findAllByText(/Now a passport photo of John/, {}, { timeout: 3000 })).length).toBeGreaterThan(0);
+    expect(mocks.faceCheck).toHaveBeenCalledWith(expect.any(File), { source: 'agent_rent_request' });
+    // The photo comes first (ahead of the missing family size), with the reason, and nothing is posted.
+    expect(await screen.findByText('No face found. Tap the photo to retake it.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
+    expect(mocks.submit).not.toHaveBeenCalled();
+  });
+});
 
 const NOTICE = 'You can post rent requests. They wait at the COO until you complete your agent verification.';
 
