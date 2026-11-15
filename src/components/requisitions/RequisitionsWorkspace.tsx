@@ -1,4 +1,5 @@
 import { useState, Suspense } from 'react';
+import { StaffApprovalsQueue } from './StaffApprovalsQueue';
 import { lazyNamed } from '@/lib/lazyWithRetry';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -32,6 +33,7 @@ export function RequisitionsWorkspace({ manualStage = 'coo' }: { manualStage?: '
       <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading manual requisitions…</Card>}>
         <ManualRequisitionQueuePanel stage={manualStage} />
       </Suspense>
+      <StaffApprovalsQueue hideWhenEmpty />
       <StaffRequisitionQueue />
 
       {manualStage === 'cfo' && (

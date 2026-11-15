@@ -10,3 +10,5 @@ export function reminderDelay(serverUntil: unknown, now: number): number {
     ? Math.max(REQUISITION_REMINDER_MS, until - now)
     : REQUISITION_REMINDER_MS;
 }
+/** The approvals queue for staff loans and facilitation (approve, decline, pay). */
+export const STAFF_APPROVALS_PATH = '/requisitions/approvals';

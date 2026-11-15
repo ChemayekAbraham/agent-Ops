@@ -98,6 +98,7 @@ const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/n
 const FacilitationApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/FacilitationApprovalGate"), "FacilitationApprovalGate");
 const StaffLoanApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/StaffLoanApprovalGate"), "StaffLoanApprovalGate");
 const StaffRequisitionApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/StaffRequisitionApprovalGate"), "StaffRequisitionApprovalGate");
+const SalaryAdvanceReminderGate = optionalLazyWithRetry(() => import("@/hr/pay/SalaryAdvanceReminderGate"), "SalaryAdvanceReminderGate");
 const PayrollApprovalGate = optionalLazyWithRetry(() => import("@/hr/pay/PayrollApprovalGate"), "PayrollApprovalGate");
 const StaffSurveyGate = optionalLazyWithRetry(() => import("@/hr/surveys/StaffSurveyGate"), "StaffSurveyGate");
 
@@ -408,6 +409,7 @@ const PartnerOnboarding = lazy(() => import('./pages/PartnerOnboarding'));
 const PersonalHub = lazy(() => import('./pages/me/PersonalHub'));
 const MyDocuments = lazy(() => import('./pages/me/MyDocuments'));
 const MyRequisitions = lazy(() => import('./pages/me/Requisitions'));
+const StaffApprovalsPage = lazy(() => import('./pages/requisitions/StaffApprovals'));
 const MyTutorialsPage = lazy(() => import('./pages/me/Tutorials'));
 const FoodOrderingPage = lazy(() => import('./pages/me/food/FoodOrderingPage'));
 const MyFoodOrdersPage = lazy(() => import('./pages/me/food/MyFoodOrdersPage'));
@@ -531,6 +533,7 @@ function GlobalOnboardingGates() {
           <StaffLoanApprovalGate />
           <StaffRequisitionApprovalGate />
           <PayrollApprovalGate />
+          <SalaryAdvanceReminderGate />
           <StaffSurveyGate />
         </>
       )}
@@ -879,6 +882,7 @@ function AppRoutes() {
           <Route path="/me" element={<PersonalHub />} />
           <Route path="/me/documents" element={<MyDocuments />} />
           <Route path="/me/requisitions" element={<HRSignedInRoute><MyRequisitions /></HRSignedInRoute>} />
+          <Route path="/requisitions/approvals" element={<HRSignedInRoute><StaffApprovalsPage /></HRSignedInRoute>} />
           <Route path="/me/tutorials" element={<HRSignedInRoute><MyTutorialsPage /></HRSignedInRoute>} />
           {/* Canteen. Food Management is gated inside the page by the
               coordinator assignment, and is deliberately NOT in CFO navigation. */}
