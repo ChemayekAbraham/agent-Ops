@@ -63,6 +63,13 @@ export interface T4Renewal {
   currentDays: number;
   landlordName?: string | null;
   houseLabel?: string | null;
+  /**
+   * E128: the agent of the plan being renewed. Another agent may renew it (NOT_YOUR_REQUEST is
+   * gone); the form then says Agent Ops will confirm them as this tenant's agent.
+   */
+  agentId?: string | null;
+  /** E128: the tenant asked to renew (tenant_request_renewal). */
+  tenantAsked?: boolean;
 }
 
 interface T4Base {

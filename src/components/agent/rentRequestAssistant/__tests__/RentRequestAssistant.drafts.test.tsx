@@ -3,7 +3,7 @@
  * Continue at the first missing item, and the post closing the draft.
  */
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mocks = vi.hoisted(() => ({
@@ -78,6 +78,12 @@ vi.mock('@/lib/t4RentRequestSubmit', async (orig) => ({
     idFront: { bucket: 'tenant-ids', path: 'agent-1/new/f.jpg' }, idBack: { bucket: 'tenant-ids', path: 'agent-1/new/b.jpg' },
     lcLetter: { bucket: 'lc-letters', path: 'agent-1/new/l.jpg' },
   })),
+}));
+// The pin map (Leaflet) is replaced by one button that drops a pin.
+vi.mock('@/components/intake/PinDropMap', () => ({
+  default: ({ onPick }: { onPick: (lat: number, lng: number) => void }) => (
+    <div data-testid="pin-drop-map"><button type="button" onClick={() => onPick(0.31, 32.58)}>Use this pin</button></div>
+  ),
 }));
 vi.mock('@/lib/t4RentRequest', async (orig) => ({ ...(await orig<typeof import('@/lib/t4RentRequest')>()), openT4RentRequest: mocks.open }));
 
@@ -336,5 +342,72 @@ describe('Agent chat fixes (16 Nov): first screen, face check timeout, photo ref
     expect(await screen.findByText('The tenant’s face photo is missing. Take it now: head and shoulders, face clear.')).toBeInTheDocument();
     expect(screen.getByTestId('face-check-status')).toBeInTheDocument();
     expect(screen.queryByText(/enforce_rent_request_tenant_photo/)).toBeNull();
+  });
+});
+
+describe('GPS on step 4 just works: the first reading, else a pin; never settings', () => {
+  let onPos: PositionCallback = () => {};
+  let onErr: PositionErrorCallback = () => {};
+  const watchPosition = vi.fn((s: PositionCallback, e: PositionErrorCallback) => { onPos = s; onErr = e; return 3; });
+  const reading = (accuracy: number) => act(() => { onPos({ coords: { latitude: 0.33, longitude: 32.6, accuracy } } as GeolocationPosition); });
+  const noSettingsText = () => expect(document.body.textContent ?? '').not.toMatch(/settings|Location Services|Site settings|Precise/i);
+  beforeEach(() => {
+    watchPosition.mockClear();
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { watchPosition, clearWatch: vi.fn(), getCurrentPosition: vi.fn((_s: PositionCallback, e: PositionErrorCallback) => e({ code: 1 } as GeolocationPositionError)) },
+    });
+  });
+  /** A saved request with everything up to the house but no GPS: it reopens on the GPS question. */
+  const openAtGps = () => {
+    const payload = fullPayload();
+    payload.fields.gps = null;
+    payload.fields.location = { district: 'Wakiso', subcounty: 'Kira', village: 'Kireka B', villageId: 'v1' };
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'g1', payload } }} />);
+  };
+  const capture = async () => fireEvent.click(await screen.findByRole('button', { name: 'Capture location' }, { timeout: 3000 }));
+
+  it('the first GPS reading is accepted at once, with the in-app line first; the agent continues while it improves', async () => {
+    openAtGps();
+    await capture();
+    expect(screen.getByTestId('gps-asking')).toHaveTextContent('Welile needs your location to confirm the house.');
+    expect(watchPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), expect.objectContaining({ enableHighAccuracy: true, maximumAge: 60000 }));
+    reading(60);
+    expect(await screen.findByTestId('gps-found')).toHaveTextContent('Location found (±60 m) ✓');
+    expect(screen.getByTestId('gps-found')).toHaveTextContent('improving');
+    await waitFor(() => expect(logs('item_done')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_meta: expect.objectContaining({ accuracy_m: 60 }) })));
+    // No waiting for a better reading: Continue goes on at once.
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByTestId('send-button')).toHaveTextContent('1 left: Household');
+    noSettingsText();
+  });
+
+  it('permission denied offers the map pin; the pin becomes the GPS; no settings text anywhere', async () => {
+    openAtGps();
+    await capture();
+    act(() => { onErr({ code: 1, message: 'denied' } as GeolocationPositionError); });
+    expect(await screen.findByTestId('gps-pin-offer')).toHaveTextContent('Drop a pin on the house');
+    await waitFor(() => expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_permission_denied' })));
+    noSettingsText();
+    fireEvent.click(await screen.findByRole('button', { name: 'Use this pin' }));
+    expect(await screen.findByTestId('gps-found')).toHaveTextContent('Pin dropped on the house (accuracy unknown) ✓');
+    await waitFor(() => expect(logs('item_done')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_pin_used', p_meta: expect.objectContaining({ gps_source: 'pin' }) })));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByTestId('send-button')).toHaveTextContent('1 left: Household');
+    noSettingsText();
+  });
+
+  it('no reading in 15 s (timeout) offers the map pin too, with the reason logged and no settings text', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      openAtGps();
+      await capture();
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+      expect(await screen.findByTestId('gps-pin-offer')).toBeInTheDocument();
+      await waitFor(() => expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_timeout' })));
+      noSettingsText();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

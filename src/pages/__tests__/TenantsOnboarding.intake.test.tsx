@@ -25,8 +25,11 @@ vi.mock('@/integrations/supabase/client', () => {
 // One stable user object, as the real hook gives.
 const auth = vi.hoisted(() => ({ user: { id: 'tenant-1', email: null, phone: null, user_metadata: {} }, loading: false }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => auth }));
-vi.mock('@/hooks/useCaptureLocation', () => ({
-  useCaptureLocation: () => ({ location: mocks.gps, loading: false, error: null, captureLocation: vi.fn() }),
+vi.mock('@/hooks/useGpsCapture', () => ({
+  useGpsCapture: () => ({
+    location: mocks.gps && { lat: mocks.gps.latitude, lng: mocks.gps.longitude, accuracy: mocks.gps.accuracy, source: 'gps' },
+    phase: mocks.gps ? 'done' : 'idle', failure: null, capture: vi.fn(), showPin: vi.fn(), dropPin: vi.fn(),
+  }),
 }));
 vi.mock('@/lib/invokeEdgeFunction', () => ({
   invokeEdgeFunction: vi.fn(async () => ({ data: mocks.photoCheck, error: null })),

@@ -44,8 +44,13 @@ import { FACE_PHOTO_ENCODING, runPassportFaceCheck, runPassportFaceCheckWithin, 
 import { FACE_CHECK_SLOW_MESSAGE, FACE_CHECK_TIMEOUT_MS, TENANT_FACE_PHOTO, facePhotoRefusal, itemsMentioned, type ReasonItem } from '@/lib/tenantFacePhoto';
 import { notifyVerificationCreated } from '@/lib/landlordVerificationNotify';
 import { IntakeStepHeader } from '@/components/intake/IntakeStepHeader';
+import { GpsCapturePanel } from '@/components/intake/GpsCapturePanel';
+import { useGpsCapture } from '@/hooks/useGpsCapture';
+import type { GpsFailCode, GpsSource } from '@/lib/gpsCapture';
 import { WhoIsPosting } from '@/components/intake/WhoIsPosting';
-import { firstIncompleteStep, intakeLeftLabel, type IntakeState, type IntakeStepKey } from '@/lib/intakeSteps';
+import { RENEWAL_STEP_DEFS, firstIncompleteStep, intakeLeftLabel, type IntakeState, type IntakeStepKey, type RenewalStepKey, type StepState } from '@/lib/intakeSteps';
+import { useRenewalAdvice } from '@/hooks/useRenewalAdvice';
+import type { RenewalChoice } from '@/lib/renewalAdvice';
 import { checkIntakeTenant, fetchReturnItems, recordFaceCheck, type IntakeTenantCheck, type ReturnItem } from '@/lib/intakeRpc';
 import { fetchAgentRejectedRequests } from '@/hooks/useAgentRejectedRequests';
 import { normalizeDistrict } from '@/lib/ugandaDistricts';
@@ -199,6 +204,7 @@ type StepId =
   | 'landlord' | 'house' | 'location' | 'address' | 'category' | 'photos' | 'tenantPhoto' | 'idFront' | 'idBack' | 'gps'
   | 'lc1' | 'lc1Phone' | 'lc1Name' | 'lc1Village' | 'city' | 'lcLetter' | 'payoutDay'
   | 'days' | 'note'
+  | 'renewPlan' | 'renewChanges'
   | 'review';
 
 /** Every question in order; `steps` drops the ones an answer makes unnecessary. */
@@ -251,6 +257,12 @@ const SECTION_OF: Record<StepId, IntakeStepKey> = {
   nationalId: 'id', idFront: 'id', idBack: 'id',
   lc1: 'lc1_post', lc1Phone: 'lc1_post', lc1Name: 'lc1_post', lc1Village: 'lc1_post', lcLetter: 'lc1_post',
   note: 'lc1_post', review: 'lc1_post',
+  renewPlan: 'rent_plan', renewChanges: 'house',
+};
+/** E128 renewal: its 3 steps (Plan, What changed, Tenant code + Post). */
+const RENEWAL_SECTION_OF: Partial<Record<StepId, RenewalStepKey>> = {
+  renewPlan: 'plan', renewChanges: 'changes', tenantName: 'changes', nationalId: 'changes', photos: 'changes',
+  idFront: 'changes', idBack: 'changes', gps: 'changes', lcLetter: 'changes', review: 'code',
 };
 // 'start' is logged once the first answer is given, not on open (see funnelStarted).
 const FUNNEL_STEP: Record<StepId, FunnelStep> = SECTION_OF;
@@ -305,7 +317,8 @@ interface Props {
 
 /** Where the form opens: a resubmit or renewal at its review, with the checklist of what is missing. */
 function firstStep(request: T4Request | null | undefined): StepId {
-  return request?.mode === 'resubmit' || request?.mode === 'renewal' ? 'review' : 'tenantPhone';
+  if (request?.mode === 'renewal') return 'renewPlan';
+  return request?.mode === 'resubmit' ? 'review' : 'tenantPhone';
 }
 
 function greetingNow(): { text: string; emoji: string } {
@@ -383,8 +396,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [housePhotos, setHousePhotos] = useState<(Photo | null)[]>([null, null, null, null]);
   const [tenantPhoto, setTenantPhoto] = useState<Photo | null>(null);
   const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
-  const [gps, setGps] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
-  const [gpsLoading, setGpsLoading] = useState(false);
+  /** The house GPS. accuracy null = unknown (a dropped pin); source 'pin' when the agent dropped it. */
+  const [gps, setGps] = useState<{ lat: number; lng: number; accuracy: number | null; source?: GpsSource } | null>(null);
   const [lc1Phone, setLc1Phone] = useState('');
   const [lc1Match, setLc1Match] = useState<Lc1Match>(null);
   /** 'existing' = picked from the LC1 search; 'new' = the agent is registering them. */
@@ -530,10 +543,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   /** The renewal choice and tenant code dialogs are up; the form steps aside. */
   const [renewing, setRenewing] = useState(false);
   const renewalFlow = useRenewalFlow();
+  /** E128 renewal step 1: the new rent and days (with a reason when they change). */
+  const [renewChoice, setRenewChoice] = useState<RenewalChoice | null>(null);
+  /** E128 renewal step 2: what changed since the last plan. */
+  const [renewChange, setRenewChange] = useState<'same' | 'moved' | 'landlord' | null>(null);
+  /** Standard items missing when the renewal opened (they become extra steps in step 2). */
+  const [renewalExtra, setRenewalExtra] = useState<StepId[] | null>(null);
+  const [renewalLoaded, setRenewalLoaded] = useState(false);
+  const renewalAdvice = useRenewalAdvice(renewal?.prevId ?? null, renewal?.currentDays ?? null, mode === 'renewal' && open);
+  /** E128: another agent may renew this tenant; Agent Ops then confirms them as the agent. */
+  const renewingOthersTenant = mode === 'renewal' && !!renewal?.agentId && !!user?.id && renewal.agentId !== user.id;
 
   // ----- flow -----
   const [current, setCurrent] = useState<StepId>(() => firstStep(request));
-  const [furthest, setFurthest] = useState<StepId>(() => (mode === 'new' ? 'tenantPhone' : 'review'));
+  const [furthest, setFurthest] = useState<StepId>(() => (mode === 'new' ? 'tenantPhone' : mode === 'renewal' ? 'renewPlan' : 'review'));
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   /** A corrected answer the agent can accept with one tap ("Did you mean …?"). */
@@ -585,7 +608,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       || (s === 'idBack' && !!docsOnFile.id_back)
       || (s === 'lcLetter' && !!docsOnFile.lc1_letter)
       || (s === 'tenantPhoto' && !!rejected?.tenant_photo_url?.trim());
-    if (mode === 'renewal') return RENEWAL_STEPS.filter((s) => !onFile(s));
+    if (mode === 'renewal') {
+      // E128: Plan, What changed (plus any standard item that is missing), then the code and Post.
+      const extra = new Set(renewalExtra ?? []);
+      return ['renewPlan', 'renewChanges', ...RENEWAL_STEPS.filter((s) => s !== 'review' && extra.has(s)), 'review'] as StepId[];
+    }
     if (mode === 'resubmit') {
       if (returnSteps) {
         // E124: open only what the desk returned it for, plus the note for the reviewer.
@@ -608,7 +635,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       // New LC1 whose phone turned out to be on file: the name is known.
       return !(s === 'lc1Name' && lc1Match);
     });
-  }, [lc1Match, lc1Mode, mode, rejected?.registration_type, rejected?.tenant_photo_url, docsOnFile, sideSteps, extraSteps, returnSteps]);
+  }, [lc1Match, lc1Mode, mode, rejected?.registration_type, rejected?.tenant_photo_url, docsOnFile, sideSteps, extraSteps, returnSteps, renewalExtra]);
   const idx = steps.indexOf(current);
   const furthestIdx = Math.max(steps.indexOf(furthest), idx);
 
@@ -853,6 +880,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         const tenantDocs = r.tenantId ? await loadTenantDocsOnFile(r.tenantId) : {};
         if (cancelled) return;
         applyDocsOnFile({ ...tenantDocs, ...(plan?.docs ?? {}) });
+        setRenewalLoaded(true);
       })();
       return () => { cancelled = true; };
     }
@@ -1078,15 +1106,31 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setError(null);
   };
 
-  const captureGps = () => {
-    if (!navigator.geolocation) { toast.error('GPS is not supported on this phone'); return; }
-    setGpsLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => { setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }); setGpsLoading(false); },
-      (err) => { setGpsLoading(false); toast.error(err.code === 1 ? 'Location permission denied' : 'Could not get GPS. Try again.'); },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
-    );
-  };
+  /*
+   * The house GPS (gpsCapture.ts): the first reading is taken at once, any accuracy, and
+   * improved for up to 15 s; no reading means a pin dropped on a map. Never a trip to the
+   * phone's settings, never a dead end. request_form_log: item_done gps { accuracy_m }, or the
+   * reason there was no reading (gps_permission_denied / gps_timeout / gps_unavailable), and
+   * gps_pin_used for a pin.
+   */
+  const lastGpsFail = useRef<GpsFailCode | null>(null);
+  const gpsWatch = useGpsCapture({
+    onFix: (fix, first) => {
+      lastGpsFail.current = null;
+      setGps({ lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy, source: 'gps' });
+      setError(null);
+      if (first && tracking) funnel.itemDone('gps', { accuracy_m: fix.accuracy === null ? null : Math.round(fix.accuracy), gps_source: 'gps' });
+    },
+    onFail: (code) => {
+      lastGpsFail.current = code;
+      if (tracking) blockedNow(['gps'], code);
+    },
+    onPin: (fix) => {
+      setGps({ lat: fix.lat, lng: fix.lng, accuracy: null, source: 'pin' });
+      setError(null);
+      if (tracking) funnel.itemDone('gps', { accuracy_m: null, gps_source: 'pin' }, 'gps_pin_used');
+    },
+  });
 
   // ----- LC1 lookup -----
   const lookupLc1 = async (phone: string): Promise<Lc1Match> => {
@@ -1106,6 +1150,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     switch (s) {
       case 'type':
         return planType ? null : 'Pick one of the options above so I know how they’ll pay back 👆';
+      case 'renewPlan':
+        return renewChoice ? null : 'Choose the new rent and days first 👆';
+      case 'renewChanges':
+        if (renewChange === 'landlord') return 'A new landlord needs a new rent request. Tap “Post a new request” above.';
+        return renewChange ? null : 'Tell me what changed since the last plan 👆';
       case 'language':
         return language ? null : 'Pick a language above 👆 so their SMS messages make sense to them.';
       case 'smartphone':
@@ -1178,7 +1227,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'idBack':
         return idBack ? null : 'Take a photo of the BACK of the National ID first 🪪';
       case 'gps':
-        return gps ? null : 'Tap capture while you’re standing at the house 🛰️';
+        return gps ? null : 'Tap “Capture location” at the house, or drop a pin on the map 📍';
       case 'lc1':
         return lc1Mode ? null : 'Search for the chairperson above, or tap “Register a new LC1” 👆';
       case 'lc1Phone': {
@@ -1229,7 +1278,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
   /** Rejects a wrong answer: says what is wrong, offers a fix if there is one, adds a tip on the third try. */
   const reject = (s: StepId, problem: string, text = draft) => {
-    if (tracking) blockedNow([STEP_FUNNEL_ITEM[s] ?? 'other']);
+    if (tracking) blockedNow([STEP_FUNNEL_ITEM[s] ?? 'other'], s === 'gps' ? (lastGpsFail.current ?? 'gps_not_captured') : undefined);
     const tries = (wrongTries[s] ?? 0) + 1;
     setWrongTries((t) => ({ ...t, [s]: tries }));
     const tip = tries >= 3 ? tipFor(s) : null;
@@ -1501,16 +1550,21 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const postRenewalPlan = async () => {
     if (!user || !renewal || posting || missing.length) return;
     setError(null);
-    // The rent and days (with the server's advice), then the tenant's code: the same audited steps as before.
+    // E128: the rent and days were chosen in step 1 (chosen here if not yet); step 3 is the
+    // tenant's code on those figures, then the post.
+    const target = { prevId: renewal.prevId, tenantName: tenantName || renewal.tenantName, currentRent: renewal.currentRent, currentDays: renewal.currentDays };
+    let choice = renewChoice;
+    if (!choice) {
+      setRenewing(true);
+      choice = await renewalFlow.choose(target);
+      setRenewing(false);
+      if (!choice) return;
+      setRenewChoice(choice);
+    }
     setRenewing(true);
-    const choice = await renewalFlow.start({
-      prevId: renewal.prevId,
-      tenantName: tenantName || renewal.tenantName,
-      currentRent: renewal.currentRent,
-      currentDays: renewal.currentDays,
-    });
+    const consented = await renewalFlow.confirm(target, choice);
     setRenewing(false);
-    if (!choice) return;
+    if (!consented) return;
     setPosting(true);
     setSendProgress(null);
     let sent = false;
@@ -1651,7 +1705,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       noLc1Reason: null,
     });
     if (res.ok) {
-      funnel.submitOk(res.rentRequestId);
+      funnel.submitOk(res.rentRequestId, gps ? { gps_source: gps.source ?? 'listing', gps_accuracy_m: gps.accuracy ? Math.round(gps.accuracy) : null } : undefined);
       if (faceCheck && faceCheck.status !== 'checking') void recordFaceCheck(res.rentRequestId, faceCheck.status);
       if (draftId) void closeDraft(draftId, 'posted', res.rentRequestId);
       setPosting(false);
@@ -1809,11 +1863,56 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       { label: 'Guarantor consent', done: consent },
     ],
   };
+  // E128: the renewal's 3 steps and what each still needs.
+  useEffect(() => {
+    if (mode !== 'renewal' || !renewalLoaded || renewalExtra !== null) return;
+    // The standard items missing when it opened become extra steps in "What changed".
+    const missingNow: StepId[] = [];
+    if (!isFullName(tenantName)) missingNow.push('tenantName');
+    if (!hasTenantId(tenantOnFile) && !ninTyped) missingNow.push('nationalId');
+    if (housePhotos.filter(Boolean).length < MIN_HOUSE_PHOTOS) missingNow.push('photos');
+    if (!idFront) missingNow.push('idFront');
+    if (!idBack) missingNow.push('idBack');
+    if (!gps) missingNow.push('gps');
+    if (!lcLetter && !lcOnFile) missingNow.push('lcLetter');
+    setRenewalExtra(missingNow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, renewalLoaded, renewalExtra]);
+  const renewalState: StepState = {
+    plan: [
+      { label: `Last plan: ${formatUGX(renewal?.currentRent ?? 0)} for ${renewal?.currentDays ?? ''} days, completed`, done: true },
+      { label: 'New rent and days', done: !!renewChoice },
+      ...(renewChoice?.changed ? [{ label: 'Reason for the change', done: !!renewChoice.reasonCode }] : []),
+    ],
+    changes: [
+      { label: 'What changed: same house and landlord, or moved', done: renewChange === 'same' || renewChange === 'moved' },
+      ...(renewalExtra ?? []).map((st) => ({
+        label: RETURN_LABEL[st] ?? st,
+        done: st === 'nationalId' ? hasTenantId(tenantOnFile) || ninTyped : questionDone(st),
+      })),
+    ],
+    code: [{ label: 'Tenant’s SMS code, then Post', done: !!result }],
+  };
+  const jumpRenewal = (key: string) => {
+    if (result || posting) return;
+    hapticTap();
+    if (key === 'plan') setCurrent('renewPlan');
+    else if (key === 'changes') setCurrent('renewChanges');
+    else setCurrent('review');
+  };
+  const chooseRenewal = async () => {
+    if (!renewal) return;
+    setRenewing(true);
+    const c = await renewalFlow.choose({ prevId: renewal.prevId, tenantName: tenantName || renewal.tenantName, currentRent: renewal.currentRent, currentDays: renewal.currentDays });
+    setRenewing(false);
+    if (c) { setRenewChoice(c); setRentText(String(c.newRent)); setError(null); }
+  };
+
   /** Post on step 8 is replaced by "2 left: House, ID" while a step (other than the consent tick) is incomplete. */
   const leftForPost = intakeLeftLabel({ ...intakeState, lc1_post: intakeState.lc1_post.filter((i) => i.label !== 'Guarantor consent') });
   const firstLeft = firstIncompleteStep({ ...intakeState, lc1_post: intakeState.lc1_post.filter((i) => i.label !== 'Guarantor consent') });
   const toFix = mode === 'resubmit' && returnSteps ? returnSteps.filter((st) => !fixedSteps.includes(st)).length : null;
-  const showIntakeHeader = !result && !gateBlocked && !needsWho && (mode === 'new' || (mode === 'resubmit' && !!returnSteps));
+  const showIntakeHeader = !result && !gateBlocked && !needsWho && (mode === 'new' || mode === 'renewal' || (mode === 'resubmit' && !!returnSteps));
   const onlySections = mode === 'resubmit' && returnSteps ? Array.from(new Set(returnSteps.map((st) => SECTION_OF[st]))) : null;
   /** Tap a step name: its first open question (a resubmit: its first returned item). */
   const jumpToSection = (section: IntakeStepKey) => {
@@ -2000,13 +2099,15 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'lcLetter': return 'Now a photo of the stamped LC1 letter 📄 JPG or PNG, up to 10 MB. No letter yet? Tick the box and tell me why.';
       case 'payoutDay': return `Which day of the month should Welile pay ${landlordFirst}? 🗓️ Most agents pick the day the rent falls due.`;
       case 'days': return 'How many days should the Rent Plan run? From 7 to 120 📅';
+      case 'renewPlan': return `Renewing ${first}’s Rent Plan 🔁 Here’s how the last one went. Choose the new rent and days.`;
+      case 'renewChanges': return `What changed since ${first}’s last plan? 🏠`;
       case 'note': return 'Last thing: tell the reviewer what you changed ✍️ At least 10 characters.';
       case 'review':
         if (mode === 'resubmit') {
           // The reviewer's reason is shown at the top of the form (E90).
           return 'Here’s the request with your changes. Tap any answer above to change it.';
         }
-        if (mode === 'renewal') return `Renewing ${first}’s Rent Plan: same house, same landlord. Tap any answer above to change it.`;
+        if (mode === 'renewal') return `Last step: ${first} confirms with the code we text them, then the renewal posts.`;
         return 'All done, well done! 🎉 Here’s the request. Tap any answer above if you want to change it.';
     }
   };
@@ -2035,7 +2136,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'tenantPhoto': return tenantPhoto?.file ? 'Face photo taken' : tenantPhoto ? 'Face photo on file' : '';
       case 'idFront': return idFront ? (idFront.file ? 'ID front photo taken' : 'On file ✓') : '';
       case 'idBack': return idBack ? (idBack.file ? 'ID back photo taken' : 'On file ✓') : '';
-      case 'gps': return gps ? (gps.accuracy ? `GPS captured, accurate to ${Math.round(gps.accuracy)} m` : gpsOnFile ? 'GPS on file' : 'GPS from the house listing') : '';
+      case 'gps': return gps
+        ? (gps.source === 'pin' ? 'Pin dropped on the house' : gps.accuracy ? `Location found (±${Math.round(gps.accuracy)} m)` : gpsOnFile ? 'GPS on file' : 'GPS from the house listing')
+        : '';
       case 'lc1': return lc1Mode === 'existing' ? lc1Name : lc1Mode === 'new' ? 'Register a new LC1' : '';
       case 'lc1Phone': return lc1Phone;
       case 'lc1Name': return lc1Name;
@@ -2044,6 +2147,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'lcLetter': return lcLetter ? 'LC letter added' : lcOnFile ? 'On file ✓' : lc1PhoneConfirmed ? 'LC1 confirmed by phone' : noLc1Letter ? 'No LC1 letter yet' : '';
       case 'payoutDay': return `The ${ordinal(payoutDay)}`;
       case 'days': return resubmitDays ? `${resubmitDays} days` : '';
+      case 'renewPlan': return renewChoice ? `${formatUGX(renewChoice.newRent)} · ${renewChoice.newDays} days` : '';
+      case 'renewChanges': return renewChange === 'same' ? 'Same house and landlord' : renewChange === 'moved' ? 'Moved house (same landlord)' : renewChange === 'landlord' ? 'New landlord' : '';
       case 'note': return note;
       case 'review': return '';
     }
@@ -2171,7 +2276,15 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         </TooltipProvider>
       </header>
 
-      {showIntakeHeader && (
+      {showIntakeHeader && mode === 'renewal' && (
+        <IntakeStepHeader
+          steps={RENEWAL_STEP_DEFS}
+          state={renewalState}
+          current={RENEWAL_SECTION_OF[current] ?? 'code'}
+          onJump={jumpRenewal}
+        />
+      )}
+      {showIntakeHeader && mode !== 'renewal' && (
         <IntakeStepHeader
           state={intakeState}
           current={SECTION_OF[current]}
@@ -2496,6 +2609,57 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         return (
           <NameFields value={tenantNameParts} onChange={setTenantNameParts} />
         );
+      case 'renewPlan': {
+        const suggested = Number(renewalAdvice.data?.suggested_max_rent);
+        return (
+          <div className="flex max-w-sm flex-col gap-2.5" data-testid="renew-plan">
+            {renewal?.tenantAsked && <span className="self-start rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Tenant asked to renew</span>}
+            <div className="rounded-2xl border border-border bg-card p-3 text-sm">
+              <Row k="Last Rent Plan" v={`${formatUGX(renewal?.currentRent ?? 0)} · ${renewal?.currentDays ?? ''} days`} />
+              <Row k="Result" v="Completed ✓" />
+              {Number.isFinite(suggested) && suggested > 0 && <Row k="Suggested up to" v={formatUGX(suggested)} />}
+            </div>
+            {renewChoice && (
+              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-3 text-sm" data-testid="renew-choice">
+                <Row k="New rent" v={formatUGX(renewChoice.newRent)} />
+                <Row k="Days" v={`${renewChoice.newDays} days`} />
+                {renewChoice.changed && <Row k="Reason" v={renewChoice.explanation || renewChoice.reasonCode || 'Given'} />}
+              </div>
+            )}
+            <Chip on={!!renewChoice} onClick={() => void chooseRenewal()}>{renewChoice ? 'Change the rent or days' : 'Choose the new rent and days'}</Chip>
+            {renewingOthersTenant && <p className="text-sm font-medium" data-testid="renew-other-agent">Agent Ops will confirm you as this tenant’s agent.</p>}
+          </div>
+        );
+      }
+      case 'renewChanges':
+        return (
+          <div className="flex max-w-sm flex-col gap-2.5" data-testid="renew-changes">
+            <div className="flex flex-wrap gap-2">
+              <Chip on={renewChange === 'same'} onClick={() => { setRenewChange('same'); setError(null); advance('renewChanges'); }}>Same house and landlord</Chip>
+              <Chip on={renewChange === 'moved'} onClick={() => {
+                // Moved (same landlord): new house photos and the GPS of the new house.
+                setRenewChange('moved'); setError(null);
+                setGps(null); setGpsOnFile(false); setHousePhotos([null, null, null, null]);
+                setRenewalExtra((x) => Array.from(new Set([...(x ?? []), 'photos', 'gps'])) as StepId[]);
+                setCurrent('photos');
+              }}>Moved house (same landlord)</Chip>
+              <Chip on={renewChange === 'landlord'} onClick={() => { setRenewChange('landlord'); setError(null); }}>New landlord</Chip>
+            </div>
+            {renewChange === 'same' && <p className="text-sm text-muted-foreground">Nothing to redo.</p>}
+            {renewChange === 'landlord' && (
+              <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3 text-sm">
+                <p>A new landlord means a new Rent Plan request: Agent Ops checks the new landlord.</p>
+                <button type="button" className="min-h-11 self-start rounded-full bg-primary px-4 font-semibold text-primary-foreground"
+                  onClick={() => openT4RentRequest({
+                    mode: 'new', entry: 'renewal-new-landlord',
+                    prefill: { tenantId: renewal?.tenantId ?? undefined, tenantName, tenantPhone, rentAmount: renewChoice?.newRent ?? renewal?.currentRent ?? null },
+                  })}>
+                  Post a new request for {tenantNameParts.firstName || 'the tenant'}
+                </button>
+              </div>
+            )}
+          </div>
+        );
       case 'language':
         return (
           <div className="flex flex-wrap gap-2">
@@ -2653,11 +2817,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'gps':
         return (
           <div className="flex flex-wrap items-center gap-2">
-            <Chip on={!!gps} onClick={captureGps}>
-              {gpsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MapPin className="h-3.5 w-3.5" />}
-              {gps ? 'Recapture GPS' : 'Capture GPS'}
-            </Chip>
-            {gps && <span className="text-sm text-muted-foreground">{gps.accuracy ? `Accurate to ${Math.round(gps.accuracy)} m` : 'From the house listing'}</span>}
+            <GpsCapturePanel gps={gpsWatch} value={gps} className="basis-full" />
+            {gps && !gps.source && gps.accuracy === 0 && <span className="text-sm text-muted-foreground">{gpsOnFile ? 'GPS on file' : 'From the house listing'}</span>}
           </div>
         );
       case 'lc1Name':
@@ -2747,7 +2908,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
               )}
             </div>
             )}
-            {mode === 'renewal' && <p className="text-sm text-muted-foreground">Next you set the new rent and days, then {tenantNameParts.firstName || 'the tenant'} confirms with the code we text them.</p>}
+            {mode === 'renewal' && (
+              <p className="text-sm text-muted-foreground">
+                {renewChoice ? `New: ${formatUGX(renewChoice.newRent)} for ${renewChoice.newDays} days. ` : ''}
+                {tenantNameParts.firstName || 'The tenant'} confirms with the code we text them, then it posts.
+              </p>
+            )}
+            {renewingOthersTenant && <p className="text-sm font-medium" data-testid="renew-other-agent">Agent Ops will confirm you as this tenant’s agent.</p>}
             {mode === 'new' && (
               <label className="flex flex-col gap-1 text-sm">
                 <span className="font-semibold">Landlord referral code <span className="font-normal text-muted-foreground">(optional)</span></span>
@@ -2785,7 +2952,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                 ? <>{sendButtonLabel(sendProgress, '')}</>
                 : posting
                   ? <><Loader2 className="h-5 w-5 animate-spin" /> {sendButtonLabel(sendProgress, 'Sending…')}</>
-                  : <><Send className="h-5 w-5" /> {mode === 'resubmit' ? 'Resubmit rent request' : mode === 'renewal' ? 'Renew Rent Plan' : 'Post rent request'}</>}
+                  : <><Send className="h-5 w-5" /> {mode === 'resubmit' ? 'Resubmit rent request' : mode === 'renewal' ? 'Send the tenant’s code and renew' : 'Post rent request'}</>}
             </button>
             </div>
           </div>

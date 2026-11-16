@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  INTAKE_STEPS, intakeCounter, stepDone, type IntakeItem, type IntakeState, type IntakeStepKey,
+  INTAKE_STEPS, intakeCounter, stepDone, type IntakeItem, type StepDef, type StepState,
 } from '@/lib/intakeSteps';
 
 /**
@@ -13,27 +13,29 @@ import {
  * outside the scrolling area (a flex row above it) so it stays on top everywhere.
  */
 export function IntakeStepHeader({
-  state, current, onJump, toFix, items, only, className,
+  state, current, onJump, toFix, items, only, className, steps = INTAKE_STEPS,
 }: {
-  state: IntakeState;
-  current: IntakeStepKey;
-  onJump: (key: IntakeStepKey) => void;
+  state: StepState;
+  current: string;
+  onJump: (key: string) => void;
+  /** The steps shown; the 8 intake steps by default (a renewal passes its 3). */
+  steps?: readonly StepDef[];
   /** Resubmit: the number of returned items still to redo; the counter reads "N to fix". */
   toFix?: number | null;
   /** The "What's needed" lines; defaults to the current step's items. */
   items?: IntakeItem[];
   /** Resubmit: only these steps can be jumped to (the returned items). */
-  only?: IntakeStepKey[] | null;
+  only?: string[] | null;
   className?: string;
 }) {
   const needed = items ?? state[current] ?? [];
   return (
     <div className={cn('border-b border-border bg-card px-3 pb-2 pt-2', className)} data-testid="intake-header">
       <div className="mx-auto flex max-w-xl flex-col gap-2">
-        <p className="text-sm font-semibold" data-testid="intake-counter" aria-live="polite">{intakeCounter(state, current, toFix)}</p>
-        <div className="flex gap-1" role="progressbar" aria-valuemin={0} aria-valuemax={INTAKE_STEPS.length}
-          aria-valuenow={INTAKE_STEPS.filter((s) => stepDone(state, s.key)).length} aria-label="Steps done">
-          {INTAKE_STEPS.map((s) => {
+        <p className="text-sm font-semibold" data-testid="intake-counter" aria-live="polite">{intakeCounter(state, current, toFix, steps)}</p>
+        <div className="flex gap-1" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length}
+          aria-valuenow={steps.filter((s) => stepDone(state, s.key)).length} aria-label="Steps done">
+          {steps.map((s) => {
             const done = stepDone(state, s.key);
             const isCurrent = s.key === current;
             return (
@@ -43,7 +45,7 @@ export function IntakeStepHeader({
           })}
         </div>
         <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5" aria-label="Steps">
-          {INTAKE_STEPS.map((s) => {
+          {steps.map((s) => {
             const done = stepDone(state, s.key);
             const allowed = !only || only.includes(s.key);
             return (

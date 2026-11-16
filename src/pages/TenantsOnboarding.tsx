@@ -35,7 +35,9 @@ import { toast } from 'sonner';
 import welileLogo from '@/assets/welile-logo.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useCaptureLocation } from '@/hooks/useCaptureLocation';
+import { useGpsCapture } from '@/hooks/useGpsCapture';
+import { GpsCapturePanel } from '@/components/intake/GpsCapturePanel';
+import type { GpsFailCode } from '@/lib/gpsCapture';
 import { optimizeImage } from '@/lib/imageOptimizer';
 import { clearFormPhotos, loadFormPhotos, previewOf, saveFormPhotos } from '@/lib/formPhotoDraft';
 import SelfieCameraCapture from '@/components/wallet/SelfieCameraCapture';
@@ -287,7 +289,22 @@ export default function TenantsOnboarding() {
   const [address, setAddress] = useState('');
   const [location, setLocation] = useState<UgLocationSelection | null>(null);
   const [housePhotos, setHousePhotos] = useState<PhotoSlot[]>([]);
-  const { location: gps, loading: gpsLoading, error: gpsError, captureLocation } = useCaptureLocation();
+  /*
+   * The house GPS: watched for up to 30 s, the best reading kept (gpsCapture.ts). A refusal
+   * says why and logs the reason in request_form_log; a reading over 50 m carries a note.
+   */
+  const lastGpsFail = useRef<GpsFailCode | null>(null);
+  const gpsWatch = useGpsCapture({
+    onFix: (fix, first) => {
+      lastGpsFail.current = null;
+      if (first) funnel.itemDone('gps', { accuracy_m: fix.accuracy === null ? null : Math.round(fix.accuracy), gps_source: 'gps' });
+    },
+    onFail: (code) => { lastGpsFail.current = code; funnel.blocked(['gps'], code); },
+    onPin: () => funnel.itemDone('gps', { accuracy_m: null, gps_source: 'pin' }, 'gps_pin_used'),
+  });
+  const gps = gpsWatch.location
+    ? { latitude: gpsWatch.location.lat, longitude: gpsWatch.location.lng, accuracy: gpsWatch.location.accuracy, source: gpsWatch.location.source }
+    : null;
 
   /* Draft autosave — see the DRAFT_* helpers below. Photos are deliberately
      excluded: they are large blobs and localStorage would blow its quota. */
@@ -687,6 +704,12 @@ export default function TenantsOnboarding() {
     return missingOn(s)[0]?.label ?? null;
   };
 
+  /** A blocked press on a step, for the funnel; a missing GPS carries the reason it is missing. */
+  const blockStep = (s: number) => {
+    const items = stepBlockItems(s);
+    funnel.blocked(items, items.includes('gps') ? (lastGpsFail.current ?? 'gps_not_captured') : null);
+  };
+
   /** The items a step is blocked on, for the funnel. */
   const stepBlockItems = (s: number): FunnelItem[] => {
     if (s === 2 && rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT)) return ['rent'];
@@ -695,7 +718,7 @@ export default function TenantsOnboarding() {
 
   const goNext = () => {
     const e = stepError(step);
-    if (e) { funnel.blocked(stepBlockItems(step)); toast.error(e); return; }
+    if (e) { blockStep(step); toast.error(e); return; }
     setStep((s) => Math.min(LAST_STEP, s + 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -714,7 +737,7 @@ export default function TenantsOnboarding() {
     if (!consentParams) {
       for (let s = 1; s <= LAST_STEP; s++) {
         const e = stepError(s);
-        if (e) { funnel.blocked(stepBlockItems(s)); setStep(s); toast.error(e); return; }
+        if (e) { blockStep(s); setStep(s); toast.error(e); return; }
       }
       if (missing.length) { funnel.blocked(funnelItemsFor(missing.map((m) => m.key))); toast.error(missing[0].label); return; }
       setSubmitError(null);
@@ -761,6 +784,8 @@ export default function TenantsOnboarding() {
           gps_lat: gps?.latitude ?? null,
           gps_lng: gps?.longitude ?? null,
           gps_accuracy: gps?.accuracy ?? null,
+          // 'pin' when the tenant dropped a pin on the map (accuracy unknown); else 'gps'.
+          gps_source: gps?.source ?? null,
           landlord_id: landlord?.id ?? null,
           landlord_name: landlord?.name ?? newLandlordName.trim(),
           landlord_phone: landlord?.phone ?? newLandlordPhone,
@@ -852,7 +877,10 @@ export default function TenantsOnboarding() {
       ]);
       outcome = 'ok';
       setSubmitStage({ stage: 'sent' });
-      if (requestId) { postedRef.current = true; funnel.submitOk(requestId); }
+      if (requestId) {
+        postedRef.current = true;
+        funnel.submitOk(requestId, gps ? { gps_source: gps.source, gps_accuracy_m: gps.accuracy ? Math.round(gps.accuracy) : null } : undefined);
+      }
       setSubmitted({
         id: requestId,
         intakeError: intake.ok ? null : intake.message,
@@ -1733,13 +1761,10 @@ export default function TenantsOnboarding() {
                       <p className="text-xs text-muted-foreground">
                         {gps ? `Captured: ${gps.latitude.toFixed(5)}, ${gps.longitude.toFixed(5)}` : 'Stand at the house and capture it.'}
                       </p>
-                      {gpsError && <p className="text-xs text-destructive">{gpsError}</p>}
                     </div>
-                    <Button type="button" className="h-11" variant={gps ? 'secondary' : 'default'} onClick={() => captureLocation()} disabled={gpsLoading}>
-                      {gpsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
-                      {gps ? 'Recapture' : 'Capture GPS'}
-                    </Button>
                   </div>
+                  <GpsCapturePanel className="mt-2" gps={gpsWatch}
+                    value={gps ? { lat: gps.latitude, lng: gps.longitude, accuracy: gps.accuracy, source: gps.source } : null} />
                 </div>
 
                 <Field label="House photos" required hint={`At least ${MIN_HOUSE_PHOTOS} photos — the outside, the door and the room.`}>
@@ -1979,7 +2004,7 @@ export default function TenantsOnboarding() {
               {step < LAST_STEP ? (
                 /* A tap on the disabled button lands on this wrapper: still a blocked press (E108). */
                 <span className="inline-flex" data-testid="continue-wrap"
-                  onClick={() => { if (stepError(step)) funnel.blocked(stepBlockItems(step)); }}>
+                  onClick={() => { if (stepError(step)) blockStep(step); }}>
                 <Button type="button" className="h-11" onClick={goNext} disabled={!!stepError(step)}>
                   Continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
