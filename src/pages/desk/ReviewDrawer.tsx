@@ -606,6 +606,7 @@ export function ReviewDrawer({
           {req && (
             // Hidden rather than unmounted on the Photos tab, so ticks and notes survive a tab switch.
             <div className={tab !== 'review' ? 'hidden' : 'space-y-5'}>
+              {ctx?.facts}
               {/* ── E77: who the tenant and the agent are, before anything else ── */}
               <IdentityPanel requestId={requestId} />
 

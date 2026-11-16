@@ -197,12 +197,12 @@ describe('COO board — frozen rows', () => {
     expect(frozenChip.getAttribute('data-tone')).toBe('idle');
     expect(frozenChip.getAttribute('title')).toMatch(/^Frozen — Agent below 50%/);
     expect(frozenChip.closest('li')?.getAttribute('data-frozen')).toBe('true');
-    expect(screen.getByText(/^Frozen — Agent below 50%; back to Agent Ops on 12 Nov$/)).toBeTruthy();
+    expect(screen.getByText(/^Frozen — Agent below 50%; returns to Agent Ops on 12 Nov$/)).toBeTruthy();
   });
 
   it('top line and frozen wording', () => {
     expect(cooTopLine({ A: 20, B: 40, C: 30, D: 23, unrated: 0, waiting: 0, pushable: 38, frozen: 75 })).toBe('38 pushable · 75 frozen · A 20 · B 40 · C 30 · D 23');
-    expect(frozenText(rows[1].frozen!)).toBe('Frozen — Agent below 50%; back to Agent Ops on 12 Nov');
+    expect(frozenText(rows[1].frozen!)).toBe('Frozen — Agent below 50%; returns to Agent Ops on 12 Nov');
   });
 });
 

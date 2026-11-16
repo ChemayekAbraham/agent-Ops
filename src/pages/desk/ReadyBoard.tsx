@@ -96,6 +96,8 @@ export type DrawerContext = {
   waitSuggest?: WaitSuggest | null;
   /** The board's word: an answered call to this desk's subject is already on file. */
   callAnswered?: boolean;
+  /** Facts the board already holds, shown above the review (the COO's: agent collection %, freeze reason, concerns). */
+  facts?: import('react').ReactNode;
 };
 
 export type OpenDrawer = (requestId: string, initial?: DrawerStart, ctx?: DrawerContext) => void;
