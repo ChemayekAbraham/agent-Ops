@@ -74,6 +74,8 @@ import { preloadWhenIdle } from '@/lib/idlePreload';
 // their code (or the data they fetch) is part of opening the dashboard. Each one
 // loads the first time it is opened; the likeliest ones are fetched at idle.
 const loadHousesMap = () => import('@/components/funder-new/FunderNewMapSection');
+/** ?view=houses: the full-screen houses map and its "Houses to fund" sheet are open. */
+const HOUSES_VIEW = 'houses';
 const loadMapSheet = () => import('@/components/supporter/MapBottomSheet');
 const loadCapitalOpportunities = () => import('@/components/supporter/FunderCapitalOpportunities');
 const loadInvestmentsDrawer = () => import('@/components/supporter/InvestmentAccountsDrawer');
@@ -166,11 +168,27 @@ export default function SupporterDashboard({
     setMapRequested(true);
     setMapExpandRequest((n) => n + 1);
   }, []);
+  // The open map is kept in the URL (?view=houses) so a browser refresh reopens it
+  // instead of dropping the partner back on the dashboard.
+  const setHousesViewInUrl = useCallback((open: boolean) => {
+    const params = new URLSearchParams(window.location.search);
+    if ((params.get('view') === HOUSES_VIEW) === open) return;
+    if (open) params.set('view', HOUSES_VIEW); else params.delete('view');
+    const search = params.toString();
+    navigate({ pathname: window.location.pathname, search: search ? `?${search}` : '', hash: window.location.hash }, { replace: true, state: window.history.state?.usr });
+  }, [navigate]);
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('view') === HOUSES_VIEW) openHousesMap();
+    // Only on arrival: later URL changes come from the map itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const handleMapExpandedChange = useCallback((expanded: boolean) => {
     setMapExpanded(expanded);
     if (expanded) {
       mapWasExpandedRef.current = true;
+      setHousesViewInUrl(true);
     } else if (mapWasExpandedRef.current) {
+      setHousesViewInUrl(false);
       // Ignore the map's initial "not expanded" report on mount; only a real close unmounts it.
       mapWasExpandedRef.current = false;
       setMapRequested(false);
@@ -178,7 +196,7 @@ export default function SupporterDashboard({
       // The list resets with its sheet, so the map starts unfiltered next time too.
       setMapFilters((prev) => (prev.search || prev.location || prev.amount !== 'all' ? { ...prev, search: '', location: '', amount: 'all' } : prev));
     }
-  }, []);
+  }, [setHousesViewInUrl]);
   // The floating search and the filter drawer drive the houses list; mirror them
   // onto the map so the pins match what the list shows.
   const handleListFiltersChange = useCallback((next: { search: string; location: string; amount: FunderNewFilters['amount'] }) => {
