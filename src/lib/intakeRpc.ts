@@ -112,23 +112,49 @@ export async function recordFaceCheck(requestId: string, status: string): Promis
 }
 
 // ----- resubmit -----
-export interface ReturnItem { code: string; label: string | null }
-
-/** return_items_for(p_request_id) replies { items: string[], note, by, at }; items is [] when nothing was named. */
-export function parseReturnItems(raw: unknown): ReturnItem[] | null {
-  const o = rec(raw);
-  if (!o || !Array.isArray(o.items)) return null;
-  return o.items
-    .filter((x): x is string => typeof x === 'string' && x.trim() !== '')
-    .map((x) => ({ code: x.trim().toLowerCase(), label: null }));
+/** One thing to fix: the desk named it ('desk'), the gate finds it missing ('missing'), or both. */
+export interface ResubmitNeed { code: string; label: string | null; why: 'desk' | 'missing' | 'both' }
+export interface ResubmitNeeds {
+  items: ResubmitNeed[];
+  count: number;
+  desk: string | null;
+  deskNote: string | null;
+  autoNote: string | null;
 }
 
-/** return_items_for: what the desk returned this request for, in order. null when it can't be read. */
-export async function fetchReturnItems(requestId: string): Promise<ReturnItem[] | null> {
+/**
+ * resubmit_needs(p_request_id) replies
+ *   { items: [{ code, label, why: 'desk' | 'missing' | 'both' }], count, desk, desk_note, auto_note }.
+ * Items keep the server's order; a code listed twice is merged into one ('both').
+ */
+export function parseResubmitNeeds(raw: unknown): ResubmitNeeds | null {
+  const o = rec(raw);
+  if (!o || !Array.isArray(o.items)) return null;
+  const items: ResubmitNeed[] = [];
+  for (const x of o.items) {
+    const i = rec(x);
+    const code = str(i?.code)?.toLowerCase();
+    if (!code) continue;
+    const why = i?.why === 'desk' || i?.why === 'missing' || i?.why === 'both' ? i.why : 'missing';
+    const seen = items.find((it) => it.code === code);
+    if (seen) { if (seen.why !== why) seen.why = 'both'; continue; }
+    items.push({ code, label: str(i?.label), why });
+  }
+  return {
+    items,
+    count: typeof o.count === 'number' ? o.count : items.length,
+    desk: str(o.desk),
+    deskNote: str(o.desk_note),
+    autoNote: str(o.auto_note),
+  };
+}
+
+/** resubmit_needs: the one source for what a resubmit shows. null when it can't be read. */
+export async function fetchResubmitNeeds(requestId: string): Promise<ResubmitNeeds | null> {
   try {
-    const { data, error } = await rpc('return_items_for', { p_request_id: requestId });
+    const { data, error } = await rpc('resubmit_needs', { p_request_id: requestId });
     if (error) return null;
-    return parseReturnItems(data);
+    return parseResubmitNeeds(data);
   } catch {
     return null;
   }

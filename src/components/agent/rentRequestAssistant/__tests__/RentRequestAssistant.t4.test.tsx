@@ -842,10 +842,14 @@ describe('E124: the 8-step intake', () => {
 
   it('resubmit: the counter reads "N to fix" and only the returned items open, in order (tenant_photo = step 6)', async () => {
     mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
-    rpcWith({ return_items_for: { items: ['tenant_photo', 'id_front'], note: 'Blurry face photo', by: 'staff-1', at: '2026-11-16T10:00:00Z' } });
+    rpcWith({ resubmit_needs: {
+      items: [{ code: 'tenant_photo', label: 'Tenant’s face photo', why: 'desk' }, { code: 'id_front', label: 'ID photo (front)', why: 'desk' }],
+      count: 2, desk: 'Tenant Ops', desk_note: 'Blurry face photo', auto_note: 'Fixed: face photo, ID front',
+    } });
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ tenant_photo_url: 'https://cdn/face.jpg' }) }} />);
     await waitFor(() => expect(screen.getByTestId('intake-counter')).toHaveTextContent('2 to fix'));
-    expect(mocks.rpc).toHaveBeenCalledWith('return_items_for', { p_request_id: 'req-9' });
+    expect(mocks.rpc).toHaveBeenCalledWith('resubmit_needs', { p_request_id: 'req-9' });
+    expect(mocks.rpc).not.toHaveBeenCalledWith('return_items_for', expect.anything());
     // The photo (step 6) opens first.
     expect(await screen.findAllByText(/Now the tenant’s face photo/)).not.toHaveLength(0);
     expect(screen.getByRole('button', { name: /^Step 6: Tenant’s photo/ })).toBeEnabled();
@@ -899,5 +903,77 @@ describe('E128: the renewal in 3 steps', () => {
     expect(mocks.openT4).toHaveBeenCalledWith(expect.objectContaining({ mode: 'new', prefill: expect.objectContaining({ tenantId: 'tenant-1' }) }));
     fireEvent.click(screen.getByRole('button', { name: 'Moved house (same landlord)' }));
     expect(await screen.findAllByText(/Photo time!/)).not.toHaveLength(0);
+  });
+});
+
+describe('E130: a resubmit shows only what resubmit_needs lists', () => {
+  const ready = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+  const needsReply = (over: Record<string, unknown>) => ({ items: [], count: 0, desk: 'Tenant Ops', desk_note: null, auto_note: null, ...over });
+  const withNeeds = (reply: unknown) => mocks.rpc.mockImplementation(async (fn: string) => (
+    fn === 'resubmit_needs' ? { data: reply, error: null } : { data: { ok: true }, error: null }
+  ));
+  const counter = () => screen.getByTestId('intake-counter').textContent;
+
+  it('only id_back missing: only the ID-back question, "1 to fix", the desk line, and the note already written', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    withNeeds(needsReply({
+      items: [{ code: 'id_back', label: 'ID photo (back)', why: 'missing' }], count: 1,
+      desk_note: 'The ID back is blurry', auto_note: 'Fixed: ID photo (back)',
+    }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
+    await waitFor(() => expect(counter()).toBe('1 to fix'));
+    expect(screen.getByTestId('sent-back-by')).toHaveTextContent('Sent back by Tenant Ops: The ID back is blurry');
+    expect(await screen.findAllByText(/And the BACK of John’s National ID/)).not.toHaveLength(0);
+    // Nothing else is asked: no front, no rent, no face photo, no summary of everything.
+    expect(screen.queryByText(/photo of the FRONT of/)).toBeNull();
+    expect(screen.queryByText(/Monthly rent \(one month only\)/)).toBeNull();
+    expect(screen.queryByText(/face photo \(head and shoulders\) of John/)).toBeNull();
+    expect(screen.queryByTestId('resubmit-summary')).toBeNull();
+    fireEvent.change(screen.getByLabelText('National ID back photo'), { target: { files: [new File(['b'], 'back.jpg', { type: 'image/jpeg' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(counter()).toBe('All fixed'));
+    // Resubmit is there at once; the note was written for the agent.
+    expect(screen.getByTestId('resubmit-note')).toHaveTextContent('Fixed: ID photo (back)');
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    expect(mocks.rpc).toHaveBeenCalledWith('agent_resubmit_rent_request', expect.objectContaining({ p_request_id: 'req-9', p_agent_note: 'Fixed: ID photo (back)' }));
+  });
+
+  it('named and missing items are merged without duplicates, in the order given', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    withNeeds(needsReply({
+      items: [
+        { code: 'gps', label: 'GPS of the house', why: 'missing' },
+        { code: 'id_back', label: 'ID photo (back)', why: 'desk' },
+        { code: 'id_back', label: 'ID photo (back)', why: 'missing' },
+      ],
+      count: 2, auto_note: 'Fixed: GPS, ID back',
+    }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
+    await waitFor(() => expect(counter()).toBe('2 to fix'));
+    const needed = within(screen.getByTestId('intake-needed')).getAllByRole('listitem').map((li) => li.textContent);
+    expect(needed).toEqual(['GPS of the house', 'ID photo (back)']);
+    // The first in the order given opens first.
+    expect(await screen.findAllByText(/capture its GPS location|Capture location/)).not.toHaveLength(0);
+  });
+
+  it('count 0: the desk note is read for what it names', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    withNeeds(needsReply({ desk_note: 'The house photos are too dark' }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
+    await waitFor(() => expect(counter()).toBe('1 to fix'));
+    expect(await screen.findAllByText(/Photo time!/)).not.toHaveLength(0);
+  });
+
+  it('count 0 and nothing named: the summary with every line tappable, "Tap what you fixed"', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    withNeeds(needsReply({ desk_note: 'Please call the Service Centre' }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
+    expect(await screen.findByTestId('intake-counter')).toHaveTextContent('Tap what you fixed');
+    expect(screen.getByTestId('sent-back-by')).toHaveTextContent('Sent back by Tenant Ops: Please call the Service Centre');
+    const summary = await screen.findByTestId('resubmit-summary');
+    fireEvent.click(within(summary).getByRole('button', { name: 'Redo: House GPS' }));
+    expect(await screen.findAllByText(/capture its GPS location/)).not.toHaveLength(0);
   });
 });

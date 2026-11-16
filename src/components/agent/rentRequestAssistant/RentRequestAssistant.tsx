@@ -51,7 +51,7 @@ import { WhoIsPosting } from '@/components/intake/WhoIsPosting';
 import { RENEWAL_STEP_DEFS, firstIncompleteStep, intakeLeftLabel, type IntakeState, type IntakeStepKey, type RenewalStepKey, type StepState } from '@/lib/intakeSteps';
 import { useRenewalAdvice } from '@/hooks/useRenewalAdvice';
 import type { RenewalChoice } from '@/lib/renewalAdvice';
-import { checkIntakeTenant, fetchReturnItems, recordFaceCheck, type IntakeTenantCheck, type ReturnItem } from '@/lib/intakeRpc';
+import { checkIntakeTenant, fetchResubmitNeeds, recordFaceCheck, type IntakeTenantCheck, type ResubmitNeeds } from '@/lib/intakeRpc';
 import { fetchAgentRejectedRequests } from '@/hooks/useAgentRejectedRequests';
 import { normalizeDistrict } from '@/lib/ugandaDistricts';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -502,14 +502,23 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [extraSteps, setExtraSteps] = useState<StepId[]>([]);
   /** The server list has been read (or could not be): the flagged items can be opened. */
   const [sideLoaded, setSideLoaded] = useState(false);
-  /** E124 resubmit: what return_items_for says to fix, in order; null when it can't be read. */
-  const [returnItems, setReturnItems] = useState<ReturnItem[] | null>(null);
+  /**
+   * E130 resubmit: resubmit_needs is the one source of what to fix (the desk's named items and
+   * what the gate finds missing, merged, in order). null when it can't be read; then the older
+   * sources (the server's still-missing lines and the reason text) are used.
+   */
+  const [needs, setNeeds] = useState<ResubmitNeeds | null>(null);
   const [returnLoaded, setReturnLoaded] = useState(false);
   const returnSteps = useMemo(() => {
-    if (!returnItems?.length) return null;
-    const out = Array.from(new Set(returnItems.map((i) => RETURN_STEP[i.code]).filter((x): x is StepId => !!x)));
+    if (!needs) return null;
+    // count 0: what the desk's note names, if anything.
+    const fromItems = needs.items.map((i) => RETURN_STEP[i.code]).filter((x): x is StepId => !!x);
+    const list = fromItems.length ? fromItems : itemsMentioned([needs.deskNote]).map((k) => REASON_STEP[k]);
+    const out = Array.from(new Set(list));
     return out.length ? out : null;
-  }, [returnItems]);
+  }, [needs]);
+  /** E130: nothing listed and nothing named in the desk's note: the summary, "Tap what you fixed". */
+  const tapWhatYouFixed = mode === 'resubmit' && !!needs && !returnSteps;
   /** Returned items the agent has redone (passed their question). */
   const [fixedSteps, setFixedSteps] = useState<StepId[]>([]);
   /** Step 1: what intake_tenant_check said about the tenant's phone, when it stops the agent. */
@@ -615,8 +624,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     }
     if (mode === 'resubmit') {
       if (returnSteps) {
-        // E124: open only what the desk returned it for, plus the note for the reviewer.
-        const ask = new Set<StepId>([...returnSteps, ...extraSteps, 'note', 'review']);
+        // E130: only the questions for the listed items. The note is pre-filled ("Fixed: …").
+        const ask = new Set<StepId>([...returnSteps, ...extraSteps, 'review']);
+        if (!note.trim() || note.trim().length < RESUBMIT_NOTE_MIN_CHARS) ask.add('note');
         return RESUBMIT_STEPS.filter((s) => ask.has(s));
       }
       if (sideSteps) {
@@ -635,7 +645,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       // New LC1 whose phone turned out to be on file: the name is known.
       return !(s === 'lc1Name' && lc1Match);
     });
-  }, [lc1Match, lc1Mode, mode, rejected?.registration_type, rejected?.tenant_photo_url, docsOnFile, sideSteps, extraSteps, returnSteps, renewalExtra]);
+  }, [lc1Match, lc1Mode, mode, rejected?.registration_type, rejected?.tenant_photo_url, docsOnFile, sideSteps, extraSteps, returnSteps, renewalExtra, note]);
   const idx = steps.indexOf(current);
   const furthestIdx = Math.max(steps.indexOf(furthest), idx);
 
@@ -907,7 +917,17 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       // The tenant's record (name, ID, occupation) and the intake already saved for this request.
       // E90: what the server still needs from the agent, read first.
       void fetchAgentSideMissing(r.id).then((lines) => { if (!cancelled) { setSideMissing(lines); setSideLoaded(true); } });
-      void fetchReturnItems(r.id).then((items) => { if (!cancelled) { setReturnItems(items); setReturnLoaded(true); } });
+      void fetchResubmitNeeds(r.id).then((n) => {
+        if (cancelled) return;
+        setNeeds(n);
+        setReturnLoaded(true);
+        // E130: the note for the reviewer is written for the agent ("Fixed: …"); they may edit it.
+        const labels = (n?.items ?? []).map((i) => i.label ?? i.code).filter(Boolean);
+        const auto = n?.autoNote && n.autoNote.trim().length >= RESUBMIT_NOTE_MIN_CHARS
+          ? n.autoNote.trim()
+          : labels.length ? `Fixed: ${labels.join(', ')}` : null;
+        if (auto && auto.length >= RESUBMIT_NOTE_MIN_CHARS) setNote((v) => v || auto);
+      });
       const [t, onFile] = await Promise.all([loadTenantRecord(r.tenant_id), loadRequestOnFile(r.id)]);
       if (cancelled) return;
       if (t) setTenantOnFile(t);
@@ -1937,13 +1957,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   useEffect(() => {
     if (mode !== 'resubmit' || !sideLoaded || !returnLoaded || !original || flaggedOpened.current) return;
     flaggedOpened.current = true;
-    // E124: return_items_for, in its order; else what the reason and the server list name.
-    const flagged = returnSteps ?? itemsMentioned([rejected?.rejected_reason, ...(sideMissing ?? [])]).map((k) => REASON_STEP[k]);
+    // E130: resubmit_needs, in its order. When it can't be read: what the reason and the server list name.
+    const flagged = returnSteps ?? (needs ? [] : itemsMentioned([rejected?.rejected_reason, ...(sideMissing ?? [])]).map((k) => REASON_STEP[k]));
     if (!flagged.length) return;
     setExtraSteps((x) => Array.from(new Set([...x, ...flagged])));
     redoQueue.current = flagged.slice(1);
     setCurrent(flagged[0]);
-  }, [mode, sideLoaded, returnLoaded, returnSteps, original, rejected?.rejected_reason, sideMissing]);
+  }, [mode, sideLoaded, returnLoaded, returnSteps, needs, original, rejected?.rejected_reason, sideMissing]);
 
   useEffect(() => {
     if (!jumpToMissing) return;
@@ -2284,6 +2304,14 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
           onJump={jumpRenewal}
         />
       )}
+      {mode === 'resubmit' && !result && needs && (needs.desk || needs.deskNote) && (
+        <p className="border-b border-border bg-warning/5 px-4 py-2 text-sm font-medium" data-testid="sent-back-by">
+          {needs.desk ? `Sent back by ${needs.desk}` : 'Sent back'}{needs.deskNote ? `: ${needs.deskNote}` : ''}
+        </p>
+      )}
+      {tapWhatYouFixed && !result && (
+        <p className="border-b border-border bg-card px-4 py-2 text-sm font-semibold" data-testid="intake-counter">Tap what you fixed</p>
+      )}
       {showIntakeHeader && mode !== 'renewal' && (
         <IntakeStepHeader
           state={intakeState}
@@ -2293,7 +2321,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
           only={onlySections}
           items={mode === 'resubmit' && returnSteps
             ? returnSteps.map((st) => ({
-              label: returnItems?.find((i) => RETURN_STEP[i.code] === st)?.label ?? RETURN_LABEL[st] ?? st,
+              label: needs?.items.find((i) => RETURN_STEP[i.code] === st)?.label ?? RETURN_LABEL[st] ?? st,
               done: fixedSteps.includes(st),
             }))
             : undefined}
@@ -2315,7 +2343,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             {mode === 'resubmit' ? ' · Let’s fix this request and send it back.' : mode === 'renewal' ? ' · Let’s renew this Rent Plan.' : ''}
           </p>
 
-          {mode === 'resubmit' && !result && (!!rejected?.rejected_reason || (sideMissing?.length ?? 0) > 0) && (
+          {mode === 'resubmit' && !result && !needs && (!!rejected?.rejected_reason || (sideMissing?.length ?? 0) > 0) && (
             <div className="rounded-2xl border border-warning/40 bg-warning/5 p-3 text-sm" data-testid="resubmit-reason">
               {rejected?.rejected_reason && (
                 <>
@@ -2368,7 +2396,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                 </Bubble></Bot>
               )}
 
-              {mode === 'resubmit' && !result && (
+              {mode === 'resubmit' && !result && !returnSteps && (
                 <ResubmitSummary
                   rows={[
                     { label: 'Monthly rent', value: formatUGX(amount), step: 'rent' },
@@ -2907,6 +2935,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
               </>
               )}
             </div>
+            )}
+            {mode === 'resubmit' && returnSteps && (
+              <div className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-card p-3 text-sm" data-testid="resubmit-note">
+                <span><span className="text-muted-foreground">Note for the reviewer: </span>{note || '—'}</span>
+                <button type="button" onClick={() => fixItem('note')} className="min-h-11 shrink-0 font-semibold text-primary underline underline-offset-4">Edit</button>
+              </div>
             )}
             {mode === 'renewal' && (
               <p className="text-sm text-muted-foreground">
