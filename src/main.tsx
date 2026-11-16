@@ -17,6 +17,19 @@ installClipboardFallback();
 // Initialize user behaviour telemetry (batched, auto-capture clicks/taps/sections)
 import { isBoardDisplayPath } from './lib/boardDisplay';
 const boardDisplayStartup = isBoardDisplayPath(window.location.pathname);
+// The digital twin on a boardroom display (/desk/twin?board=1#t=<code>, or the older ?t=<code>):
+// code-checked by the server, no account, like the board. After the first load the code is kept
+// for this tab only (twinBoard.tsx), so a TV reload of /desk/twin?board=1 still opens the display.
+const twinBoardStartup = (() => {
+  if (!/^\/desk\/twin\/?$/.test(window.location.pathname)) return false;
+  try {
+    const q = new URLSearchParams(window.location.search);
+    if (q.has('t') || new URLSearchParams(window.location.hash.replace(/^#/, '')).has('t')) return true;
+    return q.get('board') === '1' && !!window.sessionStorage.getItem('welile.twin.board-code');
+  } catch {
+    return false;
+  }
+})();
 // Stamp the running revision (window.__WELILE_BUILD__, <html data-build>).
 import { exposeBuildInfo } from './lib/buildInfo';
 exposeBuildInfo();
@@ -165,6 +178,14 @@ const loadApp = async () => {
     // No-op (no network) on modern devices; fetches the polyfill chunk only when
     // a required method is missing, so app modules never touch an unpatched API.
     await ensureRuntimePolyfills();
+    if (twinBoardStartup) {
+      const [, , { default: TwinBoardDisplay, takeBoardCode }] = await Promise.all([
+        import('./critical.css'), import('./index.css'), import('./pages/desk/twin/twinBoard'),
+      ]);
+      createRoot(root).render(<TwinBoardDisplay token={takeBoardCode()} />);
+      (window as any).__WELILE_APP_READY__ = true;
+      return;
+    }
     if (boardDisplayStartup) {
       const [, , { default: BoardDisplay }] = await Promise.all([
         import('./critical.css'), import('./index.css'), import('./pages/BoardDisplay'),
@@ -339,7 +360,7 @@ loadApp();
 // Install centralized client-side error reporting (window.onerror +
 // unhandledrejection). Lazy-loaded to avoid pulling supabase into the
 // critical startup path.
-if (!boardDisplayStartup) import('./lib/errorReporting')
+if (!boardDisplayStartup && !twinBoardStartup) import('./lib/errorReporting')
   .then((m) => m.installGlobalErrorReporting())
   .catch(() => {});
 

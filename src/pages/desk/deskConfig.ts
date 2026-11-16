@@ -67,8 +67,14 @@ const BALANCE_TILES: Tile[] = [
 /** The Agents desk (E61): COO, CEO, Agent Ops and CFO, plus the admins who open every desk. */
 export const AGENTS_DESK_ROLES = ['coo', 'ceo', 'agent_ops', 'cfo', 'cto', 'super_admin'];
 
+/**
+ * The Twin tab: these roles, plus anyone who holds every desk or the Command
+ * Centre desk (deskAccess.withTwin). The database applies the same rule.
+ */
+export const TWIN_ROLES = ['coo', 'ceo', 'cfo', 'cto', 'super_admin'];
+
 /** Desks that draw their own page and read none of the desk feeds. */
-export const SELF_DRAWN_DESKS = new Set(['agents']);
+export const SELF_DRAWN_DESKS = new Set(['agents', 'twin']);
 
 /** Other names a desk answers to in the URL: /desk/funders opens the cfo desk. */
 export const DESK_ALIASES: Record<string, string> = { funders: 'cfo' };
@@ -226,6 +232,13 @@ export const DESKS: Desk[] = [
         columns: [{ field: 'when_eat', label: 'When (EAT)' }, { field: 'kind_label', label: 'Type' }, { field: 'title', label: 'Change' }, { field: 'built_by', label: 'Built by' }, { field: 'approved_by', label: 'Approved by' }, { field: 'why', label: 'Why' }, { field: 'status_label', label: 'Status' }, DEC],
       },
     ],
+  },
+  {
+    // The digital twin (/desk/twin): drawn by twin/TwinDesk from the ops_twin_* reads, no desk feeds.
+    id: 'twin', name: 'Twin', question: 'How did the company run in the last 24 hours, lane by lane, and where are the gaps?', roles: TWIN_ROLES,
+    lead: () => 'The last 24 hours as the company ran them: the river, the lanes, the map, the checks and the decisions waiting.',
+    tiles: [],
+    tables: [],
   },
 ];
 

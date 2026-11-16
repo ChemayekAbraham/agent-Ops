@@ -41,7 +41,7 @@ describe('desk tabs', () => {
   it('shows the top row in the agreed order with the CFO desk named Funders Dashboard', () => {
     expect(DESKS.map((d) => d.name)).toEqual([
       'Command centre', 'Service Centre', 'Agent Ops', 'Tenant Ops', 'Landlord Ops',
-      'COO', 'Agents', 'Funders Dashboard', 'Partner Ops', 'Customer Care', 'Ontology',
+      'COO', 'Agents', 'Funders Dashboard', 'Partner Ops', 'Customer Care', 'Ontology', 'Twin',
     ]);
   });
   it('keeps the id cfo and answers to /desk/funders', () => {

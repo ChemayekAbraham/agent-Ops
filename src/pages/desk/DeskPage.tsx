@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Maximize2, Minimize2, Moon, MoreHorizontal, Play, RefreshCw, Rows3, Square, Sun } from 'lucide-react';
@@ -44,7 +44,7 @@ import { CooBoard, RetiredFundNote } from './CooBoard';
 import { PartnerWatch } from './PartnerWatch';
 import { PartnerOpsBoard } from './partner/PartnerOpsBoard';
 import { desksFor, useMyScScope } from './scScope';
-import { accessLanding, desksByAccess, useMyDeskAccess } from './deskAccess';
+import { accessLanding, desksByAccess, useMyDeskAccess, withTwin } from './deskAccess';
 import { DeskRules } from './DeskRules';
 import { AccountabilityFold } from './accountability/AccountabilityFold';
 import { EditResponsibilitiesFold } from './ontology/ResponsibilitiesEditor';
@@ -52,6 +52,10 @@ import { AgentsLiveFold } from './agents/AgentsLive';
 import { AgentsDesk } from './agents/AgentsDesk';
 import { FlowPanel } from './flow/FlowPanel';
 import { OntologyTab } from './ontology/OntologyTab';
+import { NOT_ALLOWED_TEXT } from './twin/twinSource';
+
+// The Twin tab loads its own code only when opened.
+const TwinDesk = lazy(() => import('./twin/TwinDesk'));
 
 const ROTATE_MS = 45_000;
 
@@ -536,6 +540,15 @@ function DeskView({
   // The Agents desk (E61) draws its own list and agent sheet.
   if (desk.id === 'agents') return <AgentsDesk board={board} />;
 
+  // The Twin tab draws the digital twin from the ops_twin_* reads.
+  if (desk.id === 'twin') {
+    return (
+      <Suspense fallback={<SkeletonLead />}>
+        <TwinDesk board={board} />
+      </Suspense>
+    );
+  }
+
   const queueTable = QUEUE_TABLE[desk.id];
   const review: ReviewHook | undefined = stage
     ? {
@@ -777,7 +790,8 @@ function DeskShell() {
   // Re-read every 2 minutes and on focus, so a removal lands without a re-login.
   const access = useMyDeskAccess();
   const accessEnforced = !!access.data?.enforced && !access.data.all;
-  const allowed = desksByAccess(base.desks, DESKS, access.data);
+  // The Twin tab also opens for every-desk holders and the Command Centre desk, as the database allows.
+  const allowed = withTwin(desksByAccess(base.desks, DESKS, access.data), DESKS, access.data, mine);
   // The board-only view is for a Service Centre person with no other desk.
   const scOnly = base.scOnly && !(accessEnforced && allowed.some((d) => d.id !== 'service-centre'));
   const desk = allowed.find((d) => d.id === deskId);
@@ -829,6 +843,17 @@ function DeskShell() {
           <p className="text-sm text-muted-foreground">
             Desks open for operations staff. Ask the COO office to confirm your role, then reload this page.
           </p>
+        </div>
+      </main>
+    );
+  }
+  if (!desk && deskId === 'twin') {
+    // Said plainly rather than bounced to another desk.
+    return (
+      <main className="desk-root min-h-screen px-4 py-16 text-center" data-desk-theme={rootTheme}>
+        <div className="mx-auto max-w-xl space-y-2">
+          <h1 className="text-xl font-semibold text-foreground">The twin is not open to this account</h1>
+          <p className="text-sm text-muted-foreground">{NOT_ALLOWED_TEXT}</p>
         </div>
       </main>
     );

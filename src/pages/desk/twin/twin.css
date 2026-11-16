@@ -1,0 +1,54 @@
+/* The ops twin (/desk/twin). Colours come from the desk tokens on .desk-root,
+   so the page is light by default and dark in Board mode like the Command Centre.
+   Green / amber / red are node status only; the river uses violet (forward),
+   red (sent back) and teal (money). */
+.twin-root {
+  --twin-verified: hsl(var(--desk-ok-dot));
+  --twin-partial: hsl(38 92% 45%);
+  --twin-gap: hsl(var(--desk-bad-dot));
+  --twin-draft: hsl(212 50% 52%);
+  --twin-ns: hsl(var(--muted-foreground) / 0.55);
+  --twin-fwd: hsl(var(--primary));
+  --twin-back: hsl(var(--desk-bad-dot));
+  --twin-money: hsl(187 72% 36%);
+  --twin-bed: hsl(var(--primary) / 0.12);
+  --twin-pool: hsl(var(--desk-bad-dot) / 0.1);
+  --twin-line: var(--desk-line-color);
+  --twin-ink: hsl(var(--foreground));
+  --twin-muted: hsl(var(--muted-foreground));
+  --twin-surface: hsl(var(--card));
+}
+.desk-root[data-desk-theme='dark'] .twin-root {
+  --twin-partial: hsl(40 85% 58%);
+  --twin-draft: hsl(212 60% 68%);
+  --twin-money: hsl(187 65% 55%);
+  --twin-surface: hsl(var(--background));
+}
+
+.twin-root svg text { font-family: inherit; }
+.twin-dot-verified { background: var(--twin-verified); }
+.twin-dot-partial { background: var(--twin-partial); }
+.twin-dot-gap { background: var(--twin-gap); }
+.twin-dot-draft { background: var(--twin-draft); }
+.twin-dot-not_started { background: var(--twin-ns); }
+
+.twin-pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; line-height: 18px; }
+
+@keyframes twin-ring {
+  0% { stroke-opacity: 0.75; r: var(--r0); }
+  100% { stroke-opacity: 0; r: var(--r1); }
+}
+.twin-pulse { animation: twin-ring 2.4s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .twin-pulse { animation: none; stroke-opacity: 0.4; }
+}
+
+.twin-node { cursor: pointer; outline: none; }
+.twin-node:focus-visible .twin-shape { stroke: hsl(var(--ring)); stroke-width: 3; }
+
+.twin-root input[type='range'] { accent-color: hsl(var(--primary)); }
+
+/* River tap targets: invisible until hovered or focused. */
+.twin-hit { fill: transparent; cursor: pointer; outline: none; }
+.twin-hit:hover { fill: hsl(var(--primary) / 0.05); }
+.twin-hit:focus-visible { fill: hsl(var(--primary) / 0.08); stroke: hsl(var(--ring)); stroke-width: 2; }
