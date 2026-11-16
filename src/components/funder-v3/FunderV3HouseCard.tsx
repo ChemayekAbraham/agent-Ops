@@ -20,7 +20,6 @@ import { STRAIGHT_LINE_EXPLANATION } from '@/components/funder-new/distance';
 import { FundersBoardTag, tagKindFor } from '@/components/funder-new/FundersBoardTag';
 import { FundersIncompleteChip } from '@/components/funder-new/FundersIncompleteChip';
 import type { BoardTag } from '@/lib/fundersBoard';
-import { DirectPayStartButton } from '@/components/direct-pay/DirectPayPartner';
 import { BookedNotice } from '@/components/funder-new/BookedNotice';
 import { isFundedOrClaimed, useBookedByMe } from '@/components/funder-new/funderListRefresh';
 
@@ -266,7 +265,6 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
           </button>
           )}
         </div>
-        {!isEmpty && !unchecked && !taken && !demoteMode && <DirectPayStartButton rentRequestId={(item as FunderNewReadyPlan).rent_request_id} />}
       </div>
     </article>
   );
