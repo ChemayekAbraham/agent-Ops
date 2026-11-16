@@ -509,6 +509,8 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
       return;
     }
     setSaving(true);
+    // Whatever happens below, the spinner stops and the agent is told the outcome.
+    try {
     const id = safeUUID();
     const row: SchoolProfileRow = {
       ...f, id, client_ref: id, school_id: school.id, registered_by: agentId, role,
@@ -521,7 +523,6 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     const res = await saveProfile(row);
     if (res.error) {
       // Refused by the server: keep everything the agent typed so they can fix it and try again.
-      setSaving(false);
       toast.error('Could not register this student', { description: res.error });
       return;
     }
@@ -538,7 +539,6 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
       });
       if (!gateRes.saved) onQueued();
     }
-    setSaving(false);
     setLast(res);
     setCount((c) => c + 1);
     const who = group === 'asset' ? (f.facility_type || 'Facility') : (f.full_name?.trim() || 'Person');
@@ -549,6 +549,12 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     setF({}); setHasPhone(null); setPhoto(null);
     // The summary replaces the form; bring its top into view after saving at the bottom.
     topRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    } catch (e) {
+      console.error('[welile-schools] save student failed', e);
+      toast.error('Could not register this student', { description: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const registerNext = () => {
