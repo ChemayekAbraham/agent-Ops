@@ -24,6 +24,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useAssistantSpeech } from './useAssistantSpeech';
 import { Lc1SearchStep, type Lc1Hit } from './Lc1SearchStep';
 import { toast } from 'sonner';
+import { AGENT_RENT_REQUEST_REOPEN_FLAG as REOPEN_FLAG, clearFormPhotos, loadFormPhotos, previewOf, saveFormPhotos } from '@/lib/formPhotoDraft';
+import SelfieCameraCapture from '@/components/wallet/SelfieCameraCapture';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { collectionInfoLine, fetchMyCollectionPct } from '@/lib/agentCollectionInfo';
@@ -251,6 +253,9 @@ const REFUSAL_FUNNEL_ITEM: Record<string, FunnelItem> = { landlord_missing: 'lan
 
 type PlanType = 'daily' | 'weekly' | 'monthly';
 type Lc1Match = { id: string; name: string; verified: boolean; village: string } | null;
+/** A draft older than this is dropped; the agent has moved on. */
+const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 /** A photo taken now, or one already on file (file null, preview = its URL). */
 type Photo = { file: File | null; preview: string };
 
@@ -279,6 +284,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const { user, enabledRoles } = useAuth();
   const canReadEligibility = canViewDeskReads(enabledRoles);
   const mode = request?.mode ?? 'new';
+  const draftKey = user?.id ? `welile_agent_rent_request_draft_${user.id}` : '';
   const rejected = request?.mode === 'resubmit' ? request.rejected : null;
   const renewal = request?.mode === 'renewal' ? request.renewal : null;
   // E63: no rent cap per tenant. Any monthly rent can be entered; the server's own rule
@@ -543,9 +549,94 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
     setFixOffer(null); setWrongTries({});
     setDraftId(null); setSaveOffer(false); setDraftNote(null); setRefusalItems([]); draftFolder.current = newDraftFolder();
+    setIdFront(null); setIdBack(null);
+    if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } void clearFormPhotos(draftKey); }
     // "Post another": a new funnel session.
     if (tracking) funnel.open();
-  }, [tracking, funnel]);
+  }, [tracking, funnel, draftKey]);
+
+  /* ----- keep a new request on this phone until it is sent (doc 276) -----
+     The phone's camera app sends the browser to the background and Android often
+     reloads the page when it comes back, which used to throw the agent back to the
+     first question with everything gone. Answers go to localStorage, photos to
+     IndexedDB; the dashboard reopens the form after a reload (REOPEN_FLAG).
+     Resubmits and renewals are filled from the server, so they are not kept. */
+  const keepDraft = mode === 'new' && !!draftKey;
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  useEffect(() => {
+    if (!open || !keepDraft || draftLoaded) return;
+    let cancelled = false;
+    void (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let d: Record<string, any> | null = null;
+      try { d = JSON.parse(localStorage.getItem(draftKey) ?? 'null'); } catch { d = null; }
+      // A prefilled form (opened for one tenant) or a saved request (E109) starts from that, not the old draft.
+      const usable = !!d && !request?.prefill && !(request?.mode === 'new' && request.draft) && Date.now() - Number(d.savedAt ?? 0) < DRAFT_MAX_AGE_MS
+        && (ALL_STEPS as string[]).includes(d.current);
+      if (usable && d) {
+        const ph = await loadFormPhotos<{ house?: (File | null)[]; tenant?: File | null; idFront?: File | null; idBack?: File | null; lcLetter?: File | null }>(draftKey);
+        if (cancelled) return;
+        setPlanType(d.planType ?? null); setRentText(d.rentText ?? ''); setDuration(d.duration ?? '30'); setRepaymentPeriod(d.repaymentPeriod ?? '7');
+        setTenantPhone(d.tenantPhone ?? ''); if (d.tenantNameParts) setTenantNameParts(d.tenantNameParts); setNationalId(d.nationalId ?? '');
+        setLanguage(d.language ?? ''); setNoSmartphone(d.noSmartphone ?? null); setFamilySize(d.familySize ?? ''); setWork(d.work ?? ''); setWorkLocation(d.workLocation ?? '');
+        setLandlord(d.landlord ?? null); setHouses(d.houses ?? null); setHouse(d.house ?? null); setHouseChoiceMade(!!d.houseChoiceMade);
+        setLocation(d.location ?? null); setAddress(d.address ?? ''); setDistrict(d.district ?? ''); setCategory(d.category ?? '');
+        setGps(d.gps ?? null); setLc1Phone(d.lc1Phone ?? ''); setLc1Match(d.lc1Match ?? null); setLc1Mode(d.lc1Mode ?? null);
+        if (d.lc1NameParts) setLc1NameParts(d.lc1NameParts);
+        setLc1Village(d.lc1Village ?? ''); setCity(d.city ?? ''); setNoLc1Letter(!!d.noLc1Letter); setNoLc1Reason(d.noLc1Reason ?? ''); setPayoutDay(d.payoutDay ?? '');
+        setCurrent(d.current); setFurthest(d.furthest ?? d.current);
+        if (ph) {
+          setHousePhotos([0, 1, 2, 3].map((i) => previewOf(ph.house?.[i])));
+          setIdFront(previewOf(ph.idFront)); setIdBack(previewOf(ph.idBack)); setLcLetter(previewOf(ph.lcLetter));
+          const face = previewOf(ph.tenant);
+          if (face) {
+            setTenantPhoto(face);
+            // The face check result was not kept; run it again.
+            setFaceCheck({ status: 'checking' });
+            void runPassportFaceCheck(face.file, { source: 'agent_rent_request' }).then((r) => { if (!cancelled) setFaceCheck(r); });
+          }
+        }
+        toast.success('Picked up where you left off', { action: { label: 'Start over', onClick: () => reset() } });
+      }
+      if (!cancelled) setDraftLoaded(true);
+    })();
+    return () => { cancelled = true; };
+    // Once per open form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, keepDraft, draftLoaded]);
+
+  useEffect(() => {
+    if (!keepDraft || !draftLoaded || !open || result) return;
+    const t = window.setTimeout(() => {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({
+          savedAt: Date.now(), planType, rentText, duration, repaymentPeriod, tenantPhone, tenantNameParts, nationalId,
+          language, noSmartphone, familySize, work, workLocation, landlord, houses, house, houseChoiceMade, location,
+          address, district, category, gps, lc1Phone, lc1Match, lc1Mode, lc1NameParts, lc1Village, city, noLc1Letter,
+          noLc1Reason, payoutDay, current, furthest,
+        }));
+      } catch { /* quota or private mode: nothing kept */ }
+      void saveFormPhotos(draftKey, {
+        house: housePhotos.map((h) => h?.file ?? null), tenant: tenantPhoto?.file ?? null,
+        idFront: idFront?.file ?? null, idBack: idBack?.file ?? null, lcLetter: lcLetter?.file ?? null,
+      });
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [keepDraft, draftLoaded, open, result, draftKey, planType, rentText, duration, repaymentPeriod, tenantPhone, tenantNameParts,
+      nationalId, language, noSmartphone, familySize, work, workLocation, landlord, houses, house, houseChoiceMade, location,
+      address, district, category, gps, lc1Phone, lc1Match, lc1Mode, lc1NameParts, lc1Village, city, noLc1Letter, noLc1Reason,
+      payoutDay, current, furthest, housePhotos, tenantPhoto, idFront, idBack, lcLetter]);
+
+  // Sent: the draft is done with. Open: reopen after a reload; closed on purpose: don't.
+  useEffect(() => {
+    if (result && draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } void clearFormPhotos(draftKey); }
+  }, [result, draftKey]);
+  // The host closes the form by unmounting it, so the flag is cleared in the cleanup.
+  useEffect(() => {
+    if (!open || !keepDraft || result || !user?.id) return;
+    try { localStorage.setItem(REOPEN_FLAG, user.id); } catch { /* ignore */ }
+    return () => { try { localStorage.removeItem(REOPEN_FLAG); } catch { /* ignore */ } };
+  }, [open, keepDraft, result, user?.id]);
 
   // Fill the form from what opened it. The host mounts a fresh form for each request.
   useEffect(() => {
@@ -851,6 +942,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   };
 
   // ----- photos -----
+  const [faceCameraOpen, setFaceCameraOpen] = useState(false);
+  const faceInputRef = useRef<HTMLInputElement>(null);
   const readPhoto = async (file: File): Promise<(Photo & { file: File }) | null> => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) { toast.error('Use a JPG, PNG, WebP or HEIC photo'); return null; }
     if (file.size > 10 * 1024 * 1024) { toast.error('That photo is over 10 MB'); return null; }
@@ -2101,10 +2194,27 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'tenantPhoto':
         return (
           <div className="flex items-center gap-3">
-            <label className={cn('relative flex h-24 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-xl', tenantPhoto ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}>
+            <label
+              className={cn('relative flex h-24 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-xl', tenantPhoto ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}
+              onClick={(e) => {
+                // Take it inside this page: the phone's camera app can make Android reload the form (doc 276).
+                if ((e.target as HTMLElement).tagName === 'INPUT') return;
+                e.preventDefault();
+                setFaceCameraOpen(true);
+              }}
+            >
               {tenantPhoto ? <img src={tenantPhoto.preview} alt="Tenant passport photo" className="h-full w-full object-cover" /> : <ImagePlus className="h-6 w-6" />}
-              <input type="file" accept="image/*" capture="user" className="sr-only" onChange={(e) => { void onTenantPhoto(e.target.files?.[0]); e.target.value = ''; }} />
+              <input ref={faceInputRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { void onTenantPhoto(e.target.files?.[0]); e.target.value = ''; }} />
             </label>
+            <SelfieCameraCapture
+              open={faceCameraOpen}
+              onOpenChange={setFaceCameraOpen}
+              onCapture={(f) => { void onTenantPhoto(f); }}
+              onFallback={() => faceInputRef.current?.click()}
+              facing="environment"
+              title="Tenant's face"
+              hint="Point the camera at the tenant's face in good light, no hat."
+            />
             <p className="text-sm text-muted-foreground">
               {!tenantPhoto ? 'Tap to take the photo.'
                 : faceCheck?.status === 'checking' ? 'Checking the face…'

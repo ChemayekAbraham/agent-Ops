@@ -35,6 +35,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCaptureLocation } from '@/hooks/useCaptureLocation';
 import { optimizeImage } from '@/lib/imageOptimizer';
+import { clearFormPhotos, loadFormPhotos, previewOf, saveFormPhotos } from '@/lib/formPhotoDraft';
+import SelfieCameraCapture from '@/components/wallet/SelfieCameraCapture';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { validateUgandaPhone } from '@/lib/ugandaPhone';
 import { cn } from '@/lib/utils';
@@ -334,7 +336,9 @@ export default function TenantsOnboarding() {
   /* ---------------------------------------------------------- draft save ---
      The form is six steps long and is filled on a phone, often on a bad
      connection. Persist the typed answers so a dropped tab does not cost the
-     tenant everything. Photos and GPS are not persisted — they are re-captured.
+     tenant everything. GPS is re-captured. The step and the photos are kept too
+     (photos in IndexedDB): the phone's camera app often makes Android reload
+     this page, which used to send the tenant back to step 1 (doc 276).
      The header pill reports this honestly: it only says "Saved" once a write
      has actually succeeded. */
   /* Visitors fill the form before they have an account (it is created on the
@@ -370,6 +374,11 @@ export default function TenantsOnboarding() {
       if (typeof d.note === 'string') setNote(d.note);
       // A code in today's link wins over one in an older draft.
       if (typeof d.landlordCode === 'string') setLandlordCode((cur) => cur || normalizeLandlordCode(String(d.landlordCode)));
+      if (d.location && typeof d.location === 'object') setLocation(d.location as UgLocationSelection);
+      if (d.landlord && typeof d.landlord === 'object') setLandlord(d.landlord as LandlordOption);
+      if (d.lc1 && typeof d.lc1 === 'object') setLc1(d.lc1 as Lc1Selection);
+      // Never move backwards: this also runs when a visitor's account is created mid-submit.
+      if (typeof d.step === 'number') setStep((s) => Math.max(s, Math.min(6, Math.max(1, Math.round(d.step as number)))));
       setSaveState('saved');
     } catch { /* a corrupt or unavailable draft is not worth failing over */ }
     // Restore once per user, on mount.
@@ -383,7 +392,7 @@ export default function TenantsOnboarding() {
         localStorage.setItem(draftKey, JSON.stringify({
           earner, rentInput, durationDays, firstName, lastName, phone, nin, nationalIdName,
           occupation, familySize, workLocation, language, noSmartphone, houseType, address,
-          newLandlordName, newLandlordPhone, note, landlordCode,
+          newLandlordName, newLandlordPhone, note, landlordCode, step, location, landlord, lc1,
         }));
         setSaveState('saved');
       } catch {
@@ -394,7 +403,46 @@ export default function TenantsOnboarding() {
     return () => clearTimeout(t);
   }, [draftKey, submitted, earner, rentInput, durationDays, firstName, lastName,
       phone, nin, nationalIdName, occupation, familySize, workLocation, language, noSmartphone, houseType, address,
-      newLandlordName, newLandlordPhone, note, landlordCode]);
+      newLandlordName, newLandlordPhone, note, landlordCode, step, location, landlord, lc1]);
+
+  /* Photos: restored once per key (only into empty slots), saved after that. */
+  const [photosLoadedFor, setPhotosLoadedFor] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      type Saved = { tenant?: File | null; id?: File | null; idBack?: File | null; lcLetter?: File | null; house?: File[] };
+      const saved = (await loadFormPhotos<Saved>(draftKey))
+        ?? (draftKey !== ANON_DRAFT_KEY ? await loadFormPhotos<Saved>(ANON_DRAFT_KEY) : null);
+      if (cancelled) return;
+      if (saved) {
+        const face = previewOf(saved.tenant);
+        if (face && !tenantPhoto) {
+          setTenantPhoto(face);
+          // The verdict and fingerprint were not kept; get them again.
+          if (user) void runPassportCheck(face.file);
+        }
+        setIdPhoto((p) => p ?? previewOf(saved.id));
+        setIdPhotoBack((p) => p ?? previewOf(saved.idBack));
+        setLcLetter((p) => p ?? previewOf(saved.lcLetter));
+        setHousePhotos((p) => (p.length ? p : (saved.house ?? []).map(previewOf).filter((x): x is PhotoSlot => !!x)));
+      }
+      setPhotosLoadedFor(draftKey);
+    })();
+    return () => { cancelled = true; };
+    // Once per key; the slot checks read the photos at that moment on purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (photosLoadedFor !== draftKey || submitted) return;
+    void saveFormPhotos(draftKey, {
+      tenant: tenantPhoto?.file ?? null,
+      id: idPhoto?.file ?? null,
+      idBack: idPhotoBack?.file ?? null,
+      lcLetter: lcLetter?.file ?? null,
+      house: housePhotos.map((h) => h.file),
+    });
+  }, [photosLoadedFor, draftKey, submitted, tenantPhoto, idPhoto, idPhotoBack, lcLetter, housePhotos]);
 
   const rentAmount = Number(rentInput.replace(/\D/g, '')) || 0;
   const calc = useMemo(
@@ -807,6 +855,8 @@ export default function TenantsOnboarding() {
         if (draftKey) localStorage.removeItem(draftKey);
         localStorage.removeItem(ANON_DRAFT_KEY);
       } catch { /* ignore */ }
+      void clearFormPhotos(draftKey);
+      void clearFormPhotos(ANON_DRAFT_KEY);
       toast.success('Sent to Welile');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: unknown) {
@@ -1628,7 +1678,7 @@ export default function TenantsOnboarding() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <PhotoBox label="Passport photo" required hint="Clear face photo, no hat"
+                    <PhotoBox label="Passport photo" required hint="Clear face photo, no hat" camera="user"
                       slot={tenantPhoto} onPick={(f) => addPhoto(f, 'tenant')}
                       onClear={() => { setTenantPhoto(null); setPhotoCheck(null); photoShaRef.current = null; }} />
                     {photoCheck?.checking && (
@@ -2310,10 +2360,14 @@ function PhotoPicker({ onPick }: { onPick: (f: File) => void }) {
   );
 }
 
-function PhotoBox({ label, required, hint, slot, onPick, onClear }: {
+function PhotoBox({ label, required, hint, slot, onPick, onClear, camera }: {
   label: string; required?: boolean; hint?: string;
   slot: PhotoSlot | null; onPick: (f: File) => void; onClear: () => void;
+  /** Take the photo inside this page instead of the phone's camera app, which can make Android reload the form. */
+  camera?: 'user' | 'environment';
 }) {
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   return (
     <div className="rounded-xl border p-3">
       <p className="text-sm font-semibold">{label} {required && <span className="text-destructive">*</span>}</p>
@@ -2325,13 +2379,32 @@ function PhotoBox({ label, required, hint, slot, onPick, onClear }: {
             className="absolute right-1 top-1 rounded bg-background/90 px-2 py-0.5 text-xs font-semibold">Retake</button>
         </div>
       ) : (
-        <label className="grid h-36 cursor-pointer place-items-center rounded-lg border border-dashed text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary">
+        <label
+          className="grid h-36 cursor-pointer place-items-center rounded-lg border border-dashed text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
+          onClick={camera ? (e) => {
+            // The fallback clicks the input itself; let that through to the file picker.
+            if ((e.target as HTMLElement).tagName === 'INPUT') return;
+            e.preventDefault();
+            setCameraOpen(true);
+          } : undefined}
+        >
           <span className="flex flex-col items-center gap-1.5">
             <Camera className="h-6 w-6" /> Take photo
           </span>
-          <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture="environment" className="hidden"
+          <input ref={fileRef} type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture={camera ?? 'environment'} className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.currentTarget.value = ''; }} />
         </label>
+      )}
+      {camera && (
+        <SelfieCameraCapture
+          open={cameraOpen}
+          onOpenChange={setCameraOpen}
+          onCapture={onPick}
+          onFallback={() => fileRef.current?.click()}
+          facing={camera}
+          title={label}
+          hint={hint ?? 'Line the face up with the oval.'}
+        />
       )}
     </div>
   );
