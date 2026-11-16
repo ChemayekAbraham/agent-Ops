@@ -151,13 +151,25 @@ export function writeLockedSchool(s: SchoolRow | null) {
 
 const db = supabase as any;
 
-/** Save a profile; on network failure keep it locally (client_ref makes retries idempotent). */
-export async function saveProfile(row: SchoolProfileRow): Promise<{ saved: boolean; row: SchoolProfileRow }> {
+/** True when a Supabase error means the request never reached the server (offline, dropped connection). */
+export function isNetworkError(error: { message?: string; code?: string } | null | undefined): boolean {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  const msg = error?.message ?? '';
+  return !error?.code && /fetch|network|load failed|timed? ?out|abort/i.test(msg);
+}
+
+/**
+ * Save a profile. When the phone is offline it is kept locally and sent later (client_ref makes
+ * retries idempotent). When the server refuses it, nothing is queued — a retry would be refused
+ * the same way — and the reason comes back in `error` so the agent can see it.
+ */
+export async function saveProfile(row: SchoolProfileRow): Promise<{ saved: boolean; row: SchoolProfileRow; error?: string }> {
   const { id, ...payload } = row;
   const { data, error } = await db.from('welile_school_profiles')
     .upsert({ id, ...payload }, { onConflict: 'client_ref', ignoreDuplicates: false })
     .select().single();
   if (error) {
+    if (!isNetworkError(error)) return { saved: false, row, error: error.message || 'The server refused this registration.' };
     writePendingProfiles([...readPendingProfiles().filter((p) => p.client_ref !== row.client_ref), row]);
     return { saved: false, row };
   }

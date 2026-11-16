@@ -477,11 +477,26 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
   const set = (k: keyof SchoolProfileRow) => (e: React.ChangeEvent<HTMLInputElement>) => setF((d) => ({ ...d, [k]: e.target.value }));
   const num = (v: unknown) => (v === '' || v == null ? null : Number(String(v).replace(/\D/g, '')) || null);
 
+  // The first required answer still missing; shown in red and scrolled into view on Save.
+  const [missing, setMissing] = useState<null | 'photo' | 'name' | 'facility' | 'phone'>(null);
+  const firstMissing = (): typeof missing => {
+    if (group === 'pupil' && !photo && !cameraProblem) return 'photo';
+    if (group !== 'asset' && !f.full_name?.trim()) return 'name';
+    if (group === 'asset' && !f.facility_type) return 'facility';
+    if (group !== 'asset' && hasPhone === null) return 'phone';
+    return null;
+  };
+  // Clear the red mark as soon as the answer is given.
+  useEffect(() => { if (missing && firstMissing() !== missing) setMissing(null); });
+
   const submit = async () => {
-    if (group !== 'asset' && !f.full_name?.trim()) { toast.error('Enter the full name'); return; }
-    if (group === 'asset' && !f.facility_type) { toast.error('Choose the facility type'); return; }
-    if (group !== 'asset' && hasPhone === null) { toast.error('Answer: has a smartphone?'); return; }
-    if (group === 'pupil' && !photo && !cameraProblem) { toast.error("Take the student's photo"); return; }
+    const gap = firstMissing();
+    if (gap) {
+      setMissing(gap);
+      toast.error(MISSING_TEXT[gap]);
+      document.getElementById(`wsr-${gap}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setSaving(true);
     const id = safeUUID();
     const row: SchoolProfileRow = {
@@ -493,6 +508,12 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     // Upload the face photo first so the profile is saved with its path; offline, it waits on the phone.
     if (group === 'pupil' && photo) row.photo_path = await uploadStudentPhoto(school.id, id, id, photo.blob);
     const res = await saveProfile(row);
+    if (res.error) {
+      // Refused by the server: keep everything the agent typed so they can fix it and try again.
+      setSaving(false);
+      toast.error('Could not register this student', { description: res.error });
+      return;
+    }
     if (group !== 'asset' && logEntry) {
       const gid = safeUUID();
       const gateRes = await saveGateLog({
