@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { pipelineLead, stageTiles, type MapStage } from '@/lib/boardMap';
 import { OpsTopBar, StageStrip, useOpsFonts } from './OpsChrome';
+import { useOpsTheme, type OpsTheme } from './opsTheme';
 
 /**
  * Boardroom screen 2, the PIPELINE (display.screen = 'pipeline'): the lead
@@ -17,9 +18,12 @@ export function PipelineScreen({
   errorText,
   idle,
   switcher,
+  theme: themeProp,
 }: {
   /** E97: the screen switcher, when the link may switch. */
   switcher?: ReactNode;
+  /** Light unless the page's URL says ?theme=dark. */
+  theme?: OpsTheme;
   label: string;
   stages: MapStage[];
   now: number;
@@ -28,10 +32,12 @@ export function PipelineScreen({
   idle: boolean;
 }) {
   useOpsFonts();
+  const urlTheme = useOpsTheme();
+  const theme = themeProp ?? urlTheme;
   const tiles = useMemo(() => stageTiles(stages, null), [stages]);
   const lead = pipelineLead(stages);
   return (
-    <main className={`ops-board ${idle ? 'ops-idle' : ''}`} data-board-state="live" data-screen="pipeline">
+    <main className={`ops-board ops-${theme} ${idle ? 'ops-idle' : ''}`} data-board-state="live" data-screen="pipeline" data-ops-theme={theme}>
       <OpsTopBar switcher={switcher} label={label} stale={stale} errorText={errorText} now={now} />
       {tiles.length === 0 ? (
         <p className="ops-message">The pipeline figures are not available yet.</p>

@@ -73,6 +73,9 @@ const DeskReviewHarness = lazyWithRetry(
 const SendBackSheetHarness = lazyWithRetry(
   () => import("@/pages/__e2e/SendBackSheetHarness"),
 );
+const BoardScreensHarness = lazyWithRetry(
+  () => import("@/pages/__e2e/BoardScreensHarness"),
+);
 
 // Language provider is imported statically: as a lazy chunk its module namespace
 // could resolve undefined under manual chunking, blanking the whole app.
@@ -752,6 +755,16 @@ function AppRoutes() {
               element={
                 <Suspense fallback={null}>
                   <SendBackSheetHarness />
+                </Suspense>
+              }
+            />
+          )}
+          {import.meta.env.DEV && (
+            <Route
+              path="/__e2e/board-screens"
+              element={
+                <Suspense fallback={null}>
+                  <BoardScreensHarness />
                 </Suspense>
               }
             />
