@@ -126,7 +126,6 @@ import {
   familySizeProblem,
   isFullName,
   lc1LetterProblem,
-  NO_LC1_REASON_MIN_CHARS,
   parseFamilySize,
   workProblem,
 } from '@/lib/agentIntakeDetails';
@@ -406,9 +405,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [lc1Village, setLc1Village] = useState('');
   const [city, setCity] = useState('');
   const [lcLetter, setLcLetter] = useState<Photo | null>(null);
-  /** No LC1 letter yet: the request still posts and the Service Centre calls the LC1. */
-  const [noLc1Letter, setNoLc1Letter] = useState(false);
-  const [noLc1Reason, setNoLc1Reason] = useState('');
+  /*
+   * The one standard (E99) needs the LC1 letter PHOTO; "No LC1 letter yet" and an LC1 confirmed
+   * by phone are gone. Kept as constants so older drafts that carried them open with them cleared.
+   */
+  const noLc1Letter = false;
+  const noLc1Reason = '';
   const [payoutDay, setPayoutDay] = useState('');
   const [consent, setConsent] = useState(false);
   /**
@@ -416,17 +418,19 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
    * presses, items done, post and close. Fire-and-forget; never shown, never awaited.
    */
   // A renewal logs as its own form ('renewal'): open, its 3 steps, submit_ok / submit_fail.
-  const funnel = useMemo(() => createFormFunnel(mode === 'renewal' ? 'renewal' : 'agent_post'), []);
+  const funnel = useMemo(() => createFormFunnel(mode === 'renewal' ? 'renewal' : mode === 'resubmit' ? 'resubmit' : 'agent_post'), []);
   const tracking = mode === 'new';
   const logRenewal = mode === 'renewal';
+  /** A resubmit logs as form 'resubmit': open, each item done, blocked items, submit_ok / submit_fail. */
+  const logResubmit = mode === 'resubmit';
   useEffect(() => {
     if (!tracking) return;
     if (open) funnel.open(); else funnel.close();
   }, [open, tracking, funnel]);
   useEffect(() => {
-    if (!logRenewal) return;
+    if (!logRenewal && !logResubmit) return;
     if (open) funnel.open(); else funnel.close();
-  }, [open, logRenewal, funnel]);
+  }, [open, logRenewal, logResubmit, funnel]);
   useEffect(() => () => funnel.close(), [funnel]);
   /** Step 'start' is logged once the first answer is given; until then only 'open' (and 'close'). */
   const [funnelStarted, setFunnelStarted] = useState(false);
@@ -478,8 +482,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [original, setOriginal] = useState<ResubmitValues | null>(null);
   /** An LC letter is already on the request (resubmit) or the plan being renewed. */
   const [lcOnFile, setLcOnFile] = useState(false);
-  /** The Service Centre confirmed the LC1 by phone (pipeline_intake_details.lc1_phone_confirmation). */
-  const [lc1PhoneConfirmed, setLc1PhoneConfirmed] = useState(false);
   /** The tenant's profile (name, the four ID fields, occupation) for an existing tenant. */
   const [tenantOnFile, setTenantOnFile] = useState<TenantRecord | null>(null);
   /** The tenant's other open request: its status, null when there is none, undefined while checking. */
@@ -674,7 +676,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setVerifyReq('idle'); setHouses(null); setHouse(null); setHouseChoiceMade(false); setLocation(null); setAddress('');
     setDistrict(''); setCategory(''); setHousePhotos([null, null, null, null]); setTenantPhoto(null); setFaceCheck(null);
     setGps(null); setLc1Phone(''); setLc1Match(null); setLc1Mode(null); setLc1NameParts({ firstName: '', otherNames: '', lastName: '' });
-    setLc1Village(''); setCity(''); setLcLetter(null); setNoLc1Letter(false); setNoLc1Reason(''); setPayoutDay(''); setConsent(false);
+    setLc1Village(''); setCity(''); setLcLetter(null); setPayoutDay(''); setConsent(false);
     setLandlordCode(typeof window === 'undefined' ? '' : landlordCodeFromSearch(window.location.search));
     setCurrent('tenantPhone'); setFurthest('tenantPhone'); setFunnelStarted(false); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
     setFixOffer(null); setWrongTries({});
@@ -713,7 +715,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         setLocation(d.location ?? null); setAddress(d.address ?? ''); setDistrict(d.district ?? ''); setCategory(d.category ?? '');
         setGps(d.gps ?? null); setLc1Phone(d.lc1Phone ?? ''); setLc1Match(d.lc1Match ?? null); setLc1Mode(d.lc1Mode ?? null);
         if (d.lc1NameParts) setLc1NameParts(d.lc1NameParts);
-        setLc1Village(d.lc1Village ?? ''); setCity(d.city ?? ''); setNoLc1Letter(!!d.noLc1Letter); setNoLc1Reason(d.noLc1Reason ?? ''); setPayoutDay(d.payoutDay ?? '');
+        setLc1Village(d.lc1Village ?? ''); setCity(d.city ?? ''); setPayoutDay(d.payoutDay ?? ''); // an old "No LC1 letter yet" tick is not restored
         setCurrent(d.current); setFurthest(d.furthest ?? d.current);
         if (d.current !== 'tenantPhone') setFunnelStarted(true);
         if (d.tenantPhone && d.current !== 'tenantPhone') setPhoneCleared(clean(d.tenantPhone));
@@ -812,8 +814,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       if (f.lc1NameParts) setLc1NameParts(f.lc1NameParts);
       setLc1Village(str(f.lc1Village));
       setCity(str(f.city));
-      if (typeof f.noLc1Letter === 'boolean') setNoLc1Letter(f.noLc1Letter);
-      setNoLc1Reason(str(f.noLc1Reason));
+      // An old "No LC1 letter yet" tick is not restored: the letter photo is needed.
       setPayoutDay(str(f.payoutDay));
       if (str(f.landlordCode)) setLandlordCode(str(f.landlordCode));
       const ph = request.draft.payload?.photos;
@@ -891,7 +892,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
           setHousePhotos([0, 1, 2, 3].map((i) => (plan.photos[i] ? { file: null, preview: plan.photos[i] } : null)));
           if (plan.gps) { setGps({ ...plan.gps, accuracy: 0 }); setGpsOnFile(true); }
           setLcOnFile(plan.lcLetter);
-          setLc1PhoneConfirmed(plan.lc1PhoneConfirmed);
         }
         if (tenant) {
           setTenantOnFile(tenant);
@@ -944,7 +944,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       const [t, onFile] = await Promise.all([loadTenantRecord(r.tenant_id), loadRequestOnFile(r.id)]);
       if (cancelled) return;
       if (t) setTenantOnFile(t);
-      if (onFile?.lc1PhoneConfirmed) setLc1PhoneConfirmed(true);
       // DOCS-1: this request's documents first, then what the tenant has on file elsewhere.
       const tenantDocs = await loadTenantDocsOnFile(r.tenant_id);
       if (cancelled) return;
@@ -1130,12 +1129,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     const res = await checkFace(p.file);
     setFaceCheck(res);
   };
-  const onLcLetter = (file: File | undefined) => {
+  /** The LC1 letter photo: camera or gallery, turned into a JPEG (an iPhone's HEIC included). */
+  const onLcLetter = async (file: File | undefined) => {
     if (!file) return;
-    if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type.toLowerCase())) { toast.error('The LC letter must be a JPG or PNG photo'); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error('The LC letter must be 10 MB or smaller'); return; }
-    setLcLetter((prev) => { if (prev) URL.revokeObjectURL(prev.preview); return { file, preview: URL.createObjectURL(file) }; });
-    setNoLc1Letter(false);
+    const p = await readPhoto(file, FACE_PHOTO_ENCODING);
+    if (!p) return;
+    setLcLetter((prev) => { if (prev) URL.revokeObjectURL(prev.preview); return p; });
     setError(null);
   };
 
@@ -1307,6 +1306,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   /** Rejects a wrong answer: says what is wrong, offers a fix if there is one, adds a tip on the third try. */
   const reject = (s: StepId, problem: string, text = draft) => {
     if (tracking) blockedNow([STEP_FUNNEL_ITEM[s] ?? 'other'], s === 'gps' ? (lastGpsFail.current ?? 'gps_not_captured') : undefined);
+    else if (logResubmit) funnel.blocked([STEP_FUNNEL_ITEM[s] ?? 'other']);
     const tries = (wrongTries[s] ?? 0) + 1;
     setWrongTries((t) => ({ ...t, [s]: tries }));
     const tip = tries >= 3 ? tipFor(s) : null;
@@ -1411,7 +1411,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   }
 
   function advance(from: StepId) {
-    if (mode === 'resubmit' && returnSteps?.includes(from)) setFixedSteps((x) => (x.includes(from) ? x : [...x, from]));
+    if (mode === 'resubmit' && returnSteps?.includes(from)) {
+      setFixedSteps((x) => (x.includes(from) ? x : [...x, from]));
+      funnel.itemDone(STEP_FUNNEL_ITEM[from] ?? 'other');
+    }
     if (mode === 'resubmit' && redoQueue.current.length) {
       setCurrent(redoQueue.current.shift()!);
       return;
@@ -1555,6 +1558,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     if ('message' in res) {
       setPosting(false);
       setSendProgress(null);
+      funnel.submitFail(funnelErrorCode(res.message, plainServerMessage(res.message).slice(0, 120)), t4FunnelItems(missing.map((m) => m.key)));
       const photoProblem = facePhotoRefusal(res.message);
       if (photoProblem) {
         redoQueue.current = [];
@@ -1570,6 +1574,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     }
     setPosting(false);
     setSendProgress({ phase: 'sent' });
+    funnel.submitOk(res.requestId);
     // A retaken face photo: what the background check found, on the request (E124).
     if (tenantPhoto?.file && faceCheck && faceCheck.status !== 'checking') void recordFaceCheck(res.requestId, faceCheck.status);
     showSent(res.requestId, res);
@@ -2154,7 +2159,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'lc1Name': return 'And the chairperson’s name, please? 🙂';
       case 'lc1Village': return 'Which village is the LC1 for? 🏡';
       case 'city': return 'Which town or city is the house in? 🌆';
-      case 'lcLetter': return 'Now a photo of the stamped LC1 letter 📄 JPG or PNG, up to 10 MB. No letter yet? Tick the box and tell me why.';
+      case 'lcLetter': return 'Now a photo of the stamped LC1 letter 📄';
       case 'payoutDay': return `Which day of the month should Welile pay ${landlordFirst}? 🗓️ Most agents pick the day the rent falls due.`;
       case 'days': return 'How many days should the Rent Plan run? From 7 to 120 📅';
       case 'renewPlan': return `Renewing ${first}’s Rent Plan 🔁 Here’s how the last one went. Choose the new rent and days.`;
@@ -2202,7 +2207,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'lc1Name': return lc1Name;
       case 'lc1Village': return lc1Village;
       case 'city': return city;
-      case 'lcLetter': return lcLetter ? 'LC letter added' : lcOnFile ? 'On file ✓' : lc1PhoneConfirmed ? 'LC1 confirmed by phone' : noLc1Letter ? 'No LC1 letter yet' : '';
+      case 'lcLetter': return lcLetter ? 'LC letter added' : lcOnFile ? 'On file ✓' : '';
       case 'payoutDay': return `The ${ordinal(payoutDay)}`;
       case 'days': return resubmitDays ? `${resubmitDays} days` : '';
       case 'renewPlan': return renewChoice ? `${formatUGX(renewChoice.newRent)} · ${renewChoice.newDays} days` : '';
@@ -2907,40 +2912,30 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         return <Chip onClick={() => { setWorkLocation(''); setDraft(''); setError(null); advance('workLocation'); }}>Skip</Chip>;
       case 'lcLetter':
         return (
-          <div className="flex max-w-xs flex-col gap-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3.5 text-sm font-semibold text-primary">
-                <ImagePlus className="h-3.5 w-3.5" /> {lcLetter ? 'Replace letter' : 'Add the letter'}
-                <input type="file" accept="image/jpeg,image/png" aria-label="LC1 letter photo" className="sr-only" onChange={(e) => { onLcLetter(e.target.files?.[0]); e.target.value = ''; }} />
-              </label>
-              {lcLetter && <img src={lcLetter.preview} alt="LC1 letter" className="h-12 w-12 rounded-lg object-cover" />}
-            </div>
-            {!lcLetter && (
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="checkbox"
-                  checked={noLc1Letter}
-                  onChange={(e) => { setNoLc1Letter(e.target.checked); setError(null); }}
-                  className="h-4 w-4 accent-primary"
-                />
-                No LC1 letter yet
-              </label>
+          <div className="flex max-w-xs flex-col gap-2.5" data-testid="lc1-letter-step">
+            {lcLetter && (
+              <img src={lcLetter.preview} alt="LC1 letter" className="h-32 w-full rounded-xl border border-border object-cover" />
             )}
-            {!lcLetter && noLc1Letter && (
-              <div className="flex flex-col gap-1">
-                <textarea
-                  aria-label="Why there is no LC1 letter yet"
-                  value={noLc1Reason}
-                  onChange={(e) => { setNoLc1Reason(e.target.value); setError(null); }}
-                  rows={3}
-                  placeholder="e.g. The LC1 is away until Friday"
-                  className="rounded-xl border border-border bg-background px-3 py-2 text-base outline-none focus:border-primary"
-                />
-                <p className="text-xs text-muted-foreground">
-                  At least {NO_LC1_REASON_MIN_CHARS} characters. Agent Ops only takes a request with the LC1 letter, or with the LC1
-                  confirmed by phone, so Send stays off until one of them is in.
-                </p>
-              </div>
+            <label
+              className="flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-base font-semibold text-primary-foreground"
+              onClick={(e) => openCamera(e, { title: 'LC1 letter', hint: 'Fill the frame with the stamped letter; all the writing readable.', facing: 'environment', oval: false, onPick: (f) => { void onLcLetter(f); } })}
+            >
+              <Camera className="h-5 w-5" aria-hidden /> {lcLetter ? 'Retake' : 'Take photo of LC1 letter'}
+              <input type="file" accept="image/*" capture="environment" aria-label="Take photo of LC1 letter" className="sr-only"
+                onChange={(e) => { void onLcLetter(e.target.files?.[0]); e.target.value = ''; }} />
+            </label>
+            <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-primary/30 bg-card px-3.5 text-sm font-semibold text-primary">
+              <ImagePlus className="h-4 w-4" aria-hidden /> Choose from gallery
+              <input type="file" accept="image/*" aria-label="LC1 letter photo" className="sr-only" onChange={(e) => { void onLcLetter(e.target.files?.[0]); e.target.value = ''; }} />
+            </label>
+            {!lcLetter && !lcOnFile && (
+              <p className="text-sm text-muted-foreground" data-testid="lc1-no-letter-yet">
+                {mode === 'new'
+                  ? 'No letter yet? Tap “Save and finish later” — we remind you at 8 am.'
+                  : mode === 'resubmit'
+                    ? 'No letter yet? Come back when you have it; the request waits in To fix.'
+                    : 'No letter yet? Come back when you have it.'}
+              </p>
             )}
           </div>
         );
@@ -3032,7 +3027,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             {/* A tap on the disabled button lands on this wrapper: still a blocked press (E108). */}
             <div
               className="flex flex-col"
-              onClick={() => { if (tracking && !posting && missing.length > 0) blockedNow(t4FunnelItems(missing.map((m) => m.key))); }}
+              onClick={() => {
+                if (posting || missing.length === 0) return;
+                if (tracking) blockedNow(t4FunnelItems(missing.map((m) => m.key)));
+                else if (logResubmit) funnel.blocked(t4FunnelItems(missing.map((m) => m.key)));
+              }}
               data-testid="send-button-wrap"
             >
             <button

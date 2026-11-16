@@ -11,7 +11,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { safeUUID } from '@/lib/safeUUID';
 
-export type FunnelForm = 'agent_post' | 'tenant_self' | 'renewal';
+export type FunnelForm = 'agent_post' | 'tenant_self' | 'renewal' | 'resubmit';
 export type FunnelEvent = 'open' | 'step' | 'blocked' | 'item_done' | 'submit_ok' | 'submit_fail' | 'close';
 /**
  * The 8 intake steps (intakeSteps.ts) — tenant, rent_plan, landlord, house, household,

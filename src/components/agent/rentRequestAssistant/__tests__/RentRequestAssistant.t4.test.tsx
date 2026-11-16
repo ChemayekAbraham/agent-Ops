@@ -570,6 +570,7 @@ describe('T4 renewal', () => {
     fix(/LC1 letter/);
     const letter = new File(['l'], 'letter.jpg', { type: 'image/jpeg' });
     fireEvent.change(screen.getByLabelText('LC1 letter photo'), { target: { files: [letter] } });
+    await screen.findByRole('img', { name: 'LC1 letter' });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await screen.findByTestId('t4-ready');
@@ -592,18 +593,18 @@ describe('T4 renewal', () => {
     expect(onDone).toHaveBeenCalledWith('new-req');
   });
 
-  it('DOCS-1: a "no LC1 letter yet" reason does not get past the letter step; Renew stays out of reach', async () => {
+  it('E99: the LC1 step has the photo buttons and no "No LC1 letter yet"; without a photo it stays put', async () => {
     mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), lc_letter_path: null };
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
     await toRenewalStep3();
     await waitFor(() => expect(listed('gate')).toEqual(['LC1 letter photo']));
     expect(sendButton()).toBeDisabled();
     fix(/LC1 letter/);
-    fireEvent.click(screen.getByLabelText(/No LC1 letter yet/));
-    fireEvent.change(screen.getByLabelText('Why there is no LC1 letter yet'), { target: { value: 'LC1 is away until Friday' } });
+    expect(screen.getByLabelText('Take photo of LC1 letter')).toBeInTheDocument();
+    expect(screen.queryByText(/No LC1 letter yet/)).toBeNull();
+    expect(screen.queryByText(/confirmed by phone/i)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText(/Add a photo of the stamped LC1 letter/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Send the tenant’s code and renew/ })).toBeNull();
     expect(mocks.renewalStart).not.toHaveBeenCalled();
   });
 
@@ -1066,5 +1067,64 @@ describe('Renewal post (live bug 16 Nov 20:55): renew first, then the documents 
     fireEvent.click(within(box).getByRole('button', { name: 'Send a new code' }));
     expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
     expect(mocks.renewalConfirm).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('E99 (live bug 16 Nov 21:24): the LC1 letter is a photo, always', () => {
+  const ready = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+  const lc1Needs = {
+    items: [{ code: 'lc1_letter', label: 'LC1 letter', why: 'missing' }], count: 1,
+    desk: 'Tenant Ops', desk_note: 'No LC1 letter', auto_note: 'Fixed: LC1 letter',
+  };
+  const formLogs = (event: string) => mocks.rpc.mock.calls
+    .filter(([fn, row]) => fn === 'request_form_log' && (row as { p_event: string }).p_event === event)
+    .map(([, row]) => row as Record<string, unknown>);
+  beforeEach(() => {
+    mocks.tables.pipeline_intake_details = ready;
+    mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), lc_letter_path: null };
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'resubmit_needs' ? { data: lc1Needs, error: null } : { data: { ok: true }, error: null }));
+  });
+
+  it('the resubmit LC1 step shows "Take photo of LC1 letter" and gallery, and no "No LC1 letter yet"', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ lc_letter_path: null }) }} />);
+    expect(await screen.findByTestId('lc1-letter-step')).toBeInTheDocument();
+    expect(screen.getByLabelText('Take photo of LC1 letter')).toBeInTheDocument();
+    expect(screen.getByLabelText('LC1 letter photo')).toBeInTheDocument();
+    expect(screen.getByText('Choose from gallery')).toBeInTheDocument();
+    expect(screen.queryByText(/No LC1 letter yet/)).toBeNull();
+    expect(screen.queryByLabelText('Why there is no LC1 letter yet')).toBeNull();
+    expect(screen.getByTestId('lc1-no-letter-yet')).toHaveTextContent('No letter yet? Come back when you have it');
+  });
+
+  it('after a photo: the thumbnail with Retake, then Resubmit is on; events are logged under form resubmit', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ lc_letter_path: null }) }} />);
+    fireEvent.change(await screen.findByLabelText('LC1 letter photo'), { target: { files: [new File(['l'], 'letter.heic', { type: 'image/heic' })] } });
+    expect(await screen.findByRole('img', { name: 'LC1 letter' })).toBeInTheDocument();
+    expect(screen.getByText('Retake')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    expect(formLogs('open')[0]).toMatchObject({ p_form: 'resubmit' });
+    expect(formLogs('item_done')).toContainEqual(expect.objectContaining({ p_form: 'resubmit', p_items: ['lc1_letter'] }));
+    await waitFor(() => expect(formLogs('submit_ok')).toContainEqual(expect.objectContaining({ p_form: 'resubmit', p_rent_request_id: 'req-9' })));
+  });
+
+  it('a resubmit that is pressed with items missing, or refused, is logged (blocked, submit_fail)', async () => {
+    mocks.rpc.mockImplementation(async (fn: string) => (
+      fn === 'resubmit_needs' ? { data: lc1Needs, error: null }
+        : fn === 'agent_resubmit_rent_request' ? { data: null, error: { message: 'RESUBMIT_INCOMPLETE: LC1 letter missing' } }
+          : { data: { ok: true }, error: null }
+    ));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ lc_letter_path: null }) }} />);
+    // Continue without the photo: a blocked item.
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(formLogs('blocked')).toContainEqual(expect.objectContaining({ p_form: 'resubmit', p_items: ['lc1_letter'] })));
+    fireEvent.change(screen.getByLabelText('LC1 letter photo'), { target: { files: [new File(['l'], 'letter.jpg', { type: 'image/jpeg' })] } });
+    await screen.findByRole('img', { name: 'LC1 letter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    await waitFor(() => expect(formLogs('submit_fail')).toContainEqual(expect.objectContaining({ p_form: 'resubmit', p_error: 'RESUBMIT_INCOMPLETE' })));
   });
 });

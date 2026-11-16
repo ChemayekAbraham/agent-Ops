@@ -419,3 +419,21 @@ describe('GPS on step 4: Capture location just captures the coordinates; no map 
     }
   });
 });
+
+describe('E99: an old draft with "No LC1 letter yet" ticked opens with it cleared', () => {
+  it('the tick and its reason are dropped; the LC1 step shows the photo button and the letter is still needed', async () => {
+    const payload = fullPayload();
+    payload.fields.noLc1Letter = true;
+    payload.fields.noLc1Reason = 'The LC1 is away until Friday';
+    payload.fields.familySize = '4';
+    payload.photos.lcLetter = null;
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd5', payload } }} />);
+    // It reopens on its first incomplete step: the LC1 letter, with the photo button.
+    expect(await screen.findByTestId('lc1-letter-step', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByLabelText('Take photo of LC1 letter')).toBeInTheDocument();
+    expect(screen.queryByText(/No LC1 letter yet/)).toBeNull();
+    expect(screen.queryByDisplayValue('The LC1 is away until Friday')).toBeNull();
+    expect(screen.getByTestId('lc1-no-letter-yet')).toHaveTextContent('Save and finish later');
+    expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
+  });
+});
