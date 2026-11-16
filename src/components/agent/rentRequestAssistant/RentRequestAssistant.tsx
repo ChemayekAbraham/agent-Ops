@@ -78,7 +78,6 @@ import {
   attachT4Documents,
   docPreviewUrl,
   loadTenantDocsOnFile,
-  saveProfileIdBack,
   uploadNewRequestDocs,
   findOpenRequest,
   finishRenewalIntake,
@@ -95,9 +94,9 @@ import {
   type StoredDoc,
   type TenantRecord,
 } from '@/lib/t4RentRequestSubmit';
-import { counted, createUploadCounter, sendButtonLabel, type SendProgress } from '@/lib/sendProgress';
+import { createUploadCounter, sendButtonLabel, type SendProgress } from '@/lib/sendProgress';
 import { landlordCodeFromSearch, normalizeLandlordCode, recordLandlordReferral } from '@/lib/landlordReferral';
-import { createFormFunnel, funnelErrorCode, type FunnelItem, type FunnelStep } from '@/lib/formFunnel';
+import { createFormFunnel, funnelErrorCode, plainServerMessage, type FunnelItem, type FunnelStep } from '@/lib/formFunnel';
 import {
   DRAFT_SAVED_MESSAGE, closeDraft, downloadDraftPhoto, draftsAvailable, fetchMyDrafts, newDraftFolder, onDraftsAvailability,
   saveDraft, uploadDraftPhoto, type DraftPhoto, type DraftPhotoKind, type PostingDraftPayload,
@@ -416,12 +415,18 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
    * E108 demand funnel for new requests ("Open rent request form"): open, steps, blocked
    * presses, items done, post and close. Fire-and-forget; never shown, never awaited.
    */
-  const funnel = useMemo(() => createFormFunnel('agent_post'), []);
+  // A renewal logs as its own form ('renewal'): open, its 3 steps, submit_ok / submit_fail.
+  const funnel = useMemo(() => createFormFunnel(mode === 'renewal' ? 'renewal' : 'agent_post'), []);
   const tracking = mode === 'new';
+  const logRenewal = mode === 'renewal';
   useEffect(() => {
     if (!tracking) return;
     if (open) funnel.open(); else funnel.close();
   }, [open, tracking, funnel]);
+  useEffect(() => {
+    if (!logRenewal) return;
+    if (open) funnel.open(); else funnel.close();
+  }, [open, logRenewal, funnel]);
   useEffect(() => () => funnel.close(), [funnel]);
   /** Step 'start' is logged once the first answer is given; until then only 'open' (and 'close'). */
   const [funnelStarted, setFunnelStarted] = useState(false);
@@ -554,6 +559,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const renewalFlow = useRenewalFlow();
   /** E128 renewal step 1: the new rent and days (with a reason when they change). */
   const [renewChoice, setRenewChoice] = useState<RenewalChoice | null>(null);
+  /** Documents that didn't attach to the new renewal: tap to retry against the new id. */
+  const [renewRetry, setRenewRetry] = useState<{ newId: string; failed: { kind: DocKind; file: File; message: string }[] } | null>(null);
+  const [retryingDocs, setRetryingDocs] = useState(false);
+  /** renew_rent_request said the tenant's code is missing or wrong: offer a new one in place. */
+  const [renewOtpProblem, setRenewOtpProblem] = useState<string | null>(null);
   /** E128 renewal step 2: what changed since the last plan. */
   const [renewChange, setRenewChange] = useState<'same' | 'moved' | 'landlord' | null>(null);
   /** Standard items missing when the renewal opened (they become extra steps in step 2). */
@@ -652,6 +662,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   useEffect(() => {
     if (open && tracking && funnelStarted) funnel.step(FUNNEL_STEP[current]);
   }, [current, open, tracking, funnel, funnelStarted]);
+  useEffect(() => {
+    if (open && logRenewal) funnel.step(RENEWAL_SECTION_OF[current] ?? 'code');
+  }, [current, open, logRenewal, funnel]);
 
   const reset = useCallback(() => {
     setPlanType(null); setRentText(''); setDuration('30'); setRepaymentPeriod('7');
@@ -1580,6 +1593,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     const consented = await renewalFlow.confirm(target, choice);
     setRenewing(false);
     if (!consented) return;
+    setRenewOtpProblem(null);
     setPosting(true);
     setSendProgress(null);
     let sent = false;
@@ -1588,43 +1602,72 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       // A changed name, or a NIN for a tenant with no ID on file, goes on the tenant's profile first.
       const nameChanged = tenantName.trim() !== (tenantOnFile?.full_name ?? renewal.tenantName).trim();
       const ninNew = !hasTenantId(tenantOnFile) && !!nationalId.trim();
-      // DOCS-1: renew_rent_request reuses the previous plan's LC1 letter and carries the ID photos over,
-      // so what is missing is filled in first: a new ID back on the tenant's profile, a new ID front
-      // or LC1 letter attached to the previous plan (request_attach_document). All side by side.
-      const newBack = idBack?.file && renewal.tenantId ? idBack.file : null;
-      if (newBack) counter.add(1);
-      const [saved, backError, prevErrors] = await Promise.all([
-        renewal.tenantId && (nameChanged || ninNew)
-          ? saveTenantProfile(renewal.tenantId, { fullName: nameChanged ? tenantName : null, nationalId: ninNew ? nationalId : null })
-          : Promise.resolve(null),
-        newBack && renewal.tenantId ? counted(counter, saveProfileIdBack(user.id, renewal.tenantId, newBack)) : Promise.resolve(null),
-        attachT4Documents(user.id, renewal.prevId, {
-          id_front: idFront?.file ?? null, lc1_letter: lcLetter?.file ?? null,
-        }, counter),
-      ]);
-      if (saved && !saved.ok) { setError(saved.message); return; }
-      if (backError) { setError(backError); return; }
-      if (prevErrors.length) { setError(prevErrors.join(' · ')); return; }
+      if (renewal.tenantId && (nameChanged || ninNew)) {
+        const saved = await saveTenantProfile(renewal.tenantId, { fullName: nameChanged ? tenantName : null, nationalId: ninNew ? nationalId : null });
+        if (!saved.ok) { setError(plainServerMessage(saved.message)); return; }
+      }
       counter.saving();
-      const newId = await postRenewal(
-        renewal.prevId,
-        choice,
-        () => toast.info('Capturing the property GPS at the house…'),
-        !gpsOnFile && gps ? { latitude: gps.lat, longitude: gps.lng } : null,
-      );
+      // 1. The renewal itself. Nothing is ever attached to the previous (completed) request.
+      let newId: string;
+      try {
+        newId = await postRenewal(
+          renewal.prevId,
+          choice,
+          () => toast.info('Capturing the property GPS at the house…'),
+          !gpsOnFile && gps ? { latitude: gps.lat, longitude: gps.lng } : null,
+        );
+      } catch (e) {
+        const raw = e instanceof Error ? e.message : String(e);
+        funnel.submitFail(funnelErrorCode(raw, plainServerMessage(raw).slice(0, 120)), ['other']);
+        if (/RENEWAL_OTP_(REQUIRED|MISMATCH)/.test(raw)) {
+          setRenewOtpProblem(/MISMATCH/.test(raw)
+            ? 'The tenant’s code didn’t match. Send a new code and ask them for it again.'
+            : 'The tenant’s code is needed again. Send a new code.');
+          return;
+        }
+        setError(plainServerMessage(raw));
+        return;
+      }
       setRentText(String(choice.newRent));
-      const [photoError, o] = await Promise.all([
+      funnel.submitOk(newId);
+      // 2. The documents captured in step 2 go on the NEW request, each on its own; one that fails
+      // doesn't undo or hide the renewal (resubmit_needs will ask for it too).
+      const docFiles = ([['id_front', idFront?.file], ['id_back', idBack?.file], ['lc1_letter', lcLetter?.file]] as const)
+        .filter((d): d is readonly [DocKind, File] => !!d[1]);
+      const [docResults, photoError, o] = await Promise.all([
+        Promise.all(docFiles.map(async ([kind, file]) => {
+          const problems = await attachT4Documents(user.id, newId, { [kind]: file }, counter);
+          return problems.length ? { kind, file, message: plainServerMessage(problems[0]) } : null;
+        })),
         attachRenewalPhotos(user.id, newId, housePhotos.map((p) => (p ? (p.file ?? p.preview) : null)), counter),
         finishRenewalIntake(user.id, newId, null, null),
       ]);
+      const failed = docResults.filter((x): x is { kind: DocKind; file: File; message: string } => !!x);
+      setRenewRetry(failed.length ? { newId, failed } : null);
       sent = true;
       setSendProgress({ phase: 'sent' });
-      showSent(newId, { ...o, lc1AttachError: o.lc1AttachError ?? (photoError ? `House photos not saved: ${photoError}` : null) });
+      showSent(newId, { ...o, lc1AttachError: o.lc1AttachError ?? (photoError ? `House photos not saved: ${plainServerMessage(photoError)}` : null) });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(plainServerMessage(e instanceof Error ? e.message : String(e)));
     } finally {
       setPosting(false);
       if (!sent) setSendProgress(null);
+    }
+  };
+
+  /** Retry the renewal's documents that didn't attach, against the new request. */
+  const retryRenewalDocs = async () => {
+    if (!user || !renewRetry || retryingDocs) return;
+    setRetryingDocs(true);
+    try {
+      const still = (await Promise.all(renewRetry.failed.map(async (f) => {
+        const problems = await attachT4Documents(user.id, renewRetry.newId, { [f.kind]: f.file });
+        return problems.length ? { ...f, message: plainServerMessage(problems[0]) } : null;
+      }))).filter((x): x is { kind: DocKind; file: File; message: string } => !!x);
+      setRenewRetry(still.length ? { newId: renewRetry.newId, failed: still } : null);
+      if (!still.length) toast.success('Documents uploaded ✓');
+    } finally {
+      setRetryingDocs(false);
     }
   };
 
@@ -2485,6 +2528,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                 </div>
                   )}
                   {result.lcLetterFailed && <Bot><Bubble tone="warn">The LC letter didn’t upload. Add it later from My rent requests.</Bubble></Bot>}
+                  {mode === 'renewal' && renewRetry && renewRetry.failed.length > 0 && (
+                    <Bot>
+                      <Bubble tone="warn">
+                        <span data-testid="renewal-doc-retry">
+                          Renewal posted. {renewRetry.failed.length} document{renewRetry.failed.length === 1 ? '' : 's'} didn’t upload — tap to retry.
+                        </span>
+                        {renewRetry.failed.map((f) => <span key={f.kind} className="mt-1 block text-sm">{f.message}</span>)}
+                        <button type="button" onClick={() => void retryRenewalDocs()} disabled={retryingDocs}
+                          className="mt-2 flex min-h-11 items-center gap-1.5 font-semibold text-primary underline underline-offset-4 disabled:opacity-60">
+                          {retryingDocs && <Loader2 className="h-4 w-4 animate-spin" />} Retry upload
+                        </button>
+                      </Bubble>
+                    </Bot>
+                  )}
                   {result.docErrors.map((e) => (
                     <Bot key={e}><Bubble tone="warn"><b>Not saved:</b> {e}</Bubble></Bot>
                   ))}
@@ -2944,6 +3001,15 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
               </p>
             )}
             {renewingOthersTenant && <p className="text-sm font-medium" data-testid="renew-other-agent">Agent Ops will confirm you as this tenant’s agent.</p>}
+            {mode === 'renewal' && renewOtpProblem && (
+              <div className="flex flex-col gap-2 rounded-xl border border-warning/40 bg-warning/5 p-3 text-sm" role="alert" data-testid="renewal-otp-problem">
+                <p className="font-medium">{renewOtpProblem}</p>
+                <button type="button" onClick={() => { setRenewOtpProblem(null); void postRenewalPlan(); }}
+                  className="min-h-11 self-start rounded-full bg-primary px-4 font-semibold text-primary-foreground">
+                  Send a new code
+                </button>
+              </div>
+            )}
             {mode === 'new' && (
               <label className="flex flex-col gap-1 text-sm">
                 <span className="font-semibold">Landlord referral code <span className="font-normal text-muted-foreground">(optional)</span></span>
