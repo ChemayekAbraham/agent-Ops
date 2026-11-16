@@ -122,7 +122,14 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   const { wallet, refreshWallet } = useWallet();
   const { toast } = useToast();
   const { isAccepted: hasAcceptedTerms, isLoading: agreementLoading, acceptAgreement } = useTenantAgreement();
-  const { data: myRentRequest } = useMyRentRequest();
+  const { data: myRentRequest, refetch: refetchMyRentRequest } = useMyRentRequest();
+  const confirmStillNeedRent = async () => {
+    if (!myRentRequest) return;
+    const { data, error } = await (supabase.rpc as any)('confirm_rent_request_still_needed', { p_rent_request_id: myRentRequest.id });
+    if (error || !data) { sonnerToast.error('Could not save that. Please try again.'); return; }
+    sonnerToast.success('Thanks. We are checking your request again.');
+    void refetchMyRentRequest();
+  };
 
   // Track user presence and dwell time in Tenant dashboard
   useTrackSection('tenant-overview', 'tenant');
@@ -525,7 +532,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
               {myRentRequest && (
                 <WidgetErrorBoundary label="Rent request progress">
-                  <RentRequestProgressCard request={myRentRequest} />
+                  <RentRequestProgressCard request={myRentRequest} onConfirmStillNeeded={confirmStillNeedRent} />
                 </WidgetErrorBoundary>
               )}
 

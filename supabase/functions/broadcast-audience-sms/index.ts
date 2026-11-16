@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const ALLOWED_ROLES = ['coo', 'ceo', 'cto', 'cmo', 'crm', 'super_admin', 'manager'];
-const VALID_AUDIENCES = ['tenant', 'agent', 'landlord', 'tenants_with_balance'] as const;
+const VALID_AUDIENCES = ['tenant', 'agent', 'landlord', 'tenants_with_balance', 'rent_request_reconfirm'] as const;
 type Audience = (typeof VALID_AUDIENCES)[number];
 
 function formatPhoneInternational(phone: string): string {
@@ -164,6 +164,20 @@ async function fetchRoleUserPhones(admin: any, role: Audience): Promise<{ user_i
     const userIds = Array.from(new Set(
       (data || []).filter((r: any) => Number(r.outstanding) > 0).map((r: any) => r.tenant_id).filter(Boolean),
     ));
+    const CHUNK = 200;
+    for (let i = 0; i < userIds.length; i += CHUNK) {
+      const slice = userIds.slice(i, i + CHUNK);
+      const { data: profs } = await admin.from('profiles').select('id, phone').in('id', slice).is('deleted_at', null);
+      for (const p of profs || []) out.push({ user_id: p.id, phone: p.phone });
+    }
+    return out;
+  }
+
+  // Tenants with an open "do you still need rent?" question (doc 275).
+  if (role === 'rent_request_reconfirm') {
+    const { data, error } = await admin.rpc('rent_request_reconfirm_audience');
+    if (error) throw error;
+    const userIds = Array.from(new Set((data || []).map((r: any) => r.tenant_id).filter(Boolean)));
     const CHUNK = 200;
     for (let i = 0; i < userIds.length; i += CHUNK) {
       const slice = userIds.slice(i, i + CHUNK);
