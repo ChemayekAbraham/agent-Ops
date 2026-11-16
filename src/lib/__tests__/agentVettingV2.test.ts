@@ -83,9 +83,12 @@ describe('what is still missing', () => {
 describe('gate status', () => {
   it('reads expires_at and the reason', async () => {
     sb.rpc.mockResolvedValue({ data: { enforced: true, status: 'expired', blocked: true, reason: 'Verify again', expires_at: '2026-11-01T00:00:00Z' }, error: null });
-    await expect(fetchGateStatus('uid-1')).resolves.toEqual({ enforced: true, status: 'expired', blocked: true, reason: 'Verify again', expires_at: '2026-11-01T00:00:00Z' });
+    await expect(fetchGateStatus('uid-1')).resolves.toEqual({ enforced: true, status: 'expired', blocked: true, reason: 'Verify again', expires_at: '2026-11-01T00:00:00Z', vetted: null, funding_frozen: false, notice: null });
     expect(sb.rpc).toHaveBeenCalledWith('agent_vetting_gate_status', { p_agent_id: 'uid-1' });
-    expect(parseGateStatus(null)).toEqual({ enforced: false, status: null, blocked: false, reason: null, expires_at: null });
+    expect(parseGateStatus(null)).toEqual({ enforced: false, status: null, blocked: false, reason: null, expires_at: null, vetted: null, funding_frozen: false, notice: null });
+    // E111: posting is open; an unverified agent's requests wait at the COO.
+    expect(parseGateStatus({ blocked: false, vetted: false, funding_frozen: true, notice: 'You can post rent requests. They wait at the COO until you complete your agent verification.' }))
+      .toMatchObject({ blocked: false, vetted: false, funding_frozen: true, notice: 'You can post rent requests. They wait at the COO until you complete your agent verification.' });
   });
 
   it('formats "Verified until" in Kampala time', () => {

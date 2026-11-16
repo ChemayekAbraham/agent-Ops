@@ -25,9 +25,9 @@ export default function ResolveRLink() {
       try {
         const { data, error } = await supabase
           .rpc('resolve_short_link', { p_code: code })
-          .maybeSingle();
+          .limit(1);
         if (!active) return;
-        const target = data as { target_path?: string; target_params?: Record<string, string> | null } | null;
+        const target = data?.[0] as { target_path?: string; target_params?: Record<string, string> | null } | undefined;
         if (!error && target?.target_path) {
           // Fire-and-forget click tracking — don't block the redirect. Same
           // call TrackedRedirect (/s/:code) makes; this /r/:code path is the

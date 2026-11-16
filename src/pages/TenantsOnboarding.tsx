@@ -48,6 +48,8 @@ import {
   type TenantItemKey,
 } from '@/lib/tenantSelfRequest';
 import { createSendTimer } from '@/lib/sendProgress';
+import { isLandlordReferralCode, landlordCodeFromSearch, normalizeLandlordCode, recordLandlordReferral } from '@/lib/landlordReferral';
+import { createFormFunnel, funnelErrorCode, type FunnelItem, type FunnelStep } from '@/lib/formFunnel';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { NationalIdConsentDialog } from '@/components/shared/NationalIdConsentDialog';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
@@ -100,6 +102,18 @@ const EARNERS = [
     icon: CalendarDays,
   },
 ] as const;
+
+/** E108 funnel: the stable name of each step of this form. */
+const TENANT_FUNNEL_STEP: Record<number, FunnelStep> = {
+  1: 'start', 2: 'repayment', 3: 'tenant', 4: 'house_landlord', 5: 'lc1', 6: 'review',
+};
+/** E108 funnel: the item code for each thing the request needs (anything else is 'other'). */
+const TENANT_FUNNEL_ITEM: Partial<Record<TenantItemKey, FunnelItem>> = {
+  rent: 'rent', phone: 'phone', idFront: 'id_front', idBack: 'id_back', passportPhoto: 'tenant_photo',
+  familySize: 'family_size', work: 'work', gps: 'gps', housePhotos: 'house_photos',
+  landlord: 'landlord', landlordPhone: 'landlord', lcLetter: 'lc1_letter', declared: 'agreement',
+};
+const TENANT_ALL_ITEMS = Object.keys(TENANT_FUNNEL_ITEM) as TenantItemKey[];
 
 /**
  * What the submit button says while it works, from the real step: the photos travel with
@@ -186,8 +200,24 @@ export default function TenantsOnboarding() {
   }, [authLoading, user, returnTo]);
 
   const [step, setStep] = useState(1);
+  /* E108 demand funnel: open, steps, blocked presses, items done, submit and close.
+     Fire-and-forget; never shown to the tenant, never awaited. */
+  const funnel = useMemo(() => createFormFunnel('tenant_self'), []);
+  const postedRef = useRef(false);
+  useEffect(() => {
+    funnel.open();
+    const onHide = () => { if (document.visibilityState === 'hidden') funnel.close(); };
+    const onLeave = () => funnel.close();
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', onLeave);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', onLeave);
+      funnel.close();
+    };
+  }, [funnel]);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState<{ id: string; intakeError: string | null } | null>(null);
+  const [submitted, setSubmitted] = useState<{ id: string; intakeError: string | null; referralError?: string | null } | null>(null);
 
   /* Existing-application gate. A tenant who already has a request in progress
      (or a live plan) must not fill this form again — it would put them through
@@ -271,6 +301,8 @@ export default function TenantsOnboarding() {
   const [newLandlordPhone, setNewLandlordPhone] = useState('');
   const [lc1, setLc1] = useState<Lc1Selection | null>(null);
   const [note, setNote] = useState('');
+  /* Landlord referral code (E107): optional, prefilled from a landlord's link (?ref=L…). */
+  const [landlordCode, setLandlordCode] = useState(() => landlordCodeFromSearch(routeLocation.search));
 
   /* ------------------------------------------------------ referral claim ---
      The short link arrives as /tenants-onboarding?ref=<agent id>. That id is
@@ -287,7 +319,8 @@ export default function TenantsOnboarding() {
   useEffect(() => {
     if (!user) return;
     const ref = new URLSearchParams(routeLocation.search).get('ref');
-    if (!ref || ref === user.id) return;
+    // A landlord referral code (L + 8) is not an agent; it is recorded with the request.
+    if (!ref || ref === user.id || isLandlordReferralCode(ref)) return;
     void (async () => {
       try {
         await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<unknown>)(
@@ -335,6 +368,8 @@ export default function TenantsOnboarding() {
       if (typeof d.newLandlordName === 'string') setNewLandlordName(d.newLandlordName);
       if (typeof d.newLandlordPhone === 'string') setNewLandlordPhone(d.newLandlordPhone);
       if (typeof d.note === 'string') setNote(d.note);
+      // A code in today's link wins over one in an older draft.
+      if (typeof d.landlordCode === 'string') setLandlordCode((cur) => cur || normalizeLandlordCode(String(d.landlordCode)));
       setSaveState('saved');
     } catch { /* a corrupt or unavailable draft is not worth failing over */ }
     // Restore once per user, on mount.
@@ -348,7 +383,7 @@ export default function TenantsOnboarding() {
         localStorage.setItem(draftKey, JSON.stringify({
           earner, rentInput, durationDays, firstName, lastName, phone, nin, nationalIdName,
           occupation, familySize, workLocation, language, noSmartphone, houseType, address,
-          newLandlordName, newLandlordPhone, note,
+          newLandlordName, newLandlordPhone, note, landlordCode,
         }));
         setSaveState('saved');
       } catch {
@@ -359,7 +394,7 @@ export default function TenantsOnboarding() {
     return () => clearTimeout(t);
   }, [draftKey, submitted, earner, rentInput, durationDays, firstName, lastName,
       phone, nin, nationalIdName, occupation, familySize, workLocation, language, noSmartphone, houseType, address,
-      newLandlordName, newLandlordPhone, note]);
+      newLandlordName, newLandlordPhone, note, landlordCode]);
 
   const rentAmount = Number(rentInput.replace(/\D/g, '')) || 0;
   const calc = useMemo(
@@ -560,6 +595,19 @@ export default function TenantsOnboarding() {
   });
   const missingOn = (step: number) => missing.filter((m) => m.step === step);
 
+  useEffect(() => {
+    if (!postedRef.current) funnel.step(TENANT_FUNNEL_STEP[step] ?? 'start');
+  }, [step, funnel]);
+  const missingKey = missing.map((m) => m.key).join(',');
+  useEffect(() => {
+    const open = new Set(missingKey.split(','));
+    for (const k of TENANT_ALL_ITEMS) {
+      const item = TENANT_FUNNEL_ITEM[k];
+      if (item && !open.has(k)) funnel.itemDone(item);
+    }
+  }, [missingKey, funnel]);
+  const funnelItemsFor = (keys: TenantItemKey[]): FunnelItem[] => keys.map((k) => TENANT_FUNNEL_ITEM[k] ?? 'other');
+
   const stepError = (s: number): string | null => {
     if (s === 2 && rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT)) {
       return `Enter a rent between ${formatUGX(MIN_RENT)} and ${formatUGX(MAX_RENT)}`;
@@ -580,14 +628,22 @@ export default function TenantsOnboarding() {
     return missingOn(s)[0]?.label ?? null;
   };
 
+  /** The items a step is blocked on, for the funnel. */
+  const stepBlockItems = (s: number): FunnelItem[] => {
+    if (s === 2 && rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT)) return ['rent'];
+    if (s === 3 && (phoneTakenByOther || (cleanNin(nin) && ninTakenByOther))) return ['duplicate'];
+    if (s === 3 && photoCheck && !photoCheck.checking && !photoCheck.error && photoCheck.is_face === false) return ['tenant_photo'];
+    return funnelItemsFor(missingOn(s).map((m) => m.key));
+  };
+
   const goNext = () => {
     const e = stepError(step);
-    if (e) { toast.error(e); return; }
+    if (e) { funnel.blocked(stepBlockItems(step)); toast.error(e); return; }
     setStep((s) => Math.min(6, s + 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const goTo = (n: number) => {
-    if (n > step) { const e = stepError(step); if (e) { toast.error(e); return; } }
+    if (n > step) { const e = stepError(step); if (e) { funnel.blocked(stepBlockItems(step)); toast.error(e); return; } }
     setStep(n);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -601,9 +657,9 @@ export default function TenantsOnboarding() {
     if (!consentParams) {
       for (let s = 2; s <= 5; s++) {
         const e = stepError(s);
-        if (e) { setStep(s); toast.error(e); return; }
+        if (e) { funnel.blocked(stepBlockItems(s)); setStep(s); toast.error(e); return; }
       }
-      if (missing.length) { toast.error(missing[0].label); return; }
+      if (missing.length) { funnel.blocked(funnelItemsFor(missing.map((m) => m.key))); toast.error(missing[0].label); return; }
       setSubmitError(null);
       setSubmitting(true);
     } else {
@@ -723,19 +779,28 @@ export default function TenantsOnboarding() {
       const requestId = String(dataObj?.rent_request_id || '');
       // The intake Agent Ops checks. The request is kept even if this fails; its message is shown as-is.
       setSubmitStage({ stage: 'saving' });
-      const intake = requestId
-        ? await timer.step('intake', saveTenantIntake(requestId, {
-            familySize: parseFamilySize(familySize),
-            workBusiness: occupation,
-            workLocation,
-            lc1Contact: lc1?.name?.trim() && lc1?.phone ? `${lc1.name.trim()}, ${lc1.phone}` : null,
-            lcLetterBucket: typeof dataObj?.lc_letter_bucket === 'string' ? dataObj.lc_letter_bucket : null,
-            lcLetterPath: typeof dataObj?.lc_letter_path === 'string' ? dataObj.lc_letter_path : null,
-          }))
-        : { ok: false, message: 'The request was created but no reference came back. Contact Welile support.' };
+      // The landlord referral code is recorded alongside; it never blocks the request (E107).
+      const [intake, referral] = await Promise.all([
+        requestId
+          ? timer.step('intake', saveTenantIntake(requestId, {
+              familySize: parseFamilySize(familySize),
+              workBusiness: occupation,
+              workLocation,
+              lc1Contact: lc1?.name?.trim() && lc1?.phone ? `${lc1.name.trim()}, ${lc1.phone}` : null,
+              lcLetterBucket: typeof dataObj?.lc_letter_bucket === 'string' ? dataObj.lc_letter_bucket : null,
+              lcLetterPath: typeof dataObj?.lc_letter_path === 'string' ? dataObj.lc_letter_path : null,
+            }))
+          : Promise.resolve({ ok: false, message: 'The request was created but no reference came back. Contact Welile support.' }),
+        requestId ? recordLandlordReferral(requestId, landlordCode) : Promise.resolve(null),
+      ]);
       outcome = 'ok';
       setSubmitStage({ stage: 'sent' });
-      setSubmitted({ id: requestId, intakeError: intake.ok ? null : intake.message });
+      if (requestId) { postedRef.current = true; funnel.submitOk(requestId); }
+      setSubmitted({
+        id: requestId,
+        intakeError: intake.ok ? null : intake.message,
+        referralError: referral && 'message' in referral ? referral.message : null,
+      });
       /* The draft has served its purpose — drop it so a returning tenant does
          not reopen a stale copy of a request they already sent. */
       try {
@@ -748,6 +813,11 @@ export default function TenantsOnboarding() {
       const errMsg = e instanceof Error ? e.message : 'An unexpected error occurred';
       // The server's message is shown as it came; only a lost connection gets plain words.
       const msg = /failed to fetch|networkerror/i.test(errMsg) ? humaniseSubmitError(errMsg) : errMsg;
+      // The server refused (or the network did): a blocked press and a failed submit.
+      const refusalItems: FunnelItem[] = [/already (registered|has)|duplicate|open request/i.test(errMsg) ? 'duplicate' : 'other'];
+      const refusalCode = funnelErrorCode(errMsg, /failed to fetch|networkerror/i.test(errMsg) ? 'network' : 'other');
+      funnel.blocked(refusalItems, refusalCode);
+      funnel.submitFail(refusalCode, refusalItems);
       toast.error('Could not submit your request', { description: msg, duration: 8000 });
       setSubmitError(msg);
     } finally {
@@ -1005,7 +1075,7 @@ export default function TenantsOnboarding() {
                   </p>
                 )}
               </div>
-              <Button className="w-full" onClick={() => navigate('/dashboard/tenant')}>
+              <Button className="w-full" onClick={() => navigate('/dashboard/tenant?tab=rent-plan')}>
                 {repaying ? 'See my Rent Plan' : 'Track my request'}
               </Button>
               <p className="text-xs text-muted-foreground">
@@ -1040,6 +1110,15 @@ export default function TenantsOnboarding() {
                   Sent to Welile. An agent near you will be assigned to visit and confirm your house.
                 </p>
               </div>
+
+              {submitted.referralError && (
+                <div role="status" className="flex items-start gap-2.5 rounded-xl border border-warning/40 bg-warning/5 p-3.5" data-testid="landlord-referral-note">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                  <p className="text-[13px] leading-relaxed">
+                    <span className="font-bold">Landlord referral code {normalizeLandlordCode(landlordCode)}:</span> {submitted.referralError}. Your request was still sent.
+                  </p>
+                </div>
+              )}
 
               {submitted.intakeError && (
                 <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-destructive/40 bg-destructive/5 p-3.5">
@@ -1763,6 +1842,12 @@ export default function TenantsOnboarding() {
                   <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)}
                     placeholder="Optional — tell us anything that helps the verification team." />
                 </Field>
+
+                <Field label="Landlord referral code" hint="Optional. From your landlord's link: L followed by 8 letters or numbers.">
+                  <Input value={landlordCode} onChange={(e) => setLandlordCode(normalizeLandlordCode(e.target.value))}
+                    placeholder="e.g. L4K7Q2M9X" autoCapitalize="characters" autoComplete="off" spellCheck={false}
+                    aria-label="Landlord referral code" className="font-mono uppercase" />
+                </Field>
               </div>
             )}
 
@@ -1930,10 +2015,16 @@ export default function TenantsOnboarding() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
               {step < 6 ? (
+                /* A tap on the disabled button lands on this wrapper: still a blocked press (E108). */
+                <span className="inline-flex" data-testid="continue-wrap"
+                  onClick={() => { if (stepError(step)) funnel.blocked(stepBlockItems(step)); }}>
                 <Button type="button" onClick={goNext} disabled={!!stepError(step)}>
                   Continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+                </span>
               ) : (
+                <span className="inline-flex" data-testid="submit-wrap"
+                  onClick={() => { if (!submitting && !creatingAccount && missing.length) funnel.blocked(funnelItemsFor(missing.map((m) => m.key))); }}>
                 <Button type="button"
                   onClick={() => {
                     if (user) void submit();
@@ -1963,6 +2054,7 @@ export default function TenantsOnboarding() {
                     </span>
                   </span>
                 </Button>
+                </span>
               )}
             </div>
           </CardContent>

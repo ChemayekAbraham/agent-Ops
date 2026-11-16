@@ -21,6 +21,7 @@ import {
   Download,
   Wallet,
   Undo2,
+  EyeOff,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -43,6 +44,7 @@ export const LANDLORD_OPS_SECTIONS: LandlordOpsNavSection[] = [
     items: [
       { key: 'pipeline-rent-requests', label: 'Rent Requests', path: 'pipeline/rent-requests', icon: GitBranch, badgeKey: 'pipeline' },
       { key: 'today', label: 'Today', path: '', icon: LayoutDashboard },
+      { key: 'hidden', label: 'Hidden', path: 'hidden', icon: EyeOff },
     ],
   },
   {
@@ -64,6 +66,7 @@ export const LANDLORD_OPS_SECTIONS: LandlordOpsNavSection[] = [
     title: 'PAYOUTS',
     items: [
       { key: 'payouts-review', label: 'Payout Review', path: 'payouts/review', icon: ClipboardCheck, badgeKey: 'payouts' },
+      { key: 'payouts-direct-payments', label: 'Direct landlord payments', path: 'payouts/direct-payments', icon: PhoneCall },
       { key: 'payouts-paid', label: 'Landlords Paid', path: 'payouts/paid', icon: Banknote },
       { key: 'payouts-float', label: 'Agent Landlord Float', path: 'payouts/float', icon: Landmark },
       { key: 'payouts-idle-float', label: 'Float Not Paid Out', path: 'payouts/idle-float', icon: Undo2 },

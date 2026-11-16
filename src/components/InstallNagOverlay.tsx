@@ -59,6 +59,9 @@ export default function InstallNagOverlay() {
     osDetected ? null : getInstallPlatformPreference(),
   );
   const effectiveIsIOS = manualPlatform ? manualPlatform === 'ios' : isIOS;
+  // The browser can install in one tap: the button does everything, so the
+  // sheet shows no manual steps (98% accepted the native prompt, Nov 2026).
+  const oneTap = !effectiveIsIOS && hasPrompt;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
@@ -97,12 +100,14 @@ export default function InstallNagOverlay() {
       surface: 'nag_overlay',
       effective_platform: effectiveIsIOS ? 'ios' : 'android',
     });
-    trackInstallEvent('platform_steps_shown', {
-      surface: 'nag_overlay',
-      platform: effectiveIsIOS ? 'ios' : 'android',
-      from_preference: !!manualPlatform,
-    });
-  }, [open, isIOS, hasPrompt, effectiveIsIOS, manualPlatform]);
+    if (!oneTap) {
+      trackInstallEvent('platform_steps_shown', {
+        surface: 'nag_overlay',
+        platform: effectiveIsIOS ? 'ios' : 'android',
+        from_preference: !!manualPlatform,
+      });
+    }
+  }, [open, isIOS, hasPrompt, effectiveIsIOS, manualPlatform, oneTap]);
 
   const snooze = useCallback(() => {
     try {
@@ -216,7 +221,9 @@ export default function InstallNagOverlay() {
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                     {effectiveIsIOS
                       ? 'Add Welile to your home screen — it opens instantly, like a normal app.'
-                      : 'Install it in seconds. It opens instantly from your home screen, uses less data and works on weak network.'}
+                      : oneTap
+                        ? 'One tap. Opens instantly, uses less data and reminds you of payments.'
+                        : 'Install it in seconds. It opens instantly from your home screen, uses less data and works on weak network.'}
                   </p>
                 </div>
               </div>
@@ -274,7 +281,7 @@ export default function InstallNagOverlay() {
 
               {/* Platform-specific install steps, shown inline so the user
                   never has to open a guide to know what to tap. */}
-              {(osDetected || manualPlatform) && (effectiveIsIOS ? (
+              {!oneTap && (osDetected || manualPlatform) && (effectiveIsIOS ? (
                 <ol className="mt-4 space-y-2 rounded-2xl bg-muted/50 p-3 text-sm text-foreground">
                   <li className="flex gap-2.5">
                     <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">1</span>
@@ -293,7 +300,7 @@ export default function InstallNagOverlay() {
                 <ol className="mt-4 space-y-2 rounded-2xl bg-muted/50 p-3 text-sm text-foreground">
                   <li className="flex gap-2.5">
                     <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">1</span>
-                    <span>Tap <strong>"Install now"</strong> below — or open the browser menu <strong>(⋮)</strong>.</span>
+                    <span>Open the browser menu <strong>(⋮)</strong> at the top right.</span>
                   </li>
                   <li className="flex gap-2.5">
                     <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">2</span>
@@ -323,6 +330,7 @@ export default function InstallNagOverlay() {
                 </button>
               )}
 
+              {!oneTap && (
               <ul className="mt-4 grid gap-2 text-sm text-foreground/90">
                 <li className="flex items-center gap-2">
                   <Zap className="h-4 w-4 text-primary" /> Opens instantly from your home screen
@@ -334,6 +342,7 @@ export default function InstallNagOverlay() {
                   <Bell className="h-4 w-4 text-primary" /> Never miss a payment reminder
                 </li>
               </ul>
+              )}
 
               <div className="mt-5 flex flex-col gap-2">
                 <Button

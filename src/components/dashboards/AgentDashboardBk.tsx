@@ -104,7 +104,7 @@ import { useMyProxyAgentStatus } from '@/hooks/useProxyAgentApproval';
 
 import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
-import { useAgentSignupVerifyRedirect, useAgentVerifiedState } from '@/hooks/useAgentVetting';
+import { useAgentVerifiedState } from '@/hooks/useAgentVetting';
 import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
 import { RankEarningsCard } from '@/components/agent/RankEarningsCard';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
@@ -292,8 +292,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   const authenticatedReady = useAuthenticatedAudience();
   // Agent Ops approval (agent vetting), never profiles.verified.
   const agentVerifiedState = useAgentVerifiedState();
-  // New agent signups are sent to verification until they have started it.
-  useAgentSignupVerifyRedirect();
+  // E111: agents always post, so a new agent is no longer sent to verification first;
+  // the banner and the rent request form invite them to verify instead.
   // Behaviour telemetry tracking
   useTrackSection('agent-overview', 'agent');
   const { data: myEliteRank } = useMyEliteRank();

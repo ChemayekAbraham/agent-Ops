@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Maximize2, Minimize2, Moon, MoreHorizontal, Play, RefreshCw, Rows3, Square, Sun } from 'lucide-react';
@@ -8,6 +8,12 @@ import { DESKS, DESK_ALIASES, feedsOf, landingDesk, show, type Desk, type Getter
 import { useDeskFeeds, type FeedState, type Row } from './useDeskFeed';
 import { DeskTable, type ReviewHook } from './DeskTable';
 import { CommandCentre } from './CommandCentre';
+import { AgentArrearsTab } from './arrears/AgentArrearsTab';
+import { TenantArrearsTab } from './arrears/TenantArrearsTab';
+import { ReferralLandlords } from './ReferralLandlords';
+import { PostingFunnelCard } from './coo/PostingFunnel';
+import { DeskBell } from './DeskBell';
+import { DeskPushBanner } from './DeskPushBanner';
 import { TileGrid } from './Tiles';
 import { SkeletonLead, SkeletonTiles } from './Skeleton';
 import { DeskPrefsProvider, KampalaClock, clockTime, useDeskPrefs } from './deskPrefs';
@@ -30,6 +36,7 @@ import type { Period as FundersPeriod } from './cfo/cfoApi';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
 import { DeskSwitcher, DeskTabs } from './DeskTabs';
+import { useOpenConcernsCount } from './concerns/concernsQueueApi';
 import { DecisionButton, Sheet, atLeast, useBreakpoint, type Breakpoint } from './ui';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
 import { ReadyBoard, type DrawerContext, type DrawerStart, type OpenDrawer } from './ReadyBoard';
@@ -39,7 +46,7 @@ import { CooBoard, RetiredFundNote } from './CooBoard';
 import { PartnerWatch } from './PartnerWatch';
 import { PartnerOpsBoard } from './partner/PartnerOpsBoard';
 import { desksFor, useMyScScope } from './scScope';
-import { accessLanding, desksByAccess, useMyDeskAccess } from './deskAccess';
+import { accessLanding, desksByAccess, useMyDeskAccess, withTwin } from './deskAccess';
 import { DeskRules } from './DeskRules';
 import { AccountabilityFold } from './accountability/AccountabilityFold';
 import { EditResponsibilitiesFold } from './ontology/ResponsibilitiesEditor';
@@ -47,6 +54,10 @@ import { AgentsLiveFold } from './agents/AgentsLive';
 import { AgentsDesk } from './agents/AgentsDesk';
 import { FlowPanel } from './flow/FlowPanel';
 import { OntologyTab } from './ontology/OntologyTab';
+import { NOT_ALLOWED_TEXT } from './twin/twinSource';
+
+// The Twin tab loads its own code only when opened.
+const TwinDesk = lazy(() => import('./twin/TwinDesk'));
 
 const ROTATE_MS = 45_000;
 
@@ -68,6 +79,10 @@ const QUEUE_TABLE: Record<string, string> = {
 const EXTRA_TAB: Record<string, string> = {
   'partner-ops': 'Funder board — preview',
   ontology: 'Ontology',
+  // E102: the arrears watch, per desk; E107: landlords whose tenants pay well.
+  'agent-ops': 'Arrears calls',
+  'tenant-ops': 'Arrears calls',
+  'landlord-ops': 'Referral landlords',
 };
 
 function ToolButton({
@@ -250,6 +265,8 @@ function Toolbar({ updated, failed, board, bp }: { updated: number; failed: stri
       <LivePill />
 
       <KampalaClock className={`${board ? 'text-base' : 'text-sm'} font-medium text-foreground whitespace-nowrap`} />
+      {/* E114: the desk's notifications; the 07:30 call list opens Arrears calls. Not on the wall view. */}
+      {!board && <DeskBell />}
       {xl && <span style={{ whiteSpace: 'nowrap' }}>Updated {clockTime(updated)}</span>}
 
       <button
@@ -319,6 +336,9 @@ export function DeskHeader({
   board: boolean;
   bp: Breakpoint;
 }) {
+  // E64: open concerns on the Command centre tab, for people who can open that desk.
+  const openConcerns = useOpenConcernsCount(allowed.some((d) => d.id === 'command'));
+  const tabCounts = { command: openConcerns };
   if (!atLeast(bp, 'md')) {
     return (
       <header
@@ -327,7 +347,7 @@ export function DeskHeader({
         style={{ position: 'sticky', top: 0, zIndex: 30, display: 'flex', alignItems: 'center', gap: 8, minHeight: 52, maxHeight: 56, margin: '0 -1rem', padding: '2px 1rem', minWidth: 0 }}
       >
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', alignItems: 'center' }}>
-          <DeskSwitcher desks={allowed} activeId={desk.id} board={board} />
+          <DeskSwitcher desks={allowed} activeId={desk.id} board={board} counts={tabCounts} />
         </div>
         <LivePill dotOnly={bp === 'xs'} />
         <ShortClock />
@@ -355,7 +375,9 @@ export function DeskHeader({
         <Toolbar updated={updated} failed={failed} board={board} bp={bp} />
       </div>
 
-      {allowed.length > 1 && <DeskTabs desks={allowed} activeId={desk.id} board={board} />}
+      {allowed.length > 1 && <DeskTabs desks={allowed} activeId={desk.id} board={board} counts={tabCounts} />}
+      {/* E114: the 07:30 call list comes as a push; offer it until this device is subscribed. */}
+      {!board && (desk.id === 'agent-ops' || desk.id === 'tenant-ops') && <DeskPushBanner />}
     </header>
   );
 }
@@ -473,6 +495,11 @@ function DeskView({
   const [tab, setTab] = useState<'queue' | 'extra'>(() =>
     deskParams.get('tab') && deskParams.get('tab') !== 'queue' ? 'extra' : 'queue',
   );
+  // A link to a desk already open (the bell's 07:30 call list, ?tab=arrears) switches the tab too.
+  const tabParam = deskParams.get('tab');
+  useEffect(() => {
+    if (tabParam) setTab(tabParam !== 'queue' ? 'extra' : 'queue');
+  }, [tabParam]);
 
   /**
    * The row carries an 8-character code, so the id is looked up on the press.
@@ -523,6 +550,15 @@ function DeskView({
 
   // The Agents desk (E61) draws its own list and agent sheet.
   if (desk.id === 'agents') return <AgentsDesk board={board} />;
+
+  // The Twin tab draws the digital twin from the ops_twin_* reads.
+  if (desk.id === 'twin') {
+    return (
+      <Suspense fallback={<SkeletonLead />}>
+        <TwinDesk board={board} />
+      </Suspense>
+    );
+  }
 
   const queueTable = QUEUE_TABLE[desk.id];
   const review: ReviewHook | undefined = stage
@@ -591,6 +627,9 @@ function DeskView({
     <>
       {extraTab && tab === 'extra' && desk.id === 'partner-ops' && <FunderBoard board={board} />}
       {extraTab && tab === 'extra' && desk.id === 'ontology' && <OntologyTab board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'agent-ops' && <AgentArrearsTab board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'tenant-ops' && <TenantArrearsTab board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'landlord-ops' && <ReferralLandlords board={board} />}
     </>
   );
 
@@ -639,6 +678,7 @@ function DeskView({
         ) : (
           <p className="text-sm text-muted-foreground">The Service Centre desk is switched off right now. Try again later.</p>
         )}
+        {checklistOn && <PostingFunnelCard board={board} />}
         {drawer}
       </div>
     );
@@ -679,6 +719,8 @@ function DeskView({
         </section>
 
         {desk.id === 'agent-ops' && <AgentRankingFold board={board} />}
+        {/* E108: where rent requests get stuck before they are posted. */}
+        {(desk.id === 'agent-ops' || desk.id === 'service-centre') && <PostingFunnelCard board={board} />}
         <AgentsLiveFold deskId={desk.id} board={board} />
         <WaitingOnFold deskId={desk.id} board={board} />
         <DoneTodayFold deskId={desk.id} board={board} />
@@ -759,7 +801,8 @@ function DeskShell() {
   // Re-read every 2 minutes and on focus, so a removal lands without a re-login.
   const access = useMyDeskAccess();
   const accessEnforced = !!access.data?.enforced && !access.data.all;
-  const allowed = desksByAccess(base.desks, DESKS, access.data);
+  // The Twin tab also opens for every-desk holders and the Command Centre desk, as the database allows.
+  const allowed = withTwin(desksByAccess(base.desks, DESKS, access.data), DESKS, access.data, mine);
   // The board-only view is for a Service Centre person with no other desk.
   const scOnly = base.scOnly && !(accessEnforced && allowed.some((d) => d.id !== 'service-centre'));
   const desk = allowed.find((d) => d.id === deskId);
@@ -811,6 +854,17 @@ function DeskShell() {
           <p className="text-sm text-muted-foreground">
             Desks open for operations staff. Ask the COO office to confirm your role, then reload this page.
           </p>
+        </div>
+      </main>
+    );
+  }
+  if (!desk && deskId === 'twin') {
+    // Said plainly rather than bounced to another desk.
+    return (
+      <main className="desk-root min-h-screen px-4 py-16 text-center" data-desk-theme={rootTheme}>
+        <div className="mx-auto max-w-xl space-y-2">
+          <h1 className="text-xl font-semibold text-foreground">The twin is not open to this account</h1>
+          <p className="text-sm text-muted-foreground">{NOT_ALLOWED_TEXT}</p>
         </div>
       </main>
     );

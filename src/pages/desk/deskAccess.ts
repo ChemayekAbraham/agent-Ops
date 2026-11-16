@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { rpc } from './reviewApi';
-import { DESK_ALIASES, type Desk } from './deskConfig';
+import { DESK_ALIASES, TWIN_ROLES, type Desk } from './deskConfig';
 
 /**
  * Who may open which desk, managed by HR (People → Desks).
@@ -154,4 +154,19 @@ export async function addToDesk(desk: string, userIds: string[]): Promise<{ adde
 export async function removeFromDesk(desk: string, userId: string): Promise<string | null> {
   const { error } = await rpc('desk_access_remove', { p_desk: desk, p_user: userId });
   return error ? error.message : null;
+}
+
+/**
+ * The Twin tab follows the database rule (_ops_twin_viewer_ok): the COO, CEO,
+ * CFO, CTO and super admins by role, and anyone who holds every desk or the
+ * Command Centre desk. Added in the page's own tab order when missing.
+ */
+export function withTwin(allowed: Desk[], every: Desk[], access: MyAccess | null | undefined, roles: string[]): Desk[] {
+  if (allowed.some((d) => d.id === 'twin')) return allowed;
+  const twin = every.find((d) => d.id === 'twin');
+  if (!twin) return allowed;
+  const ok = roles.some((r) => TWIN_ROLES.includes(r)) || access?.all === true || allowed.some((d) => d.id === 'command');
+  if (!ok) return allowed;
+  const order = new Map(every.map((d, i) => [d.id, i]));
+  return [...allowed, twin].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 }

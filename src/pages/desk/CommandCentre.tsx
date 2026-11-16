@@ -13,8 +13,15 @@ import { PushQueueCards } from './PushQueueCards';
 import { CommandAdditionCards, MoneyLine } from './CommandAdditions';
 import { FlowPanel } from './flow/FlowPanel';
 import { AccountabilityTile } from './accountability/AccountabilityTile';
+import { ConcernsTab } from './concerns/ConcernsTab';
+import { useOpenConcernsCount } from './concerns/concernsQueueApi';
+import { CountChip } from './ui';
 import { AT_COO, DeskSearchBox, SearchResults } from './deskSearch';
 import { ReviewDrawer } from './ReviewDrawer';
+import { ArrearsTile, BalanceMeter, CohortBoard, DemandAlarm } from './coo/cooSignals';
+import { PremortemTab } from './coo/PremortemTab';
+import { PostingFunnelCard } from './coo/PostingFunnel';
+import { PromisesCard } from './arrears/promises';
 
 /**
  * Search every desk from the Command Centre (E72, p_desk 'command'). A request
@@ -227,11 +234,15 @@ function MoneyOut({ feed, board, limit }: { feed: FeedState; board: boolean; lim
   );
 }
 
-/** Overview | Boardroom (E97). */
-function ViewTabs({ view, onChange, board }: { view: 'overview' | 'boardroom'; onChange: (v: 'overview' | 'boardroom') => void; board: boolean }) {
+type CommandView = 'overview' | 'concerns' | 'premortem' | 'boardroom';
+const VIEW_LABEL: Record<CommandView, string> = { overview: 'Overview', concerns: 'Concerns', premortem: 'Pre-mortem', boardroom: 'Boardroom' };
+
+/** Overview | Concerns | Pre-mortem | Boardroom (E97; Concerns E64 queue, with its open count; Pre-mortem E106). */
+function ViewTabs({ view, onChange, board }: { view: CommandView; onChange: (v: CommandView) => void; board: boolean }) {
+  const openConcerns = useOpenConcernsCount();
   return (
     <div role="tablist" aria-label="Command Centre views" className="flex flex-wrap gap-1.5">
-      {(['overview', 'boardroom'] as const).map((v) => (
+      {(['overview', 'concerns', 'premortem', 'boardroom'] as const).map((v) => (
         <button
           key={v}
           type="button"
@@ -244,7 +255,12 @@ function ViewTabs({ view, onChange, board }: { view: 'overview' | 'boardroom'; o
               : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
           }`}
         >
-          {v === 'overview' ? 'Overview' : 'Boardroom'}
+          {VIEW_LABEL[v]}
+          {v === 'concerns' && openConcerns !== null && (
+            <span className="ml-1.5" data-concerns-count>
+              <CountChip n={openConcerns} tone={openConcerns > 0 ? 'warn' : 'idle'} />
+            </span>
+          )}
         </button>
       ))}
     </div>
@@ -266,7 +282,7 @@ export function CommandCentre({
   /** The E26 cards — today by desk, overrides, and why requests bounce. Off with the flag. */
   pipelineCards?: boolean;
 }) {
-  const [view, setView] = useState<'overview' | 'boardroom'>('overview');
+  const [view, setView] = useState<CommandView>('overview');
   const flow = useStageFlow();
   const care = feeds.cc_owners?.rows ?? [];
   const gaps = feeds.payment_gaps ?? { rows: [], loading: true, error: null, updatedAt: 0 };
@@ -302,6 +318,22 @@ export function CommandCentre({
     );
   }
   const viewTabs = <ViewTabs view={view} onChange={setView} board={board} />;
+  if (view === 'concerns') {
+    return (
+      <div className={board ? 'flex h-full min-h-0 flex-col gap-6 overflow-auto' : 'space-y-6'}>
+        {viewTabs}
+        <ConcernsTab board={board} />
+      </div>
+    );
+  }
+  if (view === 'premortem') {
+    return (
+      <div className={board ? 'flex h-full min-h-0 flex-col gap-6 overflow-auto' : 'space-y-6'}>
+        {viewTabs}
+        <PremortemTab board={board} />
+      </div>
+    );
+  }
 
   if (board) {
     // One screen, no scrolling: strip, then the river, then the panels. Each
@@ -309,6 +341,10 @@ export function CommandCentre({
     return (
       <div className="flex h-full min-h-0 flex-col gap-6">
         <div className="shrink-0">{viewTabs}</div>
+        {/* E103: the demand alarm, red when it fired. */}
+        <div className="shrink-0">
+          <DemandAlarm board />
+        </div>
         {pipelineCards && (
           <div className="shrink-0 space-y-6">
             <MorningBrief board enabled />
@@ -338,8 +374,21 @@ export function CommandCentre({
   return (
     <div className="space-y-6">
       {viewTabs}
+      {/* E103: the demand alarm, red when it fired, with the alarms to acknowledge. */}
+      <DemandAlarm board={false} />
       {/* Any name, phone or request id across the pipeline. Not on the wall display, which nobody types into. */}
       {pipelineCards && <CommandSearch />}
+      {/* E104 and E102: funder money against verified tenants waiting; the arrears watch totals. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <BalanceMeter board={false} />
+        <ArrearsTile board={false} />
+      </div>
+      {/* E116: promises kept across Agent Ops and Tenant Ops. */}
+      <PromisesCard board={false} />
+      {/* E105: how each month's plans are paying. */}
+      <CohortBoard board={false} />
+      {/* E108: where agents stop between opening the form and posting. */}
+      <PostingFunnelCard board={false} />
       {pipelineCards && (
         <>
           <MorningBrief board={false} enabled />

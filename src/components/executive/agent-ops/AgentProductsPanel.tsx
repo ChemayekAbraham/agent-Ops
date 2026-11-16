@@ -319,7 +319,12 @@ function DrillAgentCard({
       };
       return d.deductions ?? [];
     },
-    staleTime: 30_000,
+    // Sweeps only change a few times a day. Keep them cached so re-opening a card
+    // (or clicking between cards) doesn't re-fetch and flash the skeleton each time.
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const deductions = data ?? [];

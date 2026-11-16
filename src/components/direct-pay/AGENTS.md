@@ -1,0 +1,2 @@
+# Direct-payment screens
+- Use only `useDirectPay` and `directPay` for data and decisions; batch proof signing across loaded queue pages so screens never compute financial eligibility or write storage/financial rows.

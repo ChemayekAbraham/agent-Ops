@@ -93,7 +93,7 @@ ALTER TABLE public.partner_receipt_events ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION public.can_issue_partner_receipt(_uid uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _uid AND role::text IN ('financial_ops','cfo','super_admin'))
-      OR EXISTS (SELECT 1 FROM public.staff_permissions WHERE user_id = _uid AND permitted_dashboard IN ('financial-ops','cfo'));
+      OR EXISTS (SELECT 1 FROM public.staff_permissions WHERE user_id = _uid AND permitted_dashboard IN ('financial-ops','cfo') AND revoked_at IS NULL);
 $$;
 CREATE OR REPLACE FUNCTION public.can_view_partner_receipts(_uid uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -107,12 +107,22 @@ REVOKE ALL ON FUNCTION public.can_issue_partner_receipt(uuid), public.can_view_p
 GRANT EXECUTE ON FUNCTION public.can_issue_partner_receipt(uuid), public.can_view_partner_receipts(uuid), public.can_approve_partner_receipt_correction(uuid) TO authenticated;
 
 -- ---------- RLS: read only for the browser; every write goes through the RPCs ----------
+-- Request-level calls are wrapped in (select ...) so Postgres evaluates them once per query, not once per row.
 CREATE POLICY partner_receipts_read ON public.partner_receipts FOR SELECT TO authenticated
-  USING (public.can_view_partner_receipts(auth.uid()));
+  USING ((select public.can_view_partner_receipts((select auth.uid()))));
 CREATE POLICY partner_receipt_corrections_read ON public.partner_receipt_corrections FOR SELECT TO authenticated
-  USING (public.can_view_partner_receipts(auth.uid()));
+  USING ((select public.can_view_partner_receipts((select auth.uid()))));
 CREATE POLICY partner_receipt_events_read ON public.partner_receipt_events FOR SELECT TO authenticated
-  USING (public.can_view_partner_receipts(auth.uid()));
+  USING ((select public.can_view_partner_receipts((select auth.uid()))));
+-- Staff MFA (doc 249): a no-op until staff_mfa_config.mode is 'admin' or 'all', but without it a password-only staff session stays able to read these.
+CREATE POLICY mfa_required_for_staff ON public.partner_receipts AS RESTRICTIVE FOR ALL TO authenticated
+  USING ((select public.staff_mfa_ok())) WITH CHECK ((select public.staff_mfa_ok()));
+CREATE POLICY mfa_required_for_staff ON public.partner_receipt_corrections AS RESTRICTIVE FOR ALL TO authenticated
+  USING ((select public.staff_mfa_ok())) WITH CHECK ((select public.staff_mfa_ok()));
+CREATE POLICY mfa_required_for_staff ON public.partner_receipt_events AS RESTRICTIVE FOR ALL TO authenticated
+  USING ((select public.staff_mfa_ok())) WITH CHECK ((select public.staff_mfa_ok()));
+CREATE POLICY mfa_required_for_staff ON public.partner_receipt_counter AS RESTRICTIVE FOR ALL TO authenticated
+  USING ((select public.staff_mfa_ok())) WITH CHECK ((select public.staff_mfa_ok()));
 GRANT SELECT ON public.partner_receipts, public.partner_receipt_corrections, public.partner_receipt_events TO authenticated;
 GRANT ALL ON public.partner_receipts, public.partner_receipt_corrections, public.partner_receipt_events TO service_role;
 GRANT USAGE, SELECT ON SEQUENCE public.partner_receipt_events_id_seq TO service_role;

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ReviewDrawer } from '@/pages/desk/ReviewDrawer';
 import { VettingAgeChip } from '@/components/service-center/VettingAgeChip';
 import { vettingClockAt } from '@/lib/vettingOverdueCopy';
 import { useOverdueVettingAlert } from '@/hooks/useOverdueVettingAlert';
@@ -50,6 +52,10 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
   const [comments, setComments] = useState<Record<string, string>>({});
   const [detailsReq, setDetailsReq] = useState<ServiceCenterQueueRequest | null>(null);
   const [noCallOnly, setNoCallOnly] = useState(false);
+  // Verify goes through the desk review checklist: the server only lets a request leave the
+  // Service Centre after a review with checks is recorded (E76_REVIEW_REQUIRED).
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // One batched read for the whole queue tells every card whether it has been called; the cards no longer read their own history
   // unless the batch says there is something to show.
@@ -251,11 +257,11 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
                   <Button
                     size="sm"
                     className="flex-1 text-xs"
-                    disabled={busyId === req.id || commentFor(req.id).length < MIN_COMMENT}
-                    onClick={() => act(req, 'verify', commentFor(req.id))}
+                    disabled={busyId === req.id}
+                    onClick={() => setReviewId(req.id)}
                   >
                     {busyId === req.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
-                    Verify &amp; send to Agent Ops
+                    Verify with checklist
                   </Button>
                   <Button
                     size="sm"
@@ -319,6 +325,17 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
           { label: 'Submitted', value: detailsReq?.created_at ? new Date(detailsReq.created_at).toLocaleString() : null },
         ]}
       />
+      {reviewId && (
+        <ReviewDrawer
+          stage="service_centre"
+          requestId={reviewId}
+          onClose={() => {
+            setReviewId(null);
+            queryClient.invalidateQueries({ queryKey: ['service-center-rent-queue'] });
+            queryClient.invalidateQueries({ queryKey: ['overdue-vetting'] });
+          }}
+        />
+      )}
     </div>
   );
 }

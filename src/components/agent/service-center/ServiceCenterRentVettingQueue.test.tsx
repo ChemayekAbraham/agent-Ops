@@ -33,6 +33,11 @@ vi.mock('@/hooks/useServiceCenterRentQueue', () => ({
   useServiceCenterRentQueue: () => ({ data: queue, isLoading: false, error: null, desk: { matchCount: queue.pending.length, totalCount: queue.pending.length, filtered: false, error: false } }),
   useServiceCenterReviewRentRequest: () => ({ mutateAsync: (...a: unknown[]) => reviewMutate(...a) }),
 }));
+vi.mock('@/pages/desk/ReviewDrawer', () => ({
+  ReviewDrawer: ({ stage, requestId }: { stage: string; requestId: string }) => (
+    <div data-testid="review-drawer" data-stage={stage} data-request={requestId} />
+  ),
+}));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
@@ -138,7 +143,7 @@ describe('ServiceCenterRentVettingQueue: awareness call panel', () => {
     await waitFor(() => expect(calls('get_awareness_calls_for_request').map((c) => c.p_rent_request_id).sort()).toEqual(['rr-1', 'rr-2']));
     expect(screen.queryByTestId('awareness-call-badge')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /No call yet/ })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Verify & send to Agent Ops/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Verify with checklist/ })).toHaveLength(2);
   });
 
   it('shows "Your awareness calls" at the top of the queue', async () => {
@@ -163,20 +168,21 @@ describe('ServiceCenterRentVettingQueue: awareness call panel', () => {
     expect(reviewMutate).not.toHaveBeenCalled();
   });
 
-  it('keeps verify and decline exactly as before: a 10 character comment is still required, and a saved call is not', async () => {
+  it('verify opens the Service Centre review checklist (the server needs a recorded review); decline still needs a 10 character comment', async () => {
     const user = userEvent.setup();
     render(<ServiceCenterRentVettingQueue />, { wrapper });
     await screen.findAllByTestId('awareness-call-section');
-    const verify = screen.getAllByRole('button', { name: /Verify & send to Agent Ops/ })[0];
+    const verify = screen.getAllByRole('button', { name: /Verify with checklist/ })[0];
     const decline = screen.getAllByRole('button', { name: /Decline/ })[0];
-    // no awareness call saved, and still nothing blocks the decision except the comment rule
-    expect(verify).toBeDisabled();
+    expect(verify).toBeEnabled();
     expect(decline).toBeDisabled();
     await user.type(screen.getAllByPlaceholderText(/Your comment \(required\)/)[0], 'Checked house and landlord');
-    expect(verify).toBeEnabled();
     expect(decline).toBeEnabled();
     await user.click(verify);
-    await waitFor(() => expect(reviewMutate).toHaveBeenCalledWith({ requestId: 'rr-1', decision: 'verify', comment: 'Checked house and landlord' }));
+    const drawer = await screen.findByTestId('review-drawer');
+    expect(drawer).toHaveAttribute('data-stage', 'service_centre');
+    expect(drawer).toHaveAttribute('data-request', 'rr-1');
+    expect(reviewMutate).not.toHaveBeenCalledWith(expect.objectContaining({ decision: 'verify' }));
   });
 
   it('shows each request\'s paying label chip with its reason, the filters and the server count, and leaves verify and decline as they were', async () => {

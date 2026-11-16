@@ -165,7 +165,7 @@ const CashoutAgentManager = lz(() => import('@/components/cfo/CashoutAgentManage
 const MerchantFloatRequestsPanel = lz(() => import('@/components/cfo/MerchantFloatRequestsPanel'), 'MerchantFloatRequestsPanel');
 const MerchantFloatRequisitionPanel = lz(() => import('./MerchantFloatRequisitionPanel'), 'MerchantFloatRequisitionPanel');
 const PartnerReceiptsPanel = lz(() => import('@/components/shared/PartnerReceiptsPanel'), 'PartnerReceiptsPanel');
-const ReceiptArchivePanel = lz(() => import('@/components/shared/ReceiptArchivePanel'), 'ReceiptArchivePanel');
+const ReceiptArchiveHome = lz(() => import('./ReceiptArchiveHome'), 'ReceiptArchiveHome');
 const EarningsExplainer = lz(() => import('@/components/shared/EarningsExplainer'), 'EarningsExplainer');
 const DepositBridgeHealthPanel = lz(() => import('@/components/bridge/DepositBridgeHealthPanel'), 'DepositBridgeHealthPanel');
 const OpportunitySummaryForm = lz(() => import('@/components/manager/OpportunitySummaryForm'), 'OpportunitySummaryForm');
@@ -725,7 +725,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
         {activeTool === 'merchant_claims' && <MerchantClaimsLog />}
         {activeTool === 'merchant_agents' && <CashoutAgentManager />}
         {activeTool === 'partner_receipts' && <PartnerReceiptsPanel />}
-        {activeTool === 'receipt_archive' && <ReceiptArchivePanel />}
+        {activeTool === 'receipt_archive' && <ReceiptArchiveHome />}
         {activeTool === 'merchant_float' && (
           <div className="space-y-5">
             <PageHeader

@@ -27,10 +27,15 @@ vi.mock('@/hooks/useAuth', () => ({
 // --- App preferences mock ----------------------------------------------
 let preferredDefault = 'auto';
 let agentAutoDefaultDisabled = false;
-vi.mock('@/hooks/useAppPreferences', () => ({
-  getPreferredDefaultRole: () => preferredDefault,
-  isAgentAutoDefaultDisabled: () => agentAutoDefaultDisabled,
-}));
+vi.mock('@/hooks/useAppPreferences', async () => {
+  const actual = await vi.importActual<typeof import('@/hooks/useAppPreferences')>('@/hooks/useAppPreferences');
+  return {
+    getPreferredDefaultRole: () => preferredDefault,
+    isAgentAutoDefaultDisabled: () => agentAutoDefaultDisabled,
+    // Real owner check: decides whether the local prefs count for this account.
+    readOwnedRoutingPrefs: actual.readOwnedRoutingPrefs,
+  };
+});
 
 // --- Server routing prefs mock -----------------------------------------
 let serverPrefs: any = null;
@@ -97,9 +102,30 @@ beforeEach(() => {
   try {
     localStorage.setItem(
       'welile_app_preferences',
-      JSON.stringify({ defaultRole: 'auto', disableAgentAutoDefault: false }),
+      JSON.stringify({ defaultRole: 'auto', disableAgentAutoDefault: false, routingOwner: 'u1' }),
     );
   } catch {}
+});
+
+describe('DashboardRedirect — shared phone', () => {
+  it("ignores another account's saved home screen and uses this account's own", async () => {
+    // The phone's prefs were saved by someone else (e.g. the agent who signed
+    // this tenant in). They must not route this account.
+    localStorage.setItem(
+      'welile_app_preferences',
+      JSON.stringify({ defaultRole: 'supporter', disableAgentAutoDefault: false, routingOwner: 'someone-else' }),
+    );
+    authState.roles = ['tenant', 'supporter', 'agent', 'landlord'];
+    serverPrefs = { defaultRole: 'landlord' };
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <DashboardRedirect />
+      </MemoryRouter>
+    );
+    await flush();
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard/landlord', { replace: true });
+    expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard/funder', expect.anything());
+  });
 });
 
 describe('DashboardRedirect — default dashboard preference', () => {

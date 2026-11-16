@@ -10,7 +10,18 @@ const chain: Record<string, unknown> = {};
 for (const m of ['select', 'eq', 'order']) chain[m] = () => chain;
 chain.limit = () => Promise.resolve({ data: [{ staff_ref: 'EMP-042' }], error: null });
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { rpc: vi.fn(() => new Promise(() => {})), from: () => chain, storage: { from: vi.fn() }, functions: { invoke: vi.fn() } },
+  // channel: the desk bell's live updates (E114).
+  supabase: {
+    rpc: vi.fn(() => new Promise(() => {})),
+    from: () => chain,
+    storage: { from: vi.fn() },
+    functions: { invoke: vi.fn() },
+    channel: () => {
+      const c = { on: () => c, subscribe: () => c };
+      return c;
+    },
+    removeChannel: vi.fn(),
+  },
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }, roles: ['coo'] }) }));
 

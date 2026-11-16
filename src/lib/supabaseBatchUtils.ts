@@ -391,6 +391,15 @@ export interface NearingPayoutPortfolioData {
   alreadyProcessedThisCycle?: boolean;
   /** How it was already handled this cycle — drives the badge label. */
   processedState?: 'credited' | 'pending' | null;
+  /**
+   * The cycle shows as credited only because an earlier payout was saved under this cycle's key (posted 20+ days
+   * before the cycle date). Staff may request a correction: a normal Return request that goes to COO approval.
+   * The database re-checks this when the request is made (return_cycle_correction_eligible).
+   */
+  correctionEligible?: boolean;
+  /** Date and amount of the misdated payout, for the correction prompt. */
+  misdatedPaidOn?: string | null;
+  misdatedAmount?: number | null;
   status?: string | null;
   paymentMethod?: 'mobile_money' | 'bank_transfer' | 'cash' | null;
   mobileNetwork?: string | null;
@@ -563,6 +572,31 @@ export async function fetchNearingPayoutPortfoliosWithDedupe(): Promise<NearingP
         // Reserved by a Return already posted (payout, compound or split) for this month.
         n.alreadyProcessedThisCycle = true;
         n.processedState = 'credited';
+      }
+    }
+
+    // Credited cards that the database says were credited only by a misdated key can be corrected.
+    const creditedIds = nearingList.filter((n) => n.processedState === 'credited').map((n) => n.portfolioId);
+    if (creditedIds.length > 0) {
+      const { data: correctable, error: correctableError } = await (supabase.rpc as unknown as (
+        fn: string, args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)
+        .call(supabase, 'return_cycle_correction_eligible', { p_portfolio_ids: creditedIds });
+      if (correctableError) {
+        console.warn('[fetchNearingPayoutPortfoliosWithDedupe] correction check failed:', correctableError.message);
+      } else {
+        const byId = new Map(
+          ((correctable as Array<{ portfolio_id: string; misdated_paid_on: string | null; misdated_amount: number | null }> | null) || [])
+            .map((r) => [r.portfolio_id, r] as const),
+        );
+        for (const n of nearingList) {
+          const r = byId.get(n.portfolioId);
+          if (r && n.processedState === 'credited') {
+            n.correctionEligible = true;
+            n.misdatedPaidOn = r.misdated_paid_on;
+            n.misdatedAmount = r.misdated_amount === null ? null : Number(r.misdated_amount);
+          }
+        }
       }
     }
   } catch (e) {

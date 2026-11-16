@@ -21,6 +21,7 @@ import { FundersBoardTag, tagKindFor } from './FundersBoardTag';
 import { FundersIncompleteChip } from './FundersIncompleteChip';
 import type { BoardTag } from '@/lib/fundersBoard';
 import { CoSupportStartButton } from '@/components/co-support/CoSupportStartButton';
+import { DirectPayStartButton } from '@/components/direct-pay/DirectPayPartner';
 
 /** Photo-led listing for /dashboard/funder-new. */
 export function FunderNewHouseCard({
@@ -209,6 +210,7 @@ export function FunderNewHouseCard({
 
         </div>
         {/* Co-support: Rent Plans and verified empty houses (house hook). */}
+        {!isEmpty && !unchecked && <DirectPayStartButton rentRequestId={(item as FunderNewReadyPlan).rent_request_id} />}
         <CoSupportStartButton
           rentRequestId={isEmpty ? null : (item as FunderNewReadyPlan).rent_request_id}
           houseId={isEmpty ? (item as FunderNewEmptyHouse).house_id : null}

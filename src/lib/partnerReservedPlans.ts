@@ -14,13 +14,15 @@ export type PartnerReservedStage =
   | 'partner_held'
   | 'partner_committed'
   | 'partner_funded'
-  | 'promissory_booked';
+  | 'promissory_booked'
+  | 'direct_pay_held';
 
 export const PARTNER_RESERVED_LABEL: Record<PartnerReservedStage, string> = {
   partner_held: 'PARTNER CLAIMED',
   partner_committed: 'PARTNER CLAIMED',
   partner_funded: 'PARTNER FUNDED',
   promissory_booked: 'PARTNER BOOKED',
+  direct_pay_held: 'PARTNER PAYING LANDLORD',
 };
 
 export const PARTNER_RESERVED_HINT: Record<PartnerReservedStage, string> = {
@@ -30,6 +32,8 @@ export const PARTNER_RESERVED_HINT: Record<PartnerReservedStage, string> = {
   partner_funded: 'Already paid for by a partner — the principal is in the agent’s landlord float.',
   promissory_booked:
     'Booked on a partner promissory note for 7 days. Company float cannot fund it — if the partner does not fund in time it is released back to this queue automatically.',
+  direct_pay_held:
+    'A partner is paying this landlord directly from their own phone (held up to 48 hours, then Landlord Ops confirm by calling the landlord). Company float cannot fund it — do not disburse.',
 };
 
 /** Reserved stage per rent request (IDs + stage only, never the partner identity). */

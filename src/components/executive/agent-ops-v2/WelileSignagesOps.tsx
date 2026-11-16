@@ -247,6 +247,11 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                       {item.repeat_owner_phone && (
                         <Badge variant="destructive" className="mt-1 text-[10px]">Repeat owner phone — review</Badge>
                       )}
+                      {item.nearby_signage_ref && (
+                        <Badge variant="destructive" className="mt-1 ml-1 text-[10px]">
+                          {item.nearby_signage_m} m from {item.nearby_signage_ref}: possible duplicate spot
+                        </Badge>
+                      )}
                     </div>
                     <Badge variant={statusMeta.variant as any} className="text-[10px] shrink-0">
                       {statusMeta.label}

@@ -132,6 +132,7 @@ import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
 import { LandlordPaymentStatusList } from '@/components/self-support/LandlordPaymentStatusList';
+import { DirectPayAgentItems } from '@/components/direct-pay/DirectPayAgent';
 import { useTrackSection } from '@/hooks/useTrackSection';
 import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { AgentConvertToFloatCard } from '@/components/agent/AgentConvertToFloatCard';
@@ -1588,6 +1589,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             />
             )}
             {!isMerchant && <LandlordPaymentStatusList role="agent" title="Partner-funded Rent Plans to pay" />}
+            {!isMerchant && <DirectPayAgentItems />}
             {!isMerchant && isLandlordReceiptConfirmationEffective() && (
               <button
                 onClick={() => { hapticTap(); setReceiptCheckOpen(true); }}

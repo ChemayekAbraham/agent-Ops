@@ -25,6 +25,7 @@ import { MerchantCodePills } from '@/components/supporter/MerchantCodePills';
 
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
+import { MySpecialAdvancesCard } from '@/components/wallet/MySpecialAdvancesCard';
 import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import equityLogoAsset from '@/assets/equity-logo.png.asset.json';
@@ -145,6 +146,8 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                     }
                   />
 
+                {/* Special Advances: balance owed and Pay from Wallet (renders nothing without one) */}
+                <MySpecialAdvancesCard onPaid={() => { refetch(); }} />
 
                 {/* Providers — wallet-card style, compact logos with names */}
                 <Card className="rounded-2xl border-border/50 shadow-sm overflow-hidden" data-testid="provider-logos">

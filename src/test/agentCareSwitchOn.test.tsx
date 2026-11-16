@@ -46,10 +46,10 @@ describe('Agent Care with the switch on', () => {
 
   it('shows the Agent Care line and the 6,000 of 306,000 figure on tap', async () => {
     wrap(<AgentCareNote kind="tenant" rent={300000} />);
-    expect(screen.getByText(/Agent Care included:/)).toBeTruthy();
+    expect(screen.getByText(/Cover fee included:/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/2%/);
-    fireEvent.click(screen.getByRole('button', { name: /Agent Care amount/ }));
-    const pop = await screen.findByText(/Agent Care:/);
+    fireEvent.click(screen.getByRole('button', { name: /Cover fee amount/ }));
+    const pop = await screen.findByText(/Cover fee:/);
     expect(digits(pop.textContent)).toContain('6000');
     expect(digits(pop.textContent)).toContain('306000');
   });

@@ -478,8 +478,8 @@ export function SelfPortfolioFundingCard({
     if (!code || !/^[A-Za-z0-9]{4,12}$/.test(code)) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.rpc('resolve_short_link', { p_code: code }).maybeSingle();
-      const planId = ((data as any)?.target_params ?? {})?.plan;
+      const { data } = await supabase.rpc('resolve_short_link', { p_code: code }).limit(1);
+      const planId = ((data?.[0] as any)?.target_params ?? {})?.plan;
       if (!cancelled && planId) setSharedPlanId(String(planId));
       const url = new URL(window.location.href);
       url.searchParams.delete('share');

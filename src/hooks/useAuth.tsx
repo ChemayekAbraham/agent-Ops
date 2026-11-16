@@ -24,6 +24,7 @@ export type { AuthContextType } from './auth/types';
 
 import type { AppRole, AuthContextType } from './auth/types';
 import { DEFAULT_ROLES, fetchUserRoles, addRoleForUser } from './auth/roleManager';
+import { getLastUsedRole, setLastUsedRole, pickFallbackRole } from '@/lib/roleMemory';
 import * as ops from './auth/authOperations';
 
 /**
@@ -174,7 +175,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const userRef = useRef<User | null>(null);
   userRef.current = user;
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<AppRole | null>(initialRoles.includes('supporter') ? 'supporter' : initialRoles[0]);
+  // A placeholder until the role lookup decides. It used to be 'supporter'
+  // whenever any roles were cached, and the lookup kept a held placeholder,
+  // so tenants (every account holds supporter) landed on the funder
+  // dashboard. Start from this account's own last role, else tenant-first.
+  const [role, setRole] = useState<AppRole | null>(() => {
+    const last = getLastUsedRole(cachedSession?.userId);
+    return last && initialRoles.includes(last) ? last : pickFallbackRole(initialRoles);
+  });
+  // The role this person picked in this session, if any. Only this is handed
+  // to the role lookup as "current": the placeholder above is not a choice.
+  const chosenRoleRef = useRef<AppRole | null>(null);
   const [roles, setRoles] = useState<AppRole[]>(initialRoles);
   const rolesRef = useRef<AppRole[]>(initialRoles);
   // Real enabled rows only. Starts empty: the cached role list includes a
@@ -223,7 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(keepSession(fresh));
         setUser(keepUser(fresh.user));
         setCachedSession(fresh.user.id, fresh.user.email || '', fresh.expires_at || 0);
-        fetchUserRoles(fresh.user.id, role, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef).catch(() => { /* ignore */ });
+        fetchUserRoles(fresh.user.id, chosenRoleRef.current, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef).catch(() => { /* ignore */ });
       }).catch(() => { /* ignore */ });
     };
     window.addEventListener(STALE_SESSION_EVENTS.rehydrated, onRehydrated as EventListener);
@@ -314,7 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // the user stays logged in but no data ever loads.
             const uid = session.user.id;
             setTimeout(() => {
-              fetchUserRoles(uid, role, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef);
+              fetchUserRoles(uid, chosenRoleRef.current, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef);
             }, 0);
           }
 
@@ -426,7 +437,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Do not stamp login_phase_events with the cached id yet. The cache
         // outlives the JWT; the upload path reads the live session instead.
         lt.mark('auth.roles.early_fetch.start', { userId: cachedSession.userId });
-        earlyRoleFetch = fetchUserRoles(cachedSession.userId, role, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef).then(() => {});
+        earlyRoleFetch = fetchUserRoles(cachedSession.userId, chosenRoleRef.current, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef).then(() => {});
         earlyRoleFetch.finally(() => lt.mark('auth.roles.early_fetch.end'));
       }
 
@@ -493,7 +504,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } else if (!rolesFetched) {
               rolesFetched = true;
               const stopRoles = lt.start('auth.roles.fetch', { userId: session.user.id });
-              const rolePromise = fetchUserRoles(session.user.id, role, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef);
+              const rolePromise = fetchUserRoles(session.user.id, chosenRoleRef.current, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef);
               const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 5000));
               await Promise.race([rolePromise, timeoutPromise]);
               stopRoles();
@@ -580,8 +591,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const switchRole = (newRole: AppRole) => {
     if (rolesRef.current.includes(newRole)) {
+      chosenRoleRef.current = newRole;
       setRole(newRole);
-      try { localStorage.setItem('welile_last_role', newRole); } catch {}
+      setLastUsedRole(userRef.current?.id, newRole);
     }
   };
 
@@ -606,7 +618,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (result.granted) rememberGrantedRole(newRole);
     }
     // At this point rolesRef is already updated by setRolesWithRef
+    chosenRoleRef.current = newRole;
     setRole(newRole);
+    setLastUsedRole(user.id, newRole);
     return { error: null };
   };
 
@@ -619,6 +633,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null);
     setSession(null);
+    chosenRoleRef.current = null;
     setRole(null);
     setRolesWithRef([]);
     setEnabledRolesWithRef([]);

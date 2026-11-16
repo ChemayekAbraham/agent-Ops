@@ -6,7 +6,7 @@ import { buildNexaSystemPrompt, groundReply, wantsHuman, validMessages, knowledg
 import { buildNexaToolDefs, runNexaTool, normalizePortfolioRow, isPortfolioOrReturnsQuestion, type PortfolioReader, type MyRateReader, type ProfileReader } from "../_shared/nexaTools.ts";
 import { cachedPublicPolicy, readQuoteRate } from "../_shared/partnerReturnPolicy.ts";
 import { requestPortfolioOtp, verifyPortfolioOtp, portfolioIdFromSession, auditPortfolioAccess, sha256Hex } from "../_shared/nexaPortfolioAccess.ts";
-import { knowledgeScopesFor, filterKnowledgeForAudience, isStaff, recordAccessAlert, channelFrom } from "../_shared/nexaAccess.ts";
+import { isStaff, recordAccessAlert, channelFrom } from "../_shared/nexaAccess.ts";
 import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 const MAX_TOOL_ROUNDS = 3;
 const corsHeaders = { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
@@ -89,13 +89,10 @@ Deno.serve(async req => {
       if(error) return json({error:'Your question could not be sent. Please try again later or contact Welile support.'},503);
       return sse('Your question has been sent to Benjamin’s Desk. The desk reply will appear here when it is available.');
     }
-    // Only general knowledge is exposed to anonymous visitors; scoped rows require verified roles.
-    let scopes=['all'];
     let verifiedRoles:string[]=[];
     if(userId) {
       const {data}=await admin.from('user_roles').select('role').eq('user_id',userId).eq('enabled',true);
       verifiedRoles=(data ?? []).map(r=>String(r.role));
-      scopes=knowledgeScopesFor(verifiedRoles);
     }
     // Portfolio reads: signed-in callers read only their own rows through auth.uid();
     // verified-session callers read only the one portfolio their OTP session is scoped to.
@@ -127,12 +124,12 @@ Deno.serve(async req => {
       const sessionPortfolioId=await portfolioIdFromSession(admin,body.portfolioSession);
       if(sessionPortfolioId) {
         // OTP sessions are never staff: audience is a supporter seeing one portfolio.
-        verifiedRoles=['supporter']; scopes=knowledgeScopesFor(verifiedRoles);
+        verifiedRoles=['supporter'];
         readPortfolios=async()=>{ const {data,error}=await admin.rpc('nexa_get_portfolio_by_id',{p_portfolio_id:sessionPortfolioId}); await auditPortfolioAccess(admin,'session_read',{portfolioId:sessionPortfolioId,ipHash:await sha256Hex(`ip:${ip}`)}); return error?{error:'Portfolio data is unavailable right now.'}:{portfolios:(data ?? []).map(normalizePortfolioRow)}; };
       }
     }
-    const {data:knowledgeRaw}=await admin.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer,role_scope').eq('active',true).in('role_scope',scopes).order('created_at',{ascending:false}).limit(20);
-    const knowledge=filterKnowledgeForAudience(knowledgeRaw ?? [],verifiedRoles);
+    // Learned knowledge is not deployed in this database; skip the missing-table read.
+    const knowledge: [] = [];
     const key=Deno.env.get('LOVABLE_API_KEY'); if(!key) return json({error:'AI not configured'},503);
     const signupSafety = ' Never claim an inquiry creates an account, reveal whether a phone is registered, ask for a password/code in chat, or promise unverified bonuses. Signup requires consent and completion of the existing secure signup flow. A role preference never grants permissions.';
     const errorFor=(status:number)=>json({error:status===429?'Please try again shortly':status===402?'AI credits are unavailable. Check Plans & credits.':status===403?'AI access is blocked. Ask your workspace administrator to check access.':'AI temporarily unavailable'},status>=400&&status<500?status:503);

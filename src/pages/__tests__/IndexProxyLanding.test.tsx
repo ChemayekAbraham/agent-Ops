@@ -88,7 +88,8 @@ describe('site root: proxy agents with no collections', () => {
 
   it('a Home Screen chosen in Settings is respected', async () => {
     state.answer = true;
-    localStorage.setItem('welile_app_preferences', JSON.stringify({ defaultRole: 'supporter' }));
+    // Home-screen choices only count for the account that saved them.
+    localStorage.setItem('welile_app_preferences', JSON.stringify({ defaultRole: 'supporter', routingOwner: 'u1' }));
     await openRoot();
     expect(screen.getByTestId('at').textContent).toBe('/dashboard/funder');
     expect(state.resolve).not.toHaveBeenCalled();

@@ -171,6 +171,8 @@ export function FullScreenWalletSheet({ open, onOpenChange, scrollTarget }: Full
             <div className="p-4 space-y-4">
               {/* National ID — required before any payout can be released */}
               <NationalIdPrompt withdrawableBalance={realWithdrawableBalance} />
+              {/* Special Advances: balance owed and Pay from Wallet, near the top so it is seen (renders nothing without one) */}
+              <MySpecialAdvancesCard onPaid={refreshTransactions} />
               {/* Wallet Statement section */}
               <div ref={statementSectionRef} id="wallet-statement-section" className="scroll-mt-4">
                 <img
@@ -280,9 +282,6 @@ export function FullScreenWalletSheet({ open, onOpenChange, scrollTarget }: Full
 
               {/* Agent Rent Requests — verify inline */}
               <AgentRentRequestsWalletSection />
-
-              {/* Special Advances: balance owed and Pay from Wallet (renders nothing without one) */}
-              <MySpecialAdvancesCard onPaid={refreshTransactions} />
 
               {/* Shopping Advance access-limit history (informational) */}
               <ShoppingAdvanceHistory />

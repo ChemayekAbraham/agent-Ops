@@ -27,6 +27,7 @@ import { EmptyHouseDetailSheet, housePlace, type HouseOpportunity } from '@/comp
 import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import { formatDueBy, noteDueByMessage } from '@/lib/promissoryNoteDraft';
+import { CUT_NUMBER_MESSAGE, cleanPhoneInput, isCutUgNumber, partnerPhoneProblem, toStoredPhone } from '@/lib/partnerPhone';
 
 
 const PAGE_SIZE = 20;
@@ -335,8 +336,8 @@ export function EmptyHouseOpportunitiesSheet({
   const monthlyReturn = monthlyFor(rentTotal);
   const annualReturn = twelveMonthsOf(monthlyReturn);
 
-  const phoneDigits = (v: string) => v.replace(/\D/g, '');
-  const isValidPhone = (v: string) => phoneDigits(v).length === 10;
+  // Same rules as the Quick Promissory Note: 7–15 digits, kept as typed, stored as bare
+  // international digits. A 256-number that isn't 12 digits was cut short.
 
   const missing = (): string[] => {
     const out: string[] = [];
@@ -344,8 +345,10 @@ export function EmptyHouseOpportunitiesSheet({
     if (isPartner) return out;
     const nameCheck = validatePersonNameParts(nameParts);
     if (!nameCheck.valid) out.push(nameCheck.error || 'Partner name');
-    if (!isValidPhone(whatsappNumber)) out.push('WhatsApp number (10 digits)');
-    if (phoneNumber.trim() && !isValidPhone(phoneNumber)) out.push('Phone number (10 digits)');
+    const waProblem = partnerPhoneProblem(whatsappNumber);
+    if (waProblem) out.push(waProblem === CUT_NUMBER_MESSAGE ? `WhatsApp: ${CUT_NUMBER_MESSAGE}` : 'WhatsApp number');
+    const phProblem = phoneNumber.trim() ? partnerPhoneProblem(phoneNumber) : null;
+    if (phProblem) out.push(phProblem === CUT_NUMBER_MESSAGE ? `Phone: ${CUT_NUMBER_MESSAGE}` : 'Phone number');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) out.push('Valid email');
     if (!fulfilmentDueOn) out.push('Fulfil by date');
     else if (noteDueBy && fulfilmentDueOn > noteDueBy) out.push(`Fulfil by date on or before ${formatDueBy(noteDueBy)}`);
@@ -378,8 +381,8 @@ export function EmptyHouseOpportunitiesSheet({
       const buildPayload = (amount: number): Record<string, string | number | null> => {
         const payload: Record<string, string | number | null> = {
           partner_name: (isPartner ? (selfName || '') : partnerName).trim(),
-          whatsapp_number: (isPartner ? (selfPhone || '') : whatsappNumber).trim(),
-          phone_number: (isPartner ? (selfPhone || '') : phoneNumber).trim() || null,
+          whatsapp_number: isPartner ? (selfPhone || '').trim() : toStoredPhone(whatsappNumber),
+          phone_number: isPartner ? ((selfPhone || '').trim() || null) : (phoneNumber.trim() ? toStoredPhone(phoneNumber) : null),
           email: (isPartner ? (selfEmail || '') : email).trim() || null,
           amount,
           contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
@@ -750,11 +753,13 @@ export function EmptyHouseOpportunitiesSheet({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">WhatsApp *</Label>
-                      <Input value={whatsappNumber} onChange={(e) => setWhatsappNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="0780000000" inputMode="numeric" className="mt-0.5 h-9" />
+                      <Input value={whatsappNumber} onChange={(e) => setWhatsappNumber(cleanPhoneInput(e.target.value))} placeholder="0780000000" inputMode="tel" aria-label="WhatsApp number" className="mt-0.5 h-9" />
+                      {isCutUgNumber(whatsappNumber) && <p className="mt-0.5 text-[11px] text-destructive">{CUT_NUMBER_MESSAGE}</p>}
                     </div>
                     <div>
                       <Label className="text-xs">Phone</Label>
-                      <Input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="0780000000" inputMode="numeric" className="mt-0.5 h-9" />
+                      <Input value={phoneNumber} onChange={(e) => setPhoneNumber(cleanPhoneInput(e.target.value))} placeholder="0780000000" inputMode="tel" aria-label="Phone number" className="mt-0.5 h-9" />
+                      {isCutUgNumber(phoneNumber) && <p className="mt-0.5 text-[11px] text-destructive">{CUT_NUMBER_MESSAGE}</p>}
                     </div>
                   </div>
                   <div>

@@ -152,8 +152,8 @@ export function DailyRentReport({ mode }: Props) {
     enabled: landlordIds.length > 0,
     queryFn: async () => {
       const map: Record<string, string> = {};
-      const { data } = await supabase.from('landlords').select('id, full_name').in('id', landlordIds);
-      (data ?? []).forEach((l: any) => { map[l.id] = l.full_name; });
+      const { data } = await supabase.from('landlords').select('id, name').in('id', landlordIds);
+      (data ?? []).forEach((l) => { map[l.id] = l.name; });
       return map;
     },
     staleTime: 5 * 60_000,

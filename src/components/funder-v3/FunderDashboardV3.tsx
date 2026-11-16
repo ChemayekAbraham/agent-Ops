@@ -32,6 +32,7 @@ import { lazyNamed, lazyWithRetry } from '@/lib/lazyWithRetry';
 import { preloadWhenIdle } from '@/lib/idlePreload';
 import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewOpportunities';
 import { FunderV3Home } from './FunderV3Home';
+import { DirectPayPartnerPayments } from '@/components/direct-pay/DirectPayPartner';
 import { useFunderV3PortfolioActivity } from './useFunderV3PortfolioActivity';
 import { useFunderV3Demote } from './useFunderV3Demote';
 import './funderV3.css';
@@ -270,6 +271,7 @@ export default function FunderDashboardV3({ user, signOut, currentRole, availabl
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-nav">
+        <div className="mx-auto max-w-7xl px-4 pt-4"><DirectPayPartnerPayments /></div>
         <FunderV3Home
           avatar={
             <ProfileSummaryPopover

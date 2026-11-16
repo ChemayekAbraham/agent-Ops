@@ -40,6 +40,9 @@ import AiIdButton from '@/components/ai-id/AiIdButton';
 
 import { SubscriptionStatusCard } from '@/components/tenant/SubscriptionStatusCard';
 import { RentPlanSummaryCard } from '@/components/tenant/RentPlanSummaryCard';
+import { RentRequestProgressCard } from '@/components/tenant/RentRequestProgressCard';
+import { useMyRentRequest } from '@/hooks/useMyRentRequest';
+import { describeRentRequestProgress } from '@/lib/rentRequestProgress';
 import { PaymentTimeline } from '@/components/tenant/PaymentTimeline';
 
 import { RentRequestButton } from '@/components/tenant/RentRequestButton';
@@ -119,6 +122,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   const { wallet, refreshWallet } = useWallet();
   const { toast } = useToast();
   const { isAccepted: hasAcceptedTerms, isLoading: agreementLoading, acceptAgreement } = useTenantAgreement();
+  const { data: myRentRequest } = useMyRentRequest();
 
   // Track user presence and dwell time in Tenant dashboard
   useTrackSection('tenant-overview', 'tenant');
@@ -519,9 +523,19 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
                 </Button>
               </div>
 
-              <WidgetErrorBoundary label="Rent plan summary">
-                <RentPlanSummaryCard onViewDetails={() => navigate('/dashboard/rent-plan')} />
-              </WidgetErrorBoundary>
+              {myRentRequest && (
+                <WidgetErrorBoundary label="Rent request progress">
+                  <RentRequestProgressCard request={myRentRequest} />
+                </WidgetErrorBoundary>
+              )}
+
+              {/* The summary is a placeholder until a Rent Plan exists; while a
+                  request is moving, the progress card above says where it is. */}
+              {(!myRentRequest || describeRentRequestProgress(myRentRequest).phase === 'active') && (
+                <WidgetErrorBoundary label="Rent plan summary">
+                  <RentPlanSummaryCard onViewDetails={() => navigate('/dashboard/rent-plan')} />
+                </WidgetErrorBoundary>
+              )}
             </div>
           )}
 

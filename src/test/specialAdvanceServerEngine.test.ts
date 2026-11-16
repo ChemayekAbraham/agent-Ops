@@ -25,6 +25,9 @@ const ENGINE_V2 = (() => {
   const start = SINGLE_FEE.indexOf('CREATE OR REPLACE FUNCTION public._special_advance_schedule(');
   return SINGLE_FEE.slice(start, SINGLE_FEE.indexOf('$$;', start) + 3);
 })();
+// Open agreed rate (CFO request 2026-11-13): _special_advance_term_errors without the 1%/day, 28%/month ceiling
+const OPEN_RATE = readFileSync(resolve(__dirname, '../../supabase/migrations/20261113085411_5724f9d8-f6cc-4d09-a03f-719629868e6c.sql'), 'utf8')
+  .replace(/\r/g, '');
 /** A golden (hand-calculated, sa-calc-1) case as sa-calc-2 reports it: the fixed part is inside the access fee. */
 const v2 = (o: { accessFee: number; registrationFee: number }) => o.accessFee + o.registrationFee;
 const v2Rows = (rows: Array<[string, number, number, number, number]>) => rows.map(([d, amt, a, r, p]) => [d, amt, a + r, p]);
@@ -55,6 +58,7 @@ beforeAll(async () => {
   await db.exec(`create role anon nologin; create role authenticated nologin; create role service_role nologin;`);
   await db.exec(MIGRATION);
   await db.exec(ENGINE_V2); // the engine as it stands after 20261103170000 (sa-calc-2)
+  await db.exec(OPEN_RATE); // the open-rate term check as it stands after 20261113085411
 }, 60_000);
 afterAll(async () => { await db?.close(); });
 
@@ -212,7 +216,7 @@ describe('Special Advances — browser preview equals the server engine', () => 
   it('random invalid agreements: the preview and the server reject the same fields', async () => {
     const bad = {
       principal: [9_999, 10_000.5, 0, -5, null],
-      ratePercent: [0, -1, 1.01, 28.01, 12.345, 100, null],
+      ratePercent: [0, -1, 12.345, null],
       rateBasis: ['weekly', '', null],
       termDays: [0, 91, 360, 10.5, -7, null],
       frequency: ['biweekly', 'yearly', null],
@@ -221,7 +225,6 @@ describe('Special Advances — browser preview equals the server engine', () => 
     for (let k = 0; k < 400; k++) {
       const i: In = { ...(golden.invalidBase as In) };
       for (const f of Object.keys(bad) as Array<keyof typeof bad>) if (rnd() < 0.35) (i as Record<string, unknown>)[f] = pick(bad[f]);
-      // the daily ceiling depends on the basis, so recompute what a daily 1.01 / monthly 28.01 means for this mix
       const server = (await termErrors(i)).sort();
       const preview = validateSpecialAdvanceInput(toPreview(i)).map(previewErr).sort();
       expect(preview, JSON.stringify(i)).toEqual(server);

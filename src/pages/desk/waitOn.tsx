@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { readableError, rpc, useReasonCodes } from './reviewApi';
+import { useAuth } from '@/hooks/useAuth';
+import { canViewDeskReads } from '@/lib/deskViewerRoles';
 import { isMissingDbObject, logMissingOnce } from './deskLive';
 import { CALM, FOCUS, LABEL, statusGlass, statusText } from './deskTheme';
 import { Skeleton } from './Skeleton';
@@ -208,7 +210,9 @@ const listOptions = (desk: WaitDesk, enabled: boolean) => ({
   retry: 1,
 });
 
-export function useWaitingList(desk: WaitDesk | null, enabled = true): WaitingList {
+export function useWaitingList(desk: WaitDesk | null, enabledArg = true): WaitingList {
+  const { enabledRoles } = useAuth();
+  const enabled = enabledArg && canViewDeskReads(enabledRoles);
   const q = useQuery(listOptions(desk ?? 'coo', enabled && !!desk));
   return {
     items: q.data?.items ?? [],
@@ -219,7 +223,9 @@ export function useWaitingList(desk: WaitDesk | null, enabled = true): WaitingLi
 }
 
 /** Every desk's list, for the command centre. */
-export function useAllWaiting(enabled: boolean): Record<WaitDesk, WaitingList> {
+export function useAllWaiting(enabledArg: boolean): Record<WaitDesk, WaitingList> {
+  const { enabledRoles } = useAuth();
+  const enabled = enabledArg && canViewDeskReads(enabledRoles);
   const results = useQueries({ queries: WAIT_DESKS.map((d) => listOptions(d, enabled)) });
   const out = {} as Record<WaitDesk, WaitingList>;
   WAIT_DESKS.forEach((d, i) => {

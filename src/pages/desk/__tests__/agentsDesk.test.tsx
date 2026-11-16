@@ -199,7 +199,9 @@ describe('COO board → agent sheet', () => {
     mockCoo();
     fromResult.data = { agent_id: 'a9', assigned_agent_id: 'a2' };
     wrap(<CooBoard board={false} onOpen={() => {}} />);
-    fireEvent.click(await screen.findByRole('button', { name: "Frozen — open Bena Low's rent plans" }));
+    // E74: the Frozen chip explains itself first; its panel links to the agent's rent plans.
+    fireEvent.click(await screen.findByRole('button', { name: 'Frozen: what it means' }));
+    fireEvent.click(await screen.findByRole('button', { name: "Open the agent's rent plans" }));
     await screen.findByRole('dialog', { name: 'Bena Low' });
     await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('desk_agent_plans', { p_agent: 'a2' }));
   });

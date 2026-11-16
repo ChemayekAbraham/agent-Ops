@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { PUBLIC_HOUSE_LISTING_COLUMNS } from '@/lib/houseListingColumns';
 import { applyAreaFilter } from '@/lib/listingAreaFilter';
+import { houseIntegerFilter } from '@/lib/houseIntegerFilter';
 
 export interface HouseListing {
   id: string;
@@ -145,8 +146,9 @@ export function useHouseListings(options: UseHouseListingsOptions = {}) {
       if (options.category) {
         query = query.eq('house_category', options.category);
       }
-      if (options.maxDailyRate) {
-        query = query.lte('daily_rate', options.maxDailyRate);
+      const maxRate = houseIntegerFilter(options.maxDailyRate, 'max');
+      if (maxRate !== undefined) {
+        query = query.lte('daily_rate', maxRate);
       }
       if (options.agentId) {
         query = query.eq('agent_id', options.agentId);
@@ -477,9 +479,12 @@ export function useNearbyHouses(options: UseNearbyHousesOptions) {
           villageId: options.villageId ?? null,
         }) as typeof query;
         if (options.category) query = query.eq('house_category', options.category);
-        if (options.minDailyRate) query = query.gte('daily_rate', options.minDailyRate);
-        if (options.maxDailyRate) query = query.lte('daily_rate', options.maxDailyRate);
-        if (options.minRooms) query = query.gte('number_of_rooms', options.minRooms);
+        const minRate = houseIntegerFilter(options.minDailyRate, 'min');
+        const maxRate = houseIntegerFilter(options.maxDailyRate, 'max');
+        const rooms = houseIntegerFilter(options.minRooms, 'min');
+        if (minRate !== undefined) query = query.gte('daily_rate', minRate);
+        if (maxRate !== undefined) query = query.lte('daily_rate', maxRate);
+        if (rooms !== undefined) query = query.gte('number_of_rooms', rooms);
         if (options.hasWater) query = query.eq('has_water', true);
         if (options.hasElectricity) query = query.eq('has_electricity', true);
         if (options.hasSecurity) query = query.eq('has_security', true);
@@ -820,9 +825,12 @@ export function useHouseListingCount(options: HouseListingCountOptions): HouseLi
       }
       q = applyAreaFilter(q as any, { district, subCounty, village, villageId: villageId ?? null }) as typeof q;
       if (category && category !== 'all') q = q.eq('house_category', category);
-      if (maxDailyRate) q = q.lte('daily_rate', maxDailyRate);
-      if (minDailyRate) q = q.gte('daily_rate', minDailyRate);
-      if (minRooms) q = q.gte('number_of_rooms', minRooms);
+      const maxRate = houseIntegerFilter(maxDailyRate, 'max');
+      const minRate = houseIntegerFilter(minDailyRate, 'min');
+      const rooms = houseIntegerFilter(minRooms, 'min');
+      if (maxRate !== undefined) q = q.lte('daily_rate', maxRate);
+      if (minRate !== undefined) q = q.gte('daily_rate', minRate);
+      if (rooms !== undefined) q = q.gte('number_of_rooms', rooms);
       if (hasWater) q = q.eq('has_water', true);
       if (hasElectricity) q = q.eq('has_electricity', true);
       if (hasSecurity) q = q.eq('has_security', true);

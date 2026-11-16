@@ -142,7 +142,7 @@ describe('Special Advance preview — approved options (2026-10-27)', () => {
     expect(validateSpecialAdvanceInput(ok)).toEqual([]);
     expect(validateSpecialAdvanceInput({ ...ok, rateBasis: undefined })).toEqual(['rateBasis']);
     expect(validateSpecialAdvanceInput({ ...ok, ratePercent: undefined })).toEqual(['rate']);
-    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 101 })).toEqual(['rate']);
+    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 101 })).toEqual([]); // no upper ceiling on the agreed rate
     expect(validateSpecialAdvanceInput({ ...ok, principal: 1000.5 })).toEqual(['principal']);
     expect(validateSpecialAdvanceInput({ ...ok, termDays: 0 })).toEqual(['term']);
     expect(validateSpecialAdvanceInput({ ...ok, termDays: 10.5 })).toEqual(['term']);
@@ -152,13 +152,13 @@ describe('Special Advance preview — approved options (2026-10-27)', () => {
     expect(previewSpecialAdvance({ ...ok, rateBasis: undefined as never })).toBeNull();
   });
 
-  it('enforces the CFO limits (2026-10-27): rate > 0, ≤ 1%/day or ≤ 28%/month, 2 decimals; term 1–90; principal ≥ 10,000', () => {
+  it('enforces the term limits: rate > 0 with no upper ceiling (open since 2026-11-13), 2 decimals; term 1–90; principal ≥ 10,000', () => {
     const ok = { ...base };
     expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 0 })).toEqual(['rate']); // 0% not permitted
     expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 28 })).toEqual([]);
-    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 28.01 })).toEqual(['rate']);
+    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 28.01 })).toEqual([]); // above the old 28%/month ceiling
     expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 1, rateBasis: 'daily' })).toEqual([]);
-    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 1.01, rateBasis: 'daily' })).toEqual(['rate']);
+    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 1.01, rateBasis: 'daily' })).toEqual([]); // above the old 1%/day ceiling
     expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 12.345 })).toEqual(['rate']);
     expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 0.07 })).toEqual([]); // 0.07 × 100 is not exactly 7 in floating point
     expect(validateSpecialAdvanceInput({ ...ok, termDays: 90 })).toEqual([]);

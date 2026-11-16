@@ -166,7 +166,7 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' | 'funder-v3' }) {
     if (hasAutoDefaulted.current) return; // Only auto-default once per session
     if (!isQualifiedInvestor) return;
     if (areAllRolesUnlocked()) return;
-    const preferred = getPreferredDefaultRole();
+    const preferred = getPreferredDefaultRole(user?.id);
     if (preferred !== 'auto') return;
     // Only auto-default when the user landed without an explicit persona slug
     // (e.g. bare /dashboard). If they explicitly chose /dashboard/agent or any
@@ -266,7 +266,7 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' | 'funder-v3' }) {
   // map to a persona (shouldn't normally happen on persona routes).
   const getDefaultRole = (availableRoles: AppRole[]): AppRole | null => {
     if (availableRoles.length === 0) return null;
-    const preferred = getPreferredDefaultRole();
+    const preferred = getPreferredDefaultRole(user?.id);
     if (preferred !== 'auto' && availableRoles.includes(preferred as AppRole)) return preferred as AppRole;
     if (availableRoles.includes('supporter')) return 'supporter';
     return availableRoles[0];

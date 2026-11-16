@@ -55,10 +55,8 @@ export const SPECIAL_ADVANCE_RATE_PRESETS = [
 /** Approved term presets (days). A custom whole number of days is also allowed. */
 export const SPECIAL_ADVANCE_TERMS = [7, 14, 30] as const;
 
-/** Limits (CFO 2026-10-27), identical to `_special_advance_term_errors` on the server. */
-export const RATE_MAX_BY_BASIS: Record<RateBasis, number> = { daily: 1, monthly: 28 };
-/** Highest rate on any basis (input guard only; the per-basis limit above is the rule). */
-export const RATE_MAX_PERCENT = 28;
+/** Limits, identical to `_special_advance_term_errors` on the server. The agreed rate has no upper
+ *  ceiling (CFO request 2026-11-13): it must be above 0 with at most 2 decimal places. */
 export const TERM_MIN_DAYS = 1;
 export const TERM_MAX_DAYS = 90;
 export const PRINCIPAL_MIN = 10_000;
@@ -118,8 +116,7 @@ export function validateSpecialAdvanceInput(i: Partial<SpecialAdvanceInput>): Sp
   const p = i.principal;
   if (typeof p !== 'number' || !Number.isInteger(p) || p < PRINCIPAL_MIN || p > PRINCIPAL_MAX) errs.push('principal');
   const r = i.ratePercent;
-  const maxRate = i.rateBasis === 'daily' ? RATE_MAX_BY_BASIS.daily : RATE_MAX_BY_BASIS.monthly;
-  if (typeof r !== 'number' || !Number.isFinite(r) || r <= 0 || r > maxRate || rateHundredths(r) === null) errs.push('rate');
+  if (typeof r !== 'number' || !Number.isFinite(r) || r <= 0 || rateHundredths(r) === null) errs.push('rate');
   if (i.rateBasis !== 'daily' && i.rateBasis !== 'monthly') errs.push('rateBasis');
   const d = i.termDays;
   if (typeof d !== 'number' || !Number.isInteger(d) || d < TERM_MIN_DAYS || d > TERM_MAX_DAYS) errs.push('term');

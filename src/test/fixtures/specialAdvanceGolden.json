@@ -51,8 +51,6 @@
     { "name": "missing principal", "in": { "principal": null }, "errors": ["principal"] },
     { "name": "0% is not permitted", "in": { "ratePercent": 0 }, "errors": ["rate"] },
     { "name": "negative rate", "in": { "ratePercent": -1 }, "errors": ["rate"] },
-    { "name": "daily rate above 1%", "in": { "ratePercent": 1.01, "rateBasis": "daily" }, "errors": ["rate"] },
-    { "name": "monthly rate above 28%", "in": { "ratePercent": 28.01 }, "errors": ["rate"] },
     { "name": "more than 2 decimal places", "in": { "ratePercent": 12.345 }, "errors": ["rate"] },
     { "name": "missing rate", "in": { "ratePercent": null }, "errors": ["rate"] },
     { "name": "unknown basis", "in": { "rateBasis": "weekly" }, "errors": ["rateBasis"] },

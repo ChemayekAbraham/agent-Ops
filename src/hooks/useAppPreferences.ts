@@ -16,6 +16,13 @@ export interface AppPreferences {
   disableAgentAutoDefault: boolean;
   /** Which sign-in method the login screen opens with by default. */
   preferredLoginMethod: 'otp' | 'password';
+  /**
+   * Account that `defaultRole` and `disableAgentAutoDefault` belong to. These
+   * prefs live in one per-browser record, and phones are shared, so a choice
+   * made by one account must never route another account. Readers ignore the
+   * routing prefs unless this matches the signed-in user.
+   */
+  routingOwner?: string;
 }
 
 const DEFAULT_PREFERENCES: AppPreferences = {
@@ -76,6 +83,7 @@ export function useAppPreferences() {
       getSessionCheckedUser().then(({ data }) => {
         const uid = data?.user?.id;
         if (!uid) return;
+        setPreferences(prev => ({ ...prev, routingOwner: uid }));
         saveServerRoutingPrefs(uid, { [key]: value } as any);
       }).catch(() => {});
     }
@@ -100,7 +108,7 @@ export function useAppPreferences() {
         const uid = data?.user?.id;
         if (!uid) return;
         const server = await fetchServerRoutingPrefs(uid);
-        if (!server || cancelled) return;
+        if (cancelled) return;
         setPreferences(prev => {
           let local: Partial<AppPreferences> = {};
           try {
@@ -108,6 +116,20 @@ export function useAppPreferences() {
             if (stored) local = JSON.parse(stored);
           } catch {}
           const next = { ...prev };
+          // Routing prefs saved by another account on this device are not
+          // this person's: replace them with this account's server copy, or
+          // the defaults when the account has none.
+          const ownsLocal = local.routingOwner === uid;
+          if (!ownsLocal) {
+            next.defaultRole = server?.defaultRole ?? DEFAULT_PREFERENCES.defaultRole;
+            next.disableAgentAutoDefault =
+              typeof server?.disableAgentAutoDefault === 'boolean'
+                ? server.disableAgentAutoDefault
+                : DEFAULT_PREFERENCES.disableAgentAutoDefault;
+            next.routingOwner = uid;
+            return next;
+          }
+          if (!server) return next;
           // Apply server value only if local has no explicit override.
           if (server.defaultRole && !('defaultRole' in local)) {
             next.defaultRole = server.defaultRole;
@@ -178,16 +200,28 @@ export function isRememberLoginEnabled(): boolean {
   return true;
 }
 
-// Standalone function to get the user's preferred default role
-export function getPreferredDefaultRole(): DefaultRolePreference {
+/**
+ * The routing prefs stored on this device, but only when they belong to
+ * `userId`. Another account's choice (shared phone) returns null.
+ */
+export function readOwnedRoutingPrefs(
+  userId: string | null | undefined,
+): { defaultRole?: DefaultRolePreference; disableAgentAutoDefault?: boolean } | null {
+  if (!userId) return null;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const prefs = JSON.parse(stored);
-      return prefs.defaultRole || 'auto';
-    }
-  } catch (e) {}
-  return 'auto';
+    if (!stored) return null;
+    const prefs = JSON.parse(stored);
+    if (prefs.routingOwner !== userId) return null;
+    return prefs;
+  } catch {
+    return null;
+  }
+}
+
+// Standalone function to get this account's preferred default role on this device.
+export function getPreferredDefaultRole(userId: string | null | undefined): DefaultRolePreference {
+  return readOwnedRoutingPrefs(userId)?.defaultRole || 'auto';
 }
 
 // Standalone function to check if user has unlocked all roles for navigation
@@ -204,15 +238,8 @@ export function areAllRolesUnlocked(): boolean {
 
 // Standalone: whether the user opted out of the "agent if you ever posted
 // a rent request" auto-default rule in DashboardRedirect.
-export function isAgentAutoDefaultDisabled(): boolean {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const prefs = JSON.parse(stored);
-      return prefs.disableAgentAutoDefault === true;
-    }
-  } catch (e) {}
-  return false;
+export function isAgentAutoDefaultDisabled(userId: string | null | undefined): boolean {
+  return readOwnedRoutingPrefs(userId)?.disableAgentAutoDefault === true;
 }
 
 // Standalone: which sign-in method the login screen should open with.
