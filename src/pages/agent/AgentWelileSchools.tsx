@@ -801,8 +801,39 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
   const [saving, setSaving] = useState(false);
   const [rosterFilter, setRosterFilter] = useState<'all' | 'inside' | 'pupil' | 'staff' | 'parent'>('all');
   const [rosterSearch, setRosterSearch] = useState('');
+  // Scan a student's QR code: open camera → show their card → one tap records IN or OUT.
+  const [tab, setTab] = useState('roster');
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanned, setScanned] = useState<SchoolProfileRow | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
 
   const refresh = () => setLogs(readLocalGateLogs(school.id));
+
+  const onStudentScanned = async (profileId: string) => {
+    setScanOpen(false);
+    let p: SchoolProfileRow | null = profiles.find((x) => x.id === profileId) ?? null;
+    if (!p) {
+      setLookingUp(true);
+      const { data } = await db.from('welile_school_profiles').select('*').eq('id', profileId).maybeSingle();
+      setLookingUp(false);
+      p = (data as SchoolProfileRow | null) ?? readPendingProfiles().find((x) => x.id === profileId) ?? null;
+    }
+    if (!p) { toast.error('Student not found', { description: 'This code is not linked to a student you can see. Register them first.' }); return; }
+    if (p.school_id !== school.id) { toast.error('Student is registered at another school', { description: `${p.full_name ?? 'This student'} is not on ${school.name}'s list.` }); return; }
+    setScanned(p);
+  };
+
+  const recordScanned = async (dir: 'in' | 'out') => {
+    if (!scanned) return;
+    const res = await record({
+      direction: dir, role_type: scanned.role, person_name: scanned.full_name || 'Unknown', profile_id: scanned.id,
+      phone: scanned.phone || scanned.guardian_phone || null,
+      class_or_department: scanned.class_grade || scanned.subject_department || null,
+      purpose_or_note: 'Scanned QR code',
+      pickup_guardian_name: scanned.guardian_name || null, pickup_guardian_phone: scanned.guardian_phone || null,
+    });
+    if (res.saved) toast.success(dir === 'in' ? `🟢 ${scanned.full_name} recorded ENTERING` : `🔴 ${scanned.full_name} recorded LEAVING`);
+  };
 
   useEffect(() => {
     db.from('welile_school_gate_logs').select('*').eq('school_id', school.id).order('recorded_at', { ascending: false }).limit(1000)
@@ -909,7 +940,7 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
         </div>
       </section>
 
-      <Tabs defaultValue="roster" className="w-full">
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="grid h-11 w-full grid-cols-3 rounded-full bg-muted p-1">
           <TabsTrigger value="roster" className="rounded-full">Roster</TabsTrigger>
           <TabsTrigger value="new" className="rounded-full">New entry</TabsTrigger>
@@ -970,6 +1001,24 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
 
         {/* New entry: someone not on the roster (visitor, supplier, or not registered yet). */}
         <TabsContent value="new" className="mt-3 space-y-3">
+          {/* Fastest way for a registered student: scan their QR code, check the photo, tap once. */}
+          {scanned ? (
+            <ScannedStudentCard student={scanned} now={summary.personStatus[scanned.id] ?? null} onRecord={recordScanned}
+              onScanNext={() => { setScanned(null); setScanOpen(true); }} onDone={() => setScanned(null)} />
+          ) : (
+            <button type="button" onClick={() => setScanOpen(true)} disabled={lookingUp}
+              className="flex min-h-[72px] w-full items-center gap-3 rounded-3xl border-2 border-dashed border-primary/50 bg-primary/5 p-3 text-left hover:bg-primary/10 disabled:opacity-60">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                {lookingUp ? <Loader2 className="h-5 w-5 animate-spin" /> : <ScanLine className="h-5 w-5" />}
+              </span>
+              <span>
+                <span className="block font-semibold">{lookingUp ? 'Finding the student…' : 'Scan student QR code'}</span>
+                <span className="block text-sm text-muted-foreground">See their photo and details, then record IN or OUT in one tap.</span>
+              </span>
+            </button>
+          )}
+          <StudentQrScanner open={scanOpen} onClose={() => setScanOpen(false)} onStudent={(id) => { void onStudentScanned(id); }} />
+          <p className="px-1 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Or record someone without a code</p>
           <div className="grid grid-cols-2 gap-1 rounded-full bg-muted p-1" role="group" aria-label="Direction">
             <button type="button" aria-pressed={direction === 'in'} onClick={() => setDirection('in')}
               className={cn('flex min-h-[44px] items-center justify-center gap-1.5 rounded-full text-sm font-semibold transition-colors', direction === 'in' ? 'bg-emerald-600 text-white shadow' : 'text-muted-foreground')}>
