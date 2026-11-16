@@ -721,8 +721,27 @@ describe('E124: the 8-step intake', () => {
     expect(screen.queryByTestId('send-button')).toBeNull();
   });
 
-  it('step 1: the agent’s own phone stops here', async () => {
-    rpcWith({ intake_tenant_check: { status: 'own_phone' } });
+  // E127: the exact intake_tenant_check reply, one test per status.
+  const reply = (over: Record<string, unknown>) => ({ ok: false, own_phone: false, open_request: null, returned_request: null, message: null, ...over });
+
+  it('step 1, status ok: the phone is accepted and step 1 goes on', async () => {
+    rpcWith({ intake_tenant_check: reply({ status: 'ok', ok: true }) });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456');
+    expect(await screen.findByLabelText('First name')).toBeInTheDocument();
+    expect(screen.queryByTestId('tenant-check')).toBeNull();
+  });
+
+  it('step 1, status phone_incomplete: the server’s words, and it stops', async () => {
+    rpcWith({ intake_tenant_check: { ok: false, reason: 'phone_incomplete', message: 'That number is missing digits.' } });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456');
+    expect(await screen.findByTestId('tenant-check')).toHaveTextContent('That number is missing digits.');
+    expect(screen.queryByLabelText('First name')).toBeNull();
+  });
+
+  it('step 1, status own_phone: the agent’s own phone stops here', async () => {
+    rpcWith({ intake_tenant_check: reply({ status: 'own_phone', own_phone: true }) });
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
     answer('0783 123 456');
     expect(await screen.findByTestId('tenant-check')).toHaveTextContent('This is your own phone number');
@@ -731,8 +750,8 @@ describe('E124: the 8-step intake', () => {
     expect(counter()).toBe('Step 1 of 8 · 8 left');
   });
 
-  it('step 1: an open request says where it is; mine links to it, and it does not continue', async () => {
-    rpcWith({ intake_tenant_check: { status: 'open_request', stage: 'agent_ops_approved', mine: true, request_id: 'req-5' } });
+  it('step 1, status open_request: says where it is (open_request.where); mine links to it, and it does not continue', async () => {
+    rpcWith({ intake_tenant_check: reply({ status: 'open_request', open_request: { id: 'req-5', mine: true, where: 'Tenant Ops' } }) });
     const onOpenChange = vi.fn();
     const seen = vi.fn();
     window.addEventListener('open-submissions', seen);
@@ -746,8 +765,8 @@ describe('E124: the 8-step intake', () => {
     window.removeEventListener('open-submissions', seen);
   });
 
-  it('step 1: a request returned to me opens its resubmit', async () => {
-    rpcWith({ intake_tenant_check: { status: 'returned_request', mine: true, request_id: 'req-9' } });
+  it('step 1, status returned_mine: opens that request’s resubmit', async () => {
+    rpcWith({ intake_tenant_check: reply({ status: 'returned_mine', returned_request: { id: 'req-9', mine: true, reason: 'Blurry photo' } }) });
     mocks.fetchRejected.mockResolvedValue([rejectedRequest()]);
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
     answer('0783 123 456');
@@ -756,8 +775,8 @@ describe('E124: the 8-step intake', () => {
     expect(screen.queryByLabelText('First name')).toBeNull();
   });
 
-  it('step 1: a request returned to another agent shows the message and stops', async () => {
-    rpcWith({ intake_tenant_check: { status: 'returned_request', mine: false, message: 'Sent back to another agent' } });
+  it('step 1, status returned_other: shows the message and stops', async () => {
+    rpcWith({ intake_tenant_check: reply({ status: 'returned_other', returned_request: { id: 'req-7', mine: false, reason: 'Wrong LC1' }, message: 'Sent back to another agent' }) });
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
     answer('0783 123 456');
     expect(await screen.findByTestId('tenant-check')).toHaveTextContent('Sent back to another agent');
@@ -782,7 +801,7 @@ describe('E124: the 8-step intake', () => {
   it('who is posting: PHONE_REQUIRED asks to confirm the phone by SMS; AGENT_ROLE_DISABLED shows the message', async () => {
     auth.rolesResolved = true;
     try {
-      mocks.rpc.mockImplementation(async (fn: string) => (fn === 'become_agent' ? { data: null, error: { message: 'PHONE_REQUIRED' } } : { data: { ok: true }, error: null }));
+      mocks.rpc.mockImplementation(async (fn: string) => (fn === 'become_agent' ? { data: null, error: { message: 'PHONE_REQUIRED: confirm your phone by SMS first' } } : { data: { ok: true }, error: null }));
       const { unmount } = render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
       fireEvent.click(await screen.findByRole('button', { name: /Someone else/ }));
       expect(await screen.findByTestId('confirm-phone')).toHaveTextContent('Confirm your phone number first');
@@ -812,7 +831,7 @@ describe('E124: the 8-step intake', () => {
 
   it('resubmit: the counter reads "N to fix" and only the returned items open, in order (tenant_photo = step 6)', async () => {
     mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
-    rpcWith({ return_items_for: ['tenant_photo', 'id_front'] });
+    rpcWith({ return_items_for: { items: ['tenant_photo', 'id_front'], note: 'Blurry face photo', by: 'staff-1', at: '2026-11-16T10:00:00Z' } });
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ tenant_photo_url: 'https://cdn/face.jpg' }) }} />);
     await waitFor(() => expect(screen.getByTestId('intake-counter')).toHaveTextContent('2 to fix'));
     expect(mocks.rpc).toHaveBeenCalledWith('return_items_for', { p_request_id: 'req-9' });

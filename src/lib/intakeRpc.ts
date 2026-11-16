@@ -1,78 +1,89 @@
 /**
- * The E124 intake calls: who may post (become_agent), the step-1 tenant check
- * (intake_tenant_check), the face-check record (face_check_record) and what a returned
- * request must fix (return_items_for). The live functions are not in the generated types
- * when this was written, so replies are read tolerantly: a code may come as status / result / code / kind,
- * an id as request_id / rent_request_id / id. Nothing here throws.
+ * The E124 intake calls, read with their exact E127 reply shapes: who may post
+ * (become_agent), the step-1 tenant check (intake_tenant_check), the face-check record
+ * (face_check_record) and what a returned request must fix (return_items_for). Nothing here throws.
  */
 import { supabase } from '@/integrations/supabase/client';
 
-type UntypedRpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string; code?: string } | null }>;
+type RpcError = { message?: string; code?: string } | null;
+type UntypedRpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: RpcError }>;
 const rpc: UntypedRpc = (fn, args) => (supabase.rpc as unknown as UntypedRpc).call(supabase, fn, args);
 
-const obj = (raw: unknown): Record<string, unknown> | null => {
-  let r: unknown = raw;
-  if (typeof r === 'string') { try { r = JSON.parse(r); } catch { return { status: r }; } }
-  if (Array.isArray(r)) r = r[0];
-  return r && typeof r === 'object' ? (r as Record<string, unknown>) : null;
-};
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
-const bool = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : v === 'true' ? true : v === 'false' ? false : null);
-const codeOf = (o: Record<string, unknown> | null): string => (
-  str(o?.status) ?? str(o?.result) ?? str(o?.code) ?? str(o?.kind) ?? str(o?.outcome) ?? str(o?.error) ?? ''
-).toLowerCase();
+const rec = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
 
 // ----- step 1: the tenant's phone -----
+/**
+ * intake_tenant_check(p_tenant_phone) replies
+ *   { status: 'ok' | 'own_phone' | 'open_request' | 'returned_mine' | 'returned_other',
+ *     ok, own_phone, open_request: { id, mine, where } | null,
+ *     returned_request: { id, mine, reason } | null, message }
+ * or, for a phone that is too short, { ok: false, reason: 'phone_incomplete', message }.
+ */
 export type IntakeTenantCheck =
   | { kind: 'ok' }
   | { kind: 'own_phone'; message: string | null }
-  | { kind: 'open_request'; mine: boolean; requestId: string | null; stage: string | null; status: string | null; message: string | null }
-  | { kind: 'returned_request'; mine: boolean; requestId: string | null; message: string | null }
+  | { kind: 'open_request'; mine: boolean; requestId: string | null; where: string | null; message: string | null }
+  | { kind: 'returned_request'; mine: boolean; requestId: string | null; reason: string | null; message: string | null }
+  | { kind: 'phone_incomplete'; message: string | null }
   | { kind: 'unavailable'; message: string | null };
 
-export function parseIntakeTenantCheck(raw: unknown, me?: string | null): IntakeTenantCheck {
-  const o = obj(raw);
-  const code = codeOf(o);
-  const message = str(o?.message) ?? str(o?.reason) ?? null;
-  const requestId = str(o?.request_id) ?? str(o?.rent_request_id) ?? str(o?.id) ?? null;
-  const mine = bool(o?.mine) ?? bool(o?.is_mine) ?? bool(o?.yours) ?? (me && str(o?.agent_id) ? str(o?.agent_id) === me : false) ?? false;
-  if (code.includes('own_phone') || bool(o?.own_phone) === true) return { kind: 'own_phone', message };
-  if (code.includes('returned')) return { kind: 'returned_request', mine: !!mine, requestId, message };
-  if (code.includes('open')) {
-    return {
-      kind: 'open_request', mine: !!mine, requestId, message,
-      stage: str(o?.stage_label) ?? str(o?.desk) ?? str(o?.where) ?? str(o?.stage) ?? null,
-      status: str(o?.request_status) ?? str(o?.rent_status) ?? null,
-    };
+export function parseIntakeTenantCheck(raw: unknown): IntakeTenantCheck {
+  const o = rec(raw) ?? {};
+  const status = str(o.status);
+  const message = str(o.message);
+  const open = rec(o.open_request);
+  const returned = rec(o.returned_request);
+  if (status === 'phone_incomplete' || str(o.reason) === 'phone_incomplete') return { kind: 'phone_incomplete', message };
+  switch (status) {
+    case 'ok': return { kind: 'ok' };
+    case 'own_phone': return { kind: 'own_phone', message };
+    case 'open_request':
+      return { kind: 'open_request', mine: open?.mine === true, requestId: str(open?.id), where: str(open?.where), message };
+    case 'returned_mine':
+    case 'returned_other':
+      return { kind: 'returned_request', mine: status === 'returned_mine', requestId: str(returned?.id), reason: str(returned?.reason), message };
+    default:
+      // An unknown status is not a reason to stop the agent; the database still refuses what it must.
+      return o.ok === false ? { kind: 'unavailable', message } : { kind: 'ok' };
   }
-  return { kind: 'ok' };
 }
 
 /** intake_tenant_check for the tenant's phone; 'unavailable' when it could not be read. */
-export async function checkIntakeTenant(phone: string, me?: string | null): Promise<IntakeTenantCheck> {
+export async function checkIntakeTenant(phone: string): Promise<IntakeTenantCheck> {
   try {
     const { data, error } = await rpc('intake_tenant_check', { p_tenant_phone: phone.replace(/\D/g, '') });
     if (error) return { kind: 'unavailable', message: error.message ?? null };
-    return parseIntakeTenantCheck(data, me);
+    return parseIntakeTenantCheck(data);
   } catch (e) {
     return { kind: 'unavailable', message: e instanceof Error ? e.message : null };
   }
 }
 
 // ----- who is posting -----
+/**
+ * become_agent() replies { ok, already_agent }. PHONE_REQUIRED and AGENT_ROLE_DISABLED come
+ * as errors (exceptions) whose message starts with that code.
+ */
 export type BecomeAgentResult =
-  | { ok: true }
+  | { ok: true; alreadyAgent: boolean }
   | { ok: false; code: 'PHONE_REQUIRED' | 'AGENT_ROLE_DISABLED' | 'OTHER'; message: string };
 
-export function parseBecomeAgent(data: unknown, error: { message?: string; code?: string } | null): BecomeAgentResult {
-  const o = obj(data);
-  const text = [error?.message, error?.code, str(o?.code), str(o?.error), str(o?.status), str(o?.message)].filter(Boolean).join(' ');
-  if (/PHONE_REQUIRED/i.test(text)) return { ok: false, code: 'PHONE_REQUIRED', message: str(o?.message) ?? 'Confirm your phone number first.' };
-  if (/AGENT_ROLE_DISABLED/i.test(text)) {
-    return { ok: false, code: 'AGENT_ROLE_DISABLED', message: str(o?.message) ?? (error?.message?.replace(/^AGENT_ROLE_DISABLED:?\s*/i, '') || 'Your agent role is switched off. Contact Welile support to turn it back on.') };
+/** The words after the code: "PHONE_REQUIRED: Confirm your phone" -> "Confirm your phone". */
+const after = (message: string, code: string) => message.slice(code.length).replace(/^[\s:\-–—]+/, '').trim();
+
+export function parseBecomeAgent(data: unknown, error: RpcError): BecomeAgentResult {
+  if (error) {
+    const m = (error.message ?? '').trim();
+    if (m.startsWith('PHONE_REQUIRED')) return { ok: false, code: 'PHONE_REQUIRED', message: after(m, 'PHONE_REQUIRED') || 'Confirm your phone number first.' };
+    if (m.startsWith('AGENT_ROLE_DISABLED')) {
+      return { ok: false, code: 'AGENT_ROLE_DISABLED', message: after(m, 'AGENT_ROLE_DISABLED') || 'Your agent role is switched off. Contact Welile support to turn it back on.' };
+    }
+    return { ok: false, code: 'OTHER', message: m || 'Could not set you up to post. Try again.' };
   }
-  if (error || o?.ok === false) return { ok: false, code: 'OTHER', message: error?.message || str(o?.message) || 'Could not set you up to post. Try again.' };
-  return { ok: true };
+  const o = rec(data);
+  if (o?.ok !== true) return { ok: false, code: 'OTHER', message: 'Could not set you up to post. Try again.' };
+  return { ok: true, alreadyAgent: o.already_agent === true };
 }
 
 /** become_agent: the signed-in user may now post rent requests for someone else. */
@@ -81,7 +92,7 @@ export async function becomeAgent(): Promise<BecomeAgentResult> {
     const { data, error } = await rpc('become_agent', {});
     return parseBecomeAgent(data, error);
   } catch (e) {
-    return { ok: false, code: 'OTHER', message: e instanceof Error ? e.message : 'Could not set you up to post. Try again.' };
+    return parseBecomeAgent(null, { message: e instanceof Error ? e.message : String(e) });
   }
 }
 
@@ -103,21 +114,13 @@ export async function recordFaceCheck(requestId: string, status: string): Promis
 // ----- resubmit -----
 export interface ReturnItem { code: string; label: string | null }
 
+/** return_items_for(p_request_id) replies { items: string[], note, by, at }; items is [] when nothing was named. */
 export function parseReturnItems(raw: unknown): ReturnItem[] | null {
-  let r: unknown = raw;
-  if (typeof r === 'string') { try { r = JSON.parse(r); } catch { return null; } }
-  if (r && !Array.isArray(r) && typeof r === 'object') r = (r as Record<string, unknown>).items ?? null;
-  if (!Array.isArray(r)) return null;
-  const out: ReturnItem[] = [];
-  for (const x of r) {
-    if (typeof x === 'string' && x.trim()) out.push({ code: x.trim().toLowerCase(), label: null });
-    else if (x && typeof x === 'object') {
-      const o = x as Record<string, unknown>;
-      const code = str(o.item) ?? str(o.key) ?? str(o.code) ?? str(o.kind);
-      if (code) out.push({ code: code.toLowerCase(), label: str(o.label) ?? str(o.note) ?? null });
-    }
-  }
-  return out;
+  const o = rec(raw);
+  if (!o || !Array.isArray(o.items)) return null;
+  return o.items
+    .filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+    .map((x) => ({ code: x.trim().toLowerCase(), label: null }));
 }
 
 /** return_items_for: what the desk returned this request for, in order. null when it can't be read. */

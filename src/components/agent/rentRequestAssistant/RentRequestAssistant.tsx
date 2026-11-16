@@ -48,7 +48,6 @@ import { WhoIsPosting } from '@/components/intake/WhoIsPosting';
 import { firstIncompleteStep, intakeLeftLabel, type IntakeState, type IntakeStepKey } from '@/lib/intakeSteps';
 import { checkIntakeTenant, fetchReturnItems, recordFaceCheck, type IntakeTenantCheck, type ReturnItem } from '@/lib/intakeRpc';
 import { fetchAgentRejectedRequests } from '@/hooks/useAgentRejectedRequests';
-import { agentRequestStatusLabel } from '@/lib/agentRequestStatus';
 import { normalizeDistrict } from '@/lib/ugandaDistricts';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticSuccess, hapticTap } from '@/lib/haptics';
@@ -1312,7 +1311,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setRecordChecking(true);
     let c: IntakeTenantCheck;
     try {
-      c = await checkIntakeTenant(value, user?.id);
+      c = await checkIntakeTenant(value);
     } finally {
       setRecordChecking(false);
     }
@@ -3015,23 +3014,22 @@ function ResubmitSummary({ rows, current, onRedo }: {
   );
 }
 
-/** Step 1 (E124): why the tenant's phone stops here, and the way on. */
+/** Step 1 (E124/E127): why the tenant's phone stops here, and the way on. */
 function TenantCheckNotice({ check, onOpenMine }: { check: IntakeTenantCheck; onOpenMine: (requestId: string) => void }) {
   let text: string;
   let open: string | null = null;
   if (check.kind === 'own_phone') {
-    text = 'This is your own phone number. Type the tenant’s own phone number: the tenant must have their own phone.';
+    text = check.message ?? 'This is your own phone number. Type the tenant’s own phone number: the tenant must have their own phone.';
   } else if (check.kind === 'open_request') {
-    const raw = check.stage ?? check.status;
-    const label = raw && /^[a-z_]+$/.test(raw) ? agentRequestStatusLabel(raw) : raw;
-    const where = label ? (label.startsWith('At ') ? `at ${label.slice(3)}` : `(${label})`) : null;
-    text = where ? `This tenant already has a request ${where}.` : (check.message ?? 'This tenant already has a request on its way.');
+    text = check.where ? `This tenant already has a request at ${check.where}.` : (check.message ?? 'This tenant already has a request on its way.');
     text += check.mine ? ' It is yours: open it instead of posting a new one.' : ' Another agent is handling it, so you can’t post a new one.';
     if (check.mine && check.requestId) open = check.requestId;
   } else if (check.kind === 'returned_request') {
     text = check.mine
       ? 'This tenant’s request was sent back to you. Opening it so you can fix and resubmit…'
       : (check.message ?? 'This tenant’s request was sent back to another agent, so you can’t post a new one.');
+  } else if (check.kind === 'phone_incomplete') {
+    text = check.message ?? 'That phone number is incomplete. Type all 10 digits, like 0783 123 456.';
   } else {
     return null;
   }
