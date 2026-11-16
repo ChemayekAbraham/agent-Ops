@@ -13,6 +13,7 @@ import { concernsChip, useConcernsSummary, type ConcernSummary } from './concern
 import type { ChipModel } from './boardRowModel';
 import { AgentSheet } from './agents/AgentSheet';
 import { SendBackSheet } from './sendBack';
+import { CooSendBackSheet, type CooTarget } from './cooSendBack';
 import { KindChip, type RequestKind } from './KindChip';
 import { AT_COO, DeskSearchBox, SearchResults } from './deskSearch';
 import { MissingLine, SendBackIncompleteSheet } from './incomplete';
@@ -214,9 +215,34 @@ const rating = (v: number | null | undefined) => (v === null || v === undefined 
 const dayMonth = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Africa/Kampala' }) : 'a date not set';
 
-/** "Frozen — <reason>; back to Agent Ops on 12 Nov". */
+/** "Frozen — <reason>; returns to Agent Ops on 12 Nov". */
 export function frozenText(f: NonNullable<CooRow['frozen']>): string {
-  return `Frozen — ${f.reason ?? 'no reason given'}; back to Agent Ops on ${dayMonth(f.returns_to_agent_ops_at)}`;
+  return `Frozen — ${f.reason ?? 'no reason given'}; returns to Agent Ops on ${dayMonth(f.returns_to_agent_ops_at)}`;
+}
+
+/** Above the review the COO opens: the agent's collections, why the row is frozen, and its concerns. */
+export function CooReviewFacts({ row, concerns }: { row: CooRow; concerns?: ConcernSummary }) {
+  return (
+    <section className={`${PANEL} space-y-3 p-4`} aria-label="COO facts" data-coo-facts>
+      <h3 className="text-sm font-semibold text-foreground" style={{ margin: 0 }}>
+        Before you decide
+      </h3>
+      <div className="space-y-1" data-coo-agent>
+        <span className={LABEL}>Agent collections</span>
+        <AgentGradeBody grade={row.agent_grade} pct={row.agent_pct} flags={row.agent_red_flags ?? []} />
+      </div>
+      {row.frozen && (
+        <div className="space-y-1" data-coo-frozen>
+          <span className={LABEL}>Frozen</span>
+          <FrozenBody frozen={row.frozen} />
+        </div>
+      )}
+      <div className="space-y-1" data-coo-concerns>
+        <span className={LABEL}>Concerns</span>
+        <ConcernBody summary={concerns} blocking={row.concern_block === true} />
+      </div>
+    </section>
+  );
 }
 
 /**
@@ -287,6 +313,7 @@ function CooRowLine({
   onSendBack,
   onSendBackAgentOps,
   concerns,
+  select,
 }: {
   row: CooRow;
   board: boolean;
@@ -302,8 +329,22 @@ function CooRowLine({
   onSendBackAgentOps?: (row: CooRow) => void;
   /** Concerns any desk logged on this request. */
   concerns?: ConcernSummary;
+  /** Select mode: the row's tick box. */
+  select?: { checked: boolean; onToggle: () => void };
 }) {
   const frozen = row.frozen;
+  // Every row, pushable or not (frozen, held, concern), can be reviewed and sent back.
+  const review = () => onOpen(row.id, undefined, { facts: <CooReviewFacts row={row} concerns={concerns} /> });
+  const rowActions = (
+    <>
+      <DecisionButton variant="quiet" onClick={review} data-review>
+        Review
+      </DecisionButton>
+      <DecisionButton variant="warn" onClick={() => onSendBack(row)} data-send-back>
+        Send back
+      </DecisionButton>
+    </>
+  );
   // E74: every badge opens a small panel that explains it (popover from md, a sheet on a phone).
   const kindChip = row.kind
     ? [
@@ -355,7 +396,7 @@ function CooRowLine({
   );
   const menu = (close: () => void) => (
     <>
-      <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
+      <MenuItem onClick={() => { close(); review(); }}>Open the review</MenuItem>
       <MenuItem onClick={() => { close(); onOpen(row.id, 'wait'); }}>Hold (Wait on…)</MenuItem>
       <MenuItem onClick={() => { close(); onSendBack(row); }}>Send back…</MenuItem>
     </>
@@ -363,6 +404,16 @@ function CooRowLine({
   const title = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
       {/* Rank and grade never shrink or wrap beside a long name. */}
+      {select && (
+        <input
+          type="checkbox"
+          checked={select.checked}
+          onChange={select.onToggle}
+          aria-label={`Select ${row.tenant ?? row.req}`}
+          className="h-4 w-4 shrink-0 accent-[hsl(var(--primary))]"
+          data-coo-select={row.id}
+        />
+      )}
       <span className={`${LABEL} tabular-nums`} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{row.rank ?? '—'}.</span>
       <span style={{ flexShrink: 0, display: 'inline-flex' }}>
         <Explain label={`Request grade ${row.grade ?? 'not set'}: what it means`} badge={<GradeBadge grade={row.grade} />}>
@@ -429,6 +480,7 @@ function CooRowLine({
             </>
           }
           primary={isPushable(row) ? { label: 'Push to funders', onClick: () => onPush(row) } : undefined}
+          actions={rowActions}
           menu={menu}
           menuLabel={`More for ${row.tenant ?? 'this request'}`}
         />
@@ -470,6 +522,7 @@ function CooRowLine({
             Push to funders
           </DecisionButton>
         )}
+        {rowActions}
         <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>{menu}</MoreMenu>
       </span>
       {layout === 'md' && chips.length > 0 && <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 6 }}>{chips}</div>}
@@ -666,6 +719,18 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
   const closeAgent = useCallback(() => setAgentRow(null), []);
   const [sendBackRow, setSendBackRow] = useState<CooRow | null>(null);
   const closeSendBack = useCallback(() => setSendBackRow(null), []);
+  // Select mode: tick several (all frozen, say), then send them back together.
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulkTargets, setBulkTargets] = useState<CooTarget[] | null>(null);
+  const toggleSelected = (id: string) =>
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const selectIds = (ids: string[]) => setSelected((cur) => new Set([...cur, ...ids]));
   // E89: a row that misses something goes back to Agent Ops, the Service Centre or the agent.
   const [agentOpsRow, setAgentOpsRow] = useState<CooRow | null>(null);
   const closeAgentOps = useCallback(() => setAgentOpsRow(null), []);
@@ -737,19 +802,88 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
         {!canPush && <span className={`${LABEL} ${statusText.warn}`}>{NEEDS_COO}.</span>}
       </div>
 
+      {rows.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }} data-coo-select-tools>
+          <DecisionButton
+            variant={selecting ? 'primary' : 'quiet'}
+            aria-pressed={selecting}
+            onClick={() => {
+              if (selecting) setSelected(new Set());
+              setSelecting(!selecting);
+            }}
+            data-coo-select-mode
+          >
+            {selecting ? 'Done selecting' : 'Select'}
+          </DecisionButton>
+          {selecting && (
+            <>
+              <DecisionButton variant="quiet" onClick={() => selectIds(rows.filter((r) => !!r.frozen).map((r) => r.id))} disabled={!rows.some((r) => !!r.frozen)}>
+                Select all frozen ({fmt('int', rows.filter((r) => !!r.frozen).length)})
+              </DecisionButton>
+              <DecisionButton variant="quiet" onClick={() => selectIds(rows.map((r) => r.id))}>
+                Select all ({fmt('int', rows.length)})
+              </DecisionButton>
+            </>
+          )}
+        </div>
+      )}
+
       {rows.length === 0 ? (
         <EmptyState>Nothing is waiting for your push.</EmptyState>
       ) : (
         <ol style={{ display: 'flex', flexDirection: 'column', gap: card ? 12 : 0, margin: 0, padding: 0 }}>
           {rows.map((r) => (
-            <CooRowLine key={r.id} row={r} board={board} layout={layout} onOpen={onOpen} onPush={setPushRow} onAgent={setAgentRow} onSendBack={setSendBackRow} onSendBackAgentOps={setAgentOpsRow} concerns={concerns.data?.[r.id]} />
+            <CooRowLine
+              key={r.id}
+              row={r}
+              board={board}
+              layout={layout}
+              onOpen={onOpen}
+              onPush={setPushRow}
+              onAgent={setAgentRow}
+              onSendBack={setSendBackRow}
+              onSendBackAgentOps={setAgentOpsRow}
+              concerns={concerns.data?.[r.id]}
+              select={selecting ? { checked: selected.has(r.id), onToggle: () => toggleSelected(r.id) } : undefined}
+            />
           ))}
         </ol>
       )}
 
+      {selecting && selected.size > 0 && (
+        <div
+          className="desk-panel shadow-2xl"
+          style={{ position: 'sticky', bottom: 8, zIndex: 20, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: 12 }}
+          role="region"
+          aria-label="Selected requests"
+          data-coo-bulk-bar
+        >
+          <span className="text-sm font-semibold text-foreground" data-coo-selected-count>
+            {fmt('int', selected.size)} selected
+          </span>
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <DecisionButton variant="quiet" onClick={() => setSelected(new Set())}>
+              Clear
+            </DecisionButton>
+            <DecisionButton variant="warn" onClick={() => setBulkTargets(rows.filter((r) => selected.has(r.id)).map((r) => ({ id: r.id, tenant: r.tenant })))}>
+              Send back selected
+            </DecisionButton>
+          </span>
+        </div>
+      )}
+
       {confirm && valid && <PushSheet plan={plan} n={n} onClose={() => setConfirm(false)} />}
       {pushRow && <RowPushConfirm row={pushRow} onClose={() => setPushRow(null)} />}
+      {/* One row: the E63 sheet (offices with hints, the COO's reasons, the server's message on refusal). */}
       {sendBackRow && <SendBackSheet requestId={sendBackRow.id} stage="coo" tenant={sendBackRow.tenant} onClose={closeSendBack} />}
+      {bulkTargets && (
+        <CooSendBackSheet
+          targets={bulkTargets}
+          // Sent back ones leave the selection; skipped ones stay ticked.
+          onDone={(done) => setSelected((cur) => new Set(Array.from(cur).filter((id) => !done.includes(id))))}
+          onClose={() => setBulkTargets(null)}
+        />
+      )}
       {agentOpsRow && (
         <SendBackIncompleteSheet requestId={agentOpsRow.id} tenant={agentOpsRow.tenant} missing={agentOpsRow.incomplete} onClose={closeAgentOps} />
       )}

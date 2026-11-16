@@ -90,7 +90,7 @@ describe('the identity panel', () => {
   it('tenant and agent side by side, ID front and back signed from their bucket; tap to enlarge', async () => {
     serve('agent_ops');
     wrap(<IdentityPanel requestId="r1" />);
-    const tenant = (await screen.findByRole('img', { name: 'Tenant passport photo: Odenyo Elly' })) as HTMLImageElement;
+    const tenant = (await screen.findByRole('img', { name: "Tenant's face photo: Odenyo Elly" })) as HTMLImageElement;
     expect(tenant.src).toBe('https://cdn.example/tenant.jpg');
     // The vetting passport photo wins over the profile picture.
     expect((screen.getByRole('img', { name: 'Agent photo: Andy Agent' }) as HTMLImageElement).src).toBe('https://signed/identity/a1/passport.jpg');
@@ -99,8 +99,8 @@ describe('the identity panel', () => {
     expect(h.sign).toHaveBeenCalledWith('tenant-ids', 'r1/front.jpg');
     expect(screen.getByText('Agent · vetting approved')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Enlarge: Tenant passport photo: Odenyo Elly' }));
-    const big = screen.getByRole('dialog', { name: 'Tenant passport photo: Odenyo Elly' });
+    fireEvent.click(screen.getByRole('button', { name: "Enlarge: Tenant's face photo: Odenyo Elly" }));
+    const big = screen.getByRole('dialog', { name: "Tenant's face photo: Odenyo Elly" });
     expect((within(big).getByRole('img') as HTMLImageElement).src).toBe('https://cdn.example/tenant.jpg');
     fireEvent.click(within(big).getByRole('button', { name: 'Close the photo' }));
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -125,7 +125,7 @@ describe('in the review drawer at every desk', () => {
     serve(stage);
     wrap(<ReviewDrawer stage={stage} requestId="r1" onClose={() => {}} />);
     const panel = await screen.findByRole('region', { name: 'Identity photos' });
-    await within(panel).findByRole('img', { name: /Tenant passport photo/ });
+    await within(panel).findByRole('img', { name: /Tenant's face photo/ });
     const facts = screen.getByText('What the agent sent');
     expect(panel.compareDocumentPosition(facts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(document.querySelector('[data-identity-banner]')).toBeNull();

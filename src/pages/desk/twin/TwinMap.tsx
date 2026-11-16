@@ -7,7 +7,9 @@ import {
   STATUS_LABEL,
   STATUS_ORDER,
   copy,
+  decisionsForNode,
   deskForNode,
+  eat,
   gapChains,
   int,
   layoutMap,
@@ -242,6 +244,68 @@ export function TwinMap({
   );
 }
 
+/** The collapsible key above the map: shapes, colours and the marks used across the twin. */
+export function MapKey() {
+  const swatch = 'inline-flex w-8 shrink-0 justify-center';
+  const row = 'flex items-center gap-2';
+  return (
+    <details className="desk-panel mb-3 px-4 py-2 text-sm">
+      <summary className={`cursor-pointer select-none rounded font-semibold text-foreground ${FOCUS}`}>How to read the map</summary>
+      <div className="grid gap-x-8 gap-y-1.5 pb-2 pt-3 text-muted-foreground sm:grid-cols-2">
+        <div className={row}>
+          <span className={swatch} aria-hidden>
+            <svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="var(--twin-ink)" opacity="0.75" /></svg>
+          </span>
+          Circle: a thing the company keeps (a request, a wallet, a person).
+        </div>
+        <div className={row}>
+          <span className={swatch} aria-hidden>
+            <svg width="16" height="16"><rect x="4" y="4" width="8" height="8" rx="1.5" fill="var(--twin-ink)" opacity="0.75" transform="rotate(45 8 8)" /></svg>
+          </span>
+          Diamond: an action, placed around the thing it changes.
+        </div>
+        <div className={row}>
+          <span className={swatch} aria-hidden>
+            <svg width="22" height="10"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--twin-ink)" strokeWidth="1.5" opacity="0.6" /></svg>
+          </span>
+          Line: a link between two nodes; dotted ties an action to its thing.
+        </div>
+        <div className={row}>
+          <span className={swatch} aria-hidden>
+            <svg width="20" height="20"><circle cx="10" cy="10" r="5" fill="var(--twin-gap)" /><circle cx="10" cy="10" r="8.5" fill="none" stroke="var(--twin-gap)" strokeWidth="1.2" opacity="0.6" /></svg>
+          </span>
+          Pulsing ring: a gap.
+        </div>
+        <div className={row}>
+          <span className={swatch} aria-hidden>
+            <svg width="22" height="10"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--twin-gap)" strokeWidth="2.4" /></svg>
+          </span>
+          Red line in Gaps only: two gaps that touch.
+        </div>
+        <div className={row}>
+          <span className={`${swatch} gap-1`} aria-hidden>
+            <span className="inline-block h-4 w-3 rounded-sm border border-[var(--desk-line-color)]" style={{ borderLeft: '4px solid hsl(var(--desk-bad))' }} />
+            <span className="inline-block h-4 w-3 rounded-sm border border-[var(--desk-line-color)]" style={{ borderLeft: '4px solid hsl(var(--desk-warn))' }} />
+          </span>
+          Red-edged check: a gap. Amber-edged: a watch item.
+        </div>
+        <div className={`${row} sm:col-span-2`}>
+          <span className="font-medium text-foreground">Status colours:</span>
+          {STATUS_ORDER.map((s) => (
+            <span key={s} className="inline-flex items-center gap-1.5">
+              <i className={`twin-dot-${s} inline-block h-2.5 w-2.5 rounded-full`} aria-hidden />
+              {STATUS_LABEL[s]}
+            </span>
+          ))}
+        </div>
+        <div className="sm:col-span-2">
+          In the river, the number above each desk is how many are waiting there now; the number below is how many moved on in the window.
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function ReadingGaps({ payload, lane, onPick }: { payload: TwinPayload; lane: string | null; onPick: (id: string) => void }) {
   const { chains, alone } = useMemo(() => gapChains(payload.nodes, payload.links, lane), [payload.nodes, payload.links, lane]);
   const total = chains.reduce((n, c) => n + c.gaps.length, 0) + alone.length;
@@ -336,6 +400,7 @@ function NodeDetail({
   const guarded = node.checks.map((k) => checks.get(k)).filter((c): c is TwinCheck => !!c);
   const links = payload.links.filter((l) => l.from === id || l.to === id);
   const actions = payload.nodes.filter((n) => n.on === id);
+  const decisions = decisionsForNode(payload, id);
   const desk = deskForNode(node);
   const linkBtn = `inline rounded p-0 text-left underline underline-offset-4 ${FOCUS}`;
   const rows: [string, React.ReactNode][] = [
@@ -394,6 +459,37 @@ function NodeDetail({
         </ul>
       ) : (
         <p className="m-0 text-muted-foreground">No daily check guards this node yet; its status comes from the evidence map.</p>
+      )}
+
+      <h4 className="mb-1 mt-4 font-semibold text-foreground">Decisions waiting that affect it</h4>
+      {decisions.waiting.length ? (
+        <ul className="m-0 list-none space-y-2 p-0">
+          {decisions.waiting.map((n) => (
+            <li key={n.id} style={n.priority === 1 ? { borderLeft: '3px solid var(--twin-gap)', paddingLeft: 8 } : undefined}>
+              <span className="text-muted-foreground">{n.id}.</span> {copy(n.question)}
+              {n.priority === 1 && <span className="font-semibold" style={{ color: 'var(--twin-gap)' }}> Answer first.</span>}
+              {n.lean && <div className="pt-0.5 text-muted-foreground">Recommendation: {copy(n.lean)}</div>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="m-0 text-muted-foreground">None waiting.</p>
+      )}
+
+      <h4 className="mb-1 mt-4 font-semibold text-foreground">Rulings that apply</h4>
+      {decisions.rulings.length ? (
+        <ul className="m-0 list-none space-y-2 p-0">
+          {decisions.rulings.map((r) => (
+            <li key={r.id} style={{ borderLeft: '3px solid var(--twin-verified)', paddingLeft: 8 }}>
+              <span className="font-semibold text-foreground">{copy(r.question)}:</span> {copy(r.ruling)}
+              <div className="pt-0.5 text-xs text-muted-foreground">
+                {[r.source || null, r.decidedAt ? `decided ${eat(r.decidedAt)}` : null].filter(Boolean).join(' · ')}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="m-0 text-muted-foreground">No ruling applies yet.</p>
       )}
 
       {links.length > 0 && (

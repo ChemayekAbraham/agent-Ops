@@ -18,7 +18,7 @@ const ALL_TRUE: T4Facts = {
   photos: true, landlord: true, rent: true, gps: true, familySize: true, work: true, lcLetter: true,
   tenantName: true, idFront: true, idBack: true, openRequest: true,
   plan: true, tenantPhone: true, house: true, tenantPhoto: true, lc1: true, payoutDay: true, consent: true,
-  note: true, resubmitsLeft: true,
+  note: true,
 };
 const gateKeys = (m: ReturnType<typeof t4Missing>) => m.filter((i) => i.group === 'gate').map((i) => i.key);
 const formKeys = (m: ReturnType<typeof t4Missing>) => m.filter((i) => i.group === 'form').map((i) => i.key);
@@ -41,7 +41,10 @@ describe('t4Missing: the Agent Ops gate, the same in every mode', () => {
 
   it('keeps the form’s own needs in a separate group', () => {
     expect(formKeys(t4Missing('new', {}))).toEqual(['plan', 'tenantPhone', 'house', 'tenantPhoto', 'lc1', 'payoutDay', 'consent']);
-    expect(formKeys(t4Missing('resubmit', {}))).toEqual(['note', 'resubmitsLeft']);
+    // E118: no resubmit limit; the note is the only form item of a resubmit.
+    // A retaken face photo must pass its check; the form says true when none was retaken.
+    expect(formKeys(t4Missing('resubmit', {}))).toEqual(['tenantPhoto', 'note']);
+    expect(formKeys(t4Missing('resubmit', { tenantPhoto: true }))).toEqual(['note']);
     expect(formKeys(t4Missing('renewal', {}))).toEqual([]);
     for (const mode of ['new', 'resubmit', 'renewal'] as const) expect(t4Missing(mode, ALL_TRUE)).toEqual([]);
   });

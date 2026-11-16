@@ -22,6 +22,7 @@ import {
   metricValue,
   orderChecks,
   orderNeeds,
+  orderRulings,
   pct,
   screenLabel,
   sectionsFor,
@@ -40,7 +41,7 @@ import { downloadText, fillOfflineTemplate, offlineSnapshot, toMarkdown } from '
 import type { TwinSource } from './twinSource';
 import { useTwin, type TwinMode } from './useTwin';
 import { TwinRiver } from './TwinRiver';
-import { StatusPill, TwinMap, statusColour } from './TwinMap';
+import { MapKey, StatusPill, TwinMap, statusColour } from './TwinMap';
 import './twin.css';
 
 /**
@@ -235,6 +236,7 @@ export function TwinView({ source, board, onOpenDesk }: { source: TwinSource; bo
               case 'map':
                 return (
                   <Section key={s} id="twin-map" title="The company as objects, links and actions" lede="Colour is today's status. Select any node for its owner, evidence, checks and recommendations." board={board}>
+                    <MapKey />
                     <TwinMap payload={p} board={board} lane={lane} selected={selected} onSelect={setSelected} onOpenDesk={onOpenDesk} />
                   </Section>
                 );
@@ -254,6 +256,12 @@ export function TwinView({ source, board, onOpenDesk }: { source: TwinSource; bo
                 return (
                   <Section key={s} title="Decisions waiting" lede="Answer-first items at the top. Each shows its lane, who raised it, the recommendation and the evidence." board={board}>
                     <Needs p={p} board={board} />
+                  </Section>
+                );
+              case 'rulings':
+                return (
+                  <Section key={s} title="Rulings in force" lede="Decisions already made, newest first, with the nodes each one applies to." board={board}>
+                    <Rulings p={p} board={board} onPick={showNode} />
                   </Section>
                 );
               case 'tables':
@@ -581,6 +589,40 @@ function Needs({ p, board }: { p: TwinPayload; board: boolean }) {
               <div className="text-xs text-muted-foreground">{tags.join(' · ')}</div>
               {n.lean && <div className="text-sm text-muted-foreground"><b className="font-semibold text-foreground">Recommendation:</b> {copy(n.lean)}</div>}
               {n.evidence && <div className="text-sm text-muted-foreground"><b className="font-semibold text-foreground">Evidence:</b> {copy(n.evidence)}</div>}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function Rulings({ p, board, onPick }: { p: TwinPayload; board: boolean; onPick: (id: string) => void }) {
+  const lanes = new Map(p.lanes.map((l) => [l.key, isLaneKey(l.key) ? LANE_SHORT[l.key] : copy(l.label)]));
+  const names = new Map(p.nodes.map((n) => [n.id, n.name]));
+  if (!p.rulings.length) return <p className="m-0 text-sm text-muted-foreground">No rulings recorded yet.</p>;
+  return (
+    <ol className="m-0 grid list-none gap-2 p-0" aria-label="Rulings in force">
+      {orderRulings(p.rulings).map((r) => {
+        const tags = [lanes.get(r.lane) ?? r.lane, r.kind === 'rule' ? 'a rule' : 'a decision', r.source || null, r.decidedAt ? `decided ${eat(r.decidedAt)}` : null].filter(Boolean);
+        const known = r.nodes.filter((id) => names.has(id));
+        return (
+          <li key={r.id} className="desk-panel grid grid-cols-[44px_1fr] gap-x-3 px-4 py-3" style={{ borderLeft: '4px solid var(--twin-verified)' }}>
+            <span className="text-xl font-extrabold text-muted-foreground tabular-nums">{r.id}</span>
+            <div className="min-w-0 space-y-1">
+              <div className={`${board ? 'text-base' : 'text-sm'} font-semibold text-foreground`}>{copy(r.question)}</div>
+              <div className="text-sm text-foreground">{copy(r.ruling)}</div>
+              <div className="text-xs text-muted-foreground">{tags.join(' · ')}</div>
+              {known.length > 0 && (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                  <span>Applies to:</span>
+                  {known.map((id) => (
+                    <button key={id} type="button" onClick={() => onPick(id)} className={`rounded p-0 text-left text-foreground underline underline-offset-4 ${FOCUS}`}>
+                      {names.get(id)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </li>
         );

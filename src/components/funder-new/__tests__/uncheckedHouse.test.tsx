@@ -9,6 +9,7 @@ import { FunderNewHouseCard } from '../FunderNewHouseCard';
 import { FunderV3HouseCard } from '@/components/funder-v3/FunderV3HouseCard';
 import { isUncheckedEmptyHouse, requestRef } from '../utils';
 import { FunderBoardItemCard } from '../FunderBoardItemCard';
+import { markBookedByMe, resetBookedByMe } from '../funderListRefresh';
 import { makeEmptyHouse, makeReadyPlan } from '@/components/funder-v3/__fixtures__/funderV3Fixtures';
 
 afterEach(() => cleanup());
@@ -99,4 +100,29 @@ describe('Ref line on rent-request cards (match a card to its desk row)', () => 
     );
     expect(screen.getByTestId('fv3-ref').textContent).toBe('Ref AB12CD34');
   });
+});
+
+describe('funded or claimed Rent Plans never show "Fund this House" or "Verified"', () => {
+  afterEach(() => resetBookedByMe());
+
+  for (const [name, Card] of [['legacy', FunderNewHouseCard], ['V3', FunderV3HouseCard]] as const) {
+    it(`${name} card: a stale plan marked funded / repaying / completed / confirmed claim has no Fund button`, () => {
+      for (const extra of [{ status: 'funded' }, { status: 'repaying' }, { status: 'completed' }, { claim_status: 'confirmed' }]) {
+        const r = render(<Card {...common} cardId="ready:x" category="ready" item={{ ...makeReadyPlan(0), ...extra }} boardTagsOn boardTag="verified" />);
+        expect(screen.queryByRole('button', { name: /Fund this House/i })).toBeNull();
+        expect(screen.queryByText('Verified House')).toBeNull();
+        expect(screen.getByTestId('funders-board-tag').getAttribute('data-tag')).toBe('booked');
+        expect(screen.getByTestId('fv3-booked-notice').textContent).toBe('Booked by a funder — view only');
+        r.unmount();
+      }
+    });
+
+    it(`${name} card: the funder's own just-funded plan reads "Booked — waiting for landlord payment"`, () => {
+      const plan = makeReadyPlan(0);
+      markBookedByMe([plan.rent_request_id]);
+      render(<Card {...common} cardId="ready:x" category="ready" item={plan} />);
+      expect(screen.queryByRole('button', { name: /Fund this House/i })).toBeNull();
+      expect(screen.getByTestId('fv3-booked-notice').textContent).toBe('Booked — waiting for landlord payment');
+    });
+  }
 });

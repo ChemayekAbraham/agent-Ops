@@ -1,7 +1,6 @@
 import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { AgentCareNote } from './AgentCareNote';
 import { CoSupportStartButton } from '@/components/co-support/CoSupportStartButton';
-import { DirectPayStartButton } from '@/components/direct-pay/DirectPayPartner';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CONTRACT_TERM_MONTHS } from '@/lib/contractTerm';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -582,7 +581,6 @@ export function SelfPortfolioPlanDetailSheet({
                 rentRequestId={plan.rent_request_id}
                 planAmount={rent}
               />
-              <DirectPayStartButton rentRequestId={plan.rent_request_id} />
             </div>
           )}
         </div>

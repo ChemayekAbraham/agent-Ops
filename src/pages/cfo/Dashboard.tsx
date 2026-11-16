@@ -25,6 +25,7 @@ const CorrectionCenterPanel = lazy(() => import('@/components/cfo/CorrectionCent
 import { PlatformVsWalletSummary } from '@/components/cfo/PlatformVsWalletSummary';
 const CFOROIRequests = lazy(() => import('@/components/cfo/CFOROIRequests').then((m) => ({ default: m.CFOROIRequests })));
 const CFOOverviewDashboard = lazy(() => import('@/components/cfo/CFOOverviewDashboard').then((m) => ({ default: m.CFOOverviewDashboard })));
+const CfoPlanIssues = lazy(() => import('@/pages/desk/coo/PlanIssues').then((m) => ({ default: m.CfoPlanIssues })));
 const DirectCreditTool = lazy(() => import('@/components/cfo/DirectCreditTool').then((m) => ({ default: m.DirectCreditTool })));
 const LunchAllowanceTracker = lazy(() => import('@/components/cfo/LunchAllowanceTracker').then((m) => ({ default: m.LunchAllowanceTracker })));
 const StandingOrdersPanel = lazy(() => import('@/components/cfo/StandingOrdersPanel').then((m) => ({ default: m.StandingOrdersPanel })));
@@ -818,7 +819,13 @@ export default function CFODashboardPage() {
         );
       default:
         // Home no longer carries the Cash Position band — it has its own page.
-        return <CFOOverviewDashboard onTabChange={setActiveTab} showCashPosition={false} />;
+        // E126: the plans the COO pushes for a decision, read-only, above the overview.
+        return (
+          <div className="space-y-5">
+            <CfoPlanIssues />
+            <CFOOverviewDashboard onTabChange={setActiveTab} showCashPosition={false} />
+          </div>
+        );
     }
   };
 

@@ -8,6 +8,7 @@ import {
   buildDots,
   clockAt,
   copy,
+  decisionsForNode,
   deskForNode,
   gapChains,
   hourActivity,
@@ -20,6 +21,7 @@ import {
   msUntilNextEat0805,
   orderChecks,
   orderNeeds,
+  orderRulings,
   overdueAt,
   readTwin,
   screenLabel,
@@ -179,7 +181,7 @@ describe('reconstructed days', () => {
   it('shows only the river, money, partner flows and checks, whatever lane was open', () => {
     expect(sectionsFor('company', true)).toEqual(['money', 'partner', 'checks']);
     expect(sectionsFor('partner', true)).toEqual(['money', 'partner', 'checks']);
-    expect(sectionsFor('company', false)).toEqual(['ribbon', 'tiles', 'map', 'checks', 'health', 'needs', 'nodes', 'links']);
+    expect(sectionsFor('company', false)).toEqual(['ribbon', 'tiles', 'map', 'checks', 'health', 'needs', 'rulings', 'nodes', 'links']);
     expect(sectionsFor('pipeline', false)).toEqual(['lanehead', 'checks', 'map', 'tables', 'nodes', 'links']);
   });
 
@@ -332,6 +334,35 @@ describe('reading the gaps', () => {
     const { chains, alone } = gapChains(twin.payload.nodes, twin.payload.links, 'pipeline');
     expect(chains.map((c) => c.gaps.length)).toEqual([3]);
     expect(alone.map((n) => n.id).sort()).toEqual(['O4', 'O6']);
+  });
+});
+
+describe('decisions and rulings by node', () => {
+  const p = live().payload;
+
+  it('reads rulings and the nodes each decision affects', () => {
+    expect(p.rulings.map((r) => r.id)).toEqual(['201', '202', '203']);
+    expect(p.rulings[0]).toMatchObject({ question: 'Arrears calls', lane: 'collections', kind: 'rule', nodes: ['O1'], source: 'COO ruling', decidedAt: '2026-11-15T06:07:00Z' });
+    expect(p.rulings[2]).toMatchObject({ nodes: [], decidedAt: null });
+    expect(p.needs.find((n) => n.id === '7')?.nodes).toEqual(['O7', 'A4']);
+    expect(p.needs.find((n) => n.id === '102')?.nodes).toEqual([]);
+    expect(readTwin({ run_id: 1, payload: {} })!.payload.rulings).toEqual([]);
+  });
+
+  it('puts the newest ruling first and undated last', () => {
+    expect(orderRulings(p.rulings).map((r) => r.id)).toEqual(['202', '201', '203']);
+  });
+
+  it('matches decisions waiting and rulings to a node by id', () => {
+    expect(decisionsForNode(p, 'O7')).toMatchObject({ waiting: [{ id: '7' }], rulings: [{ id: '202' }] });
+    expect(decisionsForNode(p, 'O1').rulings.map((r) => r.id)).toEqual(['201']);
+    expect(decisionsForNode(p, 'O11')).toEqual({ waiting: [], rulings: [] });
+  });
+
+  it('lists the rulings in the report', () => {
+    const md = toMarkdown(live(), Date.now());
+    expect(md).toContain('## Rulings in force');
+    expect(md).toMatch(/- \*\*Service Centre review\*\*: Every review carries a staff ID\. .*Applies to Service Centre manager, NOPE\./);
   });
 });
 

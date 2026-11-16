@@ -47,7 +47,8 @@ import { countActiveFunderFilters, itemAmount, itemCoordinates, itemId, placeCas
 import { useRentPlanFundChoice } from '@/components/supporter/FunderFundChooser';
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { afterFunded, isFundedOrClaimed, useBookedByMe, useFunderListsAutoRefresh } from '@/components/funder-new/funderListRefresh';
 import { fetchBoardItems, type BoardItem, type BoardItemsCounts, type BoardTag } from '@/lib/fundersBoard';
 import { withinRadius } from '@/components/funder-new/feedOrder';
 import { buildBoardGroups, boardHeadline, boardSubline, type BoardGroup } from '@/components/funder-new/boardGroups';
@@ -168,6 +169,11 @@ export function FunderHouseListingsSection({
   const { pay: partnerPay } = useSelfSupportFeePolicy();
   const { user } = useAuth();
   const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
+  const queryClient = useQueryClient();
+  // What this funder funded in this session: shown as theirs ("Booked — waiting for landlord payment"), never fundable.
+  const bookedByMe = useBookedByMe();
+  // Refetch the lists, map clusters and counts every 60 s while open, and when the app returns to the foreground.
+  useFunderListsAutoRefresh(queryClient);
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
   const floatAvail = useFunderFloatAvailable(user?.id);
@@ -393,7 +399,8 @@ export function FunderHouseListingsSection({
    */
   const radiusKm = origin?.radiusKm ?? null;
   const items = useMemo(() => {
-    let list = loadedItems;
+    // Never a funded or claimed Rent Plan (a stale list, or one this funder just funded).
+    let list = loadedItems.filter((entry) => entry.category !== 'ready' || (!bookedByMe.has(itemId('ready', entry.item)) && !isFundedOrClaimed(entry.item)));
     // A chosen distance limit: the empty-house read applies it on the server;
     // the Rent Plan read has no radius, so loaded plans are measured here.
     if (radiusKm !== null) list = list.filter((entry) => entry.category === 'empty' || withinRadius(kmOf(entry), radiusKm));
@@ -402,7 +409,7 @@ export function FunderHouseListingsSection({
       const amount = itemAmount(entry.category, entry.item, partnerPay);
       return amount > 0 && amount <= availableBalance;
     });
-  }, [loadedItems, filters.withinFloat, availableBalance, radiusKm, kmOf, partnerPay]);
+  }, [loadedItems, bookedByMe, filters.withinFloat, availableBalance, radiusKm, kmOf, partnerPay]);
 
   // Report every house that matches, not just the page loaded so far. The
   // within-balance filter only runs on loaded homes, so it reports those.
@@ -428,8 +435,10 @@ export function FunderHouseListingsSection({
       kmOfItem,
       filters,
       emptyTotal,
+      feedComplete: readyQuery.isSuccess && !readyQuery.hasNextPage,
+      bookedByMe,
     });
-  }, [boardTagsOn, boardQuery.data, canSeeBoardTotals, readyItems, emptyItems, orderSort, radiusKm, kmOf, kmOfItem, filters, emptyTotal]);
+  }, [boardTagsOn, boardQuery.data, canSeeBoardTotals, readyItems, emptyItems, orderSort, radiusKm, kmOf, kmOfItem, filters, emptyTotal, readyQuery.isSuccess, readyQuery.hasNextPage, bookedByMe]);
   const boardPins = useMemo<BoardPin[]>(() => {
     const out: BoardPin[] = [];
     for (const group of boardGroups ?? []) {
@@ -855,7 +864,7 @@ export function FunderHouseListingsSection({
                 {(group.tag === 'empty_house' ? (emptyPageRows ?? group.rows.slice(0, EMPTY_PAGE_SIZE)) : group.rows).map((row) => {
                   if (row.kind === 'board') {
                     const d = row.item.lat !== null && row.item.lng !== null ? straightLineDistance(deviceOrigin, { lat: row.item.lat, lng: row.item.lng }) : null;
-                    return <FunderBoardItemCard key={row.cardId} item={row.item} cardId={row.cardId} distance={d} />;
+                    return <FunderBoardItemCard key={row.cardId} item={row.item} cardId={row.cardId} distance={d} checking={row.checking} mine={row.mine} />;
                   }
                   const entry = row.entry;
                   const id = itemId(entry.category, entry.item);
@@ -1130,6 +1139,8 @@ export function FunderHouseListingsSection({
             }
             setSelectedItems([]);
             setSelectedCategory(null);
+            // The card leaves the list at once; the lists, map clusters and counts refetch.
+            void afterFunded(queryClient, category, ids);
             window.dispatchEvent(new Event('supporter-contribution-changed'));
             return { submitted: true, reference };
           } catch (err: unknown) {

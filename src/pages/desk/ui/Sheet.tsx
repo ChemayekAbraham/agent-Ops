@@ -43,7 +43,7 @@ export function Sheet({ title, onClose, children, footer }: { title: string; onC
             onClick={onClose}
             aria-label="Close"
             className={`desk-pill border border-[var(--desk-line-color)] text-muted-foreground ${CALM} ${FOCUS} hover:text-foreground`}
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 8, borderRadius: 999, borderWidth: 1, borderStyle: 'solid' }}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 8, minWidth: 44, minHeight: 44, flexShrink: 0, borderRadius: 999, borderWidth: 1, borderStyle: 'solid' }}
           >
             <X className="h-4 w-4" aria-hidden />
           </button>

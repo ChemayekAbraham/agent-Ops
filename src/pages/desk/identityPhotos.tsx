@@ -9,8 +9,8 @@ import { ErrorLine } from './ui';
 
 /**
  * Identity photos at the top of the review drawer (E77), on every desk:
- * `request_identity_photos(p_request_id)`. The tenant's passport photo beside
- * the agent's photo (the vetting passport photo when there is one), and the
+ * `request_identity_photos(p_request_id)`. The tenant's face photo beside
+ * the agent's photo (the vetting face photo when there is one), and the
  * tenant's ID front and back. Tap any photo to see it large.
  *
  * The server compares the pictures; any flag it raises becomes a red
@@ -112,7 +112,7 @@ export function IdentityPanel({ requestId }: { requestId: string }) {
         <ErrorLine>{String((q.error as { message?: string }).message ?? q.error)}</ErrorLine>
       ) : d ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-end' }}>
-          <Photo label="Tenant" src={d.tenant?.passport_photo_url ?? null} alt={`Tenant passport photo${d.tenant?.name ? `: ${d.tenant.name}` : ''}`} size={112} onOpen={setBig} />
+          <Photo label="Tenant" src={d.tenant?.passport_photo_url ?? null} alt={`Tenant's face photo${d.tenant?.name ? `: ${d.tenant.name}` : ''}`} size={112} onOpen={setBig} />
           <Photo
             label={`Agent${d.agent?.vetting_status ? ` · vetting ${d.agent.vetting_status.replace(/_/g, ' ')}` : ''}`}
             src={d.urls.agentVetting ?? d.agent?.photo_url ?? null}

@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import { KindChip } from './KindChip';
 import { MissingLine, SendBackIncompleteSheet, hasMissing, missingText } from './incomplete';
 import { DeskSearchBox, SearchResults, searchReady, type SearchDesk } from './deskSearch';
+import { BULK_MAX, BulkBar, BulkDialog, BulkFilters, NO_FILTER, agentsOf, filterRows, type BulkDecision, type BulkFilter } from './scBulk';
 import { asIs } from './deskActions';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
@@ -95,6 +96,8 @@ export type DrawerContext = {
   waitSuggest?: WaitSuggest | null;
   /** The board's word: an answered call to this desk's subject is already on file. */
   callAnswered?: boolean;
+  /** Facts the board already holds, shown above the review (the COO's: agent collection %, freeze reason, concerns). */
+  facts?: import('react').ReactNode;
 };
 
 export type OpenDrawer = (requestId: string, initial?: DrawerStart, ctx?: DrawerContext) => void;
@@ -144,6 +147,7 @@ function BoardRowLine({
   onPick,
   health,
   concerns,
+  select,
 }: {
   row: BoardRow;
   stage: Stage;
@@ -164,6 +168,8 @@ function BoardRowLine({
   health?: TenantHealth;
   /** Tenant / Landlord Ops and COO: concerns any desk logged on this request. */
   concerns?: ConcernSummary;
+  /** E120 Service Centre Select mode: the card's tick box. */
+  select?: { checked: boolean; onToggle: () => void };
 }) {
   const chips = rowChips(row, stage, health, concerns);
   const short = shortPrimary(row, stage);
@@ -248,6 +254,16 @@ function BoardRowLine({
 
   const tenant = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+      {select && (
+        <input
+          type="checkbox"
+          checked={select.checked}
+          onChange={select.onToggle}
+          aria-label={`Select ${row.tenant ?? row.req}`}
+          className="h-4 w-4 shrink-0 accent-[hsl(var(--primary))]"
+          data-select={row.id}
+        />
+      )}
       <span style={{ overflowWrap: 'anywhere' }}>{row.tenant ?? '—'}</span>
       {/* Landlord Ops calls the tenant from the row; Tenant Ops calls through "Call tenant". */}
       {stage === 'landlord_ops' && call('tenant')}
@@ -601,6 +617,28 @@ function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onO
   // E89: a row that misses something goes back to Agent Ops, the Service Centre or the agent.
   const [incompleteRow, setIncompleteRow] = useState<BoardRow | null>(null);
   const closeSendBack = useCallback(() => setSendBack(null), []);
+  // E120: Service Centre Select mode — tick cards, then Discard (fake) or Send back to agent in one go.
+  const bulkOn = stage === 'service_centre';
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulkFilter, setBulkFilter] = useState<BulkFilter>(NO_FILTER);
+  const [bulkDecision, setBulkDecision] = useState<BulkDecision | null>(null);
+  const toggleSelected = (id: string) =>
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else if (next.size < BULK_MAX) next.add(id);
+      return next;
+    });
+  const selectIds = (ids: string[]) =>
+    setSelected((cur) => {
+      const next = new Set(cur);
+      for (const id of ids) {
+        if (next.size >= BULK_MAX) break;
+        next.add(id);
+      }
+      return next;
+    });
 
   const data = q.data;
   // Every drawer opened from this board knows whether the row already has an answered call on file.
@@ -612,14 +650,18 @@ function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onO
       ...ctx,
     });
   };
-  const rows = useMemo(() => (data?.rows ?? []).filter((r) => !only || r.decision === only), [data, only]);
+  const rows = useMemo(() => {
+    const base = (data?.rows ?? []).filter((r) => !only || r.decision === only);
+    // While selecting, the filters (age, agent, search) narrow the list too.
+    return selecting ? filterRows(base, bulkFilter) : base;
+  }, [data, only, selecting, bulkFilter]);
   const canAct = data?.can_act === true;
   // Below md each row is a card and the list pages 20 at a time.
   const bp = useBreakpoint();
   const layout = rowLayoutFor(bp);
   const card = layout === 'card';
   const [page, setPage] = useState(1);
-  useEffect(() => setPage(1), [only, scope]);
+  useEffect(() => setPage(1), [only, scope, bulkFilter]);
   const visible = card ? rows.slice(0, page * PHONE_PAGE) : rows;
   // One batch call each per board load, for the desks that show them.
   const health = useTenantHealthMany((data?.rows ?? []).map((r) => r.tenant_id), stage === 'tenant_ops' || stage === 'landlord_ops');
@@ -766,7 +808,39 @@ function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onO
         <div className="flex flex-wrap items-center gap-2">
           <ScopeSwitch scope={scope} counts={data?.scope_counts ?? null} onChange={setScope} />
           {q.isPlaceholderData && <span className={LABEL} role="status">Loading…</span>}
+          {bulkOn && canAct && (
+            <DecisionButton
+              variant={selecting ? 'primary' : 'quiet'}
+              aria-pressed={selecting}
+              onClick={() => {
+                if (selecting) {
+                  setSelected(new Set());
+                  setBulkFilter(NO_FILTER);
+                }
+                setSelecting(!selecting);
+              }}
+              data-select-mode
+            >
+              {selecting ? 'Done selecting' : 'Select'}
+            </DecisionButton>
+          )}
         </div>
+      )}
+      {bulkOn && selecting && (
+        <BulkFilters
+          filter={bulkFilter}
+          onFilter={setBulkFilter}
+          agents={agentsOf(data?.rows ?? [])}
+          pageCount={visible.length}
+          matchingCount={rows.length}
+          onSelectPage={() => selectIds(visible.map((r) => r.id))}
+          onSelectMatching={() => selectIds(rows.map((r) => r.id))}
+          loadedNote={
+            limitNote(stage, scope, data?.rows.length ?? 0, data?.scope_counts ?? null)
+              ? `Only the ${fmt('int', data?.rows.length ?? 0)} cards loaded can be selected; the rest load once these are done.`
+              : null
+          }
+        />
       )}
       <div className="flex flex-wrap items-center gap-1.5" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
         <Segmented<BoardDecision>
@@ -827,6 +901,7 @@ function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onO
                     onPick={stage === 'agent_ops' ? () => setPicker({ row: r, mode: 'transfer' }) : undefined}
                     health={r.tenant_id ? health.data?.[r.tenant_id] : undefined}
                     concerns={concerns.data?.[r.id]}
+                    select={bulkOn && selecting ? { checked: selected.has(r.id), onToggle: () => toggleSelected(r.id) } : undefined}
                   />
                 ))}
               </ul>
@@ -884,6 +959,23 @@ function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onO
             removeFromBoard(queryClient, stage, incompleteRow.id);
           }}
           onClose={() => setIncompleteRow(null)}
+        />
+      )}
+
+      {bulkOn && selecting && (
+        <BulkBar count={selected.size} disabled={!canAct} onClear={() => setSelected(new Set())} onDecide={setBulkDecision} />
+      )}
+      {bulkDecision && (
+        <BulkDialog
+          decision={bulkDecision}
+          ids={Array.from(selected)}
+          tenantOf={(id) => data?.rows.find((r) => r.id === id)?.tenant ?? null}
+          onDone={(doneIds) => {
+            // Done ones leave the board and the selection; skipped ones stay ticked for another look.
+            for (const id of doneIds) removeFromBoard(queryClient, stage, id);
+            setSelected((cur) => new Set(Array.from(cur).filter((id) => !doneIds.includes(id))));
+          }}
+          onClose={() => setBulkDecision(null)}
         />
       )}
 

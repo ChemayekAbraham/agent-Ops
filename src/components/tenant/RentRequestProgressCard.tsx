@@ -22,9 +22,17 @@ function sentLine(iso: string): string {
  * Where the tenant's rent request is, step by step. Read-only: everything
  * comes from the tenant's own request (see rentRequestProgress.ts).
  */
-export function RentRequestProgressCard({ request }: { request: TenantRentRequestRow }) {
+export function RentRequestProgressCard({
+  request,
+  onConfirmStillNeeded,
+}: {
+  request: TenantRentRequestRow;
+  /** Saves the tenant's "Yes, I still need rent" (doc 275). */
+  onConfirmStillNeeded?: () => void;
+}) {
   const progress = describeRentRequestProgress(request);
   const stopped = progress.phase === 'stopped';
+  const asked = request.reconfirm?.outcome === 'asked' && !stopped;
 
   return (
     <section
@@ -48,6 +56,28 @@ export function RentRequestProgressCard({ request }: { request: TenantRentReques
       <h3 className="mt-2 text-base font-bold text-foreground">{progress.headline}</h3>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{progress.detail}</p>
       <p className="mt-1 text-[11px] text-muted-foreground/80">{sentLine(request.created_at)}</p>
+
+      {asked && (
+        <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+          <p className="text-sm font-semibold text-foreground">Do you still need rent?</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            This request is old. Tell us by {formatDay(request.reconfirm!.respond_by)} or we will close it. You can
+            apply again any time.
+          </p>
+          <button
+            type="button"
+            onClick={onConfirmStillNeeded}
+            className="mt-2 w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            Yes, I still need rent
+          </button>
+        </div>
+      )}
+      {request.reconfirm?.outcome === 'still_needed' && !stopped && (
+        <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+          Thanks, we are checking your request again.
+        </p>
+      )}
 
       <ol className="mt-4 space-y-3">
         {progress.steps.map((step, i) => {

@@ -52,9 +52,23 @@ async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   return (await fetch(dataUrl)).blob();
 }
 
+/** Gives up after 20 s (a stalled upload must never hold up saving the student). */
+const UPLOAD_TIMEOUT_MS = 20_000;
+
 async function upload(path: string, blob: Blob): Promise<boolean> {
-  const { error } = await supabase.storage.from(STUDENT_PHOTO_BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: true });
-  return !error;
+  try {
+    const timedOut = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), UPLOAD_TIMEOUT_MS));
+    const res = await Promise.race([
+      supabase.storage.from(STUDENT_PHOTO_BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: true }),
+      timedOut,
+    ]);
+    if (res === 'timeout') { console.warn('[welile-schools] photo upload timed out; kept on the phone'); return false; }
+    if (res.error) console.warn('[welile-schools] photo upload refused:', res.error.message);
+    return !res.error;
+  } catch (e) {
+    console.warn('[welile-schools] photo upload failed:', e);
+    return false;
+  }
 }
 
 /**
@@ -64,8 +78,10 @@ async function upload(path: string, blob: Blob): Promise<boolean> {
 export async function uploadStudentPhoto(schoolId: string, profileId: string, clientRef: string, blob: Blob): Promise<string | null> {
   const path = studentPhotoPath(schoolId, profileId);
   if (navigator.onLine !== false && await upload(path, blob)) return path;
-  const dataUrl = await blobToDataUrl(blob);
-  writeQueue([...readQueue().filter((p) => p.clientRef !== clientRef), { clientRef, path, dataUrl }]);
+  try {
+    const dataUrl = await blobToDataUrl(blob);
+    writeQueue([...readQueue().filter((p) => p.clientRef !== clientRef), { clientRef, path, dataUrl }]);
+  } catch { /* the photo is lost, but the student is still saved */ }
   return null;
 }
 

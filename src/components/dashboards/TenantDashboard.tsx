@@ -17,6 +17,7 @@ import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
 import { LendingOffersCard } from '@/components/vouch/borrower/LendingOffersCard';
 import { MyLoanRequestsCard } from '@/components/vouch/borrower/MyLoanRequestsCard';
 import { TenantRentRequestCard } from '@/components/tenant/TenantRentRequestCard';
+import { TenantRenewRentPlanButton } from '@/components/tenant/TenantRenewRentPlanButton';
 import { WidgetErrorBoundary } from '@/components/shared/WidgetErrorBoundary';
 
 import { useToast } from '@/hooks/use-toast';
@@ -122,7 +123,14 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   const { wallet, refreshWallet } = useWallet();
   const { toast } = useToast();
   const { isAccepted: hasAcceptedTerms, isLoading: agreementLoading, acceptAgreement } = useTenantAgreement();
-  const { data: myRentRequest } = useMyRentRequest();
+  const { data: myRentRequest, refetch: refetchMyRentRequest } = useMyRentRequest();
+  const confirmStillNeedRent = async () => {
+    if (!myRentRequest) return;
+    const { data, error } = await (supabase.rpc as any)('confirm_rent_request_still_needed', { p_rent_request_id: myRentRequest.id });
+    if (error || !data) { sonnerToast.error('Could not save that. Please try again.'); return; }
+    sonnerToast.success('Thanks. We are checking your request again.');
+    void refetchMyRentRequest();
+  };
 
   // Track user presence and dwell time in Tenant dashboard
   useTrackSection('tenant-overview', 'tenant');
@@ -490,6 +498,10 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
               {/* Rent actions — request rent first, then browse available houses */}
               <div className="flex flex-col gap-3">
+                {/* E128: shown only when the latest Rent Plan is completed. */}
+                <WidgetErrorBoundary label="Renew my rent plan">
+                  <TenantRenewRentPlanButton />
+                </WidgetErrorBoundary>
                 <WidgetErrorBoundary label="Request rent as tenant">
                   <TenantRentRequestCard userId={uid} />
                 </WidgetErrorBoundary>
@@ -525,7 +537,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
               {myRentRequest && (
                 <WidgetErrorBoundary label="Rent request progress">
-                  <RentRequestProgressCard request={myRentRequest} />
+                  <RentRequestProgressCard request={myRentRequest} onConfirmStillNeeded={confirmStillNeedRent} />
                 </WidgetErrorBoundary>
               )}
 

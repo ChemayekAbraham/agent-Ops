@@ -65,6 +65,21 @@ export function useRenewalFlow() {
     [otp.requestConsent],
   );
 
+  /** E128 step 1 alone: the new rent and days (with the advice and a reason when they change). */
+  const choose = useCallback(async (t: RenewalTarget): Promise<RenewalChoice | null> => {
+    const choice = await new Promise<RenewalChoice | null>((resolve) => {
+      resolver.current = resolve;
+      setTarget(t);
+    });
+    setTarget(null);
+    return choice;
+  }, []);
+
+  /** E128 step 3 alone: the tenant confirms the chosen figures with the SMS code. */
+  const confirm = useCallback(async (t: RenewalTarget, choice: RenewalChoice): Promise<boolean> => (
+    otp.requestConsent(t.prevId, t.tenantName, { newRent: choice.newRent, newDays: choice.newDays, dailyRepayment: choice.dailyRepayment })
+  ), [otp.requestConsent]);
+
   const finish = useCallback((c: RenewalChoice | null) => {
     resolver.current?.(c);
     resolver.current = null;
@@ -76,7 +91,7 @@ export function useRenewalFlow() {
       {otp.dialog}
     </>
   );
-  return { start, dialogs };
+  return { start, choose, confirm, dialogs };
 }
 
 interface DialogProps {

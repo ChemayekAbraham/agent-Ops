@@ -18,6 +18,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, RefreshCw, Trash2, Loader2, User, Building, Calendar, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
+import { agentRequestStatus } from '@/lib/agentRequestStatus';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAgentRejectedRequests, type AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
@@ -75,9 +76,9 @@ export function AgentRejectedRequestsSection() {
       </div>
 
       {requests.map((req) => {
-        const RESUBMIT_CAP = 5;
-        const used = req.reopen_count ?? 0;
-        const lockedFromResubmit = used >= RESUBMIT_CAP;
+        // "Sent back to you — fix and resubmit" when a desk returned it, else "Rejected".
+        const status = agentRequestStatus(req);
+        const returned = status.tone === 'returned';
         return (
           <Card key={req.id} className="border-2 border-destructive/40 bg-destructive/5 overflow-hidden">
             <CardContent className="p-4 space-y-3">
@@ -90,7 +91,7 @@ export function AgentRejectedRequestsSection() {
                       variant={req.returned_by_recall ? 'warning' : 'destructive'}
                       className="text-[10px] gap-1"
                     >
-                      {req.returned_by_recall ? req.stage_label : `Rejected at ${req.stage_label}`}
+                      {req.returned_by_recall ? req.stage_label : status.label}
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-0.5">
@@ -130,20 +131,12 @@ export function AgentRejectedRequestsSection() {
                   >
                     {req.returned_by_recall
                       ? 'Why it came back — automatic recall'
-                      : `Reviewer comment — ${req.reviewer_name}`}
+                      : `${returned ? 'Note from' : 'Rejected by'} ${req.stage_label} — ${req.reviewer_name}`}
                   </p>
                 </div>
                 <p className="text-sm text-foreground/90 whitespace-pre-wrap">
                   {req.rejected_reason || 'No reason provided.'}
                 </p>
-                {used > 0 && (
-                  <p className="text-[10px] mt-1.5">
-                    <span className={lockedFromResubmit ? 'text-destructive font-semibold' : 'text-muted-foreground'}>
-                      Resubmits used: {used}/{RESUBMIT_CAP}
-                      {lockedFromResubmit && ' — limit reached, ask a manager to reopen this request'}
-                    </span>
-                  </p>
-                )}
               </div>
 
               <div className="flex gap-2">
@@ -151,17 +144,14 @@ export function AgentRejectedRequestsSection() {
                   size="sm"
                   className="flex-1 gap-1.5"
                   onClick={() => openT4RentRequest({ mode: 'resubmit', rejected: req, entry: 'rejected-requests', onDone: onResubmitted })}
-                  disabled={lockedFromResubmit}
                   title={
-                    lockedFromResubmit
-                      ? `Resubmit cap reached (${RESUBMIT_CAP}/${RESUBMIT_CAP}). A manager must reopen it.`
-                      : req.returned_by_recall
-                        ? 'Submit this Rent Plan again — the landlord float goes back out once the CFO disburses it'
-                        : 'Edit and send back to reviewer'
+                    req.returned_by_recall
+                      ? 'Submit this Rent Plan again — the landlord float goes back out once the CFO disburses it'
+                      : 'Edit and send back to reviewer'
                   }
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
-                  {lockedFromResubmit ? 'Manager reopen required' : 'Edit & Resubmit'}
+                  Edit & Resubmit
                 </Button>
                 <Button
                   size="sm"

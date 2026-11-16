@@ -82,9 +82,14 @@ export const LIVE = {
       { key: 'partner_roi_date_past', label: 'ROI payout date passed', ok: false, severity: 'watch', value: 223, rec: 'Pay or reschedule.', lane: 'partner', owner: 'CFO' },
     ],
     needs: [
-      { id: 7, question: 'Later question', lean: 'Yes.', source: 'twin', lane: 'pipeline', kind: 'rule', priority: 3, evidence: '' },
+      { id: 7, question: 'Later question', lean: 'Yes.', source: 'twin', lane: 'pipeline', kind: 'rule', priority: 3, evidence: '', nodes: ['O7', 'A4'] },
       { id: 102, question: 'UGX 50.00M moved with no user recorded. Who approved it?', lean: 'Name the approver.', source: 'mapping cycle 5', lane: 'money', kind: 'decision', priority: 1, evidence: 'Two ledger rows.' },
       { id: 9, question: 'No priority', lean: '', source: '', lane: 'controls', kind: 'decision' },
+    ],
+    rulings: [
+      { id: 201, question: 'Arrears calls', ruling: 'Agent Ops calls the agent and Tenant Ops calls the tenant the next day.', lane: 'collections', kind: 'rule', nodes: ['O1'], source: 'COO ruling', decided_at: '2026-11-15T06:07:00Z' },
+      { id: 202, question: 'Service Centre review', ruling: 'Every review carries a staff ID.', lane: 'pipeline', kind: 'decision', nodes: ['O7', 'NOPE'], source: 'COO ruling', decided_at: '2026-11-16T06:07:00Z' },
+      { id: 203, question: 'Undated', ruling: 'Kept for the record.', lane: 'controls', kind: 'rule', source: '' },
     ],
   },
 };

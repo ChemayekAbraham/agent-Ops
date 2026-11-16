@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, CheckCircle2, Download, FileText, Handshake, Loader2, Pencil, Plus, Send, Trash2, Upload, Wallet, X } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ChevronDown, Download, FileText, Handshake, Loader2, Pencil, Plus, Send, Trash2, Upload, Wallet, X } from 'lucide-react';
 import { PARTNERSHIP_AGREEMENT_URL } from '@/lib/welileSchoolsAgreements';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,10 +11,10 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { SchoolRow } from '@/lib/welileSchools';
 import {
-  MOBILE_MONEY_PROVIDERS, STATUS_LABEL, agreementUrl, deleteTerm, emptyTermDraft, fetchSchoolSetup, isAgentEditable,
+  BOARDING_OPTIONS, MOBILE_MONEY_PROVIDERS, STATUS_LABEL, agreementUrl, boardingLabel, deleteTerm, emptyTermDraft, fetchSchoolSetup, isAgentEditable,
   missingForSubmit, parseAmount, partnershipDraftErrors, partnershipErrorMessage, planDueDate, savePartnership, saveTerm,
   submitPartnership, termDraftErrors, termLengthDays, termToDraft, todayKampala, uploadAgreement,
-  type FeeRow, type PartnershipDraft, type PartnershipRow, type PartnershipStatus, type TermDraft, type TermRow,
+  type BoardingStatus, type FeeRow, type PartnershipDraft, type PartnershipRow, type PartnershipStatus, type TermDraft, type TermRow,
 } from '@/lib/welileSchoolsPartnership';
 
 const ugx = (n: number) => `UGX ${Math.round(n).toLocaleString('en-UG')}`;
@@ -74,6 +74,9 @@ export default function SchoolPartnershipPanel({ school }: { school: SchoolRow }
   const refresh = () => qc.invalidateQueries({ queryKey });
 
   const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [details, setDetails] = useState<PartnershipDraft>(() => draftFrom(partnership));
+  useEffect(() => { setDetails(draftFrom(partnership)); }, [partnership]);
   const missing = useMemo(() => missingForSubmit(partnership, terms, fees, todayKampala()), [partnership, terms, fees]);
 
   if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
@@ -89,6 +92,21 @@ export default function SchoolPartnershipPanel({ school }: { school: SchoolRow }
       toast.error('Could not submit', { description: partnershipErrorMessage(e) });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /** Saves the bursar and payout details as they are, without sending to ops. Terms and the agreement save on their own. */
+  const saveDraft = async () => {
+    if (Object.keys(partnershipDraftErrors(details)).length) { toast.error('Check the highlighted fields'); return; }
+    setSavingDraft(true);
+    try {
+      await savePartnership(school.id, details, null);
+      toast.success('Draft saved', { description: 'You can come back and finish it later.' });
+      refresh();
+    } catch (e) {
+      toast.error('Could not save the draft', { description: partnershipErrorMessage(e) });
+    } finally {
+      setSavingDraft(false);
     }
   };
 
@@ -113,7 +131,7 @@ export default function SchoolPartnershipPanel({ school }: { school: SchoolRow }
         {status === 'approved' && <p className="text-sm text-muted-foreground">This school is a Welile Schools partner. If its terms or fees change, ask Welile ops to update them.</p>}
       </Card>
 
-      <PartnershipDetailsCard school={school} partnership={partnership} editable={editable} onSaved={refresh} />
+      <PartnershipDetailsCard school={school} partnership={partnership} editable={editable} onSaved={refresh} draft={details} setDraft={setDetails} />
       <TermsCard schoolId={school.id} terms={terms} fees={fees} editable={editable} onSaved={refresh} />
       <AgreementCard school={school} partnership={partnership} editable={editable} onSaved={refresh} />
 
@@ -128,16 +146,21 @@ export default function SchoolPartnershipPanel({ school }: { school: SchoolRow }
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {status === 'changes_requested' ? 'Resubmit for approval' : 'Submit for approval'}
           </Button>
+          <Button variant="outline" className="min-h-[48px] w-full" disabled={savingDraft || submitting} onClick={saveDraft}>
+            {savingDraft ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Save as draft
+          </Button>
         </Card>
       )}
     </div>
   );
 }
 
-function PartnershipDetailsCard({ school, partnership, editable, onSaved }: { school: SchoolRow; partnership: PartnershipRow | null; editable: boolean; onSaved: () => void }) {
-  const [draft, setDraft] = useState<PartnershipDraft>(() => draftFrom(partnership));
+function PartnershipDetailsCard({ school, partnership, editable, onSaved, draft, setDraft }: {
+  school: SchoolRow; partnership: PartnershipRow | null; editable: boolean; onSaved: () => void;
+  // Held by the panel so "Save as draft" can save what is typed here.
+  draft: PartnershipDraft; setDraft: React.Dispatch<React.SetStateAction<PartnershipDraft>>;
+}) {
   const [saving, setSaving] = useState(false);
-  useEffect(() => { setDraft(draftFrom(partnership)); }, [partnership]);
   const errors = partnershipDraftErrors(draft);
   const set = (patch: Partial<PartnershipDraft>) => setDraft((d) => ({ ...d, ...patch }));
   const dirty = JSON.stringify(draft) !== JSON.stringify(draftFrom(partnership));
@@ -244,7 +267,7 @@ function TermsCard({ schoolId, terms, fees, editable, onSaved }: { schoolId: str
             <ul className="mt-2 space-y-1">
               {termFees.map((f) => (
                 <li key={f.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="min-w-0 truncate">{f.class_name} <span className="text-muted-foreground">· {f.boarding_status === 'boarding' ? 'Boarding' : 'Day'}</span></span>
+                  <span className="min-w-0 truncate">{f.class_name} <span className="text-muted-foreground">· {boardingLabel(f.boarding_status)}</span></span>
                   <span className="shrink-0 font-medium tabular-nums">{ugx(Number(f.amount))}</span>
                 </li>
               ))}
@@ -307,8 +330,15 @@ function TermEditor({ schoolId, initial, onCancel, onSaved }: { schoolId: string
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Toggle label={`Day or boarding, fee ${i + 1}`} value={f.boarding_status} onChange={(v) => setFee(i, { boarding_status: v })}
-                options={[{ value: 'day', label: 'Day' }, { value: 'boarding', label: 'Boarding' }]} />
+              {/* One dropdown: Day, Boarding, or one fee for both. */}
+              <div className="relative min-w-[150px] flex-1">
+                <select aria-label={`Day or boarding, fee ${i + 1}`} value={f.boarding_status}
+                  onChange={(e) => setFee(i, { boarding_status: e.target.value as BoardingStatus })}
+                  className="h-14 w-full appearance-none rounded-2xl border border-input bg-card pl-4 pr-10 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30">
+                  {BOARDING_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              </div>
               <Input aria-label={`Amount for fee ${i + 1}`} inputMode="numeric" value={f.amount} onChange={(e) => setFee(i, { amount: e.target.value })} placeholder="Amount (UGX)" className="min-w-[140px] flex-1" />
             </div>
             {parseAmount(f.amount) != null && <p className="text-right text-xs text-muted-foreground">{ugx(parseAmount(f.amount)!)}</p>}

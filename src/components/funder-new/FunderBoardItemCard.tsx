@@ -8,6 +8,7 @@ import { STRAIGHT_LINE_EXPLANATION } from './distance';
 import { FundersBoardTag, tagKindFor } from './FundersBoardTag';
 import { FundersIncompleteChip } from './FundersIncompleteChip';
 import { requestRef } from './utils';
+import { BOOKED_BY_ME_TEXT } from './funderListRefresh';
 
 /**
  * E72b view-only card for a rent request on the funders board that cannot be
@@ -23,6 +24,8 @@ export function FunderBoardItemCard({
   demoteMode = false,
   demoteChecked = false,
   onDemoteToggle,
+  checking = false,
+  mine = false,
   className,
 }: {
   item: BoardItem;
@@ -32,6 +35,10 @@ export function FunderBoardItemCard({
   demoteMode?: boolean;
   demoteChecked?: boolean;
   onDemoteToggle?: () => void;
+  /** Verified on the board, its fundable plan still loading: no Fund button yet. */
+  checking?: boolean;
+  /** This funder booked it (this session): "Booked — waiting for landlord payment". */
+  mine?: boolean;
   className?: string;
 }) {
   // Agent Care: the partner amount is pay(rent) (= rent while the switch is off).
@@ -44,6 +51,8 @@ export function FunderBoardItemCard({
       data-testid="board-item-card"
       data-card-id={cardId}
       data-tag={item.tag}
+      data-checking={checking ? 'true' : undefined}
+      data-mine={mine ? 'true' : undefined}
       data-highlighted={highlighted ? 'true' : undefined}
       data-demote-checked={canDemote && demoteChecked ? 'true' : undefined}
       className={cn(
@@ -103,18 +112,22 @@ export function FunderBoardItemCard({
           {formatDynamic(item.rentAmount > 0 ? partnerPay(item.rentAmount) : item.rentAmount)}
         </span>
         <p className="text-xs text-muted-foreground" style={{ margin: 0 }} data-testid="board-item-note">
-          {/* A Verified card here is never selectable (the list gives those the fundable card), so it never reads plain "View only". */}
-          {item.tag === 'verified'
-            ? item.selectable
-              ? 'Ready to fund.'
-              : 'Held by a funder for now — view only.'
-            : item.tag === 'booked'
-              ? 'A funder picked this one — view only.'
-              : item.tag === 'funded'
-                ? 'The landlord has been paid — view only.'
-                : item.tag === 'pending_verification'
-                  ? 'Pending verification — view only until verified again.'
-                  : 'View only.'}
+          {/* Fundable cards come only from the fundable plans read, so a Verified card here never reads plain "View only". */}
+          {mine && item.tag === 'booked'
+            ? BOOKED_BY_ME_TEXT
+            : checking
+              ? 'Checking it is still available to fund…'
+              : item.tag === 'verified'
+                ? item.selectable
+                  ? 'Ready to fund.'
+                  : 'Held by a funder for now — view only.'
+                : item.tag === 'booked'
+                  ? 'A funder picked this one — view only.'
+                  : item.tag === 'funded'
+                    ? 'The landlord has been paid — view only.'
+                    : item.tag === 'pending_verification'
+                      ? 'Pending verification — view only until verified again.'
+                      : 'View only.'}
         </p>
       </div>
     </article>

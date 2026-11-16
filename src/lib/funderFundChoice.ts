@@ -61,7 +61,10 @@ export interface OffplatformPaymentInput {
   provider?: 'mtn' | 'airtel' | null;
   reference?: string | null;
   paidAt?: string | null;
+  /** Cash: the landlord's signed receipt. Mobile money: the partner's "money sent" screenshot. */
   receiptPhotoPath?: string | null;
+  /** Mobile money only: the landlord's "money received" screenshot. */
+  landlordPhotoPath?: string | null;
 }
 
 export async function recordOffplatformRentPayment(input: OffplatformPaymentInput): Promise<{ ok: true } | { ok: false; missing: boolean }> {
@@ -75,6 +78,7 @@ export async function recordOffplatformRentPayment(input: OffplatformPaymentInpu
       p_reference: input.reference ?? null,
       p_paid_at: input.paidAt ?? null,
       p_receipt_photo_path: input.receiptPhotoPath ?? null,
+      p_landlord_photo_path: input.landlordPhotoPath ?? null,
     } as never,
   );
   if (error) return { ok: false, missing: isMissingDossierError(error) };
@@ -83,12 +87,20 @@ export async function recordOffplatformRentPayment(input: OffplatformPaymentInpu
   return { ok: true };
 }
 
-export async function uploadCashReceiptPhoto(rentRequestId: string, file: File): Promise<string | null> {
+/**
+ * Uploads a payment photo to the caller's folder of the receipts bucket. `kind` only names the file
+ * ("sent" / "received" screenshots for mobile money); cash receipts keep the original name.
+ */
+export async function uploadCashReceiptPhoto(
+  rentRequestId: string,
+  file: File,
+  kind?: 'sent' | 'received',
+): Promise<string | null> {
   // Only the current session's id is needed: read it locally (no /auth/v1/user call).
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;
   if (!uid) return null;
-  const path = `${uid}/${rentRequestId}-${Date.now()}.jpg`;
+  const path = `${uid}/${rentRequestId}-${kind ? `${kind}-` : ''}${Date.now()}.jpg`;
   const { error } = await supabase.storage.from('funder-offplatform-receipts').upload(path, file, {
     contentType: file.type || 'image/jpeg',
     upsert: false,

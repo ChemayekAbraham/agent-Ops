@@ -6,6 +6,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc } 
 import {
   saveTenantIntake,
   samePhone,
+  tenantIntakeState,
   tenantRequestMissing,
   type TenantItemKey,
   type TenantRequestInput,
@@ -31,7 +32,7 @@ describe('tenantRequestMissing: Submit stays locked until every item is in', () 
     expect(tenantRequestMissing(COMPLETE)).toEqual([]);
   });
 
-  it('an empty form lists every item, each with the step that fixes it', () => {
+  it('an empty form lists every item, each with the intake step (1-8) that fixes it', () => {
     const empty = tenantRequestMissing({
       ...COMPLETE, rentAmount: 0, firstName: '', lastName: '', phone: '', nin: '', hasIdFront: false, hasIdBack: false,
       hasPassportPhoto: false, familySize: '', work: '', address: '', hasVillage: false, hasGps: false, housePhotoCount: 0,
@@ -39,9 +40,10 @@ describe('tenantRequestMissing: Submit stays locked until every item is in', () 
     });
     // An empty NIN is fine (optional); the three photos are not.
     expect(empty.map((m) => [m.key, m.step])).toEqual([
-      ['rent', 2], ['fullName', 3], ['phone', 3], ['idFront', 3], ['idBack', 3], ['passportPhoto', 3], ['familySize', 3], ['work', 3],
+      ['phone', 1], ['fullName', 1], ['rent', 2], ['landlord', 3],
       ['address', 4], ['village', 4], ['gps', 4], ['housePhotos', 4],
-      ['landlord', 5], ['lcLetter', 5], ['declared', 6],
+      ['familySize', 5], ['work', 5], ['passportPhoto', 6], ['idFront', 7], ['idBack', 7],
+      ['lcLetter', 8], ['declared', 8],
     ]);
   });
 
@@ -80,7 +82,7 @@ describe('tenantRequestMissing: Submit stays locked until every item is in', () 
 
   it('landlord phone: must not be the tenant’s, in any format', () => {
     const [item] = tenantRequestMissing({ ...COMPLETE, landlordPhone: '+256 771 234 567' });
-    expect(item).toEqual({ key: 'landlordPhone', step: 5, label: 'Your landlord’s phone must be different from yours' });
+    expect(item).toEqual({ key: 'landlordPhone', step: 3, label: 'Your landlord’s phone must be different from yours' });
     expect(samePhone('0771234567', '+256771234567')).toBe(true);
     expect(samePhone('0771234567', '0772000111')).toBe(false);
   });
@@ -109,6 +111,41 @@ describe('tenantRequestMissing: Submit stays locked until every item is in', () 
 
   it('the declaration box must be ticked', () => {
     expect(keys({ declared: false })).toEqual(['declared']);
+  });
+
+  it('a phone or a typed NIN already on another account blocks its step', () => {
+    expect(tenantRequestMissing({ ...COMPLETE, phoneTaken: true }).map((m) => [m.key, m.step])).toEqual([['phoneTaken', 1]]);
+    expect(tenantRequestMissing({ ...COMPLETE, ninTaken: true }).map((m) => [m.key, m.step])).toEqual([['ninTaken', 7]]);
+    // An empty NIN cannot be taken.
+    expect(keys({ ninTaken: true, nin: '' })).toEqual([]);
+  });
+});
+
+describe('tenantIntakeState: the 8-step header', () => {
+  const done = (state: ReturnType<typeof tenantIntakeState>) =>
+    Object.fromEntries(Object.entries(state).map(([k, items]) => [k, items.map((i) => (i.done ? '✓ ' : '○ ') + i.label)]));
+
+  it('a complete request: every step done; rules that pass are not listed', () => {
+    expect(done(tenantIntakeState(COMPLETE))).toEqual({
+      tenant: ['✓ Your phone number', '✓ Your full name as on your National ID (first and last name)'],
+      rent_plan: ['✓ Rent amount and how long you will take to pay it back'],
+      landlord: ['✓ Your landlord’s name and phone'],
+      house: ['✓ Your house address', '✓ Your official village', '✓ GPS pin taken at the house', '✓ At least 3 photos of the house'],
+      household: ['✓ How many people live in your household', '✓ Your work or business'],
+      tenant_photo: ['✓ A clear photo of you'],
+      id: ['✓ A photo of the front of your National ID', '✓ A photo of the back of your National ID'],
+      lc1_post: ['✓ A photo of the LC1 letter', '✓ Tick the box to confirm your details'],
+    });
+  });
+
+  it('a failing rule shows on its step, unticked, next to the items', () => {
+    const state = tenantIntakeState({ ...COMPLETE, landlordPhone: '0771234567', nin: 'CM12', hasIdBack: false });
+    expect(done(state).landlord).toEqual(['✓ Your landlord’s name and phone', '○ Your landlord’s phone must be different from yours']);
+    expect(done(state).id).toEqual([
+      '○ Your National ID number must be 10 to 14 letters and numbers (or leave it empty)',
+      '✓ A photo of the front of your National ID',
+      '○ A photo of the back of your National ID',
+    ]);
   });
 });
 

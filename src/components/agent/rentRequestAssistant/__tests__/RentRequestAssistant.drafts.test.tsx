@@ -3,7 +3,7 @@
  * Continue at the first missing item, and the post closing the draft.
  */
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mocks = vi.hoisted(() => ({
@@ -79,6 +79,12 @@ vi.mock('@/lib/t4RentRequestSubmit', async (orig) => ({
     lcLetter: { bucket: 'lc-letters', path: 'agent-1/new/l.jpg' },
   })),
 }));
+// The pin map (Leaflet) is replaced by one button that drops a pin.
+vi.mock('@/components/intake/PinDropMap', () => ({
+  default: ({ onPick }: { onPick: (lat: number, lng: number) => void }) => (
+    <div data-testid="pin-drop-map"><button type="button" onClick={() => onPick(0.31, 32.58)}>Use this pin</button></div>
+  ),
+}));
 vi.mock('@/lib/t4RentRequest', async (orig) => ({ ...(await orig<typeof import('@/lib/t4RentRequest')>()), openT4RentRequest: mocks.open }));
 
 import RentRequestAssistant from '@/components/agent/rentRequestAssistant/RentRequestAssistant';
@@ -127,6 +133,7 @@ const logs = (event: string) => mocks.rpc.mock.calls
 describe('E109: save and finish later', () => {
   it('a blocked Next offers it; saving sends the payload and missing codes, says when we remind, and logs close', async () => {
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    await passStep1();
     fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
     answer('about three hundred'); // the rent question refuses it: a blocked Next
     const save = await screen.findByRole('button', { name: 'Save and finish later' });
@@ -136,7 +143,7 @@ describe('E109: save and finish later', () => {
     const call = mocks.rpc.mock.calls.find(([fn]) => fn === 'posting_draft_save');
     const args = call![1] as { p_payload: PostingDraftPayload; p_missing: string[]; p_draft_id: string | null; p_session: string };
     expect(args.p_draft_id).toBeNull();
-    expect(args.p_missing).toEqual(expect.arrayContaining(['rent', 'house_photos', 'landlord', 'gps', 'id_front', 'id_back', 'lc1_letter', 'tenant_photo', 'phone']));
+    expect(args.p_missing).toEqual(expect.arrayContaining(['rent', 'house_photos', 'landlord', 'gps', 'id_front', 'id_back', 'lc1_letter', 'tenant_photo']));
     expect(args.p_payload.fields.planType).toBe('weekly');
     // Never saved: the face-check result and guarantor consent.
     expect(args.p_payload.fields).not.toHaveProperty('faceCheck');
@@ -154,6 +161,7 @@ describe('E109: save and finish later', () => {
   it('is hidden while the draft RPCs are not on the database', async () => {
     mocks.drafts = { data: null, error: PGRST202 };
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    await passStep1();
     fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('posting_drafts_mine', {}));
     answer('about three hundred');
@@ -182,7 +190,7 @@ describe('E109: save and finish later', () => {
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={request} />);
     await finishAndPost();
     const sent = mocks.submit.mock.calls[0][0] as { familySize: number; housePhotos: File[]; tenantName: string; faceCheckSha256: string | null };
-    // The passport photo was checked again on Continue; the stored result ('abc') was not used.
+    // The face photo was checked again on Continue; the stored result ('abc') was not used.
     expect(mocks.faceCheck).toHaveBeenCalledWith(expect.any(File), { source: 'agent_rent_request' });
     expect(sent.faceCheckSha256).toBe('fresh');
     expect(sent.familySize).toBe(4);
@@ -191,6 +199,16 @@ describe('E109: save and finish later', () => {
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('posting_draft_close', { p_draft_id: 'd1', p_status: 'posted', p_rent_request_id: 'req-1' }));
   });
 });
+
+/** Step 1: the phone, the names, the language and the smartphone answer. */
+async function passStep1() {
+  answer('0783 123 456'); // the first screen is the tenant's phone number
+  fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'John' } });
+  fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Mukasa' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'English' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Yes, a smartphone/ }));
+}
 
 /** A saved request with everything but the family size. */
 function fullPayload(): PostingDraftPayload {
@@ -228,19 +246,15 @@ async function finishAndPost() {
     await waitFor(() => expect(mocks.submit).toHaveBeenCalled());
 }
 
-describe('Saved drafts: the passport face check runs again on Continue', () => {
-  it('a draft whose stored check says "passed" but whose photo fails now is caught: it opens at the passport photo', async () => {
+describe('E124: the tenant’s photo never blocks', () => {
+  it('a photo the face check finds no face in still posts; the check runs in the background and is recorded', async () => {
     mocks.faceCheck.mockResolvedValue({ status: 'no_face', verdict: 'fail', isFace: false, isPassportPhoto: false, sha256: 'bad' });
-    // The saved payload claims a passed check (older drafts carried one).
-    const payload = fullPayload();
-    expect(payload.fields.faceCheck).toMatchObject({ status: 'ok', verdict: 'pass' });
-    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd2', payload } }} />);
-    expect((await screen.findAllByText(/Now a passport photo of John/, {}, { timeout: 3000 })).length).toBeGreaterThan(0);
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd2', payload: fullPayload() } }} />);
+    // It opens on the first incomplete step (Household), not on the photo.
+    await finishAndPost();
     expect(mocks.faceCheck).toHaveBeenCalledWith(expect.any(File), { source: 'agent_rent_request' });
-    // The photo comes first (ahead of the missing family size), with the reason, and nothing is posted.
-    expect(await screen.findByText('No face found. Tap the photo to retake it.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
-    expect(mocks.submit).not.toHaveBeenCalled();
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('face_check_record', { p_request_id: 'req-1', p_status: 'no_face' }));
+    expect(mocks.submit).toHaveBeenCalled();
   });
 });
 
@@ -274,3 +288,126 @@ describe('E111: agents always post', () => {
   });
 });
 
+describe('Agent chat fixes (16 Nov): first screen, face check timeout, photo refusal', () => {
+  it('the first screen is the tenant’s phone number, the greeting a small line above it; "start" is logged only after the first answer', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    expect(await screen.findAllByText('What’s the tenant’s phone number? 📱')).not.toHaveLength(0);
+    expect(screen.getByLabelText('Your answer')).toBeInTheDocument();
+    expect(screen.getByTestId('greeting')).toHaveTextContent(/Good (morning|afternoon|evening), Agent/);
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    // No greeting step and no extra Continue before the first question.
+    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Weekly earner/ })).toBeNull();
+    await waitFor(() => expect(logs('open').length).toBeGreaterThan(0));
+    expect(logs('step')).toHaveLength(0);
+    answer('0783 123 456');
+    expect(await screen.findByLabelText('First name')).toBeInTheDocument();
+    await waitFor(() => expect(logs('step').map((r) => r.p_step)).toEqual(['start', 'tenant']));
+  });
+
+  it('face check timeout: after 15 s the agent can continue, the post sends face_check skipped_timeout, and the funnel logs it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      // The checker never answers (a slow network).
+      mocks.faceCheck.mockImplementation(() => new Promise(() => {}));
+      render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd3', payload: fullPayload() } }} />);
+      await waitFor(() => expect(mocks.faceCheck).toHaveBeenCalled());
+      await vi.advanceTimersByTimeAsync(15_000);
+      // Not stuck on the photo: the chat moves on to what is really missing.
+      expect((await screen.findAllByText(/How many people live in John’s household/, {}, { timeout: 3000 })).length).toBeGreaterThan(0);
+      answer('4');
+      // The face photo step says why it was not checked, and Continue goes on.
+      fireEvent.click(await screen.findByRole('button', { name: 'Change answer: Face photo taken' }));
+      expect(await screen.findByTestId('face-check-status')).toHaveTextContent(
+        'Couldn’t check the face — slow network. You can continue; the office will check it.',
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+      fireEvent.click(await screen.findByLabelText('Guarantor consent'));
+      const post = await screen.findByRole('button', { name: /Post rent request/ });
+      await waitFor(() => expect(post).toBeEnabled());
+      fireEvent.click(post);
+      await waitFor(() => expect(mocks.submit).toHaveBeenCalled());
+      expect(mocks.submit.mock.calls[0][0]).toMatchObject({ faceCheck: 'skipped_timeout', faceCheckSha256: null });
+      await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('face_check_record', { p_request_id: 'req-1', p_status: 'skipped_timeout' }));
+      expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['tenant_photo'], p_error: 'face_check_timeout' }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a server refusal about the face photo is said in plain words and reopens the face photo step', async () => {
+    mocks.submit.mockResolvedValueOnce({ ok: false, reason: 'other', message: 'enforce_rent_request_tenant_photo: tenant_photo_url is required' });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd4', payload: fullPayload() } }} />);
+    await finishAndPost();
+    expect(await screen.findByText('The tenant’s face photo is missing. Take it now: head and shoulders, face clear.')).toBeInTheDocument();
+    expect(screen.getByTestId('face-check-status')).toBeInTheDocument();
+    expect(screen.queryByText(/enforce_rent_request_tenant_photo/)).toBeNull();
+  });
+});
+
+describe('GPS on step 4 just works: the first reading, else a pin; never settings', () => {
+  let onPos: PositionCallback = () => {};
+  let onErr: PositionErrorCallback = () => {};
+  const watchPosition = vi.fn((s: PositionCallback, e: PositionErrorCallback) => { onPos = s; onErr = e; return 3; });
+  const reading = (accuracy: number) => act(() => { onPos({ coords: { latitude: 0.33, longitude: 32.6, accuracy } } as GeolocationPosition); });
+  const noSettingsText = () => expect(document.body.textContent ?? '').not.toMatch(/settings|Location Services|Site settings|Precise/i);
+  beforeEach(() => {
+    watchPosition.mockClear();
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { watchPosition, clearWatch: vi.fn(), getCurrentPosition: vi.fn((_s: PositionCallback, e: PositionErrorCallback) => e({ code: 1 } as GeolocationPositionError)) },
+    });
+  });
+  /** A saved request with everything up to the house but no GPS: it reopens on the GPS question. */
+  const openAtGps = () => {
+    const payload = fullPayload();
+    payload.fields.gps = null;
+    payload.fields.location = { district: 'Wakiso', subcounty: 'Kira', village: 'Kireka B', villageId: 'v1' };
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'g1', payload } }} />);
+  };
+  const capture = async () => fireEvent.click(await screen.findByRole('button', { name: 'Capture location' }, { timeout: 3000 }));
+
+  it('the first GPS reading is accepted at once, with the in-app line first; the agent continues while it improves', async () => {
+    openAtGps();
+    await capture();
+    expect(screen.getByTestId('gps-asking')).toHaveTextContent('Welile needs your location to confirm the house.');
+    expect(watchPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), expect.objectContaining({ enableHighAccuracy: true, maximumAge: 60000 }));
+    reading(60);
+    expect(await screen.findByTestId('gps-found')).toHaveTextContent('Location found (±60 m) ✓');
+    expect(screen.getByTestId('gps-found')).toHaveTextContent('improving');
+    await waitFor(() => expect(logs('item_done')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_meta: expect.objectContaining({ accuracy_m: 60 }) })));
+    // No waiting for a better reading: Continue goes on at once.
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByTestId('send-button')).toHaveTextContent('1 left: Household');
+    noSettingsText();
+  });
+
+  it('permission denied offers the map pin; the pin becomes the GPS; no settings text anywhere', async () => {
+    openAtGps();
+    await capture();
+    act(() => { onErr({ code: 1, message: 'denied' } as GeolocationPositionError); });
+    expect(await screen.findByTestId('gps-pin-offer')).toHaveTextContent('Drop a pin on the house');
+    await waitFor(() => expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_permission_denied' })));
+    noSettingsText();
+    fireEvent.click(await screen.findByRole('button', { name: 'Use this pin' }));
+    expect(await screen.findByTestId('gps-found')).toHaveTextContent('Pin dropped on the house (accuracy unknown) ✓');
+    await waitFor(() => expect(logs('item_done')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_pin_used', p_meta: expect.objectContaining({ gps_source: 'pin' }) })));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByTestId('send-button')).toHaveTextContent('1 left: Household');
+    noSettingsText();
+  });
+
+  it('no reading in 15 s (timeout) offers the map pin too, with the reason logged and no settings text', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      openAtGps();
+      await capture();
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+      expect(await screen.findByTestId('gps-pin-offer')).toBeInTheDocument();
+      await waitFor(() => expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_timeout' })));
+      noSettingsText();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

@@ -3,6 +3,8 @@
  * Center manager can follow a tenant from their own verification all the way
  * to funded and repaying. Order mirrors the rent_requests status constraint.
  */
+import { agentRequestStatusLabel } from '@/lib/agentRequestStatus';
+
 export const RENT_PIPELINE_STAGES = [
   { key: 'pending', label: 'Submitted' },
   { key: 'service_center_review', label: 'Service Center check' },
@@ -49,11 +51,10 @@ export function pipelineStageIndex(status: string): number {
   return RENT_PIPELINE_STAGES.findIndex((s) => s.key === key);
 }
 
+/** Where the request is now, in the agent app's words (agentRequestStatus). */
 export function pipelineStageLabel(status: string): string {
-  if (RENT_PIPELINE_TERMINAL[status]) return RENT_PIPELINE_TERMINAL[status];
-  const key = pipelineStageKey(status);
-  const stage = RENT_PIPELINE_STAGES.find((s) => s.key === key);
-  return stage?.label ?? status.replace(/_/g, ' ');
+  if (RENT_PIPELINE_TERMINAL[status] && status !== 'rejected' && status !== 'cancelled') return RENT_PIPELINE_TERMINAL[status];
+  return agentRequestStatusLabel(status);
 }
 
 /** Every status the follow-up filter offers, in pipeline order then terminals. */

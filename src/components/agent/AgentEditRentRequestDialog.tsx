@@ -19,7 +19,6 @@ import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { optimizeImage } from '@/lib/imageOptimizer';
 import { useAuth } from '@/hooks/useAuth';
 import type { AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
-import { RESUBMIT_CAP, resubmitAttemptsLeft } from '@/lib/rentRequestReopen';
 import { withoutRejectedLandlordNumber } from '@/lib/rejectedLandlordNumber';
 
 const HOUSE_CATEGORIES = [
@@ -599,11 +598,6 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
       } else if (code === '42883' || /function .* does not exist/.test(blob)) {
         title = 'Resubmit blocked — backend function missing';
         description = 'The agent_resubmit_rent_request function is not deployed. Contact support to redeploy it.';
-      } else if (/reopen limit reached/i.test(raw)) {
-        title = 'Reopen limit reached';
-        const m = raw.match(/Reopen limit reached \((\d+)\)/i);
-        const cap = m ? m[1] : '5';
-        description = `You have already resubmitted this request ${cap} times. A manager must reopen it from the Rejected Requests queue.`;
       } else if (/only the agent who created/i.test(raw)) {
         title = 'Not your request';
         description = 'Only the agent who created this request can resubmit it.';
@@ -675,24 +669,7 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
           </div>
         )}
 
-        {/* Attempts left, shown before submitting — mirrors the server rule. */}
-        {(() => {
-          const left = resubmitAttemptsLeft(request.reopen_count, request.rejected_reason);
-          if (left === null) {
-            return (
-              <p className="text-xs text-muted-foreground">
-                This was returned as out of date, so it does not use up your resubmission attempts.
-              </p>
-            );
-          }
-          return (
-            <p className={`text-xs ${left === 0 ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
-              {left === 0
-                ? `No resubmission attempts left (${RESUBMIT_CAP} of ${RESUBMIT_CAP} used). A manager must reopen this request for you.`
-                : `${left} of ${RESUBMIT_CAP} resubmission attempts left.`}
-            </p>
-          );
-        })()}
+        {/* E118: there is no resubmit limit; only missing items stop a resubmit. */}
 
         <div className="space-y-3">
           <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">

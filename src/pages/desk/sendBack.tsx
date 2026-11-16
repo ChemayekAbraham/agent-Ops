@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCooReasonCodes } from '@/components/coo/CooReasonPicker';
-import { CALM, FOCUS, LABEL, statusGlass, statusText } from './deskTheme';
+import { FOCUS, LABEL, statusText } from './deskTheme';
 import { rpc, useReasonCodes } from './reviewApi';
 import { DecisionButton, ErrorLine, LoadingRows, Sheet } from './ui';
 import { Skeleton } from './Skeleton';
 import type { Stage } from './reviewTypes';
 import { toast } from 'sonner';
 import { sendBackTo, serverMessage, type SendBackStart } from './sendBackApi';
+import { ChoiceRow, FixItemsPicker, itemsBlocked, itemsNote, type FixItem } from './sendBackItems';
+import { allowedReasons } from './deskReasons';
 
 export { SEND_BACK_STAGES, SUGGESTED_OFFICE, isSendBackRow, sendBackTo, type SendBackResult, type SendBackStart } from './sendBackApi';
 
@@ -99,21 +101,20 @@ function useSendBackReasons(stage: Stage): { data: SendBackReason[]; loading: bo
   const coo = stage === 'coo';
   const cooCodes = useCooReasonCodes(coo);
   const catalogue = useReasonCodes();
+  // Only the desk's own reasons, with their short labels (deskReasons.ts), from what the server holds active.
   const data = useMemo(
     () =>
-      coo
-        ? (cooCodes.data ?? []).map((r) => ({ code: r.code, meaning: r.meaning ?? null, requires_text: r.requires_text === true }))
-        : deskReasons(catalogue.data ?? [], stage),
+      allowedReasons(
+        coo
+          ? (cooCodes.data ?? []).map((r) => ({ code: r.code, meaning: r.meaning ?? null, requires_text: r.requires_text === true }))
+          : (catalogue.data ?? []).map((r) => ({ code: r.code, meaning: r.meaning ?? null, requires_text: r.requires_text === true })),
+        stage,
+      ),
     [coo, cooCodes.data, catalogue.data, stage],
   );
   const q = coo ? cooCodes : catalogue;
   return { data, loading: q.isLoading, error: q.error };
 }
-
-const pick = (on: boolean) =>
-  on
-    ? statusGlass.ok
-    : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground';
 
 
 export function SendBackForm({
@@ -138,17 +139,22 @@ export function SendBackForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  // What the agent must fix: required, and named at the start of the note.
+  const [items, setItems] = useState<FixItem[]>([]);
 
-  const office = (options.data ?? []).find((o) => o.code === to) ?? null;
+  // The destination on screen is the one that counts: the one picked, or the only one there is.
+  const codes = (options.data ?? []).map((o) => o.code);
+  const chosen = codes.includes(to) ? to : codes.length === 1 ? codes[0] : '';
+  const office = (options.data ?? []).find((o) => o.code === chosen) ?? null;
   const reason = reasons.data.find((r) => r.code === reasonCode) ?? null;
-  const blocked = sendBackBlocked({ to, reason, note });
+  const blocked = sendBackBlocked({ to: chosen, reason, note }) ?? itemsBlocked(items, note);
   const needsNote = noteNeeded(reason);
 
   const send = async () => {
     if (blocked || busy) return;
     setBusy(true);
     setError(null);
-    const out = await sendBackTo({ requestId, stage, to, reasonCode, note });
+    const out = await sendBackTo({ requestId, stage, to: chosen, reasonCode, note: itemsNote(items, note) });
     setBusy(false);
     if (!out.ok) {
       setError(out.message);
@@ -172,26 +178,17 @@ export function SendBackForm({
         ) : options.error ? (
           <ErrorLine>The offices could not load: {serverMessage(options.error)}</ErrorLine>
         ) : (
-          (options.data ?? []).map((o) => {
-            const on = to === o.code;
-            return (
-              <button
-                key={o.code}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                onClick={() => setTo(o.code)}
-                data-office={o.code}
-                className={`rounded-xl border px-3 py-2 text-left ${CALM} ${FOCUS} ${pick(on)}`}
-                style={{ display: 'flex', flexDirection: 'column', gap: 2, borderWidth: 1, borderStyle: 'solid' }}
-              >
-                <span className="text-sm font-medium text-foreground">{officeLabel(o)}</span>
-                {o.hint && <span className={LABEL}>{o.hint}</span>}
-              </button>
-            );
-          })
+          (options.data ?? []).map((o) => (
+            // A chosen office shows it: the border and a tick (the only office is chosen already).
+            <ChoiceRow key={o.code} role="radio" on={chosen === o.code} onClick={() => setTo(o.code)} data-office={o.code}>
+              <span className="block font-medium text-foreground">{officeLabel(o)}</span>
+              {o.hint && <span className={`${LABEL} block`}>{o.hint}</span>}
+            </ChoiceRow>
+          ))
         )}
       </fieldset>
+
+      <FixItemsPicker value={items} onChange={setItems} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <span className={LABEL}>Reason</span>
@@ -204,25 +201,12 @@ export function SendBackForm({
         ) : reasons.error ? (
           <ErrorLine>The reasons could not load: {serverMessage(reasons.error)}</ErrorLine>
         ) : (
-          <div role="radiogroup" aria-label="Reason" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {reasons.data.map((r) => {
-              const on = reasonCode === r.code;
-              return (
-                <button
-                  key={r.code}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  title={r.code}
-                  onClick={() => setReasonCode(r.code)}
-                  data-reason={r.code}
-                  className={`desk-pill border text-xs ${CALM} ${FOCUS} ${pick(on)}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderWidth: 1, borderStyle: 'solid', borderRadius: 999, textAlign: 'left' }}
-                >
-                  {r.meaning ?? r.code}
-                </button>
-              );
-            })}
+          <div role="radiogroup" aria-label="Reason" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {reasons.data.map((r) => (
+              <ChoiceRow key={r.code} role="radio" on={reasonCode === r.code} onClick={() => setReasonCode(r.code)} data-reason={r.code}>
+                {r.meaning ?? r.code}
+              </ChoiceRow>
+            ))}
           </div>
         )}
       </div>
@@ -238,7 +222,7 @@ export function SendBackForm({
         />
       </label>
 
-      {blocked && (to || reasonCode) && !done && <p className={`text-sm ${statusText.warn}`} style={{ margin: 0 }}>{blocked}</p>}
+      {blocked && (chosen || reasonCode || items.length > 0) && !done && <p className={`text-sm ${statusText.warn}`} style={{ margin: 0 }} data-send-back-blocked>{blocked}</p>}
       {error && <ErrorLine>{error}</ErrorLine>}
       {done && (
         <p className={`text-sm ${statusText.ok}`} role="status" style={{ margin: 0 }}>
@@ -248,7 +232,7 @@ export function SendBackForm({
 
       {!done && (
         <div>
-          <DecisionButton size="md" variant="primary" disabled={!!blocked || busy} onClick={send}>
+          <DecisionButton size="md" variant="primary" disabled={!!blocked || busy} onClick={send} style={{ minHeight: 44, whiteSpace: 'normal' }}>
             {busy ? 'Sending back…' : `Send back to ${office ? officeLabel(office) : '…'}`}
           </DecisionButton>
         </div>

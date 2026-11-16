@@ -10,9 +10,14 @@
  *
  * DOCS-1: photos of the National ID front and back and of the LC1 letter are
  * required. A typed NIN and the LC1 chairperson's contact are optional extras.
+ *
+ * The form follows the 8-step rent-request intake (intakeSteps.ts): each item
+ * carries the step (1-8) that fixes it, and tenantIntakeState() turns the items
+ * into the header's per-step "What's needed" lists.
  */
 import { supabase } from '@/integrations/supabase/client';
 import { validateUgandaPhone } from '@/lib/ugandaPhone';
+import { INTAKE_STEPS, type IntakeItem, type IntakeState } from '@/lib/intakeSteps';
 
 export const MIN_HOUSE_PHOTOS = 3;
 export const MAX_HOUSE_PHOTOS = 4;
@@ -33,35 +38,51 @@ export function samePhone(a: string, b: string): boolean {
 }
 
 export type TenantItemKey =
-  | 'rent' | 'fullName' | 'phone' | 'nationalId' | 'idFront' | 'idBack' | 'passportPhoto' | 'familySize' | 'work'
+  | 'phone' | 'phoneTaken' | 'fullName'
+  | 'rent'
+  | 'landlord' | 'landlordPhone'
   | 'address' | 'village' | 'gps' | 'housePhotos'
-  | 'landlord' | 'landlordPhone' | 'lcLetter' | 'declared';
+  | 'familySize' | 'work'
+  | 'passportPhoto'
+  | 'nationalId' | 'ninTaken' | 'idFront' | 'idBack'
+  | 'lcLetter' | 'declared';
 
-/** Which step of the form fixes each item. */
+/**
+ * Which of the 8 intake steps fixes each item (1 Tenant, 2 Rent plan, 3 Landlord, 4 House,
+ * 5 Household, 6 Tenant's photo, 7 ID, 8 LC1 letter + Post), in the order the form asks.
+ */
 export const TENANT_ITEM_STEP: Record<TenantItemKey, number> = {
+  phone: 1, phoneTaken: 1, fullName: 1,
   rent: 2,
-  fullName: 3, phone: 3, nationalId: 3, idFront: 3, idBack: 3, passportPhoto: 3, familySize: 3, work: 3,
+  landlord: 3, landlordPhone: 3,
   address: 4, village: 4, gps: 4, housePhotos: 4,
-  landlord: 5, landlordPhone: 5, lcLetter: 5,
-  declared: 6,
+  familySize: 5, work: 5,
+  passportPhoto: 6,
+  nationalId: 7, ninTaken: 7, idFront: 7, idBack: 7,
+  lcLetter: 8, declared: 8,
 };
 
+/** Rules rather than things to bring: listed only while they fail, never as a ticked line. */
+const CONDITIONAL_ITEMS: ReadonlySet<TenantItemKey> = new Set<TenantItemKey>(['phoneTaken', 'landlordPhone', 'nationalId', 'ninTaken']);
+
 export const TENANT_ITEM_LABELS: Record<TenantItemKey, string> = {
-  rent: 'Rent amount and how long you will take to pay it back',
-  fullName: 'Your full name (first and last name)',
   phone: 'Your phone number',
-  nationalId: 'Your National ID number must be 10 to 14 letters and numbers (or leave it empty)',
-  idFront: 'A photo of the front of your National ID',
-  idBack: 'A photo of the back of your National ID',
-  passportPhoto: 'Your passport photo',
-  familySize: 'How many people live in your household',
-  work: 'Your work or business',
+  phoneTaken: 'This phone number already has a Welile account. Sign in with it',
+  fullName: 'Your full name as on your National ID (first and last name)',
+  rent: 'Rent amount and how long you will take to pay it back',
+  landlord: 'Your landlord’s name and phone',
+  landlordPhone: 'Your landlord’s phone must be different from yours',
   address: 'Your house address',
   village: 'Your official village',
   gps: 'GPS pin taken at the house',
   housePhotos: 'At least 3 photos of the house',
-  landlord: 'Your landlord’s name and phone',
-  landlordPhone: 'Your landlord’s phone must be different from yours',
+  familySize: 'How many people live in your household',
+  work: 'Your work or business',
+  passportPhoto: 'A clear photo of you',
+  nationalId: 'Your National ID number must be 10 to 14 letters and numbers (or leave it empty)',
+  ninTaken: 'This National ID is already registered to another account',
+  idFront: 'A photo of the front of your National ID',
+  idBack: 'A photo of the back of your National ID',
   lcLetter: 'A photo of the LC1 letter',
   declared: 'Tick the box to confirm your details',
 };
@@ -90,7 +111,13 @@ export interface TenantRequestInput {
   landlordPhone: string;
   hasLcLetter: boolean;
   declared: boolean;
+  /** The phone is already on another Welile account (identity check). */
+  phoneTaken?: boolean;
+  /** The typed NIN is already on another account (identity check). */
+  ninTaken?: boolean;
 }
+
+export interface TenantItem { key: TenantItemKey; label: string; step: number }
 
 export const ninValid = (nin: string) => {
   const c = cleanNin(nin);
@@ -104,9 +131,8 @@ export function parseFamilySize(text: string): number | null {
   return n >= FAMILY_SIZE_MIN && n <= FAMILY_SIZE_MAX ? n : null;
 }
 
-/** Each item that is not in yet, in the order the form asks for them. */
-export function tenantRequestMissing(i: TenantRequestInput): { key: TenantItemKey; label: string; step: number }[] {
-  const ok: Record<TenantItemKey, boolean> = {
+function itemsOk(i: TenantRequestInput): Record<TenantItemKey, boolean> {
+  return {
     rent: i.rentAmount >= i.minRent && i.rentAmount <= i.maxRent && i.durationOk,
     // Two names, each at least two letters (the edge function also needs two names).
     fullName: i.firstName.trim().length >= 2 && i.lastName.trim().length >= 2,
@@ -127,10 +153,32 @@ export function tenantRequestMissing(i: TenantRequestInput): { key: TenantItemKe
     // DOCS-1: only the letter counts; the chairperson's contact is optional.
     lcLetter: i.hasLcLetter,
     declared: i.declared,
+    phoneTaken: !i.phoneTaken,
+    ninTaken: !(i.ninTaken && cleanNin(i.nin)),
   };
+}
+
+/** Each item that is not in yet, in the order the form asks for them. */
+export function tenantRequestMissing(i: TenantRequestInput): TenantItem[] {
+  const ok = itemsOk(i);
   return (Object.keys(TENANT_ITEM_STEP) as TenantItemKey[])
     .filter((k) => !ok[k])
     .map((k) => ({ key: k, label: TENANT_ITEM_LABELS[k], step: TENANT_ITEM_STEP[k] }));
+}
+
+/**
+ * The intake header's state: each step's "What's needed" lines, ticked as they are done. A
+ * rule (landlord's phone not yours, a typed NIN valid, phone or NIN not on another account)
+ * shows only while it fails, so every step is done exactly when tenantRequestMissing() is empty.
+ */
+export function tenantIntakeState(i: TenantRequestInput): IntakeState {
+  const ok = itemsOk(i);
+  const state = Object.fromEntries(INTAKE_STEPS.map((s) => [s.key, [] as IntakeItem[]])) as IntakeState;
+  for (const k of Object.keys(TENANT_ITEM_STEP) as TenantItemKey[]) {
+    if (CONDITIONAL_ITEMS.has(k) && ok[k]) continue;
+    state[INTAKE_STEPS[TENANT_ITEM_STEP[k] - 1].key].push({ label: TENANT_ITEM_LABELS[k], done: ok[k] });
+  }
+  return state;
 }
 
 type UntypedRpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;

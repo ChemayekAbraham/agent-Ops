@@ -15,26 +15,32 @@
  * the normal pipeline, where it routes to Agent Ops. The form then saves the
  * intake with `tenant_save_intake_details`.
  *
- * Submit stays locked until tenantRequestMissing() (src/lib/tenantSelfRequest.ts)
- * is empty: full name, NIN or ID photo, 3+ house photos, GPS at the house,
- * landlord name + phone (not the tenant's), rent + period, family size,
- * work/business, and the LC1 letter or the LC1 chairperson's name + phone.
+ * The form is the 8-step rent-request intake shared with the agent chat
+ * (src/lib/intakeSteps.ts, IntakeStepHeader): 1 Tenant, 2 Rent plan,
+ * 3 Landlord, 4 House, 5 Household, 6 Tenant's photo, 7 ID, 8 LC1 letter + Post.
+ * Submit lives on step 8 and shows only once tenantRequestMissing()
+ * (src/lib/tenantSelfRequest.ts) is empty; until then it is replaced by an
+ * "N left: …" button that opens the first incomplete step.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, ArrowRight, Camera, Check, CircleDollarSign, Home, Loader2, MapPin,
-  ShieldCheck, User, Wallet, CalendarDays, Info, Building2, CheckCircle2, AlertTriangle,
-  ChevronDown, HelpCircle, Mail, Phone, Clock, X, UserPlus, ShieldQuestion, Pencil,
+  ArrowLeft, ArrowRight, Camera, Check, Loader2, MapPin,
+  Wallet, CalendarDays, Info, Building2, CheckCircle2, AlertTriangle,
+  ChevronDown, HelpCircle, Mail, Phone, Clock, X, UserPlus, ShieldQuestion,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import welileLogo from '@/assets/welile-logo.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useCaptureLocation } from '@/hooks/useCaptureLocation';
+import { useGpsCapture } from '@/hooks/useGpsCapture';
+import { GpsCapturePanel } from '@/components/intake/GpsCapturePanel';
+import type { GpsFailCode } from '@/lib/gpsCapture';
 import { optimizeImage } from '@/lib/imageOptimizer';
+import { clearFormPhotos, loadFormPhotos, previewOf, saveFormPhotos } from '@/lib/formPhotoDraft';
+import SelfieCameraCapture from '@/components/wallet/SelfieCameraCapture';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { validateUgandaPhone } from '@/lib/ugandaPhone';
 import { cn } from '@/lib/utils';
@@ -44,9 +50,13 @@ import {
   parseFamilySize,
   saveTenantIntake,
   samePhone,
+  tenantIntakeState,
   tenantRequestMissing,
   type TenantItemKey,
+  type TenantRequestInput,
 } from '@/lib/tenantSelfRequest';
+import { INTAKE_STEPS, INTAKE_TOTAL, firstIncompleteStep, intakeLeftLabel, intakeStep, type IntakeStepKey } from '@/lib/intakeSteps';
+import { IntakeStepHeader } from '@/components/intake/IntakeStepHeader';
 import { createSendTimer } from '@/lib/sendProgress';
 import { isLandlordReferralCode, landlordCodeFromSearch, normalizeLandlordCode, recordLandlordReferral } from '@/lib/landlordReferral';
 import { createFormFunnel, funnelErrorCode, type FunnelItem, type FunnelStep } from '@/lib/formFunnel';
@@ -63,7 +73,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PhoneInput } from '@/components/ui/phone-input';
@@ -75,17 +84,7 @@ import { Lc1ChairpersonPicker, type Lc1Selection } from '@/components/agent/Lc1C
 
 type EarnerType = 'daily' | 'weekly';
 
-const STEPS = [
-  { n: 1, name: 'Income type', sub: 'Earning schedule', icon: Wallet },
-  { n: 2, name: 'Your rent', sub: 'Amount & period', icon: CircleDollarSign },
-  { n: 3, name: 'About you', sub: 'Identity & photo', icon: User },
-  { n: 4, name: 'Your home', sub: 'Address & photos', icon: Home },
-  { n: 5, name: 'Verification', sub: 'Landlord & LC1', icon: ShieldCheck },
-  { n: 6, name: 'Review', sub: 'Confirm & submit', icon: Check },
-] as const;
-
-/** Shared by the step 1 chooser and the step 2 context banner, so the label the
- *  tenant picked is the label they keep seeing. */
+/** The earner choice on the Rent plan step; the label the tenant picked is the one they keep seeing. */
 const EARNERS = [
   {
     key: 'daily' as EarnerType,
@@ -103,17 +102,20 @@ const EARNERS = [
   },
 ] as const;
 
-/** E108 funnel: the stable name of each step of this form. */
-const TENANT_FUNNEL_STEP: Record<number, FunnelStep> = {
-  1: 'start', 2: 'repayment', 3: 'tenant', 4: 'house_landlord', 5: 'lc1', 6: 'review',
-};
+/** The 8 intake steps, numbered 1-8 on this page (step n is INTAKE_STEPS[n - 1]). */
+const LAST_STEP = INTAKE_TOTAL;
+const stepKeyOf = (n: number): IntakeStepKey => INTAKE_STEPS[Math.min(LAST_STEP, Math.max(1, n)) - 1].key;
+/** E108 funnel: the step name is the intake step key (tenant, rent_plan, … lc1_post). */
+const funnelStepOf = (n: number): FunnelStep => stepKeyOf(n);
 /** E108 funnel: the item code for each thing the request needs (anything else is 'other'). */
 const TENANT_FUNNEL_ITEM: Partial<Record<TenantItemKey, FunnelItem>> = {
   rent: 'rent', phone: 'phone', idFront: 'id_front', idBack: 'id_back', passportPhoto: 'tenant_photo',
   familySize: 'family_size', work: 'work', gps: 'gps', housePhotos: 'house_photos',
   landlord: 'landlord', landlordPhone: 'landlord', lcLetter: 'lc1_letter', declared: 'agreement',
+  phoneTaken: 'duplicate', ninTaken: 'duplicate',
 };
-const TENANT_ALL_ITEMS = Object.keys(TENANT_FUNNEL_ITEM) as TenantItemKey[];
+/** The things the tenant brings (rules such as "not your own phone" are left out): each logs item_done once. */
+const TENANT_DONE_ITEMS: TenantItemKey[] = ['rent', 'phone', 'idFront', 'idBack', 'passportPhoto', 'familySize', 'work', 'gps', 'housePhotos', 'landlord', 'lcLetter', 'declared'];
 
 /**
  * What the submit button says while it works, from the real step: the photos travel with
@@ -199,7 +201,11 @@ export default function TenantsOnboarding() {
     try { sessionStorage.setItem('welile_post_auth_redirect', returnTo); } catch { /* ignore */ }
   }, [authLoading, user, returnTo]);
 
+  /** The intake step on screen, 1-8 (INTAKE_STEPS[step - 1]). */
   const [step, setStep] = useState(1);
+  /* A draft was restored: open its first incomplete step, once per page load (never mid-submit). */
+  const resumePendingRef = useRef(false);
+  const resumedRef = useRef(false);
   /* E108 demand funnel: open, steps, blocked presses, items done, submit and close.
      Fire-and-forget; never shown to the tenant, never awaited. */
   const funnel = useMemo(() => createFormFunnel('tenant_self'), []);
@@ -260,9 +266,9 @@ export default function TenantsOnboarding() {
   const [language, setLanguage] = useState('English');
   const [noSmartphone, setNoSmartphone] = useState(false);
   const [tenantPhoto, setTenantPhoto] = useState<PhotoSlot | null>(null);
-  /* Passport-photo quality verdict from the `verify-passport-photo` function.
-     Advisory only: a "review" verdict still lets the tenant continue, a human
-     looks at it later. Nothing here writes to the database. */
+  /* Photo quality verdict from the `verify-passport-photo` function.
+     Advisory only: no verdict blocks (not even "no face found"); only a missing
+     photo does. A human looks at it later. Nothing here writes to the database. */
   const [photoCheck, setPhotoCheck] = useState<PassportCheck | null>(null);
   /* The latest photo fingerprint, readable by a submit that runs in the same
      tick as the check (account creation does both back to back). */
@@ -283,7 +289,22 @@ export default function TenantsOnboarding() {
   const [address, setAddress] = useState('');
   const [location, setLocation] = useState<UgLocationSelection | null>(null);
   const [housePhotos, setHousePhotos] = useState<PhotoSlot[]>([]);
-  const { location: gps, loading: gpsLoading, error: gpsError, captureLocation } = useCaptureLocation();
+  /*
+   * The house GPS: watched for up to 30 s, the best reading kept (gpsCapture.ts). A refusal
+   * says why and logs the reason in request_form_log; a reading over 50 m carries a note.
+   */
+  const lastGpsFail = useRef<GpsFailCode | null>(null);
+  const gpsWatch = useGpsCapture({
+    onFix: (fix, first) => {
+      lastGpsFail.current = null;
+      if (first) funnel.itemDone('gps', { accuracy_m: fix.accuracy === null ? null : Math.round(fix.accuracy), gps_source: 'gps' });
+    },
+    onFail: (code) => { lastGpsFail.current = code; funnel.blocked(['gps'], code); },
+    onPin: () => funnel.itemDone('gps', { accuracy_m: null, gps_source: 'pin' }, 'gps_pin_used'),
+  });
+  const gps = gpsWatch.location
+    ? { latitude: gpsWatch.location.lat, longitude: gpsWatch.location.lng, accuracy: gpsWatch.location.accuracy, source: gpsWatch.location.source }
+    : null;
 
   /* Draft autosave — see the DRAFT_* helpers below. Photos are deliberately
      excluded: they are large blobs and localStorage would blow its quota. */
@@ -332,9 +353,12 @@ export default function TenantsOnboarding() {
 
 
   /* ---------------------------------------------------------- draft save ---
-     The form is six steps long and is filled on a phone, often on a bad
+     The form is eight steps long and is filled on a phone, often on a bad
      connection. Persist the typed answers so a dropped tab does not cost the
-     tenant everything. Photos and GPS are not persisted — they are re-captured.
+     tenant everything. GPS is re-captured. The photos are kept too (in
+     IndexedDB): the phone's camera app often makes Android reload this page,
+     which used to send the tenant back to step 1 (doc 276). A restored draft
+     reopens on the first step that is not complete yet.
      The header pill reports this honestly: it only says "Saved" once a write
      has actually succeeded. */
   /* Visitors fill the form before they have an account (it is created on the
@@ -370,6 +394,11 @@ export default function TenantsOnboarding() {
       if (typeof d.note === 'string') setNote(d.note);
       // A code in today's link wins over one in an older draft.
       if (typeof d.landlordCode === 'string') setLandlordCode((cur) => cur || normalizeLandlordCode(String(d.landlordCode)));
+      if (d.location && typeof d.location === 'object') setLocation(d.location as UgLocationSelection);
+      if (d.landlord && typeof d.landlord === 'object') setLandlord(d.landlord as LandlordOption);
+      if (d.lc1 && typeof d.lc1 === 'object') setLc1(d.lc1 as Lc1Selection);
+      // Reopen on the first incomplete step once the photos are back too (see resumeDraft below).
+      resumePendingRef.current = true;
       setSaveState('saved');
     } catch { /* a corrupt or unavailable draft is not worth failing over */ }
     // Restore once per user, on mount.
@@ -383,7 +412,7 @@ export default function TenantsOnboarding() {
         localStorage.setItem(draftKey, JSON.stringify({
           earner, rentInput, durationDays, firstName, lastName, phone, nin, nationalIdName,
           occupation, familySize, workLocation, language, noSmartphone, houseType, address,
-          newLandlordName, newLandlordPhone, note, landlordCode,
+          newLandlordName, newLandlordPhone, note, landlordCode, location, landlord, lc1,
         }));
         setSaveState('saved');
       } catch {
@@ -394,7 +423,46 @@ export default function TenantsOnboarding() {
     return () => clearTimeout(t);
   }, [draftKey, submitted, earner, rentInput, durationDays, firstName, lastName,
       phone, nin, nationalIdName, occupation, familySize, workLocation, language, noSmartphone, houseType, address,
-      newLandlordName, newLandlordPhone, note, landlordCode]);
+      newLandlordName, newLandlordPhone, note, landlordCode, location, landlord, lc1]);
+
+  /* Photos: restored once per key (only into empty slots), saved after that. */
+  const [photosLoadedFor, setPhotosLoadedFor] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      type Saved = { tenant?: File | null; id?: File | null; idBack?: File | null; lcLetter?: File | null; house?: File[] };
+      const saved = (await loadFormPhotos<Saved>(draftKey))
+        ?? (draftKey !== ANON_DRAFT_KEY ? await loadFormPhotos<Saved>(ANON_DRAFT_KEY) : null);
+      if (cancelled) return;
+      if (saved) {
+        const face = previewOf(saved.tenant);
+        if (face && !tenantPhoto) {
+          setTenantPhoto(face);
+          // The verdict and fingerprint were not kept; get them again.
+          if (user) void runPassportCheck(face.file);
+        }
+        setIdPhoto((p) => p ?? previewOf(saved.id));
+        setIdPhotoBack((p) => p ?? previewOf(saved.idBack));
+        setLcLetter((p) => p ?? previewOf(saved.lcLetter));
+        setHousePhotos((p) => (p.length ? p : (saved.house ?? []).map(previewOf).filter((x): x is PhotoSlot => !!x)));
+      }
+      setPhotosLoadedFor(draftKey);
+    })();
+    return () => { cancelled = true; };
+    // Once per key; the slot checks read the photos at that moment on purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (photosLoadedFor !== draftKey || submitted) return;
+    void saveFormPhotos(draftKey, {
+      tenant: tenantPhoto?.file ?? null,
+      id: idPhoto?.file ?? null,
+      idBack: idPhotoBack?.file ?? null,
+      lcLetter: lcLetter?.file ?? null,
+      house: housePhotos.map((h) => h.file),
+    });
+  }, [photosLoadedFor, draftKey, submitted, tenantPhoto, idPhoto, idPhotoBack, lcLetter, housePhotos]);
 
   const rentAmount = Number(rentInput.replace(/\D/g, '')) || 0;
   const calc = useMemo(
@@ -583,7 +651,7 @@ export default function TenantsOnboarding() {
   /* ------------------------------------------------------- validation ---- */
   // Everything the request still needs. Submit stays locked until this is empty.
   const durationOk = DAILY_PERIODS.includes(durationDays) || (durationDays >= 7 && durationDays <= 364 && durationDays % 7 === 0);
-  const missing = tenantRequestMissing({
+  const requestInput: TenantRequestInput = {
     rentAmount, minRent: MIN_RENT, maxRent: MAX_RENT, durationOk,
     firstName, lastName, phone, nin,
     hasIdFront: !!idPhoto, hasIdBack: !!idPhotoBack, hasPassportPhoto: !!tenantPhoto,
@@ -592,16 +660,31 @@ export default function TenantsOnboarding() {
     landlordName: chosenLandlord?.name ?? '', landlordPhone: chosenLandlord?.phone ?? '',
     hasLcLetter: !!lcLetter,
     declared,
-  });
+    phoneTaken: phoneTakenByOther,
+    ninTaken: ninTakenByOther,
+  };
+  const missing = tenantRequestMissing(requestInput);
   const missingOn = (step: number) => missing.filter((m) => m.step === step);
+  /* The header: "Step N of 8 · X left", the ticks per step and the step's "What's needed". */
+  const intakeState = tenantIntakeState(requestInput);
+  const leftLabel = intakeLeftLabel(intakeState);
+
+  /* A restored draft opens on its first incomplete step, once the photos are back too. */
+  useEffect(() => {
+    if (authLoading || resumedRef.current || !resumePendingRef.current || photosLoadedFor !== draftKey) return;
+    resumedRef.current = true;
+    resumePendingRef.current = false;
+    const first = firstIncompleteStep(intakeState);
+    setStep(first ? intakeStep(first).n : LAST_STEP);
+  }, [authLoading, photosLoadedFor, draftKey, intakeState]);
 
   useEffect(() => {
-    if (!postedRef.current) funnel.step(TENANT_FUNNEL_STEP[step] ?? 'start');
+    if (!postedRef.current) funnel.step(funnelStepOf(step));
   }, [step, funnel]);
   const missingKey = missing.map((m) => m.key).join(',');
   useEffect(() => {
     const open = new Set(missingKey.split(','));
-    for (const k of TENANT_ALL_ITEMS) {
+    for (const k of TENANT_DONE_ITEMS) {
       const item = TENANT_FUNNEL_ITEM[k];
       if (item && !open.has(k)) funnel.itemDone(item);
     }
@@ -609,42 +692,39 @@ export default function TenantsOnboarding() {
   const funnelItemsFor = (keys: TenantItemKey[]): FunnelItem[] => keys.map((k) => TENANT_FUNNEL_ITEM[k] ?? 'other');
 
   const stepError = (s: number): string | null => {
+    if (s === 1 && phoneTakenByOther) {
+      return user
+        ? 'This phone number is already registered to another account'
+        : 'This phone number already has a Welile account. Sign in with it to continue.';
+    }
     if (s === 2 && rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT)) {
       return `Enter a rent between ${formatUGX(MIN_RENT)} and ${formatUGX(MAX_RENT)}`;
     }
-    if (s === 3) {
-      if (phoneTakenByOther) {
-        return user
-          ? 'This phone number is already registered to another account'
-          : 'This phone number already has a Welile account. Sign in with it to continue.';
-      }
-      if (cleanNin(nin) && ninTakenByOther) return 'This National ID is already registered to another account';
-      // Only a definite "no face found" blocks; a `review` verdict is advisory.
-      if (photoCheck && !photoCheck.checking && !photoCheck.error && photoCheck.is_face === false) {
-        return 'No face was found in your passport photo. Please retake it.';
-      }
-    }
-    if (s === 6) return null;
+    // The tenant's photo blocks only while it is missing; the face check is advice, never a block.
     return missingOn(s)[0]?.label ?? null;
+  };
+
+  /** A blocked press on a step, for the funnel; a missing GPS carries the reason it is missing. */
+  const blockStep = (s: number) => {
+    const items = stepBlockItems(s);
+    funnel.blocked(items, items.includes('gps') ? (lastGpsFail.current ?? 'gps_not_captured') : null);
   };
 
   /** The items a step is blocked on, for the funnel. */
   const stepBlockItems = (s: number): FunnelItem[] => {
     if (s === 2 && rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT)) return ['rent'];
-    if (s === 3 && (phoneTakenByOther || (cleanNin(nin) && ninTakenByOther))) return ['duplicate'];
-    if (s === 3 && photoCheck && !photoCheck.checking && !photoCheck.error && photoCheck.is_face === false) return ['tenant_photo'];
     return funnelItemsFor(missingOn(s).map((m) => m.key));
   };
 
   const goNext = () => {
     const e = stepError(step);
-    if (e) { funnel.blocked(stepBlockItems(step)); toast.error(e); return; }
-    setStep((s) => Math.min(6, s + 1));
+    if (e) { blockStep(step); toast.error(e); return; }
+    setStep((s) => Math.min(LAST_STEP, s + 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+  /* Back, a tap on a step name, and the "N left" button: open any step, finished or not. */
   const goTo = (n: number) => {
-    if (n > step) { const e = stepError(step); if (e) { funnel.blocked(stepBlockItems(step)); toast.error(e); return; } }
-    setStep(n);
+    setStep(Math.min(LAST_STEP, Math.max(1, n)));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -655,9 +735,9 @@ export default function TenantsOnboarding() {
     consent_code?: string;
   }) => {
     if (!consentParams) {
-      for (let s = 2; s <= 5; s++) {
+      for (let s = 1; s <= LAST_STEP; s++) {
         const e = stepError(s);
-        if (e) { funnel.blocked(stepBlockItems(s)); setStep(s); toast.error(e); return; }
+        if (e) { blockStep(s); setStep(s); toast.error(e); return; }
       }
       if (missing.length) { funnel.blocked(funnelItemsFor(missing.map((m) => m.key))); toast.error(missing[0].label); return; }
       setSubmitError(null);
@@ -704,6 +784,8 @@ export default function TenantsOnboarding() {
           gps_lat: gps?.latitude ?? null,
           gps_lng: gps?.longitude ?? null,
           gps_accuracy: gps?.accuracy ?? null,
+          // 'pin' when the tenant dropped a pin on the map (accuracy unknown); else 'gps'.
+          gps_source: gps?.source ?? null,
           landlord_id: landlord?.id ?? null,
           landlord_name: landlord?.name ?? newLandlordName.trim(),
           landlord_phone: landlord?.phone ?? newLandlordPhone,
@@ -795,7 +877,10 @@ export default function TenantsOnboarding() {
       ]);
       outcome = 'ok';
       setSubmitStage({ stage: 'sent' });
-      if (requestId) { postedRef.current = true; funnel.submitOk(requestId); }
+      if (requestId) {
+        postedRef.current = true;
+        funnel.submitOk(requestId, gps ? { gps_source: gps.source, gps_accuracy_m: gps.accuracy ? Math.round(gps.accuracy) : null } : undefined);
+      }
       setSubmitted({
         id: requestId,
         intakeError: intake.ok ? null : intake.message,
@@ -807,6 +892,8 @@ export default function TenantsOnboarding() {
         if (draftKey) localStorage.removeItem(draftKey);
         localStorage.removeItem(ANON_DRAFT_KEY);
       } catch { /* ignore */ }
+      void clearFormPhotos(draftKey);
+      void clearFormPhotos(ANON_DRAFT_KEY);
       toast.success('Sent to Welile');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: unknown) {
@@ -844,7 +931,7 @@ export default function TenantsOnboarding() {
           only answers for a phone just verified by code)
        5. account created with the tenant role and the referring agent (?ref),
           under the per-device sign-up limits
-       6. signed in, passport photo checked, request submitted. */
+       6. signed in, photo checked (advice only), request submitted. */
   const otp = useOtpVerification();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -888,13 +975,13 @@ export default function TenantsOnboarding() {
 
   const sendAccountCode = async () => {
     setAccountError(null);
-    for (let s = 2; s <= 5; s++) {
+    for (let s = 1; s <= LAST_STEP; s++) {
       const e = stepError(s);
       if (e) { setStep(s); toast.error(e); return; }
     }
     const detailsErr = accountDetailsError();
     if (detailsErr) { setAccountError(detailsErr); return; }
-    if (phoneLast9.length !== 9) { setStep(3); toast.error('Enter a valid Uganda phone number'); return; }
+    if (phoneLast9.length !== 9) { setStep(1); toast.error('Enter a valid Uganda phone number'); return; }
 
     setCreatingAccount(true);
     try {
@@ -936,7 +1023,7 @@ export default function TenantsOnboarding() {
         }
         if (p.nin_known) {
           setAccountStage('details');
-          setStep(3);
+          setStep(7);
           toast.error('This National ID is already registered to another account. Please check the number.');
           return;
         }
@@ -973,14 +1060,10 @@ export default function TenantsOnboarding() {
       try { sessionStorage.removeItem('welile_post_auth_redirect'); } catch { /* ignore */ }
       toast.success('Your Welile account is ready');
 
-      // The passport photo could not be checked before there was an account.
+      // The photo could not be checked before there was an account. The check is advice
+      // (it records the photo's fingerprint for the request); its verdict never blocks.
       if (tenantPhoto && (!photoCheck || photoCheck.error)) {
-        const check = await runPassportCheck(tenantPhoto.file, true);
-        if (check && !check.error && check.is_face === false) {
-          setStep(3);
-          toast.error('No face was found in your passport photo. Please retake it, then send your request.');
-          return;
-        }
+        await runPassportCheck(tenantPhoto.file, true);
       }
 
       await submit();
@@ -1185,8 +1268,6 @@ export default function TenantsOnboarding() {
     );
   }
 
-  const current = STEPS[step - 1];
-
   return (
     <div className="min-h-screen bg-muted/30">
       {onboardingHead}
@@ -1324,102 +1405,90 @@ export default function TenantsOnboarding() {
         </DialogContent>
       </Dialog>
 
-      {/* Mobile step progress, sticky directly under the bar. */}
-      <div className="sticky top-14 z-20 border-b bg-background px-4 py-2.5 lg:hidden">
-        <div className="mb-1.5 flex items-center justify-between text-[11.5px] font-bold">
-          <span className="uppercase tracking-wider text-primary">Step {step} of 6</span>
-          <span className="text-foreground">{current.name}</span>
-        </div>
-        <Progress value={(step / 6) * 100} className="h-1" />
+      {/* The 8-step intake header, held under the top bar while the step scrolls.
+          Plain page sticky (this page is not a role="dialog", where Android drops sticky). */}
+      <div className="sticky top-14 z-20 sm:top-16">
+        <IntakeStepHeader state={intakeState} current={stepKeyOf(step)} onJump={(k) => goTo(intakeStep(k).n)} />
       </div>
 
-      <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[260px_1fr]">
-        {/* Step rail */}
-        <aside className="hidden lg:block">
-          <ol className="space-y-1">
-            {STEPS.map((s) => {
-              const Icon = s.icon;
-              const state = s.n === step ? 'current' : s.n < step ? 'done' : 'todo';
-              return (
-                <li key={s.n}>
-                  <button
-                    type="button"
-                    onClick={() => goTo(s.n)}
-                    className={cn(
-                      'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
-                      state === 'current' && 'bg-primary/10 ring-1 ring-primary/30',
-                      state !== 'current' && 'hover:bg-muted',
-                    )}
-                  >
-                    <span className={cn(
-                      'grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold',
-                      state === 'current' && 'bg-primary text-primary-foreground',
-                      state === 'done' && 'bg-primary/15 text-primary',
-                      state === 'todo' && 'bg-muted text-muted-foreground',
-                    )}>
-                      {state === 'done' ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
-                    </span>
-                    <span className="min-w-0">
-                      <span className={cn('block truncate text-sm font-semibold',
-                        state === 'current' ? 'text-primary' : 'text-foreground')}>{s.name}</span>
-                      <span className="block truncate text-[11px] text-muted-foreground">{s.sub}</span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </aside>
-
+      <main className="mx-auto max-w-2xl px-4 py-6">
         {/* Step card */}
         <Card className="overflow-hidden">
           <CardContent className="space-y-6 p-5 sm:p-7">
             <div className="space-y-1.5">
-              <Badge className="bg-primary/10 text-primary hover:bg-primary/10">Step {step} of 6</Badge>
+              <Badge className="bg-primary/10 text-primary hover:bg-primary/10">{intakeStep(stepKeyOf(step)).name}</Badge>
               <h1 className="text-xl font-bold sm:text-2xl">{stepTitle(step)}</h1>
               <p className="text-sm text-muted-foreground">{stepDesc(step)}</p>
             </div>
 
-            {/* ---------------------------------------------------- step 1 */}
+            {/* ------------------------------------------------- 1 Tenant */}
             {step === 1 && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {EARNERS.map((o) => {
-                  const Icon = o.icon;
-                  const active = earner === o.key;
-                  return (
-                    <button key={o.key} type="button" onClick={() => setEarner(o.key)}
-                      className={cn('rounded-xl border p-4 text-left transition-all',
-                        active ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'hover:border-primary/40')}>
-                      <span className="mb-2 grid h-10 w-10 place-items-center rounded-lg bg-primary/10">
-                        <Icon className="h-5 w-5 text-primary" />
-                      </span>
-                      <span className="block font-semibold">{o.title}</span>
-                      <span className="mt-1 block text-xs text-muted-foreground">{o.sub}</span>
-                    </button>
-                  );
-                })}
+              <div className="space-y-5">
+                <Field label="Your phone number" required
+                  hint="Your own Uganda mobile number (MTN or Airtel). We use it for all updates.">
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0771 234 567" inputMode="tel" />
+                  {idCheck.checking && <Hint icon={Loader2} spin>Checking…</Hint>}
+                  {!idCheck.checking && idCheck.phone_is_you && <Hint icon={CheckCircle2} tone="ok">This is the number on your account.</Hint>}
+                  {!idCheck.checking && phoneTakenByOther && <Hint icon={AlertTriangle} tone="bad">This number is already registered on Welile. Sign in with it instead.</Hint>}
+                  {!idCheck.checking && phoneTakenByOther && !user && (
+                    <Button type="button" variant="link" className="h-auto min-h-9 max-w-full justify-start gap-2 whitespace-normal px-0 py-1 text-left text-xs font-semibold leading-relaxed" onClick={() => navigate(authHref(false))}>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span>Sign in - your answers are kept on this device</span>
+                    </Button>
+                  )}
+                </Field>
+
+                <div className="space-y-2">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="First name" required>
+                      <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="e.g. Robert" />
+                    </Field>
+                    <Field label="Last name" required>
+                      <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="e.g. Mugisha" />
+                    </Field>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Your names exactly as they are printed on your National ID.</p>
+                </div>
+
+                <Field label="Preferred language">
+                  <Select value={language} onValueChange={setLanguage}>
+                    <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                    <SelectContent>{LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                  </Select>
+                </Field>
+
+                <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
+                  <input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary"
+                    checked={noSmartphone} onChange={(e) => setNoSmartphone(e.target.checked)} />
+                  <span>I do not use a smartphone — please reach me by SMS and calls.</span>
+                </label>
               </div>
             )}
 
-            {/* ---------------------------------------------------- step 2 */}
+            {/* ---------------------------------------------- 2 Rent plan */}
             {step === 2 && (
               <div className="space-y-5">
-                {/* Which schedule they picked in step 1, with a way back. */}
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10">
-                      <activeEarner.icon className="h-[18px] w-[18px] text-primary" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13.5px] font-bold text-foreground">{activeEarner.title}</span>
-                      <span className="block truncate text-[11.5px] text-muted-foreground">{activeEarner.banner}</span>
-                    </span>
+                <div className="space-y-2">
+                  <Label className="text-[13.5px] font-semibold">
+                    How do you earn your income? <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {EARNERS.map((o) => {
+                      const Icon = o.icon;
+                      const active = earner === o.key;
+                      return (
+                        <button key={o.key} type="button" onClick={() => setEarner(o.key)} aria-pressed={active}
+                          className={cn('rounded-xl border p-4 text-left transition-all',
+                            active ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'hover:border-primary/40')}>
+                          <span className="mb-2 grid h-10 w-10 place-items-center rounded-lg bg-primary/10">
+                            <Icon className="h-5 w-5 text-primary" />
+                          </span>
+                          <span className="block font-semibold">{o.title}</span>
+                          <span className="mt-1 block text-xs text-muted-foreground">{o.sub}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <Button type="button" variant="outline" size="sm"
-                    className="h-8 shrink-0 border-primary/30 px-3 text-xs font-bold text-primary hover:bg-primary hover:text-primary-foreground"
-                    onClick={() => goTo(1)}>
-                    Change
-                  </Button>
                 </div>
 
                 {/* Rent and period sit side by side on desktop, stacked on mobile. */}
@@ -1476,6 +1545,7 @@ export default function TenantsOnboarding() {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
+                      {activeEarner.banner}.{' '}
                       {earner === 'weekly'
                         ? 'Weekly instalments over the selected period'
                         : 'Daily micro-instalments over the selected period'}
@@ -1522,7 +1592,7 @@ export default function TenantsOnboarding() {
                         type="button"
                         onClick={() => setFeeOpen((v) => !v)}
                         aria-expanded={feeOpen}
-                        className="inline-flex items-center gap-2 py-1 text-[12.5px] font-bold text-primary transition-colors hover:text-primary/80"
+                        className="inline-flex min-h-9 items-center gap-2 py-1 text-[12.5px] font-bold text-primary transition-colors hover:text-primary/80"
                       >
                         <Info className="h-3.5 w-3.5" />
                         View fee breakdown
@@ -1559,174 +1629,8 @@ export default function TenantsOnboarding() {
               </div>
             )}
 
-            {/* ---------------------------------------------------- step 3 */}
+            {/* ----------------------------------------------- 3 Landlord */}
             {step === 3 && (
-              <div className="space-y-5">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="First name" required>
-                    <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="e.g. Robert" />
-                  </Field>
-                  <Field label="Last name" required>
-                    <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="e.g. Mugisha" />
-                  </Field>
-                </div>
-
-                <Field label="Phone number" required
-                  hint="Uganda mobile number (MTN or Airtel). We use it for all updates.">
-                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0771 234 567" inputMode="tel" />
-                  {idCheck.checking && <Hint icon={Loader2} spin>Checking…</Hint>}
-                  {!idCheck.checking && idCheck.phone_is_you && <Hint icon={CheckCircle2} tone="ok">This is the number on your account.</Hint>}
-                  {!idCheck.checking && phoneTakenByOther && <Hint icon={AlertTriangle} tone="bad">This number is already registered on Welile. Sign in with it instead.</Hint>}
-                  {!idCheck.checking && phoneTakenByOther && !user && (
-                    <Button type="button" variant="link" className="h-auto min-h-9 max-w-full justify-start gap-2 whitespace-normal px-0 py-1 text-left text-xs font-semibold leading-relaxed" onClick={() => navigate(authHref(false))}>
-                      <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      <span>Sign in - your answers are kept on this device</span>
-                    </Button>
-                  )}
-                </Field>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="National ID (NIN)" hint="Optional. 10 to 14 letters and numbers, exactly as on your card.">
-                    <Input value={nin} onChange={(e) => setNin(e.target.value.toUpperCase())} placeholder="CM9001234567AB" className="font-mono" />
-                    {!idCheck.checking && idCheck.nin_is_you && <Hint icon={CheckCircle2} tone="ok">This National ID matches your account.</Hint>}
-                    {!idCheck.checking && ninTakenByOther && <Hint icon={AlertTriangle} tone="bad">This National ID is already registered to another account. Please check the number.</Hint>}
-                  </Field>
-
-                  <Field label="Name exactly as printed on the National ID" hint="Optional — only if using someone else's ID">
-                    <Input
-                      value={nationalIdName}
-                      onChange={(e) => setNationalIdName(e.target.value)}
-                      placeholder="e.g. Mugisha Robert"
-                    />
-                  </Field>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="What work or business do you do?" required hint="At least 3 letters.">
-                    <Input value={occupation} onChange={(e) => setOccupation(e.target.value)} placeholder="e.g. Boda rider" />
-                  </Field>
-                  <Field label="Where do you work?" hint="Optional — a market, town or area.">
-                    <Input value={workLocation} onChange={(e) => setWorkLocation(e.target.value)} placeholder="e.g. Owino market" />
-                  </Field>
-                  <Field label="How many people live in your household?" required hint="Count yourself too. 1 to 30.">
-                    <Input value={familySize} inputMode="numeric" placeholder="e.g. 4"
-                      onChange={(e) => setFamilySize(e.target.value.replace(/\D/g, '').slice(0, 2))} />
-                  </Field>
-                  <Field label="Preferred language">
-                    <Select value={language} onValueChange={setLanguage}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </Field>
-                </div>
-
-                <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
-                  <input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary"
-                    checked={noSmartphone} onChange={(e) => setNoSmartphone(e.target.checked)} />
-                  <span>I do not use a smartphone — please reach me by SMS and calls.</span>
-                </label>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <PhotoBox label="Passport photo" required hint="Clear face photo, no hat"
-                      slot={tenantPhoto} onPick={(f) => addPhoto(f, 'tenant')}
-                      onClear={() => { setTenantPhoto(null); setPhotoCheck(null); photoShaRef.current = null; }} />
-                    {photoCheck?.checking && (
-                      <Hint icon={Loader2} spin>Checking your photo…</Hint>
-                    )}
-                    {!photoCheck?.checking && photoCheck?.error && (
-                      <Hint icon={Info}>We could not check this photo now. You can still continue.</Hint>
-                    )}
-                    {!photoCheck?.checking && !photoCheck?.error && photoCheck?.is_face === false && (
-                      <Hint icon={AlertTriangle} tone="bad">No face was found in this photo. Please retake it.</Hint>
-                    )}
-                    {!photoCheck?.checking && !photoCheck?.error && photoCheck?.is_face && (
-                      <>
-                        {photoCheck.verdict === 'pass'
-                          ? <Hint icon={CheckCircle2} tone="ok">Good passport photo.</Hint>
-                          : <Hint icon={AlertTriangle} tone={photoCheck.verdict === 'fail' ? 'bad' : undefined}>
-                              {photoCheck.verdict === 'fail'
-                                ? 'This photo is not good enough. Please retake it.'
-                                : 'This photo may need a second look. You can retake it or continue.'}
-                            </Hint>}
-                        {(photoCheck.failures ?? []).slice(0, 3).map((f) => (
-                          <Hint key={f.id} icon={Info}>{f.advice || f.label}</Hint>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                  <PhotoBox label="National ID — front" required hint="Front of the card, all text readable."
-                    slot={idPhoto} onPick={(f) => addPhoto(f, 'id')} onClear={() => setIdPhoto(null)} />
-                  <PhotoBox label="National ID — back" required hint="Back of the card, all text readable."
-                    slot={idPhotoBack} onPick={(f) => addPhoto(f, 'id_back')} onClear={() => setIdPhotoBack(null)} />
-                </div>
-
-              </div>
-            )}
-
-            {/* ---------------------------------------------------- step 4 */}
-            {step === 4 && (
-              <div className="space-y-5">
-                <Field label="House type" required>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {HOUSE_TYPES.map((h) => (
-                      <button key={h.value} type="button" onClick={() => setHouseType(h.value)}
-                        className={cn('rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
-                          houseType === h.value ? 'border-primary bg-primary/5 text-primary' : 'hover:border-primary/40')}>
-                        {h.label}
-                      </button>
-                    ))}
-                  </div>
-                </Field>
-
-                <UgLocationPicker
-                  label="Where do you stay?"
-                  required
-                  value={location}
-                  onChange={setLocation}
-                />
-
-                <Field label="House address / landmark" required
-                  hint="Plot, road or nearest landmark so the team can find the house.">
-                  <Textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. Plot 14, behind Kabalagala market" />
-                </Field>
-
-                <div className="rounded-xl border p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold">GPS location of the house <span className="text-destructive">*</span></p>
-                      <p className="text-xs text-muted-foreground">
-                        {gps ? `Captured: ${gps.latitude.toFixed(5)}, ${gps.longitude.toFixed(5)}` : 'Stand at the house and capture it.'}
-                      </p>
-                      {gpsError && <p className="text-xs text-destructive">{gpsError}</p>}
-                    </div>
-                    <Button type="button" variant={gps ? 'secondary' : 'default'} onClick={() => captureLocation()} disabled={gpsLoading}>
-                      {gpsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
-                      {gps ? 'Recapture' : 'Capture GPS'}
-                    </Button>
-                  </div>
-                </div>
-
-                <Field label="House photos" required hint={`At least ${MIN_HOUSE_PHOTOS} photos — the outside, the door and the room.`}>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {housePhotos.map((p, i) => (
-                      <div key={i} className="relative overflow-hidden rounded-lg border">
-                        <img src={p.preview} alt={`House ${i + 1}`} className="h-24 w-full object-cover" />
-                        <button type="button" onClick={() => setHousePhotos((v) => v.filter((_, j) => j !== i))}
-                          className="absolute right-1 top-1 rounded bg-background/90 px-1.5 text-xs font-semibold">Remove</button>
-                      </div>
-                    ))}
-                    {housePhotos.length < MAX_HOUSE_PHOTOS && (
-                      <PhotoPicker onPick={(f) => addPhoto(f, 'house')} />
-                    )}
-                  </div>
-                </Field>
-              </div>
-            )}
-
-            {/* ---------------------------------------------------- step 5 */}
-            {step === 5 && (
               <div className="space-y-6">
                 <div className="space-y-3">
                   <Label className="flex items-center gap-1.5 text-sm font-semibold">
@@ -1788,7 +1692,7 @@ export default function TenantsOnboarding() {
                             : 'Welile will check them. You can submit now.'}
                         </p>
                         <Button type="button" variant="ghost" size="sm"
-                          className="h-7 shrink-0 gap-1 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                          className="h-9 shrink-0 gap-1 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
                           onClick={() => {
                             setLandlord(null);
                             setNewLandlordName('');
@@ -1814,8 +1718,164 @@ export default function TenantsOnboarding() {
                   <Hint icon={AlertTriangle} tone="bad">Your landlord’s phone must be different from yours.</Hint>
                 )}
 
+                <Field label="Landlord referral code" hint="Optional. From your landlord's link: L followed by 8 letters or numbers.">
+                  <Input value={landlordCode} onChange={(e) => setLandlordCode(normalizeLandlordCode(e.target.value))}
+                    placeholder="e.g. L4K7Q2M9X" autoCapitalize="characters" autoComplete="off" spellCheck={false}
+                    aria-label="Landlord referral code" className="font-mono uppercase" />
+                </Field>
+              </div>
+            )}
+
+            {/* -------------------------------------------------- 4 House */}
+            {step === 4 && (
+              <div className="space-y-5">
+                <Field label="House type" required>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {HOUSE_TYPES.map((h) => (
+                      <button key={h.value} type="button" onClick={() => setHouseType(h.value)} aria-pressed={houseType === h.value}
+                        className={cn('min-h-11 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
+                          houseType === h.value ? 'border-primary bg-primary/5 text-primary' : 'hover:border-primary/40')}>
+                        {h.label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+
+                <UgLocationPicker
+                  label="Where do you stay?"
+                  required
+                  value={location}
+                  onChange={setLocation}
+                />
+
+                <Field label="House address / landmark" required
+                  hint="Plot, road or nearest landmark so the team can find the house.">
+                  <Textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)}
+                    placeholder="e.g. Plot 14, behind Kabalagala market" />
+                </Field>
+
+                <div className="rounded-xl border p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">GPS location of the house <span className="text-destructive">*</span></p>
+                      <p className="text-xs text-muted-foreground">
+                        {gps ? `Captured: ${gps.latitude.toFixed(5)}, ${gps.longitude.toFixed(5)}` : 'Stand at the house and capture it.'}
+                      </p>
+                    </div>
+                  </div>
+                  <GpsCapturePanel className="mt-2" gps={gpsWatch}
+                    value={gps ? { lat: gps.latitude, lng: gps.longitude, accuracy: gps.accuracy, source: gps.source } : null} />
+                </div>
+
+                <Field label="House photos" required hint={`At least ${MIN_HOUSE_PHOTOS} photos — the outside, the door and the room.`}>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {housePhotos.map((p, i) => (
+                      <div key={i} className="relative overflow-hidden rounded-lg border">
+                        <img src={p.preview} alt={`House ${i + 1}`} className="h-24 w-full object-cover" />
+                        <button type="button" onClick={() => setHousePhotos((v) => v.filter((_, j) => j !== i))}
+                          className="absolute right-1 top-1 rounded bg-background/90 px-1.5 text-xs font-semibold">Remove</button>
+                      </div>
+                    ))}
+                    {housePhotos.length < MAX_HOUSE_PHOTOS && (
+                      <PhotoPicker onPick={(f) => addPhoto(f, 'house')} />
+                    )}
+                  </div>
+                </Field>
+              </div>
+            )}
+
+            {/* ---------------------------------------------- 5 Household */}
+            {step === 5 && (
+              <div className="space-y-5">
+                <Field label="How many people live in your household?" required hint="Count yourself too. 1 to 30.">
+                  <Input value={familySize} inputMode="numeric" placeholder="e.g. 4"
+                    onChange={(e) => setFamilySize(e.target.value.replace(/\D/g, '').slice(0, 2))} />
+                </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="What work or business do you do?" required hint="At least 3 letters.">
+                    <Input value={occupation} onChange={(e) => setOccupation(e.target.value)} placeholder="e.g. Boda rider" />
+                  </Field>
+                  <Field label="Where do you work?" hint="Optional — a market, town or area.">
+                    <Input value={workLocation} onChange={(e) => setWorkLocation(e.target.value)} placeholder="e.g. Owino market" />
+                  </Field>
+                </div>
+              </div>
+            )}
+
+            {/* ----------------------------------------- 6 Tenant's photo */}
+            {step === 6 && (
+              <div className="space-y-2">
+                <PhotoBox label="Your photo" required hint="Any clear photo of your face." camera="user"
+                  slot={tenantPhoto} onPick={(f) => addPhoto(f, 'tenant')}
+                  onClear={() => { setTenantPhoto(null); setPhotoCheck(null); photoShaRef.current = null; }} />
+                {/* The check is advice only: nothing it says stops the tenant going on. */}
+                {photoCheck?.checking && (
+                  <Hint icon={Loader2} spin>Checking your photo…</Hint>
+                )}
+                {!photoCheck?.checking && photoCheck?.error && (
+                  <Hint icon={Info}>We could not check this photo now. You can still continue.</Hint>
+                )}
+                {!photoCheck?.checking && !photoCheck?.error && photoCheck?.is_face === false && (
+                  <Hint icon={AlertTriangle}>We could not see a face clearly in this photo. You can retake it, or continue.</Hint>
+                )}
+                {!photoCheck?.checking && !photoCheck?.error && photoCheck?.is_face && (
+                  <>
+                    {photoCheck.verdict === 'pass'
+                      ? <Hint icon={CheckCircle2} tone="ok">Good photo.</Hint>
+                      : <Hint icon={AlertTriangle}>This photo may need a second look. You can retake it, or continue.</Hint>}
+                    {(photoCheck.failures ?? []).slice(0, 3).map((f) => (
+                      <Hint key={f.id} icon={Info}>{f.advice || f.label}</Hint>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ----------------------------------------------------- 7 ID */}
+            {step === 7 && (
+              <div className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <PhotoBox label="National ID — front" required hint="Front of the card, all text readable." camera="environment"
+                    slot={idPhoto} onPick={(f) => addPhoto(f, 'id')} onClear={() => setIdPhoto(null)} />
+                  <PhotoBox label="National ID — back" required hint="Back of the card, all text readable." camera="environment"
+                    slot={idPhotoBack} onPick={(f) => addPhoto(f, 'id_back')} onClear={() => setIdPhotoBack(null)} />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="National ID (NIN)" hint="Optional. 10 to 14 letters and numbers, exactly as on your card.">
+                    <Input value={nin} onChange={(e) => setNin(e.target.value.toUpperCase())} placeholder="CM9001234567AB" className="font-mono" />
+                    {!idCheck.checking && idCheck.nin_is_you && <Hint icon={CheckCircle2} tone="ok">This National ID matches your account.</Hint>}
+                    {!idCheck.checking && ninTakenByOther && <Hint icon={AlertTriangle} tone="bad">This National ID is already registered to another account. Please check the number.</Hint>}
+                  </Field>
+
+                  <Field label="Name exactly as printed on the National ID" hint="Optional — only if using someone else's ID">
+                    <Input
+                      value={nationalIdName}
+                      onChange={(e) => setNationalIdName(e.target.value)}
+                      placeholder="e.g. Mugisha Robert"
+                    />
+                  </Field>
+                </div>
+              </div>
+            )}
+
+            {/* ---------------------------------------- 8 LC1 letter + Post */}
+            {step === 8 && (
+              <div className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <PhotoBox
+                    camera="environment"
+                    label="LC1 introduction letter"
+                    required
+                    hint="A photo of the letter stamped by your LC1."
+                    slot={lcLetter}
+                    onPick={(f) => addPhoto(f, 'lc_letter')}
+                    onClear={() => setLcLetter(null)}
+                  />
+                </div>
+
                 <p className="text-sm text-muted-foreground">
-                  Your LC1: a photo of the stamped LC1 letter is required. The chairperson’s name and phone are optional.
+                  Your LC1 chairperson’s name and phone are optional.
                 </p>
                 <Lc1ChairpersonPicker
                   value={lc1}
@@ -1827,81 +1887,10 @@ export default function TenantsOnboarding() {
                   context="tenant"
                 />
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <PhotoBox
-                    label="LC1 introduction letter"
-                    required
-                    hint="A photo of the letter stamped by your LC1."
-                    slot={lcLetter}
-                    onPick={(f) => addPhoto(f, 'lc_letter')}
-                    onClear={() => setLcLetter(null)}
-                  />
-                </div>
-
                 <Field label="Anything else we should know?">
                   <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)}
                     placeholder="Optional — tell us anything that helps the verification team." />
                 </Field>
-
-                <Field label="Landlord referral code" hint="Optional. From your landlord's link: L followed by 8 letters or numbers.">
-                  <Input value={landlordCode} onChange={(e) => setLandlordCode(normalizeLandlordCode(e.target.value))}
-                    placeholder="e.g. L4K7Q2M9X" autoCapitalize="characters" autoComplete="off" spellCheck={false}
-                    aria-label="Landlord referral code" className="font-mono uppercase" />
-                </Field>
-              </div>
-            )}
-
-            {/* ---------------------------------------------------- step 6 */}
-            {step === 6 && (
-              <div className="space-y-3.5">
-                <ReviewCard icon={CircleDollarSign} title="Income schedule & rent" onEdit={() => goTo(2)}>
-                  <ReviewItem label="Earner category" value={activeEarner.title} />
-                  <ReviewItem label="Monthly rent" value={formatUGX(rentAmount)} money />
-                  <ReviewItem label="Repayment period" value={`${durationDays} days`} />
-                  <ReviewItem label="Instalment amount"
-                    value={`${formatUGX(perCycle)}/${earner === 'weekly' ? 'week' : 'day'}`} money />
-                  <ReviewItem label="Total to repay" value={calc ? formatUGX(calc.totalRepayment) : '—'} money />
-                </ReviewCard>
-
-                <ReviewCard icon={User} title="About you" onEdit={() => goTo(3)}>
-                  <ReviewItem label="Full name" value={`${firstName} ${lastName}`.trim() || '—'} />
-                  <ReviewItem label="Phone number" value={phone || '—'} numeric />
-                  <ReviewItem label="National ID (NIN)" value={cleanNin(nin) || '—'} numeric />
-                  <ReviewItem label="Language" value={language} />
-                  <ReviewItem label="Passport photo" value={tenantPhoto ? 'Captured' : 'Missing'} ok={!!tenantPhoto} />
-                  <ReviewItem label="National ID — front" value={idPhoto ? 'Captured' : 'Missing'} ok={!!idPhoto} />
-                  <ReviewItem label="National ID — back" value={idPhotoBack ? 'Captured' : 'Missing'} ok={!!idPhotoBack} />
-                  <ReviewItem label="Work or business" value={occupation.trim() || '—'} />
-                  <ReviewItem label="Household" value={parseFamilySize(familySize) ? `${parseFamilySize(familySize)} people` : '—'} />
-                </ReviewCard>
-
-                <ReviewCard icon={Home} title="Your home" onEdit={() => goTo(4)}>
-                  <ReviewItem label="House type"
-                    value={HOUSE_TYPES.find((h) => h.value === houseType)?.label ?? houseType} />
-                  <ReviewItem label="Address" value={address || '—'} />
-                  <ReviewItem label="Village" value={location?.fullPath ?? '—'} />
-                  <ReviewItem
-                    label="Verification evidence"
-                    value={gps
-                      ? `GPS confirmed (${housePhotos.length} photo${housePhotos.length === 1 ? '' : 's'})`
-                      : `${housePhotos.length} photo${housePhotos.length === 1 ? '' : 's'}, no GPS`}
-                    ok={!!gps && housePhotos.length > 0}
-                  />
-                </ReviewCard>
-
-                <ReviewCard icon={ShieldCheck} title="Landlord & local verification" onEdit={() => goTo(5)}>
-                  <ReviewItem label="Landlord" value={chosenLandlord?.name ?? '—'} />
-                  <ReviewItem
-                    label="Landlord status"
-                    value={chosenLandlord
-                      ? (chosenLandlord.verified ? 'Verified' : chosenLandlord.isNew ? 'New — to be vetted' : 'To be vetted')
-                      : '—'}
-                    ok={!!chosenLandlord?.verified}
-                  />
-                  <ReviewItem label="LC1 chairperson" value={lc1?.name || '—'} />
-                  <ReviewItem label="LC1 phone" value={lc1?.phone || '—'} numeric />
-                  <ReviewItem label="LC1 letter" value={lcLetter ? 'Attached' : 'Missing'} ok={!!lcLetter} />
-                </ReviewCard>
 
                 <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/40 p-4">
                   <Checkbox
@@ -1910,7 +1899,7 @@ export default function TenantsOnboarding() {
                     className="mt-0.5 shrink-0"
                   />
                   <span className="text-[13px] leading-relaxed text-muted-foreground">
-                    I confirm the information above is correct, and I understand my rent support application will be
+                    I confirm the information I gave in these steps is correct, and I understand my Rent Plan request will be
                     reviewed by Welile and an assigned agent. Nothing is paid out at this step.
                   </span>
                 </label>
@@ -1918,11 +1907,9 @@ export default function TenantsOnboarding() {
                 {!declared && (
                   <p className="flex items-center gap-1.5 text-[12.5px] font-bold text-destructive">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    Tick the box above to submit your application.
+                    Tick the box above to submit your request.
                   </p>
                 )}
-
-                <MissingChecklist items={missing} onFix={(step) => goTo(step)} />
 
                 {/* Visitor account presentation keeps the existing account actions. */}
                 {!user && (
@@ -2010,29 +1997,39 @@ export default function TenantsOnboarding() {
 
             {/* Actions */}
             <div className="flex items-center justify-between gap-3 border-t pt-4">
-              <Button type="button" variant="secondary" disabled={step === 1 || submitting || creatingAccount}
+              <Button type="button" variant="secondary" className="h-11 shrink-0" disabled={step === 1 || submitting || creatingAccount}
                 onClick={() => goTo(step - 1)}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
-              {step < 6 ? (
+              {step < LAST_STEP ? (
                 /* A tap on the disabled button lands on this wrapper: still a blocked press (E108). */
                 <span className="inline-flex" data-testid="continue-wrap"
-                  onClick={() => { if (stepError(step)) funnel.blocked(stepBlockItems(step)); }}>
-                <Button type="button" onClick={goNext} disabled={!!stepError(step)}>
+                  onClick={() => { if (stepError(step)) blockStep(step); }}>
+                <Button type="button" className="h-11" onClick={goNext} disabled={!!stepError(step)}>
                   Continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
                 </span>
+              ) : leftLabel ? (
+                /* Something is still missing: Submit is replaced by "N left: …", which opens the first incomplete step. */
+                <Button type="button" variant="outline" data-testid="intake-left"
+                  className="h-auto min-h-11 min-w-0 flex-1 justify-center whitespace-normal py-2 text-center font-semibold sm:flex-none"
+                  onClick={() => {
+                    funnel.blocked(funnelItemsFor(missing.map((m) => m.key)));
+                    const first = firstIncompleteStep(intakeState);
+                    if (first) goTo(intakeStep(first).n);
+                  }}>
+                  {leftLabel}
+                  <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
+                </Button>
               ) : (
-                <span className="inline-flex" data-testid="submit-wrap"
-                  onClick={() => { if (!submitting && !creatingAccount && missing.length) funnel.blocked(funnelItemsFor(missing.map((m) => m.key))); }}>
                 <Button type="button"
                   onClick={() => {
                     if (user) void submit();
                     else if (accountStage === 'details') void sendAccountCode();
                     else void createAccountAndSubmit();
                   }}
-                  disabled={submitting || creatingAccount || missing.length > 0}
-                  className="min-w-[215px]">
+                  disabled={submitting || creatingAccount}
+                  className="h-11 min-w-0 flex-1 sm:min-w-[215px] sm:flex-none">
                   {submitting || creatingAccount
                     ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
                     : <Check className="mr-2 h-4 w-4 shrink-0" />}
@@ -2054,7 +2051,6 @@ export default function TenantsOnboarding() {
                     </span>
                   </span>
                 </Button>
-                </span>
               )}
             </div>
           </CardContent>
@@ -2094,22 +2090,26 @@ export default function TenantsOnboarding() {
 
 function stepTitle(step: number) {
   switch (step) {
-    case 1: return 'How do you earn income?';
-    case 2: return "Let's start with your rent";
-    case 3: return 'Tell us about yourself';
+    case 1: return 'Tell us about yourself';
+    case 2: return 'Your Rent Plan';
+    case 3: return 'Who is your landlord?';
     case 4: return 'Tell us about your home';
-    case 5: return 'Who can confirm you live there?';
-    default: return 'Check and submit';
+    case 5: return 'Your household';
+    case 6: return 'A photo of you';
+    case 7: return 'Your National ID';
+    default: return 'LC1 letter, then send';
   }
 }
 function stepDesc(step: number) {
   switch (step) {
-    case 1: return 'This decides how often you pay back.';
-    case 2: return 'Tell us the rent you need supported and choose your repayment period.';
-    case 3: return 'Use your details exactly as they appear on your National ID.';
-    case 4: return 'Your official village, the address, GPS and photos of the house.';
-    case 5: return 'Your landlord and your LC1 chairperson. We check them against our records first.';
-    default: return 'Confirm everything is correct, then submit for verification.';
+    case 1: return 'Your own phone number, then your names exactly as they appear on your National ID.';
+    case 2: return 'How you earn, the rent for one month, and how long you will take to pay it back.';
+    case 3: return 'Your landlord’s name and their own phone number. We check them against our records first.';
+    case 4: return 'Your official village, the address, GPS taken at the house and photos of the house.';
+    case 5: return 'How many people live with you, and the work or business you do.';
+    case 6: return 'Any clear photo of your face.';
+    case 7: return 'Photos of the front and back of your National ID.';
+    default: return 'A photo of the letter from your LC1, then confirm and send your request.';
   }
 }
 
@@ -2179,10 +2179,10 @@ function humaniseSubmitError(raw?: string | null): string {
   const hay = `${msg} ${reason}`.toLowerCase();
 
   if (hay.includes('passport photo')) {
-    return 'Your passport photo did not reach us. Go back to "About you", retake it, then submit again.';
+    return 'Your photo did not reach us. Go back to "Photo", retake it, then submit again.';
   }
   if (hay.includes('national id is already registered')) {
-    return 'That National ID is already registered to another account. Check the number in "About you".';
+    return 'That National ID is already registered to another account. Check the number in "ID".';
   }
   if (hay.includes('phone number is already registered')) {
     return 'That phone number is already registered to another account. Sign in with it instead.';
@@ -2196,58 +2196,6 @@ function humaniseSubmitError(raw?: string | null): string {
     return 'We could not reach Welile. Check your internet connection and try again — your answers are saved.';
   }
   return reason;
-}
-
-/** What the request still needs; Submit stays locked until it is empty. Each line opens its step. */
-function MissingChecklist({ items, onFix }: { items: { key: TenantItemKey; label: string; step: number }[]; onFix: (step: number) => void }) {
-  if (!items.length) {
-    return (
-      <p className="flex items-center gap-1.5 text-[13px] font-bold text-emerald-700 dark:text-emerald-400" data-testid="tenant-ready">
-        <CheckCircle2 className="h-4 w-4 shrink-0" /> Everything is in. You can submit.
-      </p>
-    );
-  }
-  return (
-    <div role="status" aria-label="Still missing" data-testid="tenant-missing"
-      className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-[13px] dark:border-amber-500/40 dark:bg-amber-950/30">
-      <p className="font-bold text-foreground">Still missing before you can submit ({items.length})</p>
-      <ul className="mt-1.5 space-y-1">
-        {items.map((i) => (
-          <li key={i.key}>
-            <button type="button" onClick={() => onFix(i.step)} className="text-left text-muted-foreground underline-offset-2 hover:underline">
-              • {i.label}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** One reviewable section: icon, title, an Edit link back to its step, and a
- *  two-column grid of answers — the template's summary-section-box. */
-function ReviewCard({ icon: Icon, title, onEdit, children }: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  onEdit: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border bg-card p-4 transition-colors hover:border-primary/30 sm:p-5">
-      <div className="mb-3 flex items-center justify-between gap-3 border-b pb-2.5">
-        <p className="flex min-w-0 items-center gap-2 text-[13.5px] font-bold text-foreground">
-          <Icon className="h-[15px] w-[15px] shrink-0 text-primary" />
-          <span className="truncate">{title}</span>
-        </p>
-        <button type="button" onClick={onEdit}
-          className="inline-flex shrink-0 items-center gap-1 text-[12.5px] font-bold text-primary hover:underline">
-          <Pencil className="h-3 w-3" />
-          Edit
-        </button>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
-    </div>
-  );
 }
 
 /** Label above value. `money` tints it primary, `numeric` gives tabular figures,
@@ -2298,22 +2246,48 @@ function Hint({ icon: Icon, children, tone, spin }: {
   );
 }
 
+/** House photo: taken in this page, not the phone camera app, which can make Android reload the form (doc 276). */
 function PhotoPicker({ onPick }: { onPick: (f: File) => void }) {
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   return (
-    <label className="grid h-24 cursor-pointer place-items-center rounded-lg border border-dashed text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
-      <span className="flex flex-col items-center gap-1">
-        <Camera className="h-5 w-5" /> Add photo
-      </span>
-      <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture="environment" className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.currentTarget.value = ''; }} />
-    </label>
+    <>
+      <label
+        className="grid h-24 cursor-pointer place-items-center rounded-lg border border-dashed text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary"
+        onClick={(e) => {
+          if ((e.target as HTMLElement).tagName === 'INPUT') return;
+          e.preventDefault();
+          setCameraOpen(true);
+        }}
+      >
+        <span className="flex flex-col items-center gap-1">
+          <Camera className="h-5 w-5" /> Add photo
+        </span>
+        <input ref={fileRef} type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture="environment" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.currentTarget.value = ''; }} />
+      </label>
+      <SelfieCameraCapture
+        open={cameraOpen}
+        onOpenChange={setCameraOpen}
+        onCapture={onPick}
+        onFallback={() => fileRef.current?.click()}
+        facing="environment"
+        oval={false}
+        title="House photo"
+        hint="Show the house clearly in good light."
+      />
+    </>
   );
 }
 
-function PhotoBox({ label, required, hint, slot, onPick, onClear }: {
+function PhotoBox({ label, required, hint, slot, onPick, onClear, camera }: {
   label: string; required?: boolean; hint?: string;
   slot: PhotoSlot | null; onPick: (f: File) => void; onClear: () => void;
+  /** Take the photo inside this page instead of the phone's camera app, which can make Android reload the form. */
+  camera?: 'user' | 'environment';
 }) {
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   return (
     <div className="rounded-xl border p-3">
       <p className="text-sm font-semibold">{label} {required && <span className="text-destructive">*</span>}</p>
@@ -2325,13 +2299,33 @@ function PhotoBox({ label, required, hint, slot, onPick, onClear }: {
             className="absolute right-1 top-1 rounded bg-background/90 px-2 py-0.5 text-xs font-semibold">Retake</button>
         </div>
       ) : (
-        <label className="grid h-36 cursor-pointer place-items-center rounded-lg border border-dashed text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary">
+        <label
+          className="grid h-36 cursor-pointer place-items-center rounded-lg border border-dashed text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
+          onClick={camera ? (e) => {
+            // The fallback clicks the input itself; let that through to the file picker.
+            if ((e.target as HTMLElement).tagName === 'INPUT') return;
+            e.preventDefault();
+            setCameraOpen(true);
+          } : undefined}
+        >
           <span className="flex flex-col items-center gap-1.5">
             <Camera className="h-6 w-6" /> Take photo
           </span>
-          <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture="environment" className="hidden"
+          <input ref={fileRef} type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture={camera ?? 'environment'} className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.currentTarget.value = ''; }} />
         </label>
+      )}
+      {camera && (
+        <SelfieCameraCapture
+          open={cameraOpen}
+          onOpenChange={setCameraOpen}
+          onCapture={onPick}
+          onFallback={() => fileRef.current?.click()}
+          facing={camera}
+          oval={camera === 'user'}
+          title={label}
+          hint={hint ?? 'Line the face up with the oval.'}
+        />
       )}
     </div>
   );

@@ -13,7 +13,15 @@ import { safeUUID } from '@/lib/safeUUID';
 
 export type FunnelForm = 'agent_post' | 'tenant_self';
 export type FunnelEvent = 'open' | 'step' | 'blocked' | 'item_done' | 'submit_ok' | 'submit_fail' | 'close';
-export const FUNNEL_STEPS = ['start', 'repayment', 'tenant', 'house_landlord', 'gps', 'smartphone', 'lc1', 'documents', 'review'] as const;
+/**
+ * The 8 intake steps (intakeSteps.ts) — tenant, rent_plan, landlord, house, household,
+ * tenant_photo, id, lc1_post — plus 'start' (the first answer). The older names stay valid
+ * so rows already logged keep their meaning.
+ */
+export const FUNNEL_STEPS = [
+  'start', 'tenant', 'rent_plan', 'landlord', 'house', 'household', 'tenant_photo', 'id', 'lc1_post',
+  'repayment', 'house_landlord', 'gps', 'smartphone', 'lc1', 'documents', 'review',
+] as const;
 export type FunnelStep = typeof FUNNEL_STEPS[number];
 export const FUNNEL_ITEMS = [
   'house_photos', 'landlord', 'rent', 'gps', 'family_size', 'work', 'id_front', 'id_back', 'lc1_letter',
@@ -106,8 +114,10 @@ export interface FormFunnel {
   open(meta?: Record<string, unknown>): void;
   step(step: FunnelStep): void;
   blocked(items: FunnelItem[], error?: string | null): void;
-  itemDone(item: FunnelItem): void;
-  submitOk(rentRequestId: string): void;
+  /** An item became valid; `meta` / `error` ride with it (e.g. gps { accuracy_m }, or gps_pin_used). */
+  itemDone(item: FunnelItem, meta?: Record<string, unknown> | null, error?: string | null): void;
+  /** Posted; `meta` rides with the request id, e.g. { gps_note: 'Low GPS accuracy (120 m)' } for the Service Centre. */
+  submitOk(rentRequestId: string, meta?: Record<string, unknown>): void;
   submitFail(error: string, items?: FunnelItem[] | null): void;
   /** Closed without posting; `meta` e.g. { saved_draft: true }. */
   close(meta?: Record<string, unknown>): void;
@@ -165,14 +175,14 @@ export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormF
       if (!opened) return;
       emit('blocked', { p_items: clean(items).length ? clean(items) : ['other'], p_error: error ?? null });
     },
-    itemDone(item) {
+    itemDone(item, meta, error) {
       if (!opened || done.has(item) || !(FUNNEL_ITEMS as readonly string[]).includes(item)) return;
       done.add(item);
-      emit('item_done', { p_items: [item] });
+      emit('item_done', { p_items: [item], ...(meta ? { p_meta: meta } : {}), ...(error ? { p_error: error } : {}) });
     },
-    submitOk(rentRequestId) {
+    submitOk(rentRequestId, meta) {
       if (!opened) return;
-      emit('submit_ok', { p_rent_request_id: rentRequestId });
+      emit('submit_ok', { p_rent_request_id: rentRequestId, ...(meta ? { p_meta: meta } : {}) });
       posted = true;
     },
     submitFail(error, items) {

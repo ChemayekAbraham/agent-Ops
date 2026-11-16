@@ -1,7 +1,8 @@
 /**
  * Roles the server's `_desk_viewer_ok` accepts for desk read RPCs such as
- * `agent_eligibility_of` and `pipeline_waiting_list`. Used only to skip calls
- * that would be refused; the server still decides.
+ * `pipeline_waiting_list`, and for `agent_eligibility_of` on another agent's id
+ * (an agent may read their own, E119). Used only to skip calls that would be
+ * refused; the server still decides.
  */
 export const DESK_VIEWER_ROLES: readonly string[] = [
   'agent_ops', 'operations', 'manager', 'tenant_ops', 'landlord_ops', 'partner_ops',

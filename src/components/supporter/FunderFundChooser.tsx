@@ -1,7 +1,6 @@
-import { useRef, useState } from 'react';
-import { DirectPayStartButton } from '@/components/direct-pay/DirectPayPartner';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Banknote, Building2, Check, Copy, Loader2, Phone, Smartphone, Wallet } from 'lucide-react';
+import { Banknote, Building2, Check, Copy, ImagePlus, Loader2, Phone, Smartphone, Wallet, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
@@ -41,6 +40,56 @@ function ProviderLogo({ src }: { src: string }) {
     <span className="grid h-7 w-7 flex-none place-items-center overflow-hidden rounded-lg border border-border/60 bg-background">
       <img src={src} alt="" aria-hidden className="h-full w-full object-contain p-0.5" loading="lazy" />
     </span>
+  );
+}
+
+/** A tap-to-add photo tile with a preview and a remove button. */
+function PhotoSlot({ label, hint, file, onFile }: { label: string; hint: string; file: File | null; onFile: (file: File | null) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) { setPreview(null); return; }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  return (
+    <div className="min-w-0">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        aria-label={label}
+        onChange={(e) => { onFile(e.target.files?.[0] ?? null); e.target.value = ''; }}
+      />
+      {preview ? (
+        <div className="relative overflow-hidden rounded-xl border border-border/70 bg-muted">
+          <button type="button" className="block w-full" onClick={() => inputRef.current?.click()} aria-label={`Change ${label.toLowerCase()}`}>
+            <img src={preview} alt={label} className="h-28 w-full object-cover" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onFile(null)}
+            aria-label={`Remove ${label.toLowerCase()}`}
+            className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-background/90 text-foreground shadow-sm"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <p className="truncate bg-background/95 px-2 py-1 text-[11px] font-medium">{label}</p>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="flex h-[8.5rem] w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-2 text-center transition-colors hover:bg-primary/10 active:scale-[0.99]"
+        >
+          <ImagePlus className="h-5 w-5 text-primary" />
+          <span className="text-xs font-semibold leading-tight">{label}</span>
+          <span className="text-[11px] leading-tight text-muted-foreground">{hint}</span>
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -88,9 +137,12 @@ function ChooserBody({
     queryKey: ['funder-payout-contact', target.rentRequestId],
     queryFn: () => fetchLandlordPayoutContact(target.rentRequestId),
     staleTime: 60_000,
-    retry: false,
+    retry: 1,
+    // A failed lookup must not stick: check again next time the chooser opens.
+    refetchOnMount: (q) => q.state.data?.state === 'error',
   });
   const contact = contactQuery.data?.state === 'ready' ? contactQuery.data.contact : null;
+  const contactFailed = contactQuery.isError || contactQuery.data?.state === 'error';
   const showDirect = Boolean(contact?.payoutMomoNumber || contact?.landlordPhone);
   const [step, setStep] = useState<Step>('choose');
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -99,6 +151,8 @@ function ChooserBody({
   const [reference, setReference] = useState('');
   const [when, setWhen] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
+  const [sentPhoto, setSentPhoto] = useState<File | null>(null);
+  const [receivedPhoto, setReceivedPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const { policy } = useSelfSupportFeePolicy();
   const planCover = welileCoverSentence(Number(target.rentAmount || 0), policy);
@@ -126,9 +180,22 @@ function ChooserBody({
     setBusy(true);
     try {
       let photoPath: string | null = null;
+      let landlordPhotoPath: string | null = null;
       if (method === 'cash' && photo) {
         photoPath = await uploadCashReceiptPhoto(target.rentRequestId, photo);
         if (!photoPath) toast.message('The receipt photo was not saved. The cash payment can still be recorded.');
+      }
+      if (method === 'mobile_money') {
+        const [sentPath, receivedPath] = await Promise.all([
+          sentPhoto ? uploadCashReceiptPhoto(target.rentRequestId, sentPhoto, 'sent') : Promise.resolve(null),
+          receivedPhoto ? uploadCashReceiptPhoto(target.rentRequestId, receivedPhoto, 'received') : Promise.resolve(null),
+        ]);
+        if ((sentPhoto && !sentPath) || (receivedPhoto && !receivedPath)) {
+          toast.error('A screenshot did not upload. Check your connection and try again.');
+          return;
+        }
+        photoPath = sentPath;
+        landlordPhotoPath = receivedPath;
       }
       const result = await recordOffplatformRentPayment({
         rentRequestId: target.rentRequestId,
@@ -138,6 +205,7 @@ function ChooserBody({
         reference: method === 'mobile_money' ? reference.trim() : null,
         paidAt: when ? new Date(when).toISOString() : new Date().toISOString(),
         receiptPhotoPath: photoPath,
+        landlordPhotoPath,
       });
       if (!result.ok) {
         toast.error(("missing" in result && result.missing)
@@ -175,6 +243,10 @@ function ChooserBody({
       onProvider={setProvider}
       onReference={setReference}
       onWhen={setWhen}
+      sentPhoto={sentPhoto}
+      receivedPhoto={receivedPhoto}
+      onSentPhoto={setSentPhoto}
+      onReceivedPhoto={setReceivedPhoto}
       onCopy={() => contact.payoutMomoNumber && void copyNumber(contact.payoutMomoNumber)}
       coverSentence={typedCover}
       onBack={() => setStep('choose')}
@@ -216,7 +288,6 @@ function ChooserBody({
       {contactQuery.isLoading && (
         <p className="flex items-center gap-2 px-1 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking verification</p>
       )}
-      <DirectPayStartButton rentRequestId={target.rentRequestId} />
       {showDirect && contact?.payoutMomoNumber && (
         <ChoiceButton
           icon={<Smartphone className="h-5 w-5" />}
@@ -235,7 +306,18 @@ function ChooserBody({
           onClick={() => setChoice('cash')}
         />
       )}
-      {!contactQuery.isLoading && !showDirect && (
+      {!contactQuery.isFetching && contactFailed && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-border/70 px-3 py-2">
+          <p className="text-xs text-muted-foreground">Could not load the landlord's payment details.</p>
+          <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 rounded-lg" onClick={() => void contactQuery.refetch()}>
+            Try again
+          </Button>
+        </div>
+      )}
+      {contactQuery.isFetching && !contactQuery.isLoading && (
+        <p className="flex items-center gap-2 px-1 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking verification</p>
+      )}
+      {!contactQuery.isFetching && !contactFailed && !showDirect && (
         <p className="px-1 text-xs text-muted-foreground">
           Direct mobile money and cash show here after this Rent Plan is verified.
         </p>
@@ -277,6 +359,10 @@ function MomoForm(props: {
   onProvider: (v: 'mtn' | 'airtel') => void;
   onReference: (v: string) => void;
   onWhen: (v: string) => void;
+  sentPhoto: File | null;
+  receivedPhoto: File | null;
+  onSentPhoto: (file: File | null) => void;
+  onReceivedPhoto: (file: File | null) => void;
   coverSentence: string | null;
   onCopy: () => void;
   onBack: () => void;
@@ -305,6 +391,23 @@ function MomoForm(props: {
       </div>
       <Input placeholder="TID or reference" value={props.reference} onChange={(e) => props.onReference(e.target.value)} className="h-11" />
       <Input type="datetime-local" value={props.when} onChange={(e) => props.onWhen(e.target.value)} className="h-11" aria-label="Time you sent the money" />
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-foreground">Screenshots of the payment</p>
+        <div className="grid grid-cols-2 gap-2">
+          <PhotoSlot
+            label="Your screenshot"
+            hint="Shows you sent the money"
+            file={props.sentPhoto}
+            onFile={props.onSentPhoto}
+          />
+          <PhotoSlot
+            label="Landlord's screenshot"
+            hint="Shows they received it"
+            file={props.receivedPhoto}
+            onFile={props.onReceivedPhoto}
+          />
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <Button type="button" variant="outline" className="h-11" onClick={props.onBack}>Back</Button>
         <Button type="button" className="h-11" disabled={props.busy} onClick={props.onSave}>{props.busy ? 'Saving' : 'Record payment'}</Button>

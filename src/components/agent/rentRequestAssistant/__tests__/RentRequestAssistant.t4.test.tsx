@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
 
@@ -8,7 +8,20 @@ const mocks = vi.hoisted(() => ({
   tables: {} as Record<string, unknown>,
   openQueries: [] as { tenantId: unknown; except: unknown; statuses: unknown }[],
   renewalStart: vi.fn(),
+  renewalConfirm: vi.fn(),
   update: vi.fn(),
+  faceCheck: vi.fn(),
+  openT4: vi.fn(),
+  fetchRejected: vi.fn(),
+}));
+vi.mock('@/lib/t4RentRequest', async (orig) => ({ ...(await orig<typeof import('@/lib/t4RentRequest')>()), openT4RentRequest: mocks.openT4 }));
+vi.mock('@/hooks/useAgentRejectedRequests', async (orig) => ({
+  ...(await orig<typeof import('@/hooks/useAgentRejectedRequests')>()),
+  fetchAgentRejectedRequests: mocks.fetchRejected,
+}));
+vi.mock('@/lib/passportFaceCheck', async (orig) => ({
+  ...(await orig<typeof import('@/lib/passportFaceCheck')>()),
+  runPassportFaceCheck: mocks.faceCheck,
 }));
 vi.mock('@/integrations/supabase/client', () => {
   const builder = (table: string) => {
@@ -50,7 +63,7 @@ vi.mock('@/integrations/supabase/client', () => {
   };
 });
 // One stable user object, as the real hook gives.
-const auth = vi.hoisted(() => ({ user: { id: 'agent-1', user_metadata: { full_name: 'Agent One' } } }));
+const auth = vi.hoisted(() => ({ user: { id: 'agent-1', user_metadata: { full_name: 'Agent One' } }, enabledRoles: [] as string[], rolesResolved: undefined as boolean | undefined }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => auth }));
 const cap = vi.hoisted(() => ({ data: undefined as undefined | Map<string, unknown> }));
 vi.mock('@/hooks/useAgentCapacityMap', () => ({ useAgentCapacityMap: () => ({ data: cap.data, isLoading: false }), DAILY_ELIGIBILITY_THRESHOLD: 0.5 }));
@@ -65,7 +78,8 @@ vi.mock('@/lib/rentAssistantRecordChecks', () => ({
   maskPhone: (v: string) => v,
   maskNationalId: (v: string) => v,
 }));
-vi.mock('@/components/agent/RenewalDialog', () => ({ useRenewalFlow: () => ({ start: mocks.renewalStart, dialogs: null }) }));
+// E128: step 1 chooses the rent and days (choose), step 3 is the tenant's code (confirm).
+vi.mock('@/components/agent/RenewalDialog', () => ({ useRenewalFlow: () => ({ start: mocks.renewalStart, choose: mocks.renewalStart, confirm: mocks.renewalConfirm, dialogs: null }) }));
 // The shared setup's haptics stub has no hapticSuccess, which the "sent" screen calls.
 vi.mock('@/lib/haptics', () => ({ hapticTap: () => {}, hapticSelection: () => {}, hapticSuccess: () => {} }));
 vi.mock('@/lib/imageOptimizer', () => ({ optimizeImage: vi.fn(async (file: File) => ({ file, previewUrl: 'blob:preview' })) }));
@@ -94,6 +108,8 @@ beforeEach(() => {
   cap.data = undefined;
   mocks.openQueries = [];
   mocks.rpc.mockResolvedValue({ data: { ok: true }, error: null });
+  mocks.renewalConfirm.mockResolvedValue(true);
+  mocks.faceCheck.mockResolvedValue({ status: 'ok', verdict: 'pass', isFace: true, isPassportPhoto: true, sha256: 'face-1' });
   mocks.tables = {
     profiles: { ...TENANT },
     pipeline_intake_details: null,
@@ -111,7 +127,7 @@ beforeEach(() => {
 const rejectedRequest = (over: Partial<AgentRejectedRequest> = {}) => ({
   id: 'req-9', rent_amount: 300000, duration_days: 30, number_of_payments: 4, daily_repayment: 14000, total_repayment: 420000,
   access_fee: 1, request_fee: 1, status: 'rejected', created_at: '2026-11-01T08:00:00Z', rejected_at: '2026-11-02T08:00:00Z',
-  rejected_at_stage: 'service_center', rejected_reason: 'Family size and work are missing', reopen_count: 1, tenant_id: 'tenant-1',
+  rejected_at_stage: 'service_center', rejected_reason: 'Please check the details and send it again', reopen_count: 1, tenant_id: 'tenant-1',
   landlord_id: 'll-1', tenant_water_meter: null, tenant_electricity_meter: null, request_latitude: 0.33, request_longitude: 32.58,
   lc1_id: 'lc1-1', house_category: 'single-room', preferred_language: 'English', tenant_no_smartphone: false,
   registration_type: 'agent_registered', initial_outstanding_balance: null, outstanding_grace_days: null,
@@ -131,8 +147,20 @@ const listed = (which: 'gate' | 'form') => {
   const g = group(which);
   return g ? within(g).getAllByRole('listitem').map((li) => li.textContent?.replace('• ', '')) : [];
 };
+/** Step 1 (the tenant: phone, names, language, smartphone), then the earner type of step 2. */
+const startNew = async (earner: RegExp = /Weekly earner/) => {
+  answer('0783 123 456');
+  fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'John' } });
+  fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Mukasa' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'English' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Yes, a smartphone/ }));
+  fireEvent.click(await screen.findByRole('button', { name: earner }));
+};
 const fix = (label: RegExp) => fireEvent.click(within(screen.getByTestId('t4-missing')).getByRole('button', { name: label }));
-const sendButton = () => screen.getByRole('button', { name: /Resubmit rent request|Renew Rent Plan/ });
+const sendButton = () => screen.getByRole('button', { name: /Resubmit rent request|Send the tenant’s code and renew/ });
+/** E128 renewal: the header's step 3 (the tenant's code and Post). */
+const toRenewalStep3 = async () => fireEvent.click(await screen.findByRole('button', { name: /^Step 3: Tenant code \+ Post/ }));
 
 describe('T4 resubmit', () => {
   it('keeps Resubmit off until every gate item is in, then lands the request at the Service Centre', async () => {
@@ -140,7 +168,7 @@ describe('T4 resubmit', () => {
     const onDone = vi.fn();
     render(<RentRequestAssistant open onOpenChange={vi.fn()} onSuccess={onSuccess} request={{ mode: 'resubmit', rejected: rejectedRequest(), onDone }} />);
 
-    expect(await screen.findByText(/Family size and work are missing/)).toBeInTheDocument();
+    expect(await screen.findByText(/Please check the details and send it again/)).toBeInTheDocument();
     await waitFor(() => expect(listed('gate')).toEqual(['Family size', 'Work / business']));
     expect(listed('form')).toEqual(['What you changed (at least 10 characters)']);
     expect(sendButton()).toBeDisabled();
@@ -183,7 +211,7 @@ describe('T4 resubmit', () => {
   it('shows the server error as-is and stays on the review', async () => {
     mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
     mocks.rpc.mockImplementation(async (fn: string) => (fn === 'agent_resubmit_rent_request'
-      ? { data: null, error: { message: 'RESUBMIT_CAP_REACHED: 5/5' } }
+      ? { data: null, error: { message: 'NOT_YOUR_REQUEST: this tenant is handled by another agent' } }
       : { data: { ok: true }, error: null }));
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
     await waitFor(() => expect(group('gate')).toBeNull());
@@ -191,8 +219,31 @@ describe('T4 resubmit', () => {
     answer('Fixed the landlord details');
     await waitFor(() => expect(sendButton()).toBeEnabled());
     fireEvent.click(sendButton());
-    expect(await screen.findByText('RESUBMIT_CAP_REACHED: 5/5')).toBeInTheDocument();
+    expect(await screen.findByText('NOT_YOUR_REQUEST: this tenant is handled by another agent')).toBeInTheDocument();
     expect(screen.queryByText('Sent to the Service Centre')).toBeNull();
+  });
+});
+
+describe('E118: no resubmit limit', () => {
+  it('a returned request with reopen_count = 6 and every item in can be resubmitted, and the server takes it', async () => {
+    mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ reopen_count: 6, rejected_reason: 'Wrong landlord phone' }) }} />);
+    // The reason names the landlord, so that question opens first.
+    expect(await screen.findAllByText(/Who’s the landlord\?/)).not.toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(group('gate')).toBeNull());
+    // Only the note is left: no "Resubmits left" item, no manager reopen.
+    expect(listed('form')).toEqual(['What you changed (at least 10 characters)']);
+    expect(screen.queryByText(/Resubmits left|manager must reopen/i)).toBeNull();
+    expect(sendButton()).toBeDisabled();
+    fix(/What you changed/);
+    answer('Fixed the landlord phone number');
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    expect(mocks.rpc).toHaveBeenCalledWith('agent_resubmit_rent_request', expect.objectContaining({
+      p_request_id: 'req-9', p_agent_note: 'Fixed the landlord phone number',
+    }));
   });
 });
 
@@ -225,8 +276,7 @@ describe('E90: ask only for what _agent_side_missing lists', () => {
     const side = sideMissing(['ID photo (front)']);
     mocks.rpc.mockImplementation(async (fn: string) => ({ data: side(fn) ?? { ok: true }, error: null }));
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
-    await waitFor(() => expect(listed('gate')).toEqual(['National ID photo — front']));
-    fix(/National ID photo — front/);
+    // The server lists the ID front, so it opens first even though one is on file.
     fireEvent.change(await screen.findByLabelText('National ID front photo'), { target: { files: [new File(['f'], 'front.jpg', { type: 'image/jpeg' })] } });
     fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(group('gate')).toBeNull());
@@ -262,6 +312,9 @@ describe('E90: ask only for what _agent_side_missing lists', () => {
 });
 
 describe('E100: no posting gate', () => {
+  // E119: an ordinary agent reads their own figure (agent_eligibility_of with their own id).
+  beforeEach(() => { auth.enabledRoles = ['agent']; });
+  afterEach(() => { auth.enabledRoles = []; });
   // VERON OWARUHANGA: 52.8% collected across all plans, 0 tenants paid today. Even a capacity
   // record from before E100 that still says "can't post" must not stop her.
   const veron = {
@@ -280,6 +333,34 @@ describe('E100: no posting gate', () => {
     expect(mocks.rpc).toHaveBeenCalledWith('agent_eligibility_of', { p_agent: 'agent-1' });
     expect(screen.queryByText(/can’t post|cannot post|Collect from|Checking whether you can post|Good news/)).toBeNull();
     // The conversation is open: the composer is there for the first answer.
+    expect(container.querySelector('footer')).not.toBeNull();
+  });
+
+  it('E119: a plain agent sees their own % and the reason text the server gives', async () => {
+    cap.data = new Map([['agent-1', veron]]);
+    const reason = 'Collected 31% across all 4 rent plans (needs 50%). You are not verified yet.';
+    mocks.rpc.mockImplementation(async (fn: string, args?: { p_agent?: string }) => (fn === 'agent_eligibility_of'
+      ? (args?.p_agent === 'agent-1' ? { data: { eligible: false, pct: 31, reason }, error: null } : { data: null, error: { message: 'NOT_ALLOWED' } })
+      : { data: { ok: true }, error: null }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    expect(await screen.findByTestId('collection-info')).toHaveTextContent('Your collection: 31% of what is due across all your plans.');
+    expect(screen.getByTestId('collection-reason')).toHaveTextContent(reason);
+    // Only the signed-in agent's own id is ever asked for.
+    const asked = mocks.rpc.mock.calls.filter(([fn]) => fn === 'agent_eligibility_of').map(([, a]) => (a as { p_agent: string }).p_agent);
+    expect(asked.length).toBeGreaterThan(0);
+    expect(new Set(asked)).toEqual(new Set(['agent-1']));
+  });
+
+  it('E119: when the server refuses the figure (another agent\'s id), nothing renders', async () => {
+    cap.data = new Map([['agent-1', veron]]);
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'agent_eligibility_of'
+      ? { data: null, error: { message: 'NOT_ALLOWED: you can only read your own figure' } }
+      : { data: { ok: true }, error: null }));
+    const { container } = render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('agent_eligibility_of', { p_agent: 'agent-1' }));
+    expect(screen.queryByTestId('collection-info')).toBeNull();
+    expect(screen.queryByTestId('collection-reason')).toBeNull();
+    expect(screen.queryByText(/NOT_ALLOWED/)).toBeNull();
     expect(container.querySelector('footer')).not.toBeNull();
   });
 
@@ -302,7 +383,7 @@ describe('E63: no rent cap in the form', () => {
     cap.data = new Map([['agent-1', zeroPct]]);
     mocks.rpc.mockImplementation(async (fn: string) => (fn === 'agent_eligibility_of' ? { data: { pct: 0 }, error: null } : { data: { ok: true }, error: null }));
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
-    fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
+    await startNew();
     expect(await askedLast(/Monthly rent \(one month only\)/)).toBeInTheDocument();
     // The numbers-only tip still comes on the third answer it can't read.
     answer('about three hundred');
@@ -312,7 +393,7 @@ describe('E63: no rent cap in the form', () => {
     answer(String(rent));
     // Past the rent question: the next step's Continue is there, the amount shows with commas.
     fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
-    expect(await askedLast(/What’s their phone number/)).toBeInTheDocument();
+    expect(await askedLast(/Who’s the landlord/)).toBeInTheDocument();
     expect(screen.getAllByText(new RegExp(shown.replace(/[,]/g, ',')))).not.toHaveLength(0);
     expect(screen.queryByText(/more than your cap|per tenant|within your cap/)).toBeNull();
   });
@@ -323,7 +404,7 @@ describe('E63: no rent cap in the form', () => {
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ rent_amount: 250000, rejected_reason: null }) }} />);
     await waitFor(() => expect(group('gate')).toBeNull());
     // The request on file loads first.
-    fireEvent.click(await screen.findByRole('button', { name: /^Change answer: UGX\s250,000$/ }, { timeout: 5000 }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Redo: Monthly rent' }, { timeout: 5000 }));
     answer(String(rent));
     expect(screen.queryByText(/more than your cap|within your cap/)).toBeNull();
     // A new rent asks the days again, then goes back to where the agent was.
@@ -455,6 +536,7 @@ describe('DOCS-1: documents already on file are not asked for again', () => {
 
   it('renewal: the last plan’s letter and ID photos are on file; Renew is ready without uploads', async () => {
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal: { prevId: 'prev-1', tenantId: 'tenant-1', tenantName: 'John Mukasa', currentRent: 300000, currentDays: 30 } }} />);
+    await toRenewalStep3();
     await screen.findByTestId('t4-ready');
     expect(screen.getAllByText('On file ✓')).toHaveLength(3);
     expect(screen.queryByLabelText('National ID front photo')).toBeNull();
@@ -465,7 +547,7 @@ describe('DOCS-1: documents already on file are not asked for again', () => {
 describe('rent field', () => {
   it('asks for the monthly rent, one month only, with the Landlord Ops note', async () => {
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
-    fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
+    await startNew();
     expect(await screen.findAllByText('Monthly rent (one month only) 🏠')).not.toHaveLength(0);
     expect(screen.getByText('If the landlord wants several months together, enter ONE month. Landlord Ops will confirm the monthly rent with the landlord.')).toBeInTheDocument();
   });
@@ -481,7 +563,8 @@ describe('T4 renewal', () => {
     const onDone = vi.fn();
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', onDone, renewal }} />);
 
-    // Opens at the review: photos, GPS, name and ID are on file; only the LC1 letter is missing.
+    // Step 3: photos, GPS, name and ID are on file; only the LC1 letter is missing.
+    await toRenewalStep3();
     await waitFor(() => expect(listed('gate')).toEqual(['LC1 letter photo']));
     expect(sendButton()).toBeDisabled();
     fix(/LC1 letter/);
@@ -512,6 +595,7 @@ describe('T4 renewal', () => {
   it('DOCS-1: a "no LC1 letter yet" reason does not get past the letter step; Renew stays out of reach', async () => {
     mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), lc_letter_path: null };
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    await toRenewalStep3();
     await waitFor(() => expect(listed('gate')).toEqual(['LC1 letter photo']));
     expect(sendButton()).toBeDisabled();
     fix(/LC1 letter/);
@@ -519,7 +603,7 @@ describe('T4 renewal', () => {
     fireEvent.change(screen.getByLabelText('Why there is no LC1 letter yet'), { target: { value: 'LC1 is away until Friday' } });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText(/Add a photo of the stamped LC1 letter/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Renew Rent Plan/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Send the tenant’s code and renew/ })).toBeNull();
     expect(mocks.renewalStart).not.toHaveBeenCalled();
   });
 
@@ -528,6 +612,7 @@ describe('T4 renewal', () => {
     mocks.renewalStart.mockResolvedValue({ newRent: 300000, newDays: 30, dailyRepayment: 14000, totalRepayment: 420000, changed: false, reasonCode: null, explanation: '', evidenceUrl: null });
     mocks.rpc.mockImplementation(async (fn: string) => (fn === 'renew_rent_request' ? { data: 'new-req', error: null } : { data: { ok: true }, error: null }));
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    await toRenewalStep3();
     await waitFor(() => expect(listed('gate')).toEqual(['National ID photo — back']));
     fix(/National ID photo — back/);
     fireEvent.change(await screen.findByLabelText('National ID back photo'), { target: { files: [new File(['b'], 'back.jpg', { type: 'image/jpeg' })] } });
@@ -545,6 +630,7 @@ describe('T4 renewal', () => {
     mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), nin_photo_back_path: null };
     mocks.tables.profiles = { ...TENANT, national_id_photo_back_path: 'tenant-1/profile/national_id_back.jpg' };
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    await toRenewalStep3();
     await screen.findByTestId('t4-ready');
     await waitFor(() => expect(screen.getByRole('img', { name: 'ID back photo on file' })).toHaveAttribute('src', 'https://signed/tenant-1/profile/national_id_back.jpg'));
   });
@@ -552,10 +638,342 @@ describe('T4 renewal', () => {
   it('does nothing when the agent or tenant backs out of the renewal', async () => {
     mocks.renewalStart.mockResolvedValue(null);
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    await toRenewalStep3();
     await screen.findByTestId('t4-ready');
     fireEvent.click(sendButton());
     await waitFor(() => expect(mocks.renewalStart).toHaveBeenCalled());
     expect(mocks.rpc).not.toHaveBeenCalledWith('renew_rent_request', expect.anything());
     expect(screen.queryByText('Sent to the Service Centre')).toBeNull();
+  });
+});
+
+describe('Agent chat fixes (16 Nov): resubmit', () => {
+  const ready = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+
+  it('"photo" in the return reason opens the face photo step first, even though one is on file; a retake is checked and sent', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ rejected_reason: 'The photo is blurry, take it again', tenant_photo_url: 'https://cdn/face.jpg' }) }} />);
+    // The whole request at once, every line tappable, the face photo included.
+    const summary = await screen.findByTestId('resubmit-summary');
+    expect(within(summary).getByRole('button', { name: 'Redo: Tenant’s face photo (head and shoulders)' })).toHaveTextContent('On file ✓');
+    expect(within(summary).getByRole('button', { name: 'Redo: House GPS' })).toBeInTheDocument();
+    // The face photo opens first although it is on file.
+    expect(await screen.findAllByText(/Now the tenant’s face photo \(head and shoulders\) of John/)).not.toHaveLength(0);
+    expect(screen.getByTestId('face-check-status')).toHaveTextContent('On file ✓ Tap the photo to retake it.');
+    expect(screen.queryByText(/passport photo/i)).toBeNull();
+    // A retaken photo runs the face check again.
+    fireEvent.change(screen.getByLabelText('Tenant’s face photo (head and shoulders)'), { target: { files: [new File(['f'], 'face.jpg', { type: 'image/jpeg' })] } });
+    await waitFor(() => expect(mocks.faceCheck).toHaveBeenCalledWith(expect.any(File), { source: 'agent_rent_request' }));
+    expect(await screen.findByText('Face found. Looks good.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    // Back at the summary: only the note is left.
+    await waitFor(() => expect(listed('form')).toEqual(['What you changed (at least 10 characters)']));
+    fix(/What you changed/);
+    answer('Retook the tenant face photo');
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    expect(mocks.update).toHaveBeenCalledWith('rent_requests', expect.objectContaining({ tenant_photo_url: expect.stringContaining('tenant_passport') }));
+    expect(mocks.rpc).toHaveBeenCalledWith('agent_resubmit_rent_request', expect.objectContaining({
+      p_request_id: 'req-9', p_patch: expect.objectContaining({ tenant_photo_url: expect.any(String) }),
+    }));
+    expect(mocks.rpc).toHaveBeenCalledWith('link_identity_photo_fingerprint', expect.objectContaining({ p_sha256: 'face-1', p_rent_request_id: 'req-9' }));
+  });
+
+  it('a reason naming nothing opens the summary and the review, as before', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ rejected_reason: 'Please call the Service Centre first' }) }} />);
+    expect(await screen.findByTestId('resubmit-summary')).toBeInTheDocument();
+    await waitFor(() => expect(listed('form')).toEqual(['What you changed (at least 10 characters)']));
+    // Any line opens its question.
+    fireEvent.click(within(screen.getByTestId('resubmit-summary')).getByRole('button', { name: 'Redo: House GPS' }));
+    expect(await screen.findAllByText(/capture its GPS location/)).not.toHaveLength(0);
+  });
+});
+
+describe('E124: the 8-step intake', () => {
+  const counter = () => screen.getByTestId('intake-counter').textContent;
+  const rpcWith = (answers: Record<string, unknown>) => mocks.rpc.mockImplementation(async (fn: string) => (
+    fn in answers ? { data: answers[fn], error: null } : { data: { ok: true }, error: null }
+  ));
+  const walkStep1 = async () => {
+    answer('0783 123 456');
+    fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'John' } });
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Mukasa' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'English' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Yes, a smartphone/ }));
+  };
+
+  it('the counter on top updates per step; the step strip ticks a done step', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    await waitFor(() => expect(counter()).toBe('Step 1 of 8 · 8 left'));
+    const needed = screen.getByTestId('intake-needed');
+    expect(within(needed).getByText('Tenant’s phone number').closest('li')).toHaveAttribute('data-done', 'no');
+    await walkStep1();
+    await waitFor(() => expect(counter()).toBe('Step 2 of 8 · 7 left'));
+    expect(screen.getByRole('button', { name: 'Step 1: Tenant, done' })).toBeInTheDocument();
+    expect(screen.getAllByRole('progressbar')[0].querySelector('[data-state="done"]')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^Step 4: House/ }));
+    await waitFor(() => expect(counter()).toBe('Step 4 of 8 · 7 left'));
+  });
+
+  it('Post is only on step 8; while steps are incomplete it reads "N left: …" and jumps there', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    await walkStep1();
+    expect(screen.queryByTestId('send-button')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^Step 8: LC1 letter \+ Post/ }));
+    const left = await screen.findByTestId('send-button');
+    expect(left).toHaveTextContent('7 left: Rent plan, Landlord, House, Household, Photo, ID, LC1 letter');
+    expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
+    fireEvent.click(left);
+    await waitFor(() => expect(counter()).toBe('Step 2 of 8 · 7 left'));
+    expect(screen.queryByTestId('send-button')).toBeNull();
+  });
+
+  // E127: the exact intake_tenant_check reply, one test per status.
+  const reply = (over: Record<string, unknown>) => ({ ok: false, own_phone: false, open_request: null, returned_request: null, message: null, ...over });
+
+  it('step 1, status ok: the phone is accepted and step 1 goes on', async () => {
+    rpcWith({ intake_tenant_check: reply({ status: 'ok', ok: true }) });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456');
+    expect(await screen.findByLabelText('First name')).toBeInTheDocument();
+    expect(screen.queryByTestId('tenant-check')).toBeNull();
+  });
+
+  it('step 1, status phone_incomplete: the server’s words, and it stops', async () => {
+    rpcWith({ intake_tenant_check: { ok: false, reason: 'phone_incomplete', message: 'That number is missing digits.' } });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456');
+    expect(await screen.findByTestId('tenant-check')).toHaveTextContent('That number is missing digits.');
+    expect(screen.queryByLabelText('First name')).toBeNull();
+  });
+
+  it('step 1, status own_phone: the agent’s own phone stops here', async () => {
+    rpcWith({ intake_tenant_check: reply({ status: 'own_phone', own_phone: true }) });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456');
+    expect(await screen.findByTestId('tenant-check')).toHaveTextContent('This is your own phone number');
+    expect(mocks.rpc).toHaveBeenCalledWith('intake_tenant_check', { p_tenant_phone: '0783123456' });
+    expect(screen.queryByLabelText('First name')).toBeNull();
+    expect(counter()).toBe('Step 1 of 8 · 8 left');
+  });
+
+  it('step 1, status open_request: says where it is (open_request.where); mine links to it, and it does not continue', async () => {
+    rpcWith({ intake_tenant_check: reply({ status: 'open_request', open_request: { id: 'req-5', mine: true, where: 'Tenant Ops' } }) });
+    const onOpenChange = vi.fn();
+    const seen = vi.fn();
+    window.addEventListener('open-submissions', seen);
+    render(<RentRequestAssistant open onOpenChange={onOpenChange} />);
+    answer('0783 123 456');
+    expect(await screen.findByTestId('tenant-check')).toHaveTextContent('This tenant already has a request at Tenant Ops.');
+    expect(screen.queryByLabelText('First name')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open my request' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect((seen.mock.calls[0][0] as CustomEvent).detail).toEqual({ tab: 'submitted', recordId: 'req-5' });
+    window.removeEventListener('open-submissions', seen);
+  });
+
+  it('step 1, status returned_mine: opens that request’s resubmit', async () => {
+    rpcWith({ intake_tenant_check: reply({ status: 'returned_mine', returned_request: { id: 'req-9', mine: true, reason: 'Blurry photo' } }) });
+    mocks.fetchRejected.mockResolvedValue([rejectedRequest()]);
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456');
+    await waitFor(() => expect(mocks.openT4).toHaveBeenCalledWith(expect.objectContaining({ mode: 'resubmit', rejected: expect.objectContaining({ id: 'req-9' }) })));
+    expect(mocks.fetchRejected).toHaveBeenCalledWith('agent-1');
+    expect(screen.queryByLabelText('First name')).toBeNull();
+  });
+
+  it('step 1, status returned_other: shows the message and stops', async () => {
+    rpcWith({ intake_tenant_check: reply({ status: 'returned_other', returned_request: { id: 'req-7', mine: false, reason: 'Wrong LC1' }, message: 'Sent back to another agent' }) });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456');
+    expect(await screen.findByTestId('tenant-check')).toHaveTextContent('Sent back to another agent');
+    expect(mocks.openT4).not.toHaveBeenCalled();
+  });
+
+  it('who is posting: a user who is not an agent picks "Someone else", which calls become_agent; then the intake opens', async () => {
+    auth.rolesResolved = true;
+    try {
+      render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+      expect(await screen.findByText('Who is this rent request for?')).toBeInTheDocument();
+      expect(screen.queryByTestId('intake-header')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: /Someone else/ }));
+      await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('become_agent', {}));
+      expect(await screen.findAllByText('What’s the tenant’s phone number? 📱')).not.toHaveLength(0);
+      expect(screen.getByTestId('intake-counter')).toHaveTextContent('Step 1 of 8');
+    } finally {
+      auth.rolesResolved = undefined;
+    }
+  });
+
+  it('who is posting: PHONE_REQUIRED asks to confirm the phone by SMS; AGENT_ROLE_DISABLED shows the message', async () => {
+    auth.rolesResolved = true;
+    try {
+      mocks.rpc.mockImplementation(async (fn: string) => (fn === 'become_agent' ? { data: null, error: { message: 'PHONE_REQUIRED: confirm your phone by SMS first' } } : { data: { ok: true }, error: null }));
+      const { unmount } = render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+      fireEvent.click(await screen.findByRole('button', { name: /Someone else/ }));
+      expect(await screen.findByTestId('confirm-phone')).toHaveTextContent('Confirm your phone number first');
+      unmount();
+      mocks.rpc.mockImplementation(async (fn: string) => (fn === 'become_agent' ? { data: null, error: { message: 'AGENT_ROLE_DISABLED: Your agent role was switched off by Agent Ops.' } } : { data: { ok: true }, error: null }));
+      render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+      fireEvent.click(await screen.findByRole('button', { name: /Someone else/ }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Your agent role was switched off by Agent Ops.');
+      expect(screen.queryByRole('button', { name: /Someone else/ })).toBeNull();
+    } finally {
+      auth.rolesResolved = undefined;
+    }
+  });
+
+  it('agents skip the who-is-posting screen', async () => {
+    auth.rolesResolved = true;
+    auth.enabledRoles = ['agent'];
+    try {
+      render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+      expect(await screen.findAllByText('What’s the tenant’s phone number? 📱')).not.toHaveLength(0);
+      expect(screen.queryByText('Who is this rent request for?')).toBeNull();
+    } finally {
+      auth.rolesResolved = undefined;
+      auth.enabledRoles = [];
+    }
+  });
+
+  it('resubmit: the counter reads "N to fix" and only the returned items open, in order (tenant_photo = step 6)', async () => {
+    mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+    rpcWith({ resubmit_needs: {
+      items: [{ code: 'tenant_photo', label: 'Tenant’s face photo', why: 'desk' }, { code: 'id_front', label: 'ID photo (front)', why: 'desk' }],
+      count: 2, desk: 'Tenant Ops', desk_note: 'Blurry face photo', auto_note: 'Fixed: face photo, ID front',
+    } });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ tenant_photo_url: 'https://cdn/face.jpg' }) }} />);
+    await waitFor(() => expect(screen.getByTestId('intake-counter')).toHaveTextContent('2 to fix'));
+    expect(mocks.rpc).toHaveBeenCalledWith('resubmit_needs', { p_request_id: 'req-9' });
+    expect(mocks.rpc).not.toHaveBeenCalledWith('return_items_for', expect.anything());
+    // The photo (step 6) opens first.
+    expect(await screen.findAllByText(/Now the tenant’s face photo/)).not.toHaveLength(0);
+    expect(screen.getByRole('button', { name: /^Step 6: Tenant’s photo/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^Step 2: Rent plan/ })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Tenant’s face photo (head and shoulders)'), { target: { files: [new File(['f'], 'face.jpg', { type: 'image/jpeg' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByTestId('intake-counter')).toHaveTextContent('1 to fix'));
+    // Then the ID front (step 7), even though one is on file.
+    expect(await screen.findByLabelText('National ID front photo')).toBeInTheDocument();
+  });
+});
+
+describe('E128: the renewal in 3 steps', () => {
+  const renewal = { prevId: 'prev-1', tenantId: 'tenant-1', tenantName: 'John Mukasa', tenantPhone: '0783123456', currentRent: 300000, currentDays: 30, landlordName: 'Peter Okello' };
+  const choice = { newRent: 320000, newDays: 60, dailyRepayment: 7000, totalRepayment: 420000, changed: true, reasonCode: 'landlord_raised', explanation: 'Landlord raised the rent', evidenceUrl: null };
+  const counter = () => screen.getByTestId('intake-counter').textContent;
+
+  it('the counter reads Step 1 of 3; Plan, What changed, then the tenant’s code and Post', async () => {
+    mocks.renewalStart.mockResolvedValue(choice);
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'renew_rent_request' ? { data: 'new-req', error: null } : { data: { ok: true }, error: null }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    await waitFor(() => expect(counter()).toBe('Step 1 of 3 · 3 left'));
+    expect(screen.getByTestId('renew-plan')).toHaveTextContent('Completed ✓');
+    fireEvent.click(screen.getByRole('button', { name: 'Choose the new rent and days' }));
+    expect(await screen.findByTestId('renew-choice')).toHaveTextContent('Landlord raised the rent');
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(counter()).toBe('Step 2 of 3 · 2 left'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Same house and landlord' }));
+    await waitFor(() => expect(counter()).toBe('Step 3 of 3 · 1 left'));
+    await screen.findByTestId('t4-ready');
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    // The rent and days were chosen once (step 1); step 3 only asked for the code.
+    expect(mocks.renewalStart).toHaveBeenCalledTimes(1);
+    expect(mocks.renewalConfirm).toHaveBeenCalledWith(expect.objectContaining({ prevId: 'prev-1' }), choice);
+    expect(mocks.rpc).toHaveBeenCalledWith('renew_rent_request', expect.objectContaining({ p_prev_request_id: 'prev-1', p_new_rent_amount: 320000, p_new_days: 60 }));
+  });
+
+  it('another agent may renew this tenant: Agent Ops will confirm them as the agent', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal: { ...renewal, agentId: 'agent-2', tenantAsked: true } }} />);
+    expect(await screen.findByTestId('renew-other-agent')).toHaveTextContent('Agent Ops will confirm you as this tenant’s agent.');
+    expect(screen.getByText('Tenant asked to renew')).toBeInTheDocument();
+  });
+
+  it('moved house asks for new house photos and the GPS; a new landlord opens a new request', async () => {
+    mocks.renewalStart.mockResolvedValue(choice);
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Step 2: What changed/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'New landlord' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Post a new request for John/ }));
+    expect(mocks.openT4).toHaveBeenCalledWith(expect.objectContaining({ mode: 'new', prefill: expect.objectContaining({ tenantId: 'tenant-1' }) }));
+    fireEvent.click(screen.getByRole('button', { name: 'Moved house (same landlord)' }));
+    expect(await screen.findAllByText(/Photo time!/)).not.toHaveLength(0);
+  });
+});
+
+describe('E130: a resubmit shows only what resubmit_needs lists', () => {
+  const ready = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+  const needsReply = (over: Record<string, unknown>) => ({ items: [], count: 0, desk: 'Tenant Ops', desk_note: null, auto_note: null, ...over });
+  const withNeeds = (reply: unknown) => mocks.rpc.mockImplementation(async (fn: string) => (
+    fn === 'resubmit_needs' ? { data: reply, error: null } : { data: { ok: true }, error: null }
+  ));
+  const counter = () => screen.getByTestId('intake-counter').textContent;
+
+  it('only id_back missing: only the ID-back question, "1 to fix", the desk line, and the note already written', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    withNeeds(needsReply({
+      items: [{ code: 'id_back', label: 'ID photo (back)', why: 'missing' }], count: 1,
+      desk_note: 'The ID back is blurry', auto_note: 'Fixed: ID photo (back)',
+    }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
+    await waitFor(() => expect(counter()).toBe('1 to fix'));
+    expect(screen.getByTestId('sent-back-by')).toHaveTextContent('Sent back by Tenant Ops: The ID back is blurry');
+    expect(await screen.findAllByText(/And the BACK of John’s National ID/)).not.toHaveLength(0);
+    // Nothing else is asked: no front, no rent, no face photo, no summary of everything.
+    expect(screen.queryByText(/photo of the FRONT of/)).toBeNull();
+    expect(screen.queryByText(/Monthly rent \(one month only\)/)).toBeNull();
+    expect(screen.queryByText(/face photo \(head and shoulders\) of John/)).toBeNull();
+    expect(screen.queryByTestId('resubmit-summary')).toBeNull();
+    fireEvent.change(screen.getByLabelText('National ID back photo'), { target: { files: [new File(['b'], 'back.jpg', { type: 'image/jpeg' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(counter()).toBe('All fixed'));
+    // Resubmit is there at once; the note was written for the agent.
+    expect(screen.getByTestId('resubmit-note')).toHaveTextContent('Fixed: ID photo (back)');
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    expect(mocks.rpc).toHaveBeenCalledWith('agent_resubmit_rent_request', expect.objectContaining({ p_request_id: 'req-9', p_agent_note: 'Fixed: ID photo (back)' }));
+  });
+
+  it('named and missing items are merged without duplicates, in the order given', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    withNeeds(needsReply({
+      items: [
+        { code: 'gps', label: 'GPS of the house', why: 'missing' },
+        { code: 'id_back', label: 'ID photo (back)', why: 'desk' },
+        { code: 'id_back', label: 'ID photo (back)', why: 'missing' },
+      ],
+      count: 2, auto_note: 'Fixed: GPS, ID back',
+    }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
+    await waitFor(() => expect(counter()).toBe('2 to fix'));
+    const needed = within(screen.getByTestId('intake-needed')).getAllByRole('listitem').map((li) => li.textContent);
+    expect(needed).toEqual(['GPS of the house', 'ID photo (back)']);
+    // The first in the order given opens first.
+    expect(await screen.findAllByText(/capture its GPS location|Capture location/)).not.toHaveLength(0);
+  });
+
+  it('count 0: the desk note is read for what it names', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    withNeeds(needsReply({ desk_note: 'The house photos are too dark' }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
+    await waitFor(() => expect(counter()).toBe('1 to fix'));
+    expect(await screen.findAllByText(/Photo time!/)).not.toHaveLength(0);
+  });
+
+  it('count 0 and nothing named: the summary with every line tappable, "Tap what you fixed"', async () => {
+    mocks.tables.pipeline_intake_details = ready;
+    withNeeds(needsReply({ desk_note: 'Please call the Service Centre' }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
+    expect(await screen.findByTestId('intake-counter')).toHaveTextContent('Tap what you fixed');
+    expect(screen.getByTestId('sent-back-by')).toHaveTextContent('Sent back by Tenant Ops: Please call the Service Centre');
+    const summary = await screen.findByTestId('resubmit-summary');
+    fireEvent.click(within(summary).getByRole('button', { name: 'Redo: House GPS' }));
+    expect(await screen.findAllByText(/capture its GPS location/)).not.toHaveLength(0);
   });
 });

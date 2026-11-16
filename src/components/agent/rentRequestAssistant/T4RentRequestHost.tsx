@@ -2,6 +2,8 @@ import { Suspense, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { useAuth } from '@/hooks/useAuth';
+import { AGENT_RENT_REQUEST_REOPEN_FLAG } from '@/lib/formPhotoDraft';
 import { closeT4RentRequest, openT4RentRequest, useT4Request, type T4Request } from '@/lib/t4RentRequest';
 
 const RentRequestAssistant = lazyWithRetry(() => import('./RentRequestAssistant'));
@@ -31,6 +33,16 @@ export function requestFromEvent(detail: unknown): T4Request {
 export default function T4RentRequestHost() {
   const req = useT4Request();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // The phone reloaded the page while this agent was filling a new request (often on
+  // return from the camera app): open it again; the form restores its draft (doc 276).
+  useEffect(() => {
+    if (!user?.id) return;
+    let mine = false;
+    try { mine = localStorage.getItem(AGENT_RENT_REQUEST_REOPEN_FLAG) === user.id; } catch { /* ignore */ }
+    if (mine) openT4RentRequest({ mode: 'new', entry: 'reload' });
+  }, [user?.id]);
 
   useEffect(() => {
     const handler = (e: Event) => openT4RentRequest(requestFromEvent((e as CustomEvent).detail));

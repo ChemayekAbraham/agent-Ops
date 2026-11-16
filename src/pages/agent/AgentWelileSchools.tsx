@@ -2,12 +2,15 @@ import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat, ChevronDown, Camera, Search } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Send, RotateCcw, ChevronRight, LogIn, LogOut, Repeat, ChevronDown, Camera, Search, ScanLine } from 'lucide-react';
 import SchoolPartnershipPanel from '@/components/welile-schools/SchoolPartnershipPanel';
 import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
 import StudentPhotoCapture from '@/components/welile-schools/StudentPhotoCapture';
 import StudentProfileSummary from '@/components/welile-schools/StudentProfileSummary';
 import SchoolFeesRequest from '@/components/welile-schools/SchoolFeesRequest';
+import StickyCta from '@/components/welile-schools/StickyCta';
+import StudentQrScanner from '@/components/welile-schools/StudentQrScanner';
+import ScannedStudentCard from '@/components/welile-schools/ScannedStudentCard';
 import { flushPendingPhotos, uploadStudentPhoto } from '@/lib/welileSchoolsPhoto';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,7 +31,7 @@ import {
   buildSchoolSignupLink, buildSignupMessage, toIntlDigits, smartphoneFields,
   readLockedSchool, writeLockedSchool, saveProfile, flushPendingProfiles, readPendingProfiles, markSignupSent,
   saveGateLog, flipGateLogDirection, flushPendingGateLogs, readPendingGateLogs, readLocalGateLogs, writeLocalGateLogs,
-  computeGateMovementSummary, formatEatTime, classLevelsFor, isListedClass, isTertiaryLearner,
+  computeGateMovementSummary, formatEatTime, classLevelsFor, isListedClass, isTertiaryLearner, studentMovesToday, eatDateKey,
   type SchoolRow, type SchoolProfileRow, type SchoolGateLogRow,
 } from '@/lib/welileSchools';
 
@@ -73,7 +76,10 @@ function Chips({ options, value, onChange }: { options: readonly string[]; value
     <div className="flex flex-wrap gap-2">
       {options.map((o) => (
         <Button key={o} type="button" variant="outline" aria-pressed={value === o} onClick={() => onChange(o)}
-          className={cn('min-h-[44px] px-3 rounded-xl border text-sm', value === o ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
+          className={cn('min-h-[44px] px-3 rounded-xl border text-sm', value === o
+            // Keep the chosen chip purple on hover/tap too (phones keep :hover after a tap).
+            ? 'bg-primary text-primary-foreground border-primary hover:bg-primary hover:text-primary-foreground active:bg-primary'
+            : 'bg-card border-border')}>
           {o}
         </Button>
       ))}
@@ -184,8 +190,7 @@ export default function AgentWelileSchools() {
         {!locked && !creating && (
           <Card className="p-4 space-y-3">
             <h2 className="font-semibold">Choose the school you are at</h2>
-            <Button className="w-full min-h-[48px] gap-2 whitespace-normal" onClick={startBot}><MessageCircle className="h-5 w-5 shrink-0" />Register a School with Welile Bot</Button>
-            <Button variant="ghost" className="w-full min-h-[44px]" onClick={startBot}>+ Register a new school</Button>
+            <Button className="w-full min-h-[48px] gap-2 whitespace-normal" onClick={startBot}><MessageCircle className="h-5 w-5 shrink-0" />Register a new school</Button>
             {schools.length > 0 && <p className="text-sm text-muted-foreground">Or pick a registered school:</p>}
             <div className="flex flex-wrap gap-2">{[null, ...UG_REGIONS].map(reg => <Button key={reg ?? 'all'} size="sm" variant={dirRegion === reg ? 'default' : 'outline'} className="min-h-[40px]" onClick={() => { setDirRegion(reg); setDirDistrict(null); }}>{reg ?? 'All'}</Button>)}</div>
             {dirRegion && dirDistricts.length > 0 && <div className="flex flex-wrap gap-2">{dirDistricts.map(dist => <Button key={dist} size="sm" variant={dirDistrict === dist ? 'default' : 'outline'} className="min-h-[40px]" onClick={() => setDirDistrict(dirDistrict === dist ? null : dist)}>{dist}</Button>)}</div>}
@@ -236,6 +241,60 @@ export default function AgentWelileSchools() {
   );
 }
 
+const GATE_OPTIONS = ['Main Gate', 'Primary Gate', 'Back Gate', 'Admin Gate'] as const;
+
+/** A native select styled like the app's inputs, so phones open their own picker. */
+function NativeSelect({ label, value, placeholder, options, onChange, invalid }: { label: string; value: string; placeholder: string; options: readonly string[]; onChange: (v: string) => void; invalid?: boolean }) {
+  return (
+    <div className="relative">
+      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={invalid || undefined}
+        className={cn('flex h-12 w-full appearance-none rounded-2xl border bg-background px-4 pr-10 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring',
+          invalid ? 'border-destructive' : 'border-input', !value && 'text-muted-foreground')}>
+        <option value="" disabled>{placeholder}</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+    </div>
+  );
+}
+
+/** One-line pill row (single choice), scrolls sideways instead of wrapping. */
+function PillRow({ label, options, value, onChange }: { label: string; options: readonly string[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none]" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button key={o} type="button" aria-pressed={value === o} onClick={() => onChange(o)}
+          className={cn('min-h-[40px] shrink-0 rounded-full px-3.5 text-sm font-medium transition-colors',
+            value === o ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-muted/70')}>
+          {o}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A numbered form card with a tick once its required fields are filled. */
+function StepCard({ n, title, hint, done, optional, children }: { n: number; title: string; hint?: string; done: boolean; optional?: boolean; children: React.ReactNode }) {
+  return (
+    <section className="rounded-3xl border border-border/70 bg-card p-4 space-y-3" aria-label={title}>
+      <div className="flex items-center gap-3">
+        <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold', done ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary')}>
+          {done ? <CheckCircle2 className="h-4 w-4" aria-hidden /> : n}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold leading-tight">{title}{optional ? <span className="ml-1.5 text-xs font-normal text-muted-foreground">Optional</span> : null}</h3>
+          {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * Register a new school at the gate: one short form in app-style cards (school, type, location,
+ * gate GPS, head teacher) with the save button pinned to the bottom of the screen.
+ */
 export function SchoolRegistration({ draft, setDraft, captureGps, gpsBusy, saving, onSave, onCancel }: {
   draft: Partial<SchoolRow>;
   setDraft: React.Dispatch<React.SetStateAction<Partial<SchoolRow>>>;
@@ -245,102 +304,173 @@ export function SchoolRegistration({ draft, setDraft, captureGps, gpsBusy, savin
   onSave: () => void;
   onCancel: () => void;
 }) {
-  const [mode, setMode] = useState<'chat' | 'form'>('chat');
-  const [step, setStep] = useState(1);
-  const [completed, setCompleted] = useState<number[]>([]);
   const [ugSchoolLoc, setUgSchoolLoc] = useState<UgLocationSelection | null>(null);
   const [manualGps, setManualGps] = useState(false);
   const [otherCountry, setOtherCountry] = useState(draft.country !== 'Uganda');
-  const end = useRef<HTMLDivElement>(null);
-  useEffect(() => { end.current?.scrollIntoView?.({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' }); }, [step, mode, completed]);
+  const [customGate, setCustomGate] = useState(!!draft.gate_name && !(GATE_OPTIONS as readonly string[]).includes(draft.gate_name));
+  const [showContact, setShowContact] = useState(!!(draft.head_name || draft.head_phone || draft.estimated_enrollment != null));
+  const [tried, setTried] = useState(false);
+  const { data: allDistricts = [] } = useUgDistricts();
   const update = (key: keyof SchoolRow, value: string | number | null) => setDraft(d => ({ ...d, [key]: value }));
-  const locationPath = [draft.country, draft.region, draft.district, draft.sub_county, draft.parish, draft.village].filter(Boolean).join(' → ');
+
+  const levels = [...SCHOOL_LEVELS, 'Mixed / K-12'];
   const pinned = draft.latitude != null && draft.longitude != null && Number.isFinite(draft.latitude) && Number.isFinite(draft.longitude);
-  const coordinateText = pinned ? `${draft.latitude?.toFixed(5)}, ${draft.longitude?.toFixed(5)}${draft.gps_accuracy_m != null ? ` (±${draft.gps_accuracy_m}m)` : ''}` : 'GPS skipped for now';
-  const finish = (n: number) => {
-    if (n === 1 && (draft.name?.trim().length ?? 0) < 2) { toast.error('Enter the school name'); return; }
-    if (n === 3 && (draft.country === 'Uganda' ? !(ugSchoolLoc || (draft.region && draft.district)) : !draft.country || draft.country === 'Uganda')) { toast.error('Choose the school location'); return; }
-    setCompleted(c => [...new Set([...c, n])]);
-    setStep(n + 1);
-  };
-  const reset = () => { setDraft({ ...EMPTY_SCHOOL }); setUgSchoolLoc(null); setOtherCountry(false); setCompleted([]); setStep(1); setManualGps(false); };
+  const coordinateText = pinned ? `${draft.latitude?.toFixed(5)}, ${draft.longitude?.toFixed(5)}${draft.gps_accuracy_m != null ? ` (±${draft.gps_accuracy_m}m)` : ''}` : '';
+  const districtOptions = allDistricts.filter(d => !draft.region || d.region === draft.region).map(d => d.name).sort((a, b) => a.localeCompare(b));
+
+  const nameOk = (draft.name?.trim().length ?? 0) >= 2;
+  const typeOk = !!draft.school_level && !!draft.ownership;
+  const locationOk = otherCountry ? !!draft.country && draft.country !== 'Uganda' : !!(draft.region && draft.district);
+  const doneCount = [nameOk, typeOk, locationOk].filter(Boolean).length;
+
+  const reset = () => { setDraft({ ...EMPTY_SCHOOL }); setUgSchoolLoc(null); setOtherCountry(false); setCustomGate(false); setManualGps(false); setShowContact(false); setTried(false); };
   const pickLocation = (sel: UgLocationSelection | null) => {
     setUgSchoolLoc(sel);
     setDraft(d => ({ ...d, country: 'Uganda', region: sel?.region ?? d.region ?? null, district: sel?.district ?? d.district ?? null, sub_county: sel?.subcounty ?? null, parish: sel?.parish ?? null, village: sel?.village ?? null, town: d.town || sel?.county || null }));
   };
   const chooseCountryMode = (other: boolean) => {
+    if (other === otherCountry) return;
     setOtherCountry(other); setUgSchoolLoc(null);
     setDraft(d => ({ ...d, country: other ? '' : 'Uganda', region: null, district: null, sub_county: null, parish: null, village: null, town: null }));
   };
-  const prompts = [
-    <>👋 Hi! I'm the Welile Schools Bot. Let's register this school right at the gate. First, what is the <strong>name of the school</strong>?</>,
-    <>Got it — <strong>{draft.name}</strong>! 🏫 What <strong>level</strong> and <strong>ownership</strong> is this school?</>,
-    <>🗺️ Where is <strong>{draft.name}</strong> located? Browse by <strong>Region → District</strong> or search the village/cell:</>,
-    <>📍 Great — <strong>{draft.name}</strong> is in <strong>{[draft.village, draft.district, draft.region ? `${draft.region} Region` : null].filter(Boolean).join(', ') || draft.country || 'this location'}</strong>! Now stand at the <strong>{draft.gate_name || 'Main Gate'}</strong> and tap below to capture the exact Gate GPS coordinates.</>,
-    <>👤 Almost done! Who is the <strong>Headteacher or main contact</strong> at <strong>{draft.name}</strong>, and roughly how many learners are enrolled? (You can also tap Skip)</>,
-    <>✨ Here is the summary for <strong>{draft.name}</strong>. Everything look good?</>,
-  ];
-  const replies = [ `${draft.name} (${draft.gate_name || 'Main Gate'})`, `${draft.school_level} • ${draft.ownership}`, locationPath, pinned ? `📍 Gate GPS pinned: ${coordinateText}` : coordinateText, [draft.head_name, draft.head_phone, draft.estimated_enrollment != null ? `${draft.estimated_enrollment.toLocaleString()} learners` : null].filter(Boolean).join(' • ') || 'Contact details skipped for now' ];
-  const levels = [...SCHOOL_LEVELS, 'Mixed / K-12'];
-  const coords = <div className="grid grid-cols-2 gap-2">
-    <Field label="Latitude"><Input type="number" step="any" min={-90} max={90} inputMode="decimal" value={draft.latitude ?? ''} onChange={e => setDraft(d => ({ ...d, latitude: e.target.value === '' ? null : Number(e.target.value), gps_accuracy_m: null, gps_source: 'manual' }))} /></Field>
-    <Field label="Longitude"><Input type="number" step="any" min={-180} max={180} inputMode="decimal" value={draft.longitude ?? ''} onChange={e => setDraft(d => ({ ...d, longitude: e.target.value === '' ? null : Number(e.target.value), gps_accuracy_m: null, gps_source: 'manual' }))} /></Field>
-  </div>;
-  const gps = <div className="space-y-3">
-    <Button className="min-h-12 w-full gap-2" disabled={gpsBusy} onClick={async () => { if (await captureGps()) { if (mode === 'chat') finish(4); } }}>{gpsBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}Capture Gate GPS Now</Button>
-    {pinned && <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-1 text-sm"><p className="text-primary font-medium break-words">📍 {coordinateText}</p>{[draft.district, draft.region].filter(Boolean).length > 0 && <p className="text-xs text-muted-foreground">{[draft.district, draft.region].filter(Boolean).join(', ')}</p>}<a className="text-primary underline inline-flex items-center gap-1 min-h-11" href={`https://www.google.com/maps?q=${draft.latitude},${draft.longitude}`} target="_blank" rel="noreferrer"><MapPin className="h-4 w-4" />View on Google Maps</a></div>}
-    <Button variant="ghost" className="min-h-11 w-full" aria-expanded={manualGps} onClick={() => setManualGps(v => !v)}>Enter coordinates manually</Button>
-    {manualGps && <div className="space-y-2">{coords}{mode === 'chat' && <Button variant="outline" className="w-full min-h-11" disabled={!pinned || Math.abs(draft.latitude ?? 0) > 90 || Math.abs(draft.longitude ?? 0) > 180} onClick={() => finish(4)}>Confirm coordinates <ChevronRight className="h-4 w-4" /></Button>}</div>}
-    {mode === 'chat' && <Button variant="ghost" className="min-h-11 w-full" onClick={() => { setDraft(d => ({ ...d, latitude: null, longitude: null, gps_accuracy_m: null, gps_source: null })); finish(4); }}>Skip GPS for now</Button>}
-  </div>;
-  const location = <div className="space-y-3">
-    <div className="flex flex-wrap gap-2"><Button variant={!otherCountry ? 'default' : 'outline'} className="min-h-11" onClick={() => { if (otherCountry) chooseCountryMode(false); }}>🇺🇬 Uganda</Button><Button variant={otherCountry ? 'default' : 'outline'} className="min-h-11" onClick={() => { if (!otherCountry) chooseCountryMode(true); }}>🌍 Other Country</Button></div>
-    {otherCountry ? <CountryCombobox value={draft.country || ''} onChange={value => { if (value === 'Uganda') chooseCountryMode(false); else update('country', value); }} /> : <><RegionDistrictBrowser region={draft.region ?? null} district={draft.district ?? null} onRegion={reg => { if (reg !== draft.region) { setUgSchoolLoc(null); setDraft(d => ({ ...d, region: reg, district: null, sub_county: null, parish: null, village: null })); } }} onDistrict={(dist, reg) => { if (dist !== draft.district) setUgSchoolLoc(null); setDraft(d => ({ ...d, region: reg ?? d.region ?? null, district: dist, ...(dist !== d.district ? { sub_county: null, parish: null, village: null } : {}) })); }} /><UgLocationPicker label="Search or browse school cell / village" districtName={draft.district || null} value={ugSchoolLoc} onChange={pickLocation} /></>}
-    <Field label="Town / City (optional)"><Input value={draft.town ?? ''} onChange={e => update('town', e.target.value)} /></Field>
-    {mode === 'chat' && <Button className="w-full min-h-11" onClick={() => finish(3)}>Confirm Location <ChevronRight className="h-4 w-4" /></Button>}
-  </div>;
-  const contact = <div className="space-y-3">
-    <Field label="Headteacher name"><Input value={draft.head_name ?? ''} onChange={e => update('head_name', e.target.value)} /></Field>
-    <Field label="Headteacher phone"><Input inputMode="tel" value={draft.head_phone ?? ''} onChange={e => update('head_phone', e.target.value)} /></Field>
-    <Field label="Estimated enrolment"><Input type="number" min={0} inputMode="numeric" value={draft.estimated_enrollment ?? ''} onChange={e => update('estimated_enrollment', e.target.value === '' ? null : Math.max(0, Math.floor(Number(e.target.value))))} /></Field>
-    <div className="flex flex-wrap gap-2">{[200, 500, 1000, 2000].map(n => <Button key={n} variant="outline" className="min-h-11" onClick={() => update('estimated_enrollment', n)}>~{n.toLocaleString()}{n === 2000 ? '+' : ''}</Button>)}</div>
-    {mode === 'chat' && <><Button className="min-h-11 w-full" onClick={() => finish(5)}>Continue <ChevronRight className="h-4 w-4" /></Button><Button variant="ghost" className="min-h-11 w-full" onClick={() => { setDraft(d => ({ ...d, head_name: null, head_phone: null, estimated_enrollment: null })); finish(5); }}>Skip for now</Button></>}
-  </div>;
-  const name = <form className="space-y-3" onSubmit={e => { e.preventDefault(); finish(1); }}>
-    <div className="flex gap-2"><Input aria-label="School name" className="min-h-12 flex-1 min-w-0" placeholder="Type school name e.g. Kampala Parents School..." value={draft.name ?? ''} onChange={e => update('name', e.target.value)} /><Button type="submit" size="icon" className="h-12 w-12 shrink-0" aria-label="Send school name"><Send className="h-5 w-5" /></Button></div>
-    <Field label="Gate name"><Input value={draft.gate_name ?? ''} onChange={e => update('gate_name', e.target.value)} /></Field>
-    <Chips options={['Main Gate', 'Primary Gate', 'Back Gate', 'Admin Gate']} value={draft.gate_name || 'Main Gate'} onChange={v => update('gate_name', v)} />
-  </form>;
-  const level = <div className="space-y-3"><Field label="School level"><Chips options={levels} value={draft.school_level ?? ''} onChange={v => update('school_level', v)} /></Field><Field label="Ownership"><Chips options={SCHOOL_OWNERSHIP} value={draft.ownership ?? ''} onChange={v => update('ownership', v)} /></Field>{mode === 'chat' && <Button className="min-h-11 w-full" onClick={() => finish(2)}>Continue <ChevronRight className="h-4 w-4" /></Button>}</div>;
-  const summary = <div className="space-y-3">
-    <div className="divide-y divide-border">{[
-      { n: 1, label: 'School & gate', value: replies[0] },
-      { n: 2, label: 'Level & ownership', value: replies[1] },
-      { n: 3, label: 'Location', value: locationPath || 'Not selected' },
-      { n: 4, label: 'Gate GPS', value: coordinateText },
-      { n: 5, label: 'Contact & enrolment', value: replies[4] },
-    ].map(row => <Button key={row.n} variant="ghost" className="h-auto min-h-14 w-full justify-between whitespace-normal gap-2 rounded-none px-0 py-3 text-left" onClick={() => setStep(row.n)}><span className="min-w-0"><span className="block text-xs text-muted-foreground">{row.label}</span><span className="block text-sm break-words">{row.value}</span></span><Pencil className="h-4 w-4 shrink-0" /></Button>)}</div>
-    <div className="flex flex-wrap gap-2"><Badge variant="secondary">{draft.school_level}</Badge><Badge variant="outline">{draft.ownership}</Badge></div>
-    {pinned && <a className="text-sm text-primary underline inline-flex items-center gap-1 min-h-11" href={`https://www.google.com/maps?q=${draft.latitude},${draft.longitude}`} target="_blank" rel="noreferrer"><MapPin className="h-4 w-4" />View gate on Google Maps</a>}
-    <Button className="w-full min-h-12 whitespace-normal gap-2" disabled={saving} onClick={onSave}>{saving ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <CheckCircle2 className="h-4 w-4 shrink-0" />}Register School & Lock Gate</Button>
-    <Button variant="ghost" className="w-full min-h-11 gap-2" onClick={() => setStep(1)}><Pencil className="h-4 w-4" />Edit answers</Button>
-  </div>;
-  const content = [name, level, location, gps, contact, summary];
-  return <section className="space-y-4 min-w-0">
-    <div className="sticky top-14 z-10 bg-background/95 backdrop-blur border-b border-border py-3 space-y-3">
-      <div className="flex gap-3 items-center"><div className="relative p-3 rounded-full bg-primary/10 text-primary"><Bot className="h-6 w-6" /><GraduationCap className="h-3 w-3 absolute bottom-0 right-0" /></div><div className="min-w-0 flex-1"><h2 className="font-semibold text-base">Welile Schools Bot</h2><p className="text-xs text-muted-foreground">Step-by-step school gate onboarding • {navigator.onLine ? 'Online' : 'Offline'}</p></div><Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label="Start Over" title="Start Over" disabled={saving || gpsBusy} onClick={reset}><RotateCcw className="h-4 w-4" /></Button></div>
-      <div className="grid grid-cols-2 gap-2" role="group" aria-label="Registration mode"><Button variant={mode === 'chat' ? 'default' : 'outline'} aria-pressed={mode === 'chat'} className="min-h-11 gap-2" onClick={() => setMode('chat')}><Bot className="h-4 w-4" />Chat Bot</Button><Button variant={mode === 'form' ? 'default' : 'outline'} aria-pressed={mode === 'form'} className="min-h-11 gap-2" onClick={() => setMode('form')}><ClipboardList className="h-4 w-4" />Classic Form</Button></div>
-      {mode === 'chat' && <div className="space-y-2"><p className="text-xs text-muted-foreground">Step {step} of 6</p><div className="grid grid-cols-6 gap-1" aria-label={`Step ${step} of 6`}>{[1, 2, 3, 4, 5, 6].map(n => <div key={n} className={cn('h-1 rounded-full', n <= step ? 'bg-primary' : 'bg-muted')} />)}</div></div>}
-    </div>
-    {mode === 'chat' ? <div className="space-y-5" aria-label="School registration conversation">
-      {[1, 2, 3, 4, 5, 6].filter(n => completed.includes(n) || n === step).map(n => <div key={n} className="space-y-3">
-        <div className="flex gap-2 items-start"><span className="p-1.5 rounded-full bg-primary/10 text-primary shrink-0"><Bot className="h-4 w-4" /></span><div className="flex-1 min-w-0 bg-muted/60 border border-border rounded-2xl rounded-tl-sm p-4 text-sm leading-relaxed space-y-4"><p>{prompts[n - 1]}</p>{n === step && content[n - 1]}</div></div>
-        {completed.includes(n) && n !== step && n < 6 && <div className="flex justify-end pl-8"><div className="max-w-full bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-3 flex items-start gap-2"><p className="text-sm break-words min-w-0">{replies[n - 1]}</p><Button variant="ghost" size="icon" className="h-11 w-11 shrink-0 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" title={`Edit step ${n}`} aria-label={`Edit step ${n}`} onClick={() => setStep(n)}><Pencil className="h-4 w-4" /></Button></div></div>}
-      </div>)}
-      <div ref={end} />
-    </div> : <div className="space-y-5"><h3 className="font-semibold">Register a new school</h3><Field label="School name"><Input value={draft.name ?? ''} onChange={e => update('name', e.target.value)} /></Field><Field label="Gate name"><Input value={draft.gate_name ?? ''} onChange={e => update('gate_name', e.target.value)} /></Field>{level}{location}{gps}{contact}<Button className="min-h-12 w-full gap-2" disabled={saving} onClick={onSave}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Register School & Lock Gate</Button></div>}
-    <Button variant="ghost" className="min-h-11 w-full" disabled={saving} onClick={onCancel}>Cancel registration</Button>
-  </section>;
+  const chooseRegion = (reg: string) => {
+    if (reg === draft.region) return;
+    setUgSchoolLoc(null);
+    setDraft(d => ({ ...d, region: reg, district: null, sub_county: null, parish: null, village: null }));
+  };
+  const chooseDistrict = (dist: string) => {
+    if (dist === draft.district) return;
+    const reg = allDistricts.find(d => d.name === dist)?.region ?? draft.region ?? null;
+    setUgSchoolLoc(null);
+    setDraft(d => ({ ...d, region: reg, district: dist, sub_county: null, parish: null, village: null }));
+  };
+  const clearGps = () => setDraft(d => ({ ...d, latitude: null, longitude: null, gps_accuracy_m: null, gps_source: null }));
+  const submit = () => {
+    setTried(true);
+    if (!nameOk) { toast.error('Enter the school name'); return; }
+    if (!locationOk) { toast.error('Choose the school location'); return; }
+    onSave();
+  };
+
+  return (
+    <section className="space-y-3 min-w-0">
+      {/* Title card: what this is, how far along, start over, cancel. */}
+      <div className="rounded-3xl bg-gradient-to-br from-primary to-primary/80 p-4 text-primary-foreground shadow-sm">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-foreground/15"><GraduationCap className="h-6 w-6" aria-hidden /></span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold leading-tight">Register a school</h2>
+            <p className="text-xs text-primary-foreground/80">Fill this in standing at the school gate.</p>
+          </div>
+          <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-full text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground" aria-label="Start Over" title="Start Over" disabled={saving || gpsBusy} onClick={reset}><RotateCcw className="h-4 w-4" /></Button>
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-primary-foreground/20" aria-hidden>
+            <div className="h-full rounded-full bg-primary-foreground transition-all" style={{ width: `${(doneCount / 3) * 100}%` }} />
+          </div>
+          <span className="text-xs font-medium">{doneCount} of 3 required</span>
+        </div>
+      </div>
+
+      <StepCard n={1} title="School" hint="Name and the gate you are at" done={nameOk}>
+        <Input aria-label="School name" aria-invalid={tried && !nameOk || undefined} className={cn('h-12 rounded-2xl text-base', tried && !nameOk && 'border-destructive')} placeholder="e.g. Kampala Parents School" value={draft.name ?? ''} onChange={e => update('name', e.target.value)} />
+        {tried && !nameOk ? <p className="text-xs text-destructive">Enter the school name</p> : null}
+        <PillRow label="Gate" options={[...GATE_OPTIONS, 'Other gate']} value={customGate ? 'Other gate' : (draft.gate_name || 'Main Gate')}
+          onChange={v => { if (v === 'Other gate') { setCustomGate(true); update('gate_name', ''); } else { setCustomGate(false); update('gate_name', v); } }} />
+        {customGate ? <Input aria-label="Gate name" className="h-12 rounded-2xl text-base" placeholder="Name of this gate" value={draft.gate_name ?? ''} onChange={e => update('gate_name', e.target.value)} /> : null}
+      </StepCard>
+
+      <StepCard n={2} title="Type of school" done={typeOk}>
+        <NativeSelect label="School level" placeholder="Choose level" value={draft.school_level ?? ''} options={levels} onChange={v => update('school_level', v)} />
+        <PillRow label="Ownership" options={SCHOOL_OWNERSHIP} value={draft.ownership ?? ''} onChange={v => update('ownership', v)} />
+      </StepCard>
+
+      <StepCard n={3} title="Location" hint={otherCountry ? 'Country the school is in' : 'Region and district, then the village'} done={locationOk}>
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-muted p-1" role="group" aria-label="Country">
+          {([[false, '🇺🇬 Uganda'], [true, '🌍 Other country']] as const).map(([other, label]) => (
+            <button key={label} type="button" aria-pressed={otherCountry === other} onClick={() => chooseCountryMode(other)}
+              className={cn('min-h-[40px] rounded-full text-sm font-semibold transition-colors', otherCountry === other ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {otherCountry ? (
+          <CountryCombobox value={draft.country || ''} onChange={value => { if (value === 'Uganda') chooseCountryMode(false); else update('country', value); }} />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <NativeSelect label="Region" placeholder="Region" value={draft.region ?? ''} options={UG_REGIONS} onChange={chooseRegion} invalid={tried && !draft.region} />
+              <NativeSelect label="District" placeholder="District" value={draft.district ?? ''} options={draft.district && !districtOptions.includes(draft.district) ? [draft.district, ...districtOptions] : districtOptions} onChange={chooseDistrict} invalid={tried && !draft.district} />
+            </div>
+            {draft.district ? <UgLocationPicker label="Cell / village (optional)" districtName={draft.district} value={ugSchoolLoc} onChange={pickLocation} /> : null}
+          </>
+        )}
+        {tried && !locationOk ? <p className="text-xs text-destructive">Choose the school location</p> : null}
+        <Input aria-label="Town / City (optional)" className="h-12 rounded-2xl text-base" placeholder="Town or city (optional)" value={draft.town ?? ''} onChange={e => update('town', e.target.value)} />
+      </StepCard>
+
+      <StepCard n={4} title="Gate GPS" hint="Stand at the gate, then capture" done={pinned} optional>
+        {pinned ? (
+          <div className="flex items-center gap-3 rounded-2xl bg-primary/5 p-3">
+            <MapPin className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium break-words">{coordinateText}</p>
+              <a className="text-xs text-primary underline" href={`https://www.google.com/maps?q=${draft.latitude},${draft.longitude}`} target="_blank" rel="noreferrer">View on Google Maps</a>
+            </div>
+            <Button variant="ghost" size="sm" className="shrink-0 rounded-full" onClick={clearGps}>Clear</Button>
+          </div>
+        ) : (
+          <Button className="h-12 w-full gap-2 rounded-2xl text-base" disabled={gpsBusy} onClick={() => { void captureGps(); }}>
+            {gpsBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}{gpsBusy ? 'Getting location…' : 'Capture Gate GPS Now'}
+          </Button>
+        )}
+        <button type="button" className="text-xs font-medium text-primary underline-offset-2 hover:underline" aria-expanded={manualGps} onClick={() => setManualGps(v => !v)}>
+          {manualGps ? 'Hide coordinates' : 'Enter coordinates manually'}
+        </button>
+        {manualGps ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Input aria-label="Latitude" placeholder="Latitude" className="h-12 rounded-2xl" type="number" step="any" min={-90} max={90} inputMode="decimal" value={draft.latitude ?? ''} onChange={e => setDraft(d => ({ ...d, latitude: e.target.value === '' ? null : Number(e.target.value), gps_accuracy_m: null, gps_source: 'manual' }))} />
+            <Input aria-label="Longitude" placeholder="Longitude" className="h-12 rounded-2xl" type="number" step="any" min={-180} max={180} inputMode="decimal" value={draft.longitude ?? ''} onChange={e => setDraft(d => ({ ...d, longitude: e.target.value === '' ? null : Number(e.target.value), gps_accuracy_m: null, gps_source: 'manual' }))} />
+          </div>
+        ) : null}
+      </StepCard>
+
+      <StepCard n={5} title="Head teacher & enrolment" done={!!(draft.head_name || draft.estimated_enrollment != null)} optional>
+        {showContact ? (
+          <div className="space-y-3">
+            <Input aria-label="Headteacher name" className="h-12 rounded-2xl text-base" placeholder="Head teacher's name" value={draft.head_name ?? ''} onChange={e => update('head_name', e.target.value)} />
+            <Input aria-label="Headteacher phone" className="h-12 rounded-2xl text-base" placeholder="Phone number" inputMode="tel" value={draft.head_phone ?? ''} onChange={e => update('head_phone', e.target.value)} />
+            <Input aria-label="Estimated enrolment" className="h-12 rounded-2xl text-base" placeholder="Learners enrolled (about)" type="number" min={0} inputMode="numeric" value={draft.estimated_enrollment ?? ''} onChange={e => update('estimated_enrollment', e.target.value === '' ? null : Math.max(0, Math.floor(Number(e.target.value))))} />
+            <PillRow label="Enrolment estimate" options={['~200', '~500', '~1,000', '~2,000+']} value={draft.estimated_enrollment != null ? ({ 200: '~200', 500: '~500', 1000: '~1,000', 2000: '~2,000+' } as Record<number, string>)[draft.estimated_enrollment] ?? '' : ''}
+              onChange={v => update('estimated_enrollment', ({ '~200': 200, '~500': 500, '~1,000': 1000, '~2,000+': 2000 } as Record<string, number>)[v])} />
+          </div>
+        ) : (
+          <button type="button" onClick={() => setShowContact(true)} className="flex min-h-[48px] w-full items-center justify-between rounded-2xl bg-muted/50 px-4 text-sm font-medium">
+            Add head teacher details<ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+          </button>
+        )}
+      </StepCard>
+
+      <Button variant="ghost" className="h-11 w-full rounded-2xl text-muted-foreground" disabled={saving} onClick={onCancel}>Cancel registration</Button>
+
+      <StickyCta className="bg-background shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.25)]">
+        <Button className="h-12 w-full gap-2 rounded-2xl text-base" disabled={saving} onClick={submit}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}Register School & Lock Gate
+        </Button>
+      </StickyCta>
+    </section>
+  );
+}
+
+const MISSING_TEXT = {
+  photo: "Take the student's photo first",
+  name: 'Enter the full name',
+  facility: 'Choose the facility type',
+  phone: 'Answer: has a smartphone?',
+} as const;
+
+function MissingNote({ show, text }: { show: boolean; text: string }) {
+  return show ? <p role="alert" className="text-xs font-medium text-destructive">{text}</p> : null;
 }
 
 function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; agentId: string; onQueued: () => void }) {
@@ -363,12 +493,29 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
   const set = (k: keyof SchoolProfileRow) => (e: React.ChangeEvent<HTMLInputElement>) => setF((d) => ({ ...d, [k]: e.target.value }));
   const num = (v: unknown) => (v === '' || v == null ? null : Number(String(v).replace(/\D/g, '')) || null);
 
+  // The first required answer still missing; shown in red and scrolled into view on Save.
+  const [flagged, setFlagged] = useState<null | 'photo' | 'name' | 'facility' | 'phone'>(null);
+  const firstMissing = (): typeof flagged => {
+    if (group === 'pupil' && !photo && !cameraProblem) return 'photo';
+    if (group !== 'asset' && !f.full_name?.trim()) return 'name';
+    if (group === 'asset' && !f.facility_type) return 'facility';
+    if (group !== 'asset' && hasPhone === null) return 'phone';
+    return null;
+  };
+  // The red mark clears by itself once that answer is given.
+  const missing = flagged && firstMissing() === flagged ? flagged : null;
+
   const submit = async () => {
-    if (group !== 'asset' && !f.full_name?.trim()) { toast.error('Enter the full name'); return; }
-    if (group === 'asset' && !f.facility_type) { toast.error('Choose the facility type'); return; }
-    if (group !== 'asset' && hasPhone === null) { toast.error('Answer: has a smartphone?'); return; }
-    if (group === 'pupil' && !photo && !cameraProblem) { toast.error("Take the student's photo"); return; }
+    const gap = firstMissing();
+    if (gap) {
+      setFlagged(gap);
+      toast.error(MISSING_TEXT[gap]);
+      document.getElementById(`wsr-${gap}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setSaving(true);
+    // Whatever happens below, the spinner stops and the agent is told the outcome.
+    try {
     const id = safeUUID();
     const row: SchoolProfileRow = {
       ...f, id, client_ref: id, school_id: school.id, registered_by: agentId, role,
@@ -379,6 +526,11 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     // Upload the face photo first so the profile is saved with its path; offline, it waits on the phone.
     if (group === 'pupil' && photo) row.photo_path = await uploadStudentPhoto(school.id, id, id, photo.blob);
     const res = await saveProfile(row);
+    if (res.error) {
+      // Refused by the server: keep everything the agent typed so they can fix it and try again.
+      toast.error('Could not register this student', { description: res.error });
+      return;
+    }
     if (group !== 'asset' && logEntry) {
       const gid = safeUUID();
       const gateRes = await saveGateLog({
@@ -392,7 +544,6 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
       });
       if (!gateRes.saved) onQueued();
     }
-    setSaving(false);
     setLast(res);
     setCount((c) => c + 1);
     const who = group === 'asset' ? (f.facility_type || 'Facility') : (f.full_name?.trim() || 'Person');
@@ -403,6 +554,12 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     setF({}); setHasPhone(null); setPhoto(null);
     // The summary replaces the form; bring its top into view after saving at the bottom.
     topRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    } catch (e) {
+      console.error('[welile-schools] save student failed', e);
+      toast.error('Could not register this student', { description: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const registerNext = () => {
@@ -434,14 +591,17 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
       <FormSection title={group === 'asset' ? 'Facility' : 'Student'}>
         {group === 'asset' ? (
           <>
-            <Field label="Facility type"><Chips options={FACILITY_TYPES} value={f.facility_type ?? ''} onChange={(v) => setF((d) => ({ ...d, facility_type: v }))} /></Field>
+            <div id="wsr-facility" className="scroll-mt-40 space-y-1">
+              <Field label="Facility type"><Chips options={FACILITY_TYPES} value={f.facility_type ?? ''} onChange={(v) => setF((d) => ({ ...d, facility_type: v }))} /></Field>
+              <MissingNote show={missing === 'facility'} text={MISSING_TEXT.facility} />
+            </div>
             <Field label="Condition"><Chips options={['Good', 'Fair', 'Poor']} value={f.facility_condition ?? ''} onChange={(v) => setF((d) => ({ ...d, facility_condition: v }))} /></Field>
             <Field label="Capacity"><Input inputMode="numeric" value={(f.facility_capacity as any) ?? ''} onChange={set('facility_capacity')} /></Field>
           </>
         ) : (
           <>
             {group === 'pupil' && (
-              <div className="space-y-2">
+              <div id="wsr-photo" className="scroll-mt-40 space-y-2">
                 {photo ? (
                   <div className="flex items-center gap-3 rounded-2xl bg-muted/50 p-3">
                     <img src={photo.url} alt="Student photo" className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
@@ -453,7 +613,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
                   </div>
                 ) : (
                   <button type="button" onClick={() => setCameraOpen(true)}
-                    className="flex min-h-[80px] w-full items-center gap-3 rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 p-3 text-left hover:bg-primary/10">
+                    className={cn('flex min-h-[80px] w-full items-center gap-3 rounded-2xl border-2 border-dashed bg-primary/5 p-3 text-left hover:bg-primary/10', missing === 'photo' ? 'border-destructive' : 'border-primary/50')}>
                     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Camera className="h-5 w-5" /></span>
                     <span>
                       <span className="block font-semibold">Take the student's photo</span>
@@ -461,13 +621,17 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
                     </span>
                   </button>
                 )}
+                <MissingNote show={missing === 'photo'} text={MISSING_TEXT.photo} />
                 {cameraProblem && !photo && <p className="text-xs text-amber-700 dark:text-amber-400">{cameraProblem} You can save without a photo for now.</p>}
                 <StudentPhotoCapture open={cameraOpen} studentName={f.full_name} onClose={() => setCameraOpen(false)}
                   onUnavailable={(reason) => { setCameraOpen(false); setCameraProblem(reason); }}
                   onCapture={(blob) => setPhoto((old) => { if (old) URL.revokeObjectURL(old.url); return { blob, url: URL.createObjectURL(blob) }; })} />
               </div>
             )}
-            <Field label="Full name"><Input value={f.full_name ?? ''} onChange={set('full_name')} /></Field>
+            <div id="wsr-name" className="scroll-mt-40 space-y-1">
+              <Field label="Full name"><Input aria-label="Student full name" aria-invalid={missing === 'name'} className={cn(missing === 'name' && 'border-destructive')} value={f.full_name ?? ''} onChange={set('full_name')} /></Field>
+              <MissingNote show={missing === 'name'} text={MISSING_TEXT.name} />
+            </div>
             <Field label="Gender"><Chips options={['Female', 'Male']} value={f.gender ?? ''} onChange={(v) => setF((d) => ({ ...d, gender: v }))} /></Field>
             {group === 'pupil' && (
               <div className="grid grid-cols-2 gap-2">
@@ -485,7 +649,8 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
                 )}
               </div>
             )}
-            {group === 'pupil' && !tertiary && <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>}
+            {/* Only once a class is chosen, and only for nursery to secondary (not vocational / university). */}
+            {group === 'pupil' && !!f.class_grade && !tertiary && <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>}
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date of birth"><Input type="date" value={f.date_of_birth ?? ''} onChange={set('date_of_birth')} /></Field>
               <Field label="Age"><Input inputMode="numeric" value={(f.age as any) ?? ''} onChange={set('age')} /></Field>
@@ -527,16 +692,17 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
 
       {group !== 'asset' && (
         <FormSection title="Phone and gate">
-          <div className="space-y-2">
+          <div id="wsr-phone" className="scroll-mt-40 space-y-2">
             <Label className="text-sm">Has a smartphone?</Label>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setHasPhone(true)} className={cn('flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 text-center text-sm font-medium', hasPhone === true ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background')}>
+              <button type="button" aria-pressed={hasPhone === true} onClick={() => setHasPhone(true)} className={cn('flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 text-center text-sm font-medium', hasPhone === true ? 'border-primary bg-primary text-primary-foreground' : missing === 'phone' ? 'border-destructive bg-background' : 'border-border bg-background')}>
                 <Smartphone className="h-5 w-5" />Yes, has one
               </button>
-              <button type="button" onClick={() => setHasPhone(false)} className={cn('flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 text-center text-sm font-medium', hasPhone === false ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background')}>
+              <button type="button" aria-pressed={hasPhone === false} onClick={() => setHasPhone(false)} className={cn('flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 text-center text-sm font-medium', hasPhone === false ? 'border-primary bg-primary text-primary-foreground' : missing === 'phone' ? 'border-destructive bg-background' : 'border-border bg-background')}>
                 <Gift className="h-5 w-5" />No, needs a free one
               </button>
             </div>
+            <MissingNote show={missing === 'phone'} text={MISSING_TEXT.phone} />
           </div>
           {hasPhone === false && (
             <div className="space-y-2 rounded-2xl bg-primary/5 p-3">
@@ -637,8 +803,41 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
   const [saving, setSaving] = useState(false);
   const [rosterFilter, setRosterFilter] = useState<'all' | 'inside' | 'pupil' | 'staff' | 'parent'>('all');
   const [rosterSearch, setRosterSearch] = useState('');
+  // Scan a student's QR code: open camera → show their card → one tap records IN or OUT.
+  const [tab, setTab] = useState('roster');
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanned, setScanned] = useState<SchoolProfileRow | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
 
   const refresh = () => setLogs(readLocalGateLogs(school.id));
+
+  const onStudentScanned = async (profileId: string) => {
+    setScanOpen(false);
+    let p: SchoolProfileRow | null = profiles.find((x) => x.id === profileId) ?? null;
+    if (!p) {
+      setLookingUp(true);
+      const { data } = await db.from('welile_school_profiles').select('*').eq('id', profileId).maybeSingle();
+      setLookingUp(false);
+      p = (data as SchoolProfileRow | null) ?? readPendingProfiles().find((x) => x.id === profileId) ?? null;
+    }
+    if (!p) { toast.error('Student not found', { description: 'This code is not linked to a student you can see. Register them first.' }); return; }
+    if (p.school_id !== school.id) { toast.error('Student is registered at another school', { description: `${p.full_name ?? 'This student'} is not on ${school.name}'s list.` }); return; }
+    setScanned(p);
+  };
+
+  const recordScanned = async (dir: 'in' | 'out') => {
+    if (!scanned) return;
+    if (usedToday(scanned)[dir]) throw new Error(`${scanned.full_name} already has ${dir === 'in' ? 'an entry' : 'an exit'} recorded today`);
+    const res = await record({
+      direction: dir, role_type: scanned.role, person_name: scanned.full_name || 'Unknown', profile_id: scanned.id,
+      phone: scanned.phone || scanned.guardian_phone || null,
+      class_or_department: scanned.class_grade || scanned.subject_department || null,
+      purpose_or_note: 'Scanned QR code',
+      pickup_guardian_name: scanned.guardian_name || null, pickup_guardian_phone: scanned.guardian_phone || null,
+    });
+    if (res.error) throw new Error(res.error);
+    if (res.saved) toast.success(dir === 'in' ? `🟢 ${scanned.full_name} recorded ENTERING` : `🔴 ${scanned.full_name} recorded LEAVING`);
+  };
 
   useEffect(() => {
     db.from('welile_school_gate_logs').select('*').eq('school_id', school.id).order('recorded_at', { ascending: false }).limit(1000)
@@ -672,9 +871,14 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
     };
     const res = await saveGateLog(row);
     refresh();
+    if (res.error) { toast.error('Not recorded', { description: res.error }); return res; }
     if (!res.saved) { onQueued(); toast.message('No connection — gate log saved on this phone, will send automatically'); }
     return res;
   };
+
+  /** Students: one entry and one exit a day. Others (staff, visitors) are not limited. */
+  const usedToday = (p: Pick<SchoolProfileRow, 'id' | 'role'>) =>
+    roleGroup(p.role) === 'pupil' ? studentMovesToday(logs, p.id) : { in: false, out: false };
 
   const submitQuick = async () => {
     if (!f.person_name.trim()) { toast.error('Enter the full name'); return; }
@@ -693,6 +897,7 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
   };
 
   const mark = async (p: SchoolProfileRow, dir: 'in' | 'out') => {
+    if (usedToday(p)[dir]) { toast.error(`${p.full_name} already has ${dir === 'in' ? 'an entry' : 'an exit'} recorded today`); return; }
     const res = await record({
       direction: dir, role_type: p.role, person_name: p.full_name || 'Unknown', profile_id: p.id,
       phone: p.phone || p.guardian_phone || null,
@@ -703,8 +908,16 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
   };
 
   const flip = async (log: SchoolGateLogRow) => {
+    const to = log.direction === 'in' ? 'out' : 'in';
+    // Flipping must not give a student a second entry or exit for that day.
+    if (log.profile_id && roleGroup(log.role_type) === 'pupil'
+      && logs.some((l) => l.id !== log.id && l.profile_id === log.profile_id && l.direction === to && eatDateKey(l.recorded_at) === eatDateKey(log.recorded_at))) {
+      toast.error(`${log.person_name} already has ${to === 'in' ? 'an entry' : 'an exit'} that day`, { description: 'A student has one entry and one exit a day.' });
+      return;
+    }
     const res = await flipGateLogDirection(log);
     refresh();
+    if (res.error) { toast.error('Not changed', { description: res.error }); return; }
     if (!res.saved) onQueued();
     toast.success(`${log.person_name} corrected to ${res.row.direction === 'in' ? '🟢 IN' : '🔴 OUT'}`);
   };
@@ -745,7 +958,7 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
         </div>
       </section>
 
-      <Tabs defaultValue="roster" className="w-full">
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="grid h-11 w-full grid-cols-3 rounded-full bg-muted p-1">
           <TabsTrigger value="roster" className="rounded-full">Roster</TabsTrigger>
           <TabsTrigger value="new" className="rounded-full">New entry</TabsTrigger>
@@ -783,7 +996,10 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
                       {p.class_grade || p.subject_department ? ` · ${p.class_grade || p.subject_department}` : ` · ${roleLabel(p.role)}`}
                     </p>
                   </div>
-                  {inside ? (
+                  {/* Students: one entry and one exit a day, so a used direction shows no button. */}
+                  {usedToday(p)[inside ? 'out' : 'in'] ? (
+                    <span className="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">Done today</span>
+                  ) : inside ? (
                     <Button size="sm" variant="outline" className="min-h-[40px] shrink-0 gap-1 rounded-full border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive" aria-label={`Mark ${p.full_name} OUT`} onClick={() => mark(p, 'out')}>
                       <LogOut className="h-4 w-4" />Out
                     </Button>
@@ -806,6 +1022,26 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
 
         {/* New entry: someone not on the roster (visitor, supplier, or not registered yet). */}
         <TabsContent value="new" className="mt-3 space-y-3">
+          {/* Fastest way for a registered student: scan their QR code, check the photo, tap once. */}
+          {scanned ? (
+            <ScannedStudentCard student={scanned} now={summary.personStatus[scanned.id] ?? null} used={usedToday(scanned)} onRecord={recordScanned}
+              onScanNext={() => { setScanned(null); setScanOpen(true); }} onDone={() => setScanned(null)} />
+          ) : (
+            <button type="button" onClick={() => setScanOpen(true)} disabled={lookingUp}
+              className="flex min-h-[72px] w-full items-center gap-3 rounded-3xl border-2 border-dashed border-primary/50 bg-primary/5 p-3 text-left hover:bg-primary/10 disabled:opacity-60">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                {lookingUp ? <Loader2 className="h-5 w-5 animate-spin" /> : <ScanLine className="h-5 w-5" />}
+              </span>
+              <span>
+                <span className="block font-semibold">{lookingUp ? 'Finding the student…' : 'Scan student QR code'}</span>
+                <span className="block text-sm text-muted-foreground">See their photo and details, then record IN or OUT in one tap.</span>
+              </span>
+            </button>
+          )}
+          <StudentQrScanner open={scanOpen} onClose={() => setScanOpen(false)} onStudent={(id) => { void onStudentScanned(id); }} />
+          {/* The typed form is hidden while a scanned student's card is open, so only one record button shows. */}
+          {!scanned && (<>
+          <p className="px-1 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Or record someone without a code</p>
           <div className="grid grid-cols-2 gap-1 rounded-full bg-muted p-1" role="group" aria-label="Direction">
             <button type="button" aria-pressed={direction === 'in'} onClick={() => setDirection('in')}
               className={cn('flex min-h-[44px] items-center justify-center gap-1.5 rounded-full text-sm font-semibold transition-colors', direction === 'in' ? 'bg-emerald-600 text-white shadow' : 'text-muted-foreground')}>
@@ -845,6 +1081,7 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
               {direction === 'in' ? 'Record entry' : 'Record exit'}
             </Button>
           </div>
+          </>)}
         </TabsContent>
 
         {/* Timeline: today's movements, newest first, with a one-tap correction. */}

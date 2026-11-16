@@ -22,6 +22,7 @@
 import { useSyncExternalStore } from 'react';
 import type { PostingDraftPayload } from '@/lib/postingDrafts';
 import type { AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
+import { TENANT_FACE_PHOTO } from '@/lib/tenantFacePhoto';
 
 export type T4Mode = 'new' | 'resubmit' | 'renewal';
 
@@ -62,6 +63,13 @@ export interface T4Renewal {
   currentDays: number;
   landlordName?: string | null;
   houseLabel?: string | null;
+  /**
+   * E128: the agent of the plan being renewed. Another agent may renew it (NOT_YOUR_REQUEST is
+   * gone); the form then says Agent Ops will confirm them as this tenant's agent.
+   */
+  agentId?: string | null;
+  /** E128: the tenant asked to renew (tenant_request_renewal). */
+  tenantAsked?: boolean;
 }
 
 interface T4Base {
@@ -140,7 +148,7 @@ export const GATE_ITEMS = [
 ] as const;
 /** What the form itself needs before it can send. */
 export const FORM_ITEMS = [
-  'plan', 'tenantPhone', 'house', 'tenantPhoto', 'lc1', 'payoutDay', 'consent', 'note', 'resubmitsLeft',
+  'plan', 'tenantPhone', 'house', 'tenantPhoto', 'lc1', 'payoutDay', 'consent', 'note',
 ] as const;
 
 export type T4GateItem = typeof GATE_ITEMS[number];
@@ -162,17 +170,18 @@ export const T4_ITEM_LABELS: Record<T4ItemKey, string> = {
   plan: 'Rent Plan (how it is paid back)',
   tenantPhone: 'Tenant’s phone number',
   house: 'House type and address',
-  tenantPhoto: 'Tenant’s passport photo',
+  tenantPhoto: TENANT_FACE_PHOTO,
   lc1: 'LC1 chairperson',
   payoutDay: 'Landlord payout day',
   consent: 'Guarantor consent',
   note: 'What you changed (at least 10 characters)',
-  resubmitsLeft: 'Resubmits left (a manager must reopen it)',
 };
 
 const FORM_BY_MODE: Record<T4Mode, T4FormItem[]> = {
   new: ['plan', 'tenantPhone', 'house', 'tenantPhoto', 'lc1', 'payoutDay', 'consent'],
-  resubmit: ['note', 'resubmitsLeft'],
+  // E118: no resubmit limit; a returned request goes back once every required item is in.
+  // A retaken face photo must pass the face check (or have timed out) before it goes.
+  resubmit: ['tenantPhoto', 'note'],
   renewal: [],
 };
 

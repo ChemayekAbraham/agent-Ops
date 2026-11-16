@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { RentRequestProgressCard } from './RentRequestProgressCard';
 import type { TenantRentRequestRow } from '@/lib/rentRequestProgress';
 
@@ -29,6 +29,25 @@ describe('RentRequestProgressCard', () => {
     }
     expect(screen.getByText('UGX 419,000')).toBeTruthy();
     expect(screen.getByText('30 days')).toBeTruthy();
+  });
+
+  it('asks a tenant with a stale request whether they still need rent', () => {
+    const onConfirm = vi.fn();
+    render(
+      <RentRequestProgressCard
+        request={{ ...request, status: 'service_center_review', reconfirm: { outcome: 'asked', respond_by: '2026-11-30T09:00:00Z' } }}
+        onConfirmStillNeeded={onConfirm}
+      />,
+    );
+    expect(screen.getByText('Do you still need rent?')).toBeTruthy();
+    fireEvent.click(screen.getByText('Yes, I still need rent'));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('thanks a tenant who confirmed and asks nothing more', () => {
+    render(<RentRequestProgressCard request={{ ...request, reconfirm: { outcome: 'still_needed', respond_by: '2026-11-30T09:00:00Z' } }} />);
+    expect(screen.queryByText('Yes, I still need rent')).toBeNull();
+    expect(screen.getByText('Thanks, we are checking your request again.')).toBeTruthy();
   });
 
   it('tells a rejected tenant what to do and hides the amounts', () => {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Check, CheckCircle2, ChevronDown, Download, Loader2, Search, UserRound } from 'lucide-react';
+import { CalendarDays, Check, CheckCircle2, ChevronDown, Download, Home, Loader2, Search, UserRound } from 'lucide-react';
 import { PARENT_AGREEMENT_SIGNED_NOTE, PARENT_AGREEMENT_URL } from '@/lib/welileSchoolsAgreements';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { fetchSchoolSetup } from '@/lib/welileSchoolsPartnership';
+import { feeAppliesTo, fetchSchoolSetup } from '@/lib/welileSchoolsPartnership';
 import { planDaysUntil, planSummary } from '@/lib/welileSchoolsFeePlan';
 import {
   FEE_REQUEST_STATUS_LABEL, fetchFeeRequests, feeRequestErrorMessage, submitFeeRequest,
@@ -55,6 +56,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
  */
 export default function SchoolFeesRequest({ school, onRegisterStudent }: { school: SchoolRow; onRegisterStudent: () => void }) {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [student, setStudent] = useState<StudentOption | null>(null);
   const [termId, setTermId] = useState<string>('');
@@ -101,7 +103,7 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
   const suggestFee = (s: StudentOption | null, tId: string) => {
     if (!s || !tId) return;
     const board = (s.boarding_status || 'day').toLowerCase().startsWith('board') ? 'boarding' : 'day';
-    const row = (setup.data?.fees ?? []).find((f) => f.term_id === tId && f.boarding_status === board
+    const row = (setup.data?.fees ?? []).find((f) => f.term_id === tId && feeAppliesTo(f.boarding_status, board)
       && f.class_name.trim().toLowerCase() === (s.class_grade ?? '').trim().toLowerCase());
     if (row) setFee(Number(row.amount));
   };
@@ -154,6 +156,9 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
           </dl>
         </section>
         <Button className="min-h-[52px] w-full rounded-2xl text-base" onClick={reset}>Request for another student</Button>
+        <Button variant="outline" className="min-h-[52px] w-full gap-2 rounded-2xl text-base" onClick={() => navigate('/schools')}>
+          <Home className="h-4 w-4" aria-hidden />Back to home
+        </Button>
       </div>
     );
   }
@@ -248,10 +253,10 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
           </div>
         </Field>
         {summary ? (
-          <div className="rounded-2xl bg-primary p-3 text-primary-foreground">
-            <p className="text-xs text-primary-foreground/80">Parent pays about</p>
+          <div className="rounded-2xl bg-emerald-600 p-3 text-white dark:bg-emerald-700">
+            <p className="text-xs text-white/80">Parent pays about</p>
             <p className="text-xl font-bold">{formatDynamic(Math.ceil(summary.averageDailyPayment / 100) * 100)} <span className="text-sm font-medium">a day for {summary.days} days</span></p>
-            <p className="text-xs text-primary-foreground/80">Total {formatDynamic(Math.round(summary.totalOnSchedule))} if paid on schedule. Less if paid early.</p>
+            <p className="text-xs text-white/80">Total {formatDynamic(Math.round(summary.totalOnSchedule))} if paid on schedule. Less if paid early.</p>
           </div>
         ) : fee > 0 ? (
           <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">

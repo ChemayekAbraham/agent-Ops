@@ -151,13 +151,41 @@ export function writeLockedSchool(s: SchoolRow | null) {
 
 const db = supabase as any;
 
-/** Save a profile; on network failure keep it locally (client_ref makes retries idempotent). */
-export async function saveProfile(row: SchoolProfileRow): Promise<{ saved: boolean; row: SchoolProfileRow }> {
+/** Saves give up after this long so a stalled connection can never leave the Save button spinning. */
+export const SAVE_TIMEOUT_MS = 20_000;
+export function saveTimeoutSignal(ms = SAVE_TIMEOUT_MS): AbortSignal {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+  const c = new AbortController();
+  setTimeout(() => c.abort(), ms);
+  return c.signal;
+}
+
+/** True when a Supabase error means the request never reached the server (offline, dropped connection). */
+export function isNetworkError(error: { message?: string; code?: string } | null | undefined): boolean {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  const msg = error?.message ?? '';
+  return !error?.code && /fetch|network|load failed|timed? ?out|abort/i.test(msg);
+}
+
+/**
+ * Save a profile. When the phone is offline it is kept locally and sent later (client_ref makes
+ * retries idempotent). When the server refuses it, nothing is queued — a retry would be refused
+ * the same way — and the reason comes back in `error` so the agent can see it.
+ */
+export async function saveProfile(row: SchoolProfileRow): Promise<{ saved: boolean; row: SchoolProfileRow; error?: string }> {
   const { id, ...payload } = row;
-  const { data, error } = await db.from('welile_school_profiles')
-    .upsert({ id, ...payload }, { onConflict: 'client_ref', ignoreDuplicates: false })
-    .select().single();
+  let data: unknown = null;
+  let error: { message?: string; code?: string } | null = null;
+  try {
+    ({ data, error } = await db.from('welile_school_profiles')
+      .upsert({ id, ...payload }, { onConflict: 'client_ref', ignoreDuplicates: false })
+      .select().abortSignal(saveTimeoutSignal()).single());
+  } catch (e) {
+    // A thrown request (dropped connection, timeout) is treated like being offline.
+    error = { message: `network: ${e instanceof Error ? e.message : String(e)}` };
+  }
   if (error) {
+    if (!isNetworkError(error)) return { saved: false, row, error: error.message || 'The server refused this registration.' };
     writePendingProfiles([...readPendingProfiles().filter((p) => p.client_ref !== row.client_ref), row]);
     return { saved: false, row };
   }
@@ -242,13 +270,48 @@ function upsertLocalGateLog(row: SchoolGateLogRow) {
   writeLocalGateLogs(all);
 }
 
-/** Save a gate log: instant local write, then upsert to Supabase; on failure queue for retry. */
-export async function saveGateLog(row: SchoolGateLogRow): Promise<{ saved: boolean; row: SchoolGateLogRow }> {
+function removeLocalGateLog(row: SchoolGateLogRow) {
+  writeLocalGateLogs(readLocalGateLogs().filter((l) => l.id !== row.id && !(row.client_ref && l.client_ref === row.client_ref)));
+}
+
+/** The database refused a second entry (or exit) for the same student on the same day. */
+export function isDuplicateDailyMove(error: { code?: string; message?: string } | null | undefined): boolean {
+  return error?.code === '23505' && /gate_logs_one_per_day|duplicate/i.test(error?.message ?? '');
+}
+
+/**
+ * Students get one entry and one exit per day (Kampala time). Returns which of the two this
+ * student has already used today; staff and visitors are not limited.
+ */
+export function studentMovesToday(logs: SchoolGateLogRow[], profileId: string, now: Date = new Date()): { in: boolean; out: boolean } {
+  const today = eatDateKey(now);
+  const mine = logs.filter((l) => l.profile_id === profileId && eatDateKey(l.recorded_at) === today);
+  return { in: mine.some((l) => l.direction === 'in'), out: mine.some((l) => l.direction === 'out') };
+}
+
+/** Save a gate log: instant local write, then upsert to Supabase; offline it is queued for retry. */
+export async function saveGateLog(row: SchoolGateLogRow): Promise<{ saved: boolean; row: SchoolGateLogRow; error?: string }> {
   upsertLocalGateLog(row);
   const { id, created_at, ...payload } = row;
-  const { data, error } = await db.from('welile_school_gate_logs')
-    .upsert({ id, ...payload }, { onConflict: 'client_ref', ignoreDuplicates: false })
-    .select().single();
+  let data: unknown = null;
+  let error: { message?: string; code?: string } | null = null;
+  try {
+    ({ data, error } = await db.from('welile_school_gate_logs')
+      .upsert({ id, ...payload }, { onConflict: 'client_ref', ignoreDuplicates: false })
+      .select().abortSignal(saveTimeoutSignal()).single());
+  } catch (e) {
+    error = { message: `network: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (error && !isNetworkError(error)) {
+    // Refused (e.g. a second entry today): undo the local copy and say why; never queue it.
+    removeLocalGateLog(row);
+    return {
+      saved: false, row,
+      error: isDuplicateDailyMove(error)
+        ? `${row.person_name} already has ${row.direction === 'in' ? 'an entry' : 'an exit'} recorded today.`
+        : error.message || 'The server refused this gate record.',
+    };
+  }
   if (error) {
     writePendingGateLogs([...readPendingGateLogs().filter((l) => l.client_ref !== row.client_ref), row]);
     return { saved: false, row };
@@ -259,12 +322,18 @@ export async function saveGateLog(row: SchoolGateLogRow): Promise<{ saved: boole
 }
 
 /** Correct an accidental IN/OUT tap: flips direction locally, in the queue, and in Supabase. */
-export async function flipGateLogDirection(log: SchoolGateLogRow): Promise<{ saved: boolean; row: SchoolGateLogRow }> {
+export async function flipGateLogDirection(log: SchoolGateLogRow): Promise<{ saved: boolean; row: SchoolGateLogRow; error?: string }> {
   const row: SchoolGateLogRow = { ...log, direction: log.direction === 'in' ? 'out' : 'in' };
   upsertLocalGateLog(row);
   writePendingGateLogs(readPendingGateLogs().map((l) => (l.id === row.id || (row.client_ref && l.client_ref === row.client_ref) ? row : l)));
   const { data, error } = await db.from('welile_school_gate_logs')
     .update({ direction: row.direction }).eq('id', row.id).select().single();
+  if (error && isDuplicateDailyMove(error)) {
+    // Flipping would give the student a second entry or exit today: put it back.
+    upsertLocalGateLog(log);
+    writePendingGateLogs(readPendingGateLogs().map((l) => (l.id === log.id || (log.client_ref && l.client_ref === log.client_ref) ? log : l)));
+    return { saved: false, row: log, error: `${log.person_name} already has ${row.direction === 'in' ? 'an entry' : 'an exit'} recorded today.` };
+  }
   if (error) return { saved: false, row };
   const saved = data as SchoolGateLogRow;
   upsertLocalGateLog(saved);
@@ -280,6 +349,8 @@ export async function flushPendingGateLogs(): Promise<number> {
     if (l.school_id.startsWith('local-')) { left.push(l); continue; }
     const { id, created_at, ...payload } = l;
     const { error } = await db.from('welile_school_gate_logs').upsert({ id, ...payload }, { onConflict: 'client_ref' });
+    // A second entry/exit made offline on the same day is dropped, not retried forever.
+    if (error && isDuplicateDailyMove(error)) { removeLocalGateLog(l); continue; }
     if (error) left.push(l); else sent++;
   }
   writePendingGateLogs(left);

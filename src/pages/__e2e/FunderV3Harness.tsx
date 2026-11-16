@@ -16,10 +16,11 @@
  *   unchecked=1        every third empty house has house_listings.verified = false
  *   tags=on|off|board  funders board tags (off = switch off and no preview row);
  *                      board = tags on with the E72b grouped list (fixture board items in all four tags)
+ *   funded=plan-0      this funder has just funded that Rent Plan (comma-separated ids)
  *   demote=1           E59 viewer may demote (funders_board_can_demote() true); fake submit;
  *                      board items then carry `incomplete` (COO/CEO only)
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { FunderNewCategory, FunderNewEmptyHouse, FunderNewReadyPlan } from '@/components/funder-new/types';
 import { itemId } from '@/components/funder-new/utils';
@@ -34,6 +35,7 @@ import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderV3DemoteApi } from '@/components/funder-v3/FunderV3HousesScreen';
 import type { FeedEntry } from '@/components/supporter/FunderHouseListingsSection';
 import { buildBoardGroups } from '@/components/funder-new/boardGroups';
+import { markBookedByMe, resetBookedByMe, useBookedByMe } from '@/components/funder-new/funderListRefresh';
 import type { BoardItem, BoardItemsCounts } from '@/lib/fundersBoard';
 import type { BoardTag } from '@/lib/fundersBoard';
 import { getDynamicCurrencySymbol } from '@/lib/currencyFormat';
@@ -113,6 +115,13 @@ export default function FunderV3Harness() {
   const boardTagsOn = tagsParam === 'on' || tagsParam === 'board';
   const boardMode = tagsParam === 'board';
   const canDemote = params.get('demote') === '1';
+  // funded=<id>: this funder has just funded that Rent Plan (as after a successful fund).
+  const fundedParam = params.get('funded');
+  useEffect(() => {
+    resetBookedByMe();
+    if (fundedParam) markBookedByMe(fundedParam.split(','));
+  }, [fundedParam]);
+  const bookedByMe = useBookedByMe();
   const demote = useMemo<FunderV3DemoteApi | null>(
     () =>
       params.get('demote') === '1'
@@ -188,8 +197,9 @@ export default function FunderV3Harness() {
       kmOfItem: () => null,
       filters: { search: '', location: '', amount: 'all', rentMin: null, rentMax: null },
       emptyTotal: Math.max(0, total - items.filter((e) => e.category === 'ready').length),
+      bookedByMe,
     });
-  }, [board, items, total]);
+  }, [board, items, total, bookedByMe]);
   const boardPins = useMemo(
     () =>
       (boardGroups ?? []).flatMap((g) =>
@@ -213,7 +223,7 @@ export default function FunderV3Harness() {
     // Header totals are COO/CEO only (funders_board_can_demote), like the live section.
     boardCounts: demote ? board?.counts ?? null : null,
     boardPins,
-    items,
+    items: items.filter((e) => e.category !== 'ready' || !bookedByMe.has(itemId('ready', e.item))),
     filteredTotal: state === 'empty' ? 0 : total,
     feedLoading: state === 'loading',
     feedError: state === 'error',

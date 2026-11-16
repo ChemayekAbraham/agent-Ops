@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { formatUGX } from '@/lib/rentCalculations';
+import { agentRequestStatusLabel } from '@/lib/agentRequestStatus';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -230,7 +231,7 @@ export function LandlordRecoveryLedger({ open, onOpenChange }: Props) {
                                 variant={t.status === 'fully_repaid' ? 'default' : 'secondary'}
                                 className="text-[9px]"
                               >
-                                {t.status?.replace(/_/g, ' ')}
+                                {agentRequestStatusLabel(t.status)}
                               </Badge>
                             </div>
                             <div className="flex items-center justify-between text-muted-foreground">
