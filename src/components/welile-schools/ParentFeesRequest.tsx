@@ -75,7 +75,7 @@ function SignedInParentRequest({ userId }: { userId: string }) {
     });
   }, [userId]);
 
-  const schoolList = schools.data ?? [];
+  const schoolList = useMemo(() => schools.data ?? [], [schools.data]);
   const needle = schoolSearch.trim().toLowerCase();
   const shownSchools = useMemo(() => schoolList.filter((s) => !needle || [s.name, s.district, s.town].some((v) => v?.toLowerCase().includes(needle))), [schoolList, needle]);
   const chosen = schoolList.find((s) => s.id === d.school_id) ?? null;

@@ -20,6 +20,8 @@ import { WHATSAPP_URL } from '@/components/ai-chat/assistantConfig';
 import SchoolsOnboarding from '@/components/welile-schools/SchoolsOnboarding';
 import SchoolsPhotoCarousel from '@/components/welile-schools/SchoolsPhotoCarousel';
 import SchoolFeesPlanCard from '@/components/welile-schools/SchoolFeesPlanCard';
+import ParentFeesRequest from '@/components/welile-schools/ParentFeesRequest';
+import AgentParentRequests from '@/components/welile-schools/AgentParentRequests';
 import {
   computeGateMovementSummary, readLockedSchool, readPendingGateLogs, readPendingProfiles, writeLockedSchool,
   type SchoolGateLogRow, type SchoolRow,
@@ -382,6 +384,9 @@ function AgentHome({ userId }: { userId: string }) {
             <ActionTile icon={Receipt} label="School fees" onClick={() => open('fees')} />
           </section>
 
+          {/* Parents' School Fees Plan requests routed to this agent (hidden when there are none). */}
+          <AgentParentRequests agentId={userId} />
+
           <section aria-labelledby="ws-attention">
             <h2 id="ws-attention" className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Needs your attention</h2>
             {attention.length === 0 ? (
@@ -475,6 +480,9 @@ function ParentHome() {
         { icon: MessageSquareText, title: 'SMS receipt', body: 'Your new balance after every payment.' },
         { icon: Smartphone, title: 'Pay any day', body: 'MTN or Airtel, any amount.' },
       ]} />
+
+      {/* Ask for a plan: goes first to the Welile agent at the child's (partner) school. */}
+      <ParentFeesRequest />
 
       {/* Where the plan will live once the family has one; for now, what a plan would cost. */}
       <SchoolFeesPlanCard />
