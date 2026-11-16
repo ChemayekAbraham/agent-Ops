@@ -18,6 +18,7 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 300_000 });
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8').replace(/\r/g, '');
 const MIG = read('supabase/migrations/20261125110000_wallet_corrections_in_statements.sql');
+const FIXMIG = read('supabase/migrations/20261125120000_resolver_route_repair_orphan_reversal.sql');
 const BATCH = read('docs/finance/corrections/2026-11-16_wallet_corrections_and_company_float.sql');
 const FIX = ['sofp-ledger-legs-prod-2026-11-16c.sql', 'sofp-ledger-legs-window-prod-2026-11-16c.sql', 'ledger-allowlist-prod-2026-11-16c.sql']
   .map((f) => read(`scripts/fixtures/${f}`)).join('\n');
@@ -27,7 +28,7 @@ const CTRL = read('scripts/fixtures/fin-controls-prod-2026-11-16.sql');
 
 const id = (p: string, k: number) => `00000000-0000-0000-${p}-${String(k).padStart(12, '0')}`;
 const U = (k: number) => id('0aa0', k); const G = (k: number) => id('0cc0', k); const L = (k: number) => id('0dd0', k);
-const DEP = id('0de0', 1); const PF = (k: number) => id('0bf0', k);
+const DEP = id('0de0', 1); const DEP2 = id('0de0', 2); const PF = (k: number) => id('0bf0', k);
 
 const SCHEMA = `
 create role anon nologin; create role authenticated nologin; create role service_role nologin;
@@ -73,12 +74,13 @@ create table public.investor_portfolios (id uuid primary key, status text);
 create table public.accounting_correction_register (id uuid primary key default gen_random_uuid(), batch text not null, correction_item text not null,
   action text not null, source_table text not null, source_id uuid not null, rent_request_id uuid, original_group_id uuid, original_leg_ids uuid[],
   correction_group_id uuid, rebook_group_id uuid, amount numeric not null, before_value numeric, after_value numeric, detail jsonb default '{}'::jsonb,
-  created_at timestamptz default now(), created_by uuid, rolled_back_at timestamptz, rollback_group_id uuid);
+  created_at timestamptz default now(), created_by uuid, rolled_back_at timestamptz, rollback_group_id uuid,
+  constraint accounting_correction_register_once unique (correction_item, source_table, source_id, action));
 create table public.money_in_report_exclusions (transaction_group_id uuid primary key, reason text, correction_item text, reverses_group_id uuid);
 create table public.audit_logs (id uuid primary key default gen_random_uuid(), user_id uuid, action_type text, action text, table_name text,
   record_id text, reason text, metadata jsonb, created_at timestamptz default now());
 
-insert into public.deposit_requests values ('${DEP}','approved','mtn',300000,'MTN-1');
+insert into public.deposit_requests values ('${DEP}','approved','mtn',200000,'MTN-1'), ('${DEP2}','approved','airtel',100000,'AIR-2');
 insert into public.investor_portfolios values ('${PF(1)}','active'), ('${PF(2)}','active');
 insert into public.general_ledger (id, transaction_group_id, transaction_date, ledger_scope, category, direction, amount, wallet_bucket, user_id, source_table, source_id, classification) values
  -- commission credit (production) and its CFO retraction (admin_correction)
@@ -108,8 +110,8 @@ const sample = () => {
   const ws = BATCH.indexOf('insert into _w (leg, amount, legs) values'); const we = BATCH.indexOf('\n;', ws);
   const fs = BATCH.indexOf('insert into _f (payment_leg, kind, deposit_id, amount, classes) values'); const fe = BATCH.indexOf('\n;', fs);
   return (BATCH.slice(0, ws) + `insert into _w (leg, amount, legs) values ('${L(3)}', 100000, '[["E3","cash_in",100000],["X3","cash_out",100000]]'::jsonb)`
-    + BATCH.slice(we, fs) + `insert into _f (payment_leg, kind, deposit_id, amount, classes) values ('${L(7)}','momo','${DEP}',300000,'B-momo'), ('${L(11)}','float',null,200000,'B-merchant')`
-    + BATCH.slice(fe)).replace(/insert into _expected values \([^)]*\);/, 'insert into _expected values (1, 100000, 2, 500000);');
+    + BATCH.slice(we, fs) + `insert into _f (payment_leg, kind, deposit_id, amount, classes) values ('${L(7)}','momo','${DEP}',200000,'B-momo'), ('${L(7)}','momo','${DEP2}',100000,'B-momo'), ('${L(11)}','float',null,200000,'B-merchant')`
+    + BATCH.slice(fe)).replace(/insert into _expected values \([^)]*\);/, 'insert into _expected values (1, 100000, 3, 500000);');
 };
 
 describe('items 4 and 5: wallet corrections in the statements; company float used for Partner top-ups', () => {
@@ -123,7 +125,7 @@ describe('items 4 and 5: wallet corrections in the statements; company float use
     before = await accts();
   });
 
-  it('the production schedules are well formed: W 137 / 239,348,299 (every group balanced), F 250 / 451,086,202', () => {
+  it('the production schedules are well formed: W 137 / 239,348,299 (every group balanced), F 247 / 449,486,202', () => {
     const w = BATCH.slice(BATCH.indexOf('insert into _w'), BATCH.indexOf('\n;', BATCH.indexOf('insert into _w'))).split('\n').slice(1);
     expect(w.length).toBe(137);
     let tot = 0;
@@ -139,9 +141,9 @@ describe('items 4 and 5: wallet corrections in the statements; company float use
     }
     expect(tot).toBe(239348299);
     const f = BATCH.slice(BATCH.indexOf('insert into _f'), BATCH.indexOf('\n;', BATCH.indexOf('insert into _f'))).split('\n').slice(1);
-    expect(f.length).toBe(250);
-    expect(f.reduce((s, l) => s + Number(l.match(/, (\d+), '[^']*'\)/)![1]), 0)).toBe(451086202);
-    expect(BATCH).toMatch(/insert into _expected values \(137, 239348299, 250, 451086202\);/);
+    expect(f.length).toBe(247);
+    expect(f.reduce((s, l) => s + Number(l.match(/, (\d+), '[^']*'\)/)![1]), 0)).toBe(449486202);
+    expect(BATCH).toMatch(/insert into _expected values \(137, 239348299, 247, 449486202\);/);
   });
 
   it('today: the CFO debit is left out of the statements; company float spent on top-ups reduces Wallet Custody', () => {
@@ -174,9 +176,28 @@ describe('items 4 and 5: wallet corrections in the statements; company float use
     expect(a.L1).toBe(-100000 + 100000);                               // = what the wallets now owe: nothing (all spent / retracted)
     expect(await residuals()).toEqual([]);
     expect(await q(`select count(*)::int n, coalesce(sum(amount),0)::int s from public.general_ledger where ledger_scope = 'wallet'`)).toEqual(wallet);
-    expect((await q(`select count(*)::int n from public.money_in_report_exclusions`))[0].n).toBe(1);
+    expect((await q(`select count(*)::int n from public.money_in_report_exclusions`))[0].n).toBe(2);
     expect((await q(`select correction_item i, count(*)::int n, sum(amount)::int s from public.accounting_correction_register group by 1 order by 1`)))
-      .toEqual([{ i: 'F', n: 2, s: 500000 }, { i: 'W', n: 1, s: 100000 }]);
+      .toEqual([{ i: 'F', n: 3, s: 500000 }, { i: 'W', n: 1, s: 100000 }]);
     await expect(db.exec(sample())).rejects.toThrow(/already posted/);
+  });
+  it('follow-up 20261125120000: a wallet route repair and a platform orphan reversal, now reportable, balance (credit E3)', async () => {
+    await db.exec('ROLLBACK').catch(() => {});                      // the refused second batch run above
+    await q(`insert into public.general_ledger (transaction_group_id, transaction_date, ledger_scope, category, direction, amount, wallet_bucket, user_id, source_table, classification) values
+      ('${G(20)}','2026-07-01 09:00+03','wallet','agent_float_deposit','cash_in',353000,'float','${U(4)}','wallet_route_repair','admin_correction'),
+      ('${G(20)}','2026-07-01 09:00+03','platform','system_balance_correction','cash_in',353000,null,null,'wallet_route_repair','admin_correction'),
+      ('${G(20)}','2026-07-01 09:00+03','platform','agent_float_deposit','cash_out',353000,null,null,'wallet_route_repair','admin_correction'),
+      ('${G(20)}','2026-07-01 09:00+03','wallet','system_balance_correction','cash_out',353000,'withdrawable','${U(4)}','wallet_route_repair','admin_correction'),
+      ('${G(21)}','2026-07-02 09:00+03','wallet','orphan_reversal','cash_out',10000,'withdrawable','${U(5)}','rent_requests','admin_correction'),
+      ('${G(21)}','2026-07-02 09:00+03','platform','orphan_reversal','cash_in',10000,null,null,'rent_requests','admin_correction')`);
+    expect((await residuals()).length).toBe(2);                         // as found in production after 20261125110000
+    await db.exec(`BEGIN;
+${FIXMIG}
+COMMIT;`);
+    expect(await residuals()).toEqual([]);
+    const legs = await q(`select category c, account_code a, dr::int dr, cr::int cr from public.sofp_ledger_legs(now())
+      where transaction_group_id in ('${G(20)}','${G(21)}') and ledger_scope = 'platform' order by 1, 2`);
+    expect(legs).toEqual([{ c: 'agent_float_deposit', a: 'A8', dr: 0, cr: 353000 }, { c: 'orphan_reversal', a: 'E3', dr: 0, cr: 10000 },
+      { c: 'system_balance_correction', a: 'E3', dr: 0, cr: 353000 }]);
   });
 });

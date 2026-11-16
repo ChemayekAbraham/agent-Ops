@@ -11,9 +11,9 @@
 --     DR E3 wallet_correction_reclass_e3 / CR (or DR) the original accounts wallet_correction_reclass_<account>
 --   dated on the debit's own date, tagged to the debit (general_ledger / its leg id).
 --   Item 5 — Partner top-ups paid from company float with no Supporter custody receipt (float-origin trace of
---   16 Nov 2026; M1/K1 already covered 621.7M; "ambiguous" replays, 19.9M, are held for review). Part F, per traced
---   source (F: 250 groups, UGX 451,086,202):
---     mobile-money float received on the company line (UGX 278,870,860), as batch M1:
+--   16 Nov 2026; M1/K1 already covered 621.7M; "ambiguous" replays, 19.9M, and 3 pieces paid from 3 mobile-money deposits since marked reversed, UGX 1,600,000, are held for review). Part F, per traced
+--   source (F: 247 groups, UGX 449,486,202):
+--     mobile-money float received on the company line (UGX 277,270,860), as batch M1:
 --       DR A1 verified_bank_cash_recognised / DR A8 agent_float_deposit / CR L1 cash_custody_payable / CR A2 agent_float_cash_offset
 --     merchant / CFO / other company float (UGX 172,215,342): company float used; the Supporter's cash stays with the agent:
 --       DR A8 agent_float_deposit / CR L1 cash_custody_payable
@@ -23,7 +23,7 @@
 begin isolation level repeatable read;
 
 create temp table _expected (w_n int, w_amount numeric, f_n int, f_amount numeric) on commit drop;
-insert into _expected values (137, 239348299, 250, 451086202);
+insert into _expected values (137, 239348299, 247, 449486202);
 
 -- W: CFO debit leg, amount, legs [[account, direction, amount], ...]
 create temp table _w (leg uuid primary key, amount numeric not null, legs jsonb not null) on commit drop;
@@ -190,7 +190,6 @@ insert into _f (payment_leg, kind, deposit_id, amount, classes) values
   ('a203a095-e743-45b8-b593-5589e6d667d4', 'float', null, 155000, 'B-cfo'),
   ('b6fc0cd4-9873-4d22-bee0-4fe5aef95871', 'float', null, 3700000, 'B-cfo'),
   ('1a96e388-deb2-4106-ae32-eadb2da4df07', 'float', null, 2500000, 'B-cfo'),
-  ('3dfc5187-3f91-4eae-8449-01103fad5fcb', 'momo', '9e98d5b9-96af-4575-a754-5d853dc09a6e', 600000, 'B-momo'),
   ('cefdcdd1-a986-47f9-b224-cf740d619785', 'float', null, 500000, 'B-cfo'),
   ('098bb7ec-b8b2-4941-b9ab-a0e777ceaf0c', 'float', null, 2000000, 'B-cfo+B-other'),
   ('8f054667-e60a-4fbc-b795-cc6482731e88', 'float', null, 1947380, 'B-merchant'),
@@ -242,8 +241,6 @@ insert into _f (payment_leg, kind, deposit_id, amount, classes) values
   ('4fff3d3f-57c2-4220-b2bf-9f68ada8f8ef', 'momo', '69a525a1-2c37-4e37-a7f0-5d25e6b9a60d', 100000, 'B-momo'),
   ('4fff3d3f-57c2-4220-b2bf-9f68ada8f8ef', 'momo', '1c6aac71-d27f-470e-91a1-45efacf7516b', 41800, 'B-momo'),
   ('6ef7b79c-8599-4fe2-821a-fa21db4fb075', 'float', null, 500000, 'B-merchant'),
-  ('c9c7e3fb-bcb9-4100-963b-92f45908a8d8', 'momo', '435721f1-3743-4bc7-a8fc-4d92c1746e14', 500000, 'B-momo'),
-  ('c9c7e3fb-bcb9-4100-963b-92f45908a8d8', 'momo', 'db1109ce-c143-4694-a6c8-9e0c97f21b44', 500000, 'B-momo'),
   ('d59a1527-5b85-4c80-a030-f76326496105', 'float', null, 1100000, 'B-merchant'),
   ('ba33e951-16b3-461b-9c45-dd8d76594afe', 'momo', '5fd5f0ac-7cc4-4be5-bcd0-104eca670d01', 1000000, 'B-momo'),
   ('a3a44c5c-7fe2-4cd5-b655-6b580d5dc307', 'momo', 'e3149db4-3be1-4104-aa92-4fbb92e07aab', 2000000, 'B-momo'),
@@ -517,9 +514,12 @@ begin
     end if;
     insert into public.accounting_correction_register (batch, correction_item, action, source_table, source_id, original_group_id,
       correction_group_id, amount, before_value, after_value, detail, created_by)
+    -- one register row per correction group (a top-up can draw on several deposits and a deposit can fund several
+    -- top-ups), so the row points at the correction's own first leg; the top-up leg is in original_leg_ids
     values (c_batch, 'F', case when r.kind = 'momo' then 'company_line_momo_float_to_custody' else 'company_float_used_for_topup' end,
-      'general_ledger', r.payment_leg, r.grp, v_grp, r.amount, r.amount, 0,
-      jsonb_build_object('portfolio_id', r.pid, 'deposit_id', r.deposit_id, 'classes', r.classes), c_cfo);
+      'general_ledger', (select g.id from public.general_ledger g where g.transaction_group_id = v_grp order by g.id limit 1),
+      r.grp, v_grp, r.amount, r.amount, 0,
+      jsonb_build_object('payment_leg', r.payment_leg, 'portfolio_id', r.pid, 'deposit_id', r.deposit_id, 'classes', r.classes), c_cfo);
   end loop;
 
   -- 4. Checks.
