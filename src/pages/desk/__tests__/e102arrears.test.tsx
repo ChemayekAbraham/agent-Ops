@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -59,7 +59,13 @@ const findEl = (sel: string, root: ParentNode = document) =>
 const answer = (map: Record<string, unknown>) =>
   h.rpc.mockImplementation((fn: string) => Promise.resolve(fn in map ? (map[fn] as object) : { data: null, error: null }));
 
-beforeEach(() => h.rpc.mockReset());
+// A Tuesday: these are the "Yesterday" screens (a Monday opens on last week, E113).
+beforeEach(() => {
+  h.rpc.mockReset();
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-17T06:00:00Z'));
+});
+afterEach(() => vi.useRealTimers());
 
 describe('Log call rules', () => {
   it('needs an outcome; a promised date for promised_date; a note for refused, dispute and other', () => {
@@ -86,7 +92,7 @@ describe('Tenant Ops · Arrears calls', () => {
   it('empty: the server’s zero totals and a plain empty line', async () => {
     answer({ arrears_watch: { data: EMPTY, error: null } });
     wrap(<TenantArrearsTab board={false} />);
-    expect(await screen.findByText(/No plan was short on 15 Nov 2026/)).toBeTruthy();
+    expect(await screen.findByText(/No plan was short for 15 Nov 2026/)).toBeTruthy();
     expect(screen.getByText('Tenants called 0 / agents called 0')).toBeTruthy();
     expect(h.rpc).toHaveBeenCalledWith('arrears_watch', { p_day: yesterdayKampala(), p_tier: null, p_search: null, p_limit: 50, p_offset: 0 });
   });
@@ -212,7 +218,7 @@ describe('Agent Ops · Arrears calls', () => {
   it('empty', async () => {
     answer({ arrears_watch_agents: { data: { day: '2026-11-15', agents: [] }, error: null } });
     wrap(<AgentArrearsTab board={false} />);
-    expect(await screen.findByText(/No agent had a tenant short on 15 Nov 2026/)).toBeTruthy();
+    expect(await screen.findByText(/No agent had a tenant short for 15 Nov 2026/)).toBeTruthy();
     expect(h.rpc).toHaveBeenCalledWith('arrears_watch_agents', { p_day: yesterdayKampala() });
   });
 

@@ -3,10 +3,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { MessageCircle, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { CALM, FOCUS, LABEL, statusText, type Status } from '../deskTheme';
-import { Chip, ErrorLine, Sheet, moneyFull, pctWhole, stackLayout } from '../ui';
+import { Chip, ErrorLine, Segmented, Sheet, moneyFull, pctWhole, stackLayout } from '../ui';
 import {
   ARREARS_KEY,
+  MODE_WORDS,
   OUTCOMES,
+  daysShortText,
   PARTY_WORDS,
   logArrearsCall,
   needsDate,
@@ -21,6 +23,7 @@ import {
   type CallRecord,
   type Outcome,
   type Party,
+  type WatchMode,
 } from './arrearsApi';
 
 const BTN = `inline-flex items-center gap-1 rounded-md border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-2.5 py-1 text-xs text-foreground hover:bg-[var(--desk-surface-hover)] ${CALM} ${FOCUS}`;
@@ -67,6 +70,39 @@ const day = (v: string | null | undefined) => {
   return new Date(`${v.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 export const dayText = day;
+
+/** "15 Nov 2026", or in week mode "9 Nov 2026 – 15 Nov 2026" from the payload's from / to. */
+export function rangeText(mode: WatchMode, d: { day: string; from?: string | null; to?: string | null }): string {
+  if (mode === 'week' && d.from && d.to) return `${day(d.from)} – ${day(d.to)}`;
+  return day(d.day);
+}
+
+/**
+ * Yesterday | Last week (E113), and the day it reads: the watch day, or the
+ * Sunday that ends the week (Monday to Sunday).
+ */
+export function WatchControls({ mode, onMode, value, onValue }: { mode: WatchMode; onMode: (m: WatchMode) => void; value: string; onValue: (v: string) => void }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 12 }} data-watch-controls>
+      <Segmented<WatchMode>
+        ariaLabel="Arrears for"
+        value={mode}
+        onChange={(m) => m !== null && onMode(m)}
+        options={(['day', 'week'] as const).map((m) => ({ value: m, label: MODE_WORDS[m] }))}
+      />
+      <label style={stackLayout(4)}>
+        <span className={LABEL}>{mode === 'week' ? 'Week ending (Sunday)' : 'Watch day'}</span>
+        <input
+          type="date"
+          value={value}
+          onChange={(e) => e.target.value && onValue(e.target.value)}
+          className="rounded-md border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-2 py-1.5 text-sm text-foreground"
+          data-watch-day
+        />
+      </label>
+    </div>
+  );
+}
 
 /** "Promised a date (20 Nov) · 14:05 · ST-0042", or "No call yet". */
 export function CallLine({ label, call }: { label: string; call: CallRecord }) {
@@ -130,6 +166,11 @@ export function TenantCard({ row, tiers, onLog }: { row: ArrearsRow; tiers: Reco
           </Chip>
         </button>
       </header>
+      {daysShortText(row) && (
+        <p className={`text-sm font-medium ${statusText.warn}`} style={{ margin: 0 }} data-days-short>
+          {daysShortText(row)}
+        </p>
+      )}
       {why && (
         <p className="text-sm text-muted-foreground" style={{ margin: 0 }} data-tier-why>
           {tiers[row.tier] ?? tierWords(row.tier)}

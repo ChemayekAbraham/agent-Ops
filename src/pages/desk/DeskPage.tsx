@@ -12,6 +12,8 @@ import { AgentArrearsTab } from './arrears/AgentArrearsTab';
 import { TenantArrearsTab } from './arrears/TenantArrearsTab';
 import { ReferralLandlords } from './ReferralLandlords';
 import { PostingFunnelCard } from './coo/PostingFunnel';
+import { DeskBell } from './DeskBell';
+import { DeskPushBanner } from './DeskPushBanner';
 import { TileGrid } from './Tiles';
 import { SkeletonLead, SkeletonTiles } from './Skeleton';
 import { DeskPrefsProvider, KampalaClock, clockTime, useDeskPrefs } from './deskPrefs';
@@ -259,6 +261,8 @@ function Toolbar({ updated, failed, board, bp }: { updated: number; failed: stri
       <LivePill />
 
       <KampalaClock className={`${board ? 'text-base' : 'text-sm'} font-medium text-foreground whitespace-nowrap`} />
+      {/* E114: the desk's notifications; the 07:30 call list opens Arrears calls. Not on the wall view. */}
+      {!board && <DeskBell />}
       {xl && <span style={{ whiteSpace: 'nowrap' }}>Updated {clockTime(updated)}</span>}
 
       <button
@@ -368,6 +372,8 @@ export function DeskHeader({
       </div>
 
       {allowed.length > 1 && <DeskTabs desks={allowed} activeId={desk.id} board={board} counts={tabCounts} />}
+      {/* E114: the 07:30 call list comes as a push; offer it until this device is subscribed. */}
+      {!board && (desk.id === 'agent-ops' || desk.id === 'tenant-ops') && <DeskPushBanner />}
     </header>
   );
 }
@@ -485,6 +491,11 @@ function DeskView({
   const [tab, setTab] = useState<'queue' | 'extra'>(() =>
     deskParams.get('tab') && deskParams.get('tab') !== 'queue' ? 'extra' : 'queue',
   );
+  // A link to a desk already open (the bell's 07:30 call list, ?tab=arrears) switches the tab too.
+  const tabParam = deskParams.get('tab');
+  useEffect(() => {
+    if (tabParam) setTab(tabParam !== 'queue' ? 'extra' : 'queue');
+  }, [tabParam]);
 
   /**
    * The row carries an 8-character code, so the id is looked up on the press.
