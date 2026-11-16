@@ -14,6 +14,7 @@ import { ReferralLandlords } from './ReferralLandlords';
 import { PostingFunnelCard } from './coo/PostingFunnel';
 import { DeskBell } from './DeskBell';
 import { FakeRequestFlagsCard } from './fakeFlags';
+import { ReadyToRenewCard, RenewalAgentChangesCard } from './renewals';
 import { DeskPushBanner } from './DeskPushBanner';
 import { TileGrid } from './Tiles';
 import { SkeletonLead, SkeletonTiles } from './Skeleton';
@@ -721,6 +722,10 @@ function DeskView({
 
         {/* E124: agents with 3+ requests discarded as fake in 30 days; hidden when none. */}
         {desk.id === 'agent-ops' && <FakeRequestFlagsCard board={board} />}
+        {/* E128: a renewal posted by a different agent waits for Agent Ops; hidden when none. */}
+        {desk.id === 'agent-ops' && <RenewalAgentChangesCard board={board} />}
+        {/* E129: completed plans not yet renewed, "Tenant asked" first, so the desk can nudge the agent. */}
+        {(desk.id === 'agent-ops' || desk.id === 'tenant-ops') && <ReadyToRenewCard board={board} />}
         {desk.id === 'agent-ops' && <AgentRankingFold board={board} />}
         {/* E108: where rent requests get stuck before they are posted. */}
         {(desk.id === 'agent-ops' || desk.id === 'service-centre') && <PostingFunnelCard board={board} />}

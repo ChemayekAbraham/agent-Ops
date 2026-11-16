@@ -9,7 +9,7 @@ import { CallLog } from './CallLog';
 import { asIs, isRecordOnly, needsNote, passMovesOnServer, rejectMovesOnServer, runMove, transferThenPass } from './deskActions';
 import { passBlock } from './passBlock';
 import { IdentityBanner, IdentityPanel } from './identityPhotos';
-import { DeskHistory } from './deskHistory';
+import { AUTO_PASSED_WORDS, DeskHistory, isAutoPassedRenewal } from './deskHistory';
 import { facePhotoFlag } from './photoFlag';
 import { allowedReasons } from './deskReasons';
 import { answeredCallOnFile, awarenessCallsKey, callTime, stageSince, useAwarenessCalls } from './callOnFile';
@@ -1020,7 +1020,12 @@ export function ReviewDrawer({
                       // E64: a send-back names the office it went to and the reason in words.
                       const sent = h.decision === 'send_back' ? parseSendBackNote(h.note) : null;
                       const meaning = h.reason_code ? (reasons.data ?? []).find((r) => r.code === h.reason_code)?.meaning ?? null : null;
-                      return (
+                      // E128 R1: an unchanged renewal Landlord Ops passed by itself, in plain words.
+                      return isAutoPassedRenewal(h.stage, h.note) ? (
+                        <li key={`${h.stage}-${h.at}-${i}`} className={LABEL} data-history={h.decision} data-auto-passed>
+                          <span className="text-foreground">{AUTO_PASSED_WORDS}</span>
+                        </li>
+                      ) : (
                         <li key={`${h.stage}-${h.at}-${i}`} className={LABEL} data-history={h.decision}>
                           <span className="text-foreground">{STAGE_NAME[h.stage] ?? h.stage}</span>: {DECISION_LABEL[h.decision] ?? h.decision}
                           {sent && (
