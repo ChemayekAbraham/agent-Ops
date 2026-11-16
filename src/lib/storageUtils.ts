@@ -4,6 +4,26 @@ import { supabase } from '@/integrations/supabase/client';
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 const CACHE_TTL_MS = 55 * 60 * 1000; // 55 minutes (URLs valid for 1 hour)
 
+/** Avatar files that failed to sign, remembered across reloads for a day so they are not re-requested. */
+const MISSING_AVATAR_KEY = 'welile-missing-avatars';
+const MISSING_AVATAR_TTL_MS = 24 * 60 * 60 * 1000;
+function readMissingAvatars(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(MISSING_AVATAR_KEY) || '{}') || {}; } catch { return {}; }
+}
+export function isKnownMissingAvatar(storedUrl: string): boolean {
+  const at = readMissingAvatars()[storedUrl];
+  return typeof at === 'number' && Date.now() - at < MISSING_AVATAR_TTL_MS;
+}
+function rememberMissingAvatar(storedUrl: string): void {
+  try {
+    const now = Date.now();
+    const map = readMissingAvatars();
+    for (const k of Object.keys(map)) if (now - map[k] >= MISSING_AVATAR_TTL_MS) delete map[k];
+    map[storedUrl] = now;
+    localStorage.setItem(MISSING_AVATAR_KEY, JSON.stringify(map));
+  } catch { /* storage unavailable */ }
+}
+
 // Pending requests to avoid duplicate fetches
 const pendingRequests = new Map<string, Promise<string>>();
 
@@ -56,6 +76,9 @@ export async function getSignedUrl(storedUrl: string): Promise<string> {
   const pending = pendingRequests.get(storedUrl);
   if (pending) return pending;
 
+  // A missing avatar shows initials; don't ask storage again.
+  if (parsed.bucket === 'avatars' && isKnownMissingAvatar(storedUrl)) return '';
+
   // Create the signed URL request
   const request = (async () => {
     try {
@@ -66,6 +89,7 @@ export async function getSignedUrl(storedUrl: string): Promise<string> {
       if (error || !data?.signedUrl) {
         console.warn('[storageUtils] Failed to sign URL:', parsed.bucket, parsed.path);
         const fallback = parsed.bucket === 'avatars' ? '' : storedUrl;
+        if (parsed.bucket === 'avatars') rememberMissingAvatar(storedUrl);
         signedUrlCache.set(storedUrl, { url: fallback, expiresAt: Date.now() + CACHE_TTL_MS });
         return fallback;
       }

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { rpc } from '../reviewApi';
@@ -316,8 +316,27 @@ function Milestones({ rows }: { rows: Pair[] }) {
   );
 }
 
+/**
+ * The funnel is a heavy report: it loads only once the card scrolls into view,
+ * and starts on the shortest window so a page view does not trigger the slow read.
+ */
 export function PostingFunnelCard({ board }: { board: boolean }) {
-  const [days, setDays] = useState<FunnelDays>(14);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    if (seen) return;
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') { setSeen(true); return; }
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) setSeen(true); }, { rootMargin: '200px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [seen]);
+  if (!seen) return <div ref={ref} style={{ minHeight: 120 }} aria-hidden />;
+  return <PostingFunnelCardBody board={board} />;
+}
+
+function PostingFunnelCardBody({ board }: { board: boolean }) {
+  const [days, setDays] = useState<FunnelDays>(7);
   const [form, setForm] = useState<FunnelForm>('agent_post');
   const q = usePostingFunnel(days, form);
   // Not on the server yet, or not for this viewer: no card.
