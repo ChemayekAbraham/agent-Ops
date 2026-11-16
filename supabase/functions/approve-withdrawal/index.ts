@@ -1,5 +1,5 @@
 import "../_shared/smsFooterInterceptor.ts";
-import { resolveWithdrawalSmsRecipient } from "./smsRecipient.ts";
+import { isStrictUgandanMobile, resolveWithdrawalSmsRecipient } from "./smsRecipient.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { resolveTrustedClientIp, getClientUserAgent } from "../_shared/resolveClientIp.ts";
@@ -4166,7 +4166,7 @@ Deno.serve(async (req) => {
       // withdrawal's own mobile_money number. Never affects money movement.
       let payoutSmsPhone: string = profile?.phone ?? "";
       try {
-        payoutSmsPhone = resolveWithdrawalSmsRecipient(profile?.phone, wr as any, isUgandanPhone).phone;
+        payoutSmsPhone = resolveWithdrawalSmsRecipient(profile?.phone, wr as any, isStrictUgandanMobile).phone;
       } catch { /* keep profile phone */ }
       if (payoutSmsPhone) {
         // 1) Record the SMS as "queued" up front so Financial Ops can see the
@@ -4294,7 +4294,7 @@ Deno.serve(async (req) => {
       // ── Proxy Partner SMS alert (paid on behalf) ─────────────────────────
       let proxySmsPhone: string = partnerProfile?.phone ?? "";
       try {
-        proxySmsPhone = resolveWithdrawalSmsRecipient(partnerProfile?.phone, wr as any, isUgandanPhone).phone;
+        proxySmsPhone = resolveWithdrawalSmsRecipient(partnerProfile?.phone, wr as any, isStrictUgandanMobile).phone;
       } catch { /* keep profile phone */ }
       if (isProxyPayout && fundingUserId !== partnerId && proxySmsPhone) {
         const refUpper = reference.trim().toUpperCase();
