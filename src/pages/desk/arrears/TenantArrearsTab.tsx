@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { CALM, FOCUS, LABEL } from '../deskTheme';
 import { fmt } from '../format';
 import { Chip, EmptyState, ErrorLine, LoadingRows, Tile, TileRow, moneyFull, stackLayout } from '../ui';
-import { TIERS, TIER_WORDS, plainError, tierTone, useArrearsWatch, yesterdayKampala, type ArrearsRow, type ArrearsTotals, type Tier } from './arrearsApi';
-import { ACTION_BUTTON, LogCallSheet, TenantCard, dayText } from './ArrearsParts';
+import { TIERS, TIER_WORDS, callDay, defaultWatchMode, lastSundayKampala, plainError, tierTone, useArrearsWatch, yesterdayKampala, type ArrearsRow, type ArrearsTotals, type Tier, type WatchMode } from './arrearsApi';
+import { ACTION_BUTTON, LogCallSheet, TenantCard, WatchControls, rangeText } from './ArrearsParts';
+import { DeskPromises } from './promises';
 
 /**
  * Tenant Ops · Arrears calls (E102): every plan short on the watch day,
@@ -59,26 +60,28 @@ export function ArrearsHeader({ totals, tier, onTier, board }: { totals: Arrears
 }
 
 export function TenantArrearsTab({ board }: { board: boolean }) {
-  const [day, setDay] = useState(() => yesterdayKampala());
+  // Mondays open on last week (E113).
+  const [mode, setMode] = useState<WatchMode>(() => defaultWatchMode());
+  const [dates, setDates] = useState<Record<WatchMode, string>>(() => ({ day: yesterdayKampala(), week: lastSundayKampala() }));
+  const day = dates[mode];
   const [tier, setTier] = useState<Tier | null>(null);
   const [searchText, setSearchText] = useState('');
   const search = useDebounced(searchText);
   const [offset, setOffset] = useState(0);
   const [logging, setLogging] = useState<ArrearsRow | null>(null);
-  const q = useArrearsWatch({ day, tier, search, limit: PAGE, offset });
+  const q = useArrearsWatch({ day, mode, tier, search, limit: PAGE, offset });
 
   // A new filter starts from the first page.
-  useEffect(() => setOffset(0), [day, tier, search]);
+  useEffect(() => setOffset(0), [day, mode, tier, search]);
 
   const d = q.data;
   const matching = d?.matching ?? null;
   return (
     <section aria-label="Arrears calls" data-arrears-tab="tenant-ops" style={stackLayout(14)}>
+      {/* E116: my promises, the desk board and the broken promises, first. */}
+      <DeskPromises desk="tenant-ops" />
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 12 }}>
-        <label style={stackLayout(4)}>
-          <span className={LABEL}>Watch day</span>
-          <input type="date" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} className="rounded-md border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-2 py-1.5 text-sm text-foreground" data-watch-day />
-        </label>
+        <WatchControls mode={mode} onMode={setMode} value={day} onValue={(v) => setDates((d) => ({ ...d, [mode]: v }))} />
         <label style={{ ...stackLayout(4), flex: '1 1 220px' }}>
           <span className={LABEL}>Search</span>
           <input type="search" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Name, phone, village, district" className="rounded-md border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-2 py-1.5 text-sm text-foreground" aria-label="Search arrears" />
@@ -91,6 +94,9 @@ export function TenantArrearsTab({ board }: { board: boolean }) {
         <ErrorLine>{plainError(q.error)}</ErrorLine>
       ) : d ? (
         <>
+          <p className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`} style={{ margin: 0 }} data-watch-range>
+            Arrears for {rangeText(mode, d)}
+          </p>
           {d.totals && <ArrearsHeader totals={d.totals} tier={tier} onTier={setTier} board={board} />}
           {d.rule && (
             <p className={LABEL} style={{ margin: 0 }}>
@@ -98,7 +104,7 @@ export function TenantArrearsTab({ board }: { board: boolean }) {
             </p>
           )}
           {d.rows.length === 0 ? (
-            <EmptyState>No plan was short on {dayText(d.day)}{tier || search ? ' for this filter' : ''}.</EmptyState>
+            <EmptyState>No plan was short for {rangeText(mode, d)}{tier || search ? ' for this filter' : ''}.</EmptyState>
           ) : (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 380px), 1fr))', gap: 12 }}>
@@ -131,7 +137,7 @@ export function TenantArrearsTab({ board }: { board: boolean }) {
           defaultParty="tenant"
           rentRequestId={logging.rent_request_id}
           desk="tenant-ops"
-          day={day}
+          day={callDay(mode, day, d)}
           onClose={() => setLogging(null)}
         />
       )}
