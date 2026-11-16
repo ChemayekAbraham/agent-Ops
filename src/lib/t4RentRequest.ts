@@ -22,6 +22,7 @@
 import { useSyncExternalStore } from 'react';
 import type { PostingDraftPayload } from '@/lib/postingDrafts';
 import type { AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
+import { TENANT_FACE_PHOTO } from '@/lib/tenantFacePhoto';
 
 export type T4Mode = 'new' | 'resubmit' | 'renewal';
 
@@ -162,7 +163,7 @@ export const T4_ITEM_LABELS: Record<T4ItemKey, string> = {
   plan: 'Rent Plan (how it is paid back)',
   tenantPhone: 'Tenant’s phone number',
   house: 'House type and address',
-  tenantPhoto: 'Tenant’s passport photo',
+  tenantPhoto: TENANT_FACE_PHOTO,
   lc1: 'LC1 chairperson',
   payoutDay: 'Landlord payout day',
   consent: 'Guarantor consent',
@@ -172,7 +173,8 @@ export const T4_ITEM_LABELS: Record<T4ItemKey, string> = {
 const FORM_BY_MODE: Record<T4Mode, T4FormItem[]> = {
   new: ['plan', 'tenantPhone', 'house', 'tenantPhoto', 'lc1', 'payoutDay', 'consent'],
   // E118: no resubmit limit; a returned request goes back once every required item is in.
-  resubmit: ['note'],
+  // A retaken face photo must pass the face check (or have timed out) before it goes.
+  resubmit: ['tenantPhoto', 'note'],
   renewal: [],
 };
 

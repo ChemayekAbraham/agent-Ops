@@ -102,6 +102,8 @@ export interface AssistantSubmitInput {
   housePhotos: File[];
   tenantPhoto: File;
   faceCheckSha256?: string | null;
+  /** 'skipped_timeout' when the face check did not answer in time: the office checks the photo. */
+  faceCheck?: 'skipped_timeout' | null;
   lc1Name: string;
   lc1Phone: string;
   lc1Village: string;
@@ -168,10 +170,11 @@ const rpcUntyped: UntypedRpc = (fn, args) => (supabase.rpc as unknown as Untyped
 type Loose = never;
 
 /**
- * Stores the tenant's passport photo. The path does not need the tenant id, so it uploads
- * while the checks run; the avatar is set after the insert (setTenantAvatar).
+ * Stores the tenant's face photo. The path does not need the tenant id, so it uploads
+ * while the checks run; the avatar is set after the insert (setTenantAvatar). Also used by
+ * a resubmit that retakes the photo. null when the upload failed.
  */
-async function storeTenantPhoto(agentId: string, file: File): Promise<string | null> {
+export async function storeTenantPhoto(agentId: string, file: File): Promise<string | null> {
   try {
     const optimized = await optimizeImage(file, { maxWidth: 1200, quality: 0.85 });
     const ext = optimized.file.name.split('.').pop() || 'webp';
@@ -353,7 +356,7 @@ async function submitTimed(input: AssistantSubmitInput, timer: ReturnType<typeof
     counter.saving();
     // The tenant photo must be stored before the insert (enforce_rent_request_tenant_photo).
     if (!tenantPhotoUrl) {
-      return { ok: false, reason: 'photo', message: "Couldn't upload the tenant's passport photo. Check your connection and try again." };
+      return { ok: false, reason: 'photo', message: "Couldn't upload the tenant's face photo. Check your connection and try again." };
     }
     const photoUrls = houseUrls.filter((u): u is string => !!u);
 
@@ -538,6 +541,16 @@ async function submitTimed(input: AssistantSubmitInput, timer: ReturnType<typeof
         console.warn('[rentRequestAssistant] face fingerprint link failed', e);
       }
     };
+    /** The face check did not answer in time: marked on the request, so the office checks the photo. Best effort. */
+    const markFaceCheckSkipped = async () => {
+      if (input.faceCheck !== 'skipped_timeout') return;
+      try {
+        const { error } = await supabase.from('rent_requests').update({ face_check: 'skipped_timeout' } as Loose).eq('id', requestId);
+        if (error) console.warn('[rentRequestAssistant] face_check not recorded', error);
+      } catch (e) {
+        console.warn('[rentRequestAssistant] face_check not recorded', e);
+      }
+    };
     const [, letterOut, lc1NoteError, intake] = await timer.step('after insert', Promise.all([
       linkHouse(),
       letterAfterInsert(),
@@ -549,6 +562,7 @@ async function submitTimed(input: AssistantSubmitInput, timer: ReturnType<typeof
       }),
       linkFingerprint(),
       setTenantAvatar(tenantId, tenantPhotoUrl),
+      markFaceCheckSkipped(),
     ]));
     const intakeError = intake.ok ? null : intake.message;
 

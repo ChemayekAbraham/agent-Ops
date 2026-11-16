@@ -18,7 +18,8 @@
  */
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 
-export type FaceCheckStatus = 'checking' | 'ok' | 'no_face' | 'unavailable';
+/** `skipped_timeout`: no answer within the time limit (or offline); the agent continues and the office checks it. */
+export type FaceCheckStatus = 'checking' | 'ok' | 'no_face' | 'unavailable' | 'skipped_timeout';
 
 export interface PassportFaceCheck {
   status: FaceCheckStatus;
@@ -131,15 +132,40 @@ export async function runPassportFaceCheck(
 }
 
 /**
+ * runPassportFaceCheck with a time limit. Offline, or no answer within `ms`, gives
+ * `skipped_timeout` straight away: the agent can continue, and the office checks the photo.
+ * A late answer is ignored.
+ */
+export async function runPassportFaceCheckWithin(
+  file: File,
+  opts: { source: string; subjectUserId?: string | null },
+  ms: number,
+  run: typeof runPassportFaceCheck = runPassportFaceCheck,
+): Promise<PassportFaceCheck> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return { status: 'skipped_timeout', unavailableReason: 'offline' };
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<PassportFaceCheck>((resolve) => {
+    timer = setTimeout(() => resolve({ status: 'skipped_timeout', unavailableReason: 'timeout' }), ms);
+  });
+  try {
+    return await Promise.race([run(file, opts), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
  * The one-line reason a photo may not go forward, or null if it may.
  *
  * Used by step validation, so the rule is identical wherever it is applied.
  */
 export function faceCheckBlocker(check: PassportFaceCheck | null): string | null {
   if (!check) return null;
-  if (check.status === 'checking') return 'Wait for the face check on the passport photo to finish';
+  if (check.status === 'checking') return 'Wait for the face check on the tenant’s face photo to finish';
   if (check.status === 'no_face') {
-    return "No face was found in the tenant's passport photo — retake it with the tenant's face clearly visible";
+    return 'No face was found in the tenant’s face photo — retake it: head and shoulders, face clearly visible';
   }
   return null;
 }

@@ -127,6 +127,7 @@ const logs = (event: string) => mocks.rpc.mock.calls
 describe('E109: save and finish later', () => {
   it('a blocked Next offers it; saving sends the payload and missing codes, says when we remind, and logs close', async () => {
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456'); // the first screen is the tenant's phone number
     fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
     answer('about three hundred'); // the rent question refuses it: a blocked Next
     const save = await screen.findByRole('button', { name: 'Save and finish later' });
@@ -136,7 +137,7 @@ describe('E109: save and finish later', () => {
     const call = mocks.rpc.mock.calls.find(([fn]) => fn === 'posting_draft_save');
     const args = call![1] as { p_payload: PostingDraftPayload; p_missing: string[]; p_draft_id: string | null; p_session: string };
     expect(args.p_draft_id).toBeNull();
-    expect(args.p_missing).toEqual(expect.arrayContaining(['rent', 'house_photos', 'landlord', 'gps', 'id_front', 'id_back', 'lc1_letter', 'tenant_photo', 'phone']));
+    expect(args.p_missing).toEqual(expect.arrayContaining(['rent', 'house_photos', 'landlord', 'gps', 'id_front', 'id_back', 'lc1_letter', 'tenant_photo']));
     expect(args.p_payload.fields.planType).toBe('weekly');
     // Never saved: the face-check result and guarantor consent.
     expect(args.p_payload.fields).not.toHaveProperty('faceCheck');
@@ -154,6 +155,7 @@ describe('E109: save and finish later', () => {
   it('is hidden while the draft RPCs are not on the database', async () => {
     mocks.drafts = { data: null, error: PGRST202 };
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456'); // the first screen is the tenant's phone number
     fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('posting_drafts_mine', {}));
     answer('about three hundred');
@@ -182,7 +184,7 @@ describe('E109: save and finish later', () => {
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={request} />);
     await finishAndPost();
     const sent = mocks.submit.mock.calls[0][0] as { familySize: number; housePhotos: File[]; tenantName: string; faceCheckSha256: string | null };
-    // The passport photo was checked again on Continue; the stored result ('abc') was not used.
+    // The face photo was checked again on Continue; the stored result ('abc') was not used.
     expect(mocks.faceCheck).toHaveBeenCalledWith(expect.any(File), { source: 'agent_rent_request' });
     expect(sent.faceCheckSha256).toBe('fresh');
     expect(sent.familySize).toBe(4);
@@ -228,14 +230,14 @@ async function finishAndPost() {
     await waitFor(() => expect(mocks.submit).toHaveBeenCalled());
 }
 
-describe('Saved drafts: the passport face check runs again on Continue', () => {
-  it('a draft whose stored check says "passed" but whose photo fails now is caught: it opens at the passport photo', async () => {
+describe('Saved drafts: the face check runs again on Continue', () => {
+  it('a draft whose stored check says "passed" but whose photo fails now is caught: it opens at the face photo', async () => {
     mocks.faceCheck.mockResolvedValue({ status: 'no_face', verdict: 'fail', isFace: false, isPassportPhoto: false, sha256: 'bad' });
     // The saved payload claims a passed check (older drafts carried one).
     const payload = fullPayload();
     expect(payload.fields.faceCheck).toMatchObject({ status: 'ok', verdict: 'pass' });
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd2', payload } }} />);
-    expect((await screen.findAllByText(/Now a passport photo of John/, {}, { timeout: 3000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/Now the tenant’s face photo \(head and shoulders\) of John/, {}, { timeout: 3000 })).length).toBeGreaterThan(0);
     expect(mocks.faceCheck).toHaveBeenCalledWith(expect.any(File), { source: 'agent_rent_request' });
     // The photo comes first (ahead of the missing family size), with the reason, and nothing is posted.
     expect(await screen.findByText('No face found. Tap the photo to retake it.')).toBeInTheDocument();
@@ -274,3 +276,58 @@ describe('E111: agents always post', () => {
   });
 });
 
+describe('Agent chat fixes (16 Nov): first screen, face check timeout, photo refusal', () => {
+  it('the first screen is the tenant’s phone number, the greeting a small line above it; "start" is logged only after the first answer', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    expect(await screen.findAllByText('What’s the tenant’s phone number? 📱')).not.toHaveLength(0);
+    expect(screen.getByLabelText('Your answer')).toBeInTheDocument();
+    expect(screen.getByTestId('greeting')).toHaveTextContent(/Good (morning|afternoon|evening), Agent/);
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    // No greeting step and no extra Continue before the first question.
+    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Weekly earner/ })).toBeNull();
+    await waitFor(() => expect(logs('open').length).toBeGreaterThan(0));
+    expect(logs('step')).toHaveLength(0);
+    answer('0783 123 456');
+    expect(await screen.findByRole('button', { name: /Weekly earner/ })).toBeInTheDocument();
+    await waitFor(() => expect(logs('step').map((r) => r.p_step)).toEqual(['start', 'repayment']));
+  });
+
+  it('face check timeout: after 15 s the agent can continue, the post sends face_check skipped_timeout, and the funnel logs it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      // The checker never answers (a slow network).
+      mocks.faceCheck.mockImplementation(() => new Promise(() => {}));
+      render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd3', payload: fullPayload() } }} />);
+      await waitFor(() => expect(mocks.faceCheck).toHaveBeenCalled());
+      await vi.advanceTimersByTimeAsync(15_000);
+      // Not stuck on the photo: the chat moves on to what is really missing.
+      expect((await screen.findAllByText(/How many people live in John’s household/, {}, { timeout: 3000 })).length).toBeGreaterThan(0);
+      answer('4');
+      // The face photo step says why it was not checked, and Continue goes on.
+      fireEvent.click(await screen.findByRole('button', { name: 'Change answer: Face photo taken' }));
+      expect(await screen.findByTestId('face-check-status')).toHaveTextContent(
+        'Couldn’t check the face — slow network. You can continue; the office will check it.',
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+      fireEvent.click(await screen.findByLabelText('Guarantor consent'));
+      const post = await screen.findByRole('button', { name: /Post rent request/ });
+      await waitFor(() => expect(post).toBeEnabled());
+      fireEvent.click(post);
+      await waitFor(() => expect(mocks.submit).toHaveBeenCalled());
+      expect(mocks.submit.mock.calls[0][0]).toMatchObject({ faceCheck: 'skipped_timeout', faceCheckSha256: null });
+      expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['tenant_photo'], p_error: 'face_check_timeout' }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a server refusal about the face photo is said in plain words and reopens the face photo step', async () => {
+    mocks.submit.mockResolvedValueOnce({ ok: false, reason: 'other', message: 'enforce_rent_request_tenant_photo: tenant_photo_url is required' });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd4', payload: fullPayload() } }} />);
+    await finishAndPost();
+    expect(await screen.findByText('The tenant’s face photo is missing. Take it now: head and shoulders, face clear.')).toBeInTheDocument();
+    expect(screen.getByTestId('face-check-status')).toBeInTheDocument();
+    expect(screen.queryByText(/enforce_rent_request_tenant_photo/)).toBeNull();
+  });
+});

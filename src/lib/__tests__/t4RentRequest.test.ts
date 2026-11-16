@@ -42,7 +42,9 @@ describe('t4Missing: the Agent Ops gate, the same in every mode', () => {
   it('keeps the form’s own needs in a separate group', () => {
     expect(formKeys(t4Missing('new', {}))).toEqual(['plan', 'tenantPhone', 'house', 'tenantPhoto', 'lc1', 'payoutDay', 'consent']);
     // E118: no resubmit limit; the note is the only form item of a resubmit.
-    expect(formKeys(t4Missing('resubmit', {}))).toEqual(['note']);
+    // A retaken face photo must pass its check; the form says true when none was retaken.
+    expect(formKeys(t4Missing('resubmit', {}))).toEqual(['tenantPhoto', 'note']);
+    expect(formKeys(t4Missing('resubmit', { tenantPhoto: true }))).toEqual(['note']);
     expect(formKeys(t4Missing('renewal', {}))).toEqual([]);
     for (const mode of ['new', 'resubmit', 'renewal'] as const) expect(t4Missing(mode, ALL_TRUE)).toEqual([]);
   });

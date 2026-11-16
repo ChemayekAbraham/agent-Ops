@@ -19,6 +19,8 @@ export interface AgentRejectedRequest {
   rejected_reason: string | null;
   /** Set when a desk sent the request back to the agent to fix and resubmit. */
   returned_at?: string | null;
+  /** The tenant's face photo on the request (shown on the resubmit summary). */
+  tenant_photo_url?: string | null;
   reopen_count: number;
   tenant_id: string;
   landlord_id: string;
@@ -117,7 +119,7 @@ export function useAgentRejectedRequests() {
       const { data, error } = await supabase
         .from('rent_requests')
         .select(
-          'id, rent_amount, duration_days, number_of_payments, daily_repayment, total_repayment, access_fee, request_fee, status, created_at, rejected_at, rejected_at_stage, rejected_reason, returned_at, reopen_count, tenant_id, landlord_id, lc1_id, house_category, preferred_language, tenant_no_smartphone, registration_type, initial_outstanding_balance, outstanding_grace_days, tenant_water_meter, tenant_electricity_meter, request_latitude, request_longitude, house_image_urls, lc_letter_path, lc_letter_bucket, agent_payment_status_reason, tenant_ops_reviewed_by, tenant_ops_reviewed_at, agent_verified_by, agent_verified_at, landlord_ops_reviewed_by, landlord_ops_reviewed_at, coo_reviewed_by, coo_reviewed_at, cfo_reviewed_by, cfo_reviewed_at',
+          'id, rent_amount, duration_days, number_of_payments, daily_repayment, total_repayment, access_fee, request_fee, status, created_at, rejected_at, rejected_at_stage, rejected_reason, returned_at, tenant_photo_url, reopen_count, tenant_id, landlord_id, lc1_id, house_category, preferred_language, tenant_no_smartphone, registration_type, initial_outstanding_balance, outstanding_grace_days, tenant_water_meter, tenant_electricity_meter, request_latitude, request_longitude, house_image_urls, lc_letter_path, lc_letter_bucket, agent_payment_status_reason, tenant_ops_reviewed_by, tenant_ops_reviewed_at, agent_verified_by, agent_verified_at, landlord_ops_reviewed_by, landlord_ops_reviewed_at, coo_reviewed_by, coo_reviewed_at, cfo_reviewed_by, cfo_reviewed_at',
         )
         .eq('agent_id', user!.id)
         // A plan the 24-hour landlord float recall cancelled never becomes
