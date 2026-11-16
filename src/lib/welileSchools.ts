@@ -151,6 +151,15 @@ export function writeLockedSchool(s: SchoolRow | null) {
 
 const db = supabase as any;
 
+/** Saves give up after this long so a stalled connection can never leave the Save button spinning. */
+export const SAVE_TIMEOUT_MS = 20_000;
+export function saveTimeoutSignal(ms = SAVE_TIMEOUT_MS): AbortSignal {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+  const c = new AbortController();
+  setTimeout(() => c.abort(), ms);
+  return c.signal;
+}
+
 /** True when a Supabase error means the request never reached the server (offline, dropped connection). */
 export function isNetworkError(error: { message?: string; code?: string } | null | undefined): boolean {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
@@ -165,9 +174,16 @@ export function isNetworkError(error: { message?: string; code?: string } | null
  */
 export async function saveProfile(row: SchoolProfileRow): Promise<{ saved: boolean; row: SchoolProfileRow; error?: string }> {
   const { id, ...payload } = row;
-  const { data, error } = await db.from('welile_school_profiles')
-    .upsert({ id, ...payload }, { onConflict: 'client_ref', ignoreDuplicates: false })
-    .select().single();
+  let data: unknown = null;
+  let error: { message?: string; code?: string } | null = null;
+  try {
+    ({ data, error } = await db.from('welile_school_profiles')
+      .upsert({ id, ...payload }, { onConflict: 'client_ref', ignoreDuplicates: false })
+      .select().abortSignal(saveTimeoutSignal()).single());
+  } catch (e) {
+    // A thrown request (dropped connection, timeout) is treated like being offline.
+    error = { message: `network: ${e instanceof Error ? e.message : String(e)}` };
+  }
   if (error) {
     if (!isNetworkError(error)) return { saved: false, row, error: error.message || 'The server refused this registration.' };
     writePendingProfiles([...readPendingProfiles().filter((p) => p.client_ref !== row.client_ref), row]);
@@ -258,9 +274,15 @@ function upsertLocalGateLog(row: SchoolGateLogRow) {
 export async function saveGateLog(row: SchoolGateLogRow): Promise<{ saved: boolean; row: SchoolGateLogRow }> {
   upsertLocalGateLog(row);
   const { id, created_at, ...payload } = row;
-  const { data, error } = await db.from('welile_school_gate_logs')
-    .upsert({ id, ...payload }, { onConflict: 'client_ref', ignoreDuplicates: false })
-    .select().single();
+  let data: unknown = null;
+  let error: { message?: string } | null = null;
+  try {
+    ({ data, error } = await db.from('welile_school_gate_logs')
+      .upsert({ id, ...payload }, { onConflict: 'client_ref', ignoreDuplicates: false })
+      .select().abortSignal(saveTimeoutSignal()).single());
+  } catch (e) {
+    error = { message: e instanceof Error ? e.message : String(e) };
+  }
   if (error) {
     writePendingGateLogs([...readPendingGateLogs().filter((l) => l.client_ref !== row.client_ref), row]);
     return { saved: false, row };
