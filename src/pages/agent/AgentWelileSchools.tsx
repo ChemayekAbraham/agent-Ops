@@ -1020,6 +1020,8 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
             </button>
           )}
           <StudentQrScanner open={scanOpen} onClose={() => setScanOpen(false)} onStudent={(id) => { void onStudentScanned(id); }} />
+          {/* The typed form is hidden while a scanned student's card is open, so only one record button shows. */}
+          {!scanned && (<>
           <p className="px-1 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Or record someone without a code</p>
           <div className="grid grid-cols-2 gap-1 rounded-full bg-muted p-1" role="group" aria-label="Direction">
             <button type="button" aria-pressed={direction === 'in'} onClick={() => setDirection('in')}
@@ -1060,6 +1062,7 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
               {direction === 'in' ? 'Record entry' : 'Record exit'}
             </Button>
           </div>
+          </>)}
         </TabsContent>
 
         {/* Timeline: today's movements, newest first, with a one-tap correction. */}
