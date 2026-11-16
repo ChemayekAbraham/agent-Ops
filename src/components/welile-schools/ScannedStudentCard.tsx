@@ -9,6 +9,8 @@ interface Props {
   student: SchoolProfileRow;
   /** Where the student is now, from today's gate log. */
   now: { direction: 'in' | 'out'; recorded_at: string } | null;
+  /** What the student has already used today: a student gets one entry and one exit a day. */
+  used: { in: boolean; out: boolean };
   /** Records the movement; resolves once it is saved (or queued on the phone). */
   onRecord: (direction: 'in' | 'out') => Promise<void>;
   onScanNext: () => void;
@@ -29,19 +31,29 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
  * A scanned student at the gate: their photo and details, and one button that records them in or
  * out. The button follows where they are now (inside → exit, otherwise → entry).
  */
-export default function ScannedStudentCard({ student, now, onRecord, onScanNext, onDone }: Props) {
+/** The direction to offer: the opposite of where they are, unless that one is already used today. */
+function pickDirection(now: Props['now'], used: Props['used']): 'in' | 'out' | null {
+  const preferred: 'in' | 'out' = now?.direction === 'in' ? 'out' : 'in';
+  if (!used[preferred]) return preferred;
+  const other = preferred === 'in' ? 'out' : 'in';
+  return used[other] ? null : other;
+}
+
+export default function ScannedStudentCard({ student, now, used, onRecord, onScanNext, onDone }: Props) {
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoState, setPhotoState] = useState<'loading' | 'shown' | 'none'>(student.photo_path ? 'loading' : 'none');
   const [saving, setSaving] = useState(false);
   const [recorded, setRecorded] = useState<'in' | 'out' | null>(null);
-  const suggested: 'in' | 'out' = now?.direction === 'in' ? 'out' : 'in';
-  const [direction, setDirection] = useState<'in' | 'out'>(suggested);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [direction, setDirection] = useState<'in' | 'out' | null>(() => pickDirection(now, used));
+  const canSwitch = direction != null && !used[direction === 'in' ? 'out' : 'in'];
 
   useEffect(() => {
     let live = true;
     setPhoto(null);
     setRecorded(null);
-    setDirection(now?.direction === 'in' ? 'out' : 'in');
+    setFailure(null);
+    setDirection(pickDirection(now, used));
     if (!student.photo_path) { setPhotoState('none'); return; }
     setPhotoState('loading');
     studentPhotoUrl(student.photo_path).then((url) => {
@@ -55,10 +67,14 @@ export default function ScannedStudentCard({ student, now, onRecord, onScanNext,
   }, [student.id]);
 
   const record = async () => {
+    if (!direction) return;
     setSaving(true);
+    setFailure(null);
     try {
       await onRecord(direction);
       setRecorded(direction);
+    } catch (e) {
+      setFailure(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -107,8 +123,18 @@ export default function ScannedStudentCard({ student, now, onRecord, onScanNext,
           <Button className="min-h-[52px] w-full gap-2 rounded-2xl text-base" onClick={onScanNext}><ScanLine className="h-5 w-5" />Scan the next student</Button>
           <Button variant="ghost" className="min-h-[44px] w-full" onClick={onDone}>Done</Button>
         </div>
+      ) : direction == null ? (
+        // Both used: one entry and one exit already recorded today.
+        <div className="space-y-2">
+          <p className="flex items-center gap-2 rounded-2xl bg-muted p-3 text-sm font-semibold">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-muted-foreground" />Done for today: {student.full_name} already has an entry and an exit recorded.
+          </p>
+          <Button className="min-h-[52px] w-full gap-2 rounded-2xl text-base" onClick={onScanNext}><ScanLine className="h-5 w-5" />Scan the next student</Button>
+          <Button variant="ghost" className="min-h-[44px] w-full" onClick={onDone}>Done</Button>
+        </div>
       ) : (
         <div className="space-y-2">
+          {failure && <p role="alert" className="rounded-2xl bg-destructive/10 p-3 text-sm font-medium text-destructive">{failure}</p>}
           <Button disabled={saving} onClick={record}
             className={cn('min-h-[56px] w-full gap-2 rounded-2xl text-base',
               direction === 'in' ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-destructive text-destructive-foreground hover:bg-destructive/90')}>
@@ -116,9 +142,15 @@ export default function ScannedStudentCard({ student, now, onRecord, onScanNext,
             {direction === 'in' ? 'Record entry' : 'Record exit'}
           </Button>
           <div className="flex gap-2">
-            <Button variant="ghost" className="min-h-[44px] flex-1 text-muted-foreground" onClick={() => setDirection((d) => (d === 'in' ? 'out' : 'in'))}>
-              {direction === 'in' ? 'Recording an exit instead?' : 'Recording an entry instead?'}
-            </Button>
+            {canSwitch ? (
+              <Button variant="ghost" className="min-h-[44px] flex-1 text-muted-foreground" onClick={() => setDirection((d) => (d === 'in' ? 'out' : 'in'))}>
+                {direction === 'in' ? 'Recording an exit instead?' : 'Recording an entry instead?'}
+              </Button>
+            ) : (
+              <p className="flex min-h-[44px] flex-1 items-center px-2 text-xs text-muted-foreground">
+                {direction === 'in' ? 'Exit already recorded today.' : 'Entry already recorded today.'}
+              </p>
+            )}
             <Button variant="ghost" className="min-h-[44px] text-muted-foreground" onClick={onDone}>Cancel</Button>
           </div>
         </div>

@@ -6,7 +6,9 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 vi.mock('@/lib/welileSchoolsPhoto', () => ({ studentPhotoUrl: vi.fn(async () => 'https://example.test/photo.jpg') }));
 
 import ScannedStudentCard from '@/components/welile-schools/ScannedStudentCard';
-import type { SchoolProfileRow } from '@/lib/welileSchools';
+import { studentMovesToday, type SchoolGateLogRow, type SchoolProfileRow } from '@/lib/welileSchools';
+
+const NONE = { in: false, out: false };
 
 const student: SchoolProfileRow = {
   id: '3f2a9c1e-0000-4000-8000-000000000001', school_id: 's1', registered_by: 'a1', role: 'pupil',
@@ -17,7 +19,7 @@ const student: SchoolProfileRow = {
 describe('Scanned student card', () => {
   it('shows the photo and details, and records an entry for someone not inside', async () => {
     const onRecord = vi.fn(async () => {});
-    render(<ScannedStudentCard student={student} now={null} onRecord={onRecord} onScanNext={() => {}} onDone={() => {}} />);
+    render(<ScannedStudentCard student={student} now={null} used={NONE} onRecord={onRecord} onScanNext={() => {}} onDone={() => {}} />);
     expect(screen.getByText('Amina Nakato')).toBeInTheDocument();
     expect(screen.getByText('P4 · Blue')).toBeInTheDocument();
     expect(screen.getByText('Sarah Nakato')).toBeInTheDocument();

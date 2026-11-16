@@ -31,7 +31,7 @@ import {
   buildSchoolSignupLink, buildSignupMessage, toIntlDigits, smartphoneFields,
   readLockedSchool, writeLockedSchool, saveProfile, flushPendingProfiles, readPendingProfiles, markSignupSent,
   saveGateLog, flipGateLogDirection, flushPendingGateLogs, readPendingGateLogs, readLocalGateLogs, writeLocalGateLogs,
-  computeGateMovementSummary, formatEatTime, classLevelsFor, isListedClass, isTertiaryLearner,
+  computeGateMovementSummary, formatEatTime, classLevelsFor, isListedClass, isTertiaryLearner, studentMovesToday, eatDateKey,
   type SchoolRow, type SchoolProfileRow, type SchoolGateLogRow,
 } from '@/lib/welileSchools';
 
@@ -827,6 +827,7 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
 
   const recordScanned = async (dir: 'in' | 'out') => {
     if (!scanned) return;
+    if (usedToday(scanned)[dir]) throw new Error(`${scanned.full_name} already has ${dir === 'in' ? 'an entry' : 'an exit'} recorded today`);
     const res = await record({
       direction: dir, role_type: scanned.role, person_name: scanned.full_name || 'Unknown', profile_id: scanned.id,
       phone: scanned.phone || scanned.guardian_phone || null,
@@ -834,6 +835,7 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
       purpose_or_note: 'Scanned QR code',
       pickup_guardian_name: scanned.guardian_name || null, pickup_guardian_phone: scanned.guardian_phone || null,
     });
+    if (res.error) throw new Error(res.error);
     if (res.saved) toast.success(dir === 'in' ? `🟢 ${scanned.full_name} recorded ENTERING` : `🔴 ${scanned.full_name} recorded LEAVING`);
   };
 
@@ -869,9 +871,14 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
     };
     const res = await saveGateLog(row);
     refresh();
+    if (res.error) { toast.error('Not recorded', { description: res.error }); return res; }
     if (!res.saved) { onQueued(); toast.message('No connection — gate log saved on this phone, will send automatically'); }
     return res;
   };
+
+  /** Students: one entry and one exit a day. Others (staff, visitors) are not limited. */
+  const usedToday = (p: Pick<SchoolProfileRow, 'id' | 'role'>) =>
+    roleGroup(p.role) === 'pupil' ? studentMovesToday(logs, p.id) : { in: false, out: false };
 
   const submitQuick = async () => {
     if (!f.person_name.trim()) { toast.error('Enter the full name'); return; }
@@ -890,6 +897,7 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
   };
 
   const mark = async (p: SchoolProfileRow, dir: 'in' | 'out') => {
+    if (usedToday(p)[dir]) { toast.error(`${p.full_name} already has ${dir === 'in' ? 'an entry' : 'an exit'} recorded today`); return; }
     const res = await record({
       direction: dir, role_type: p.role, person_name: p.full_name || 'Unknown', profile_id: p.id,
       phone: p.phone || p.guardian_phone || null,
@@ -900,8 +908,16 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
   };
 
   const flip = async (log: SchoolGateLogRow) => {
+    const to = log.direction === 'in' ? 'out' : 'in';
+    // Flipping must not give a student a second entry or exit for that day.
+    if (log.profile_id && roleGroup(log.role_type) === 'pupil'
+      && logs.some((l) => l.id !== log.id && l.profile_id === log.profile_id && l.direction === to && eatDateKey(l.recorded_at) === eatDateKey(log.recorded_at))) {
+      toast.error(`${log.person_name} already has ${to === 'in' ? 'an entry' : 'an exit'} that day`, { description: 'A student has one entry and one exit a day.' });
+      return;
+    }
     const res = await flipGateLogDirection(log);
     refresh();
+    if (res.error) { toast.error('Not changed', { description: res.error }); return; }
     if (!res.saved) onQueued();
     toast.success(`${log.person_name} corrected to ${res.row.direction === 'in' ? '🟢 IN' : '🔴 OUT'}`);
   };
@@ -980,7 +996,10 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
                       {p.class_grade || p.subject_department ? ` · ${p.class_grade || p.subject_department}` : ` · ${roleLabel(p.role)}`}
                     </p>
                   </div>
-                  {inside ? (
+                  {/* Students: one entry and one exit a day, so a used direction shows no button. */}
+                  {usedToday(p)[inside ? 'out' : 'in'] ? (
+                    <span className="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">Done today</span>
+                  ) : inside ? (
                     <Button size="sm" variant="outline" className="min-h-[40px] shrink-0 gap-1 rounded-full border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive" aria-label={`Mark ${p.full_name} OUT`} onClick={() => mark(p, 'out')}>
                       <LogOut className="h-4 w-4" />Out
                     </Button>
@@ -1005,7 +1024,7 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
         <TabsContent value="new" className="mt-3 space-y-3">
           {/* Fastest way for a registered student: scan their QR code, check the photo, tap once. */}
           {scanned ? (
-            <ScannedStudentCard student={scanned} now={summary.personStatus[scanned.id] ?? null} onRecord={recordScanned}
+            <ScannedStudentCard student={scanned} now={summary.personStatus[scanned.id] ?? null} used={usedToday(scanned)} onRecord={recordScanned}
               onScanNext={() => { setScanned(null); setScanOpen(true); }} onDone={() => setScanned(null)} />
           ) : (
             <button type="button" onClick={() => setScanOpen(true)} disabled={lookingUp}
