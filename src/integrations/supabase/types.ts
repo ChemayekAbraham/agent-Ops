@@ -39743,6 +39743,36 @@ export type Database = {
         }
         Relationships: []
       }
+      nin_unlink_backups: {
+        Row: {
+          created_at: string
+          id: string
+          old_values: Json
+          reason: string | null
+          source_id: string
+          source_table: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          old_values: Json
+          reason?: string | null
+          source_id: string
+          source_table: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          old_values?: Json
+          reason?: string | null
+          source_id?: string
+          source_table?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null
