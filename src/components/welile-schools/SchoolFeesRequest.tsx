@@ -248,10 +248,10 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
           </div>
         </Field>
         {summary ? (
-          <div className="rounded-2xl bg-primary p-3 text-primary-foreground">
-            <p className="text-xs text-primary-foreground/80">Parent pays about</p>
+          <div className="rounded-2xl bg-emerald-600 p-3 text-white dark:bg-emerald-700">
+            <p className="text-xs text-white/80">Parent pays about</p>
             <p className="text-xl font-bold">{formatDynamic(Math.ceil(summary.averageDailyPayment / 100) * 100)} <span className="text-sm font-medium">a day for {summary.days} days</span></p>
-            <p className="text-xs text-primary-foreground/80">Total {formatDynamic(Math.round(summary.totalOnSchedule))} if paid on schedule. Less if paid early.</p>
+            <p className="text-xs text-white/80">Total {formatDynamic(Math.round(summary.totalOnSchedule))} if paid on schedule. Less if paid early.</p>
           </div>
         ) : fee > 0 ? (
           <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
