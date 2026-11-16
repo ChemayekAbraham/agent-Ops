@@ -54,7 +54,7 @@ const OPTIONS = [
   { code: 'landlord_ops', label: 'Landlord Ops', hint: 'Landlord to be called again' },
 ];
 const COO_CODES = [
-  { code: 'AGENT_FROZEN', meaning: 'Agent below 50% collected', requires_text: false },
+  { code: 'AGENT_NONE', meaning: 'No real agent attached to the request', requires_text: false },
   { code: 'OTHER', meaning: 'Reviewed weekly to create new codes', requires_text: true },
 ];
 
@@ -115,11 +115,11 @@ describe('every COO row can be reviewed and sent back', () => {
     const sheet = await screen.findByRole('dialog', { name: 'Send back — Fred' });
     await within(sheet).findByText('Agent Ops');
     fireEvent.click(sheet.querySelector('[data-office="agent_ops"]') as HTMLElement);
-    fireEvent.click((await waitFor(() => sheet.querySelector('[data-reason="AGENT_FROZEN"]'))) as HTMLElement);
+    fireEvent.click((await waitFor(() => sheet.querySelector('[data-reason="AGENT_NONE"]'))) as HTMLElement);
     fireEvent.click(sheet.querySelector('[data-fix-item="GPS"]') as HTMLElement);
     fireEvent.click(within(sheet).getByRole('button', { name: 'Send back to Agent Ops' }));
     await waitFor(() => expect(sendBackCalls()).toHaveLength(1));
-    expect(sendBackCalls()[0][1]).toEqual({ p_request_id: 'f1', p_from_stage: 'coo', p_to: 'agent_ops', p_reason_code: 'AGENT_FROZEN', p_note: '[GPS]' });
+    expect(sendBackCalls()[0][1]).toEqual({ p_request_id: 'f1', p_from_stage: 'coo', p_to: 'agent_ops', p_reason_code: 'AGENT_NONE', p_note: '[GPS]' });
   });
 });
 

@@ -1320,6 +1320,17 @@ input[type="checkbox"], input[type="radio"], [role="checkbox"] {
   max-width: 16px !important;
 }
 
+/* A full-width choice row (the desks' "What must the agent fix?" and other tick lists) is a
+   checkbox by role but a 44 px row by design: it must not be squeezed to a 16 px box, which
+   overlapped its labels on phones (Service Centre, 16 Nov 2026). */
+button.desk-choice-row[role="checkbox"],
+button.desk-choice-row[role="radio"] {
+  min-height: 44px !important;
+  max-height: none !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
 /* Prevent text overflow on small screens with UGX amounts */
 .truncate-amount {
   overflow: hidden;

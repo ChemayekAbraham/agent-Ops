@@ -11,6 +11,7 @@ import { passBlock } from './passBlock';
 import { IdentityBanner, IdentityPanel } from './identityPhotos';
 import { DeskHistory } from './deskHistory';
 import { facePhotoFlag } from './photoFlag';
+import { allowedReasons } from './deskReasons';
 import { answeredCallOnFile, awarenessCallsKey, callTime, stageSince, useAwarenessCalls } from './callOnFile';
 import { toast } from 'sonner';
 import { afterServerPass } from './boardApi';
@@ -309,12 +310,8 @@ export function ReviewDrawer({
     return items.filter((c) => c.required && c.method !== 'system' && !entries[c.code]?.result).map((c) => c.label);
   }, [items, entries, decision]);
 
-  const reasonList = useMemo(() => {
-    const all = reasons.data ?? [];
-    const tag = DESK_TAG[stage];
-    const mine = all.filter((r) => (r.desks ?? []).some((d) => d === tag || d === 'all'));
-    return mine.length > 0 ? mine : all;
-  }, [reasons.data, stage]);
+  // The desk's own reasons with short labels (deskReasons.ts); never another desk's or a system code.
+  const reasonList = useMemo(() => allowedReasons(reasons.data ?? [], stage), [reasons.data, stage]);
 
   const chosenReason = reasonList.find((r) => r.code === reasonCode) ?? null;
   const noteRequired =
@@ -974,7 +971,7 @@ export function ReviewDrawer({
                       <option value="">Choose a reason code…</option>
                       {reasonList.map((r) => (
                         <option key={r.code} value={r.code}>
-                          {r.code} — {r.meaning ?? ''}
+                          {r.meaning}
                         </option>
                       ))}
                     </select>

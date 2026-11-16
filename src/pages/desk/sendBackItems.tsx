@@ -1,4 +1,5 @@
-import { CALM, FOCUS, LABEL, statusGlass } from './deskTheme';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import { CALM, FOCUS, LABEL } from './deskTheme';
 
 /**
  * "What must the agent fix?" — required on every desk's send-back (single and
@@ -41,31 +42,62 @@ export function itemsBlocked(items: readonly string[], note: string): string | n
 export const toggleItem = (items: readonly FixItem[], item: FixItem): FixItem[] =>
   items.includes(item) ? items.filter((i) => i !== item) : FIX_ITEMS.filter((i) => i === item || items.includes(i));
 
-export function FixItemsPicker({ value, onChange }: { value: readonly FixItem[]; onChange: (items: FixItem[]) => void }) {
+/** A tappable row: at least 44 px tall, the whole width, the label wrapping onto as many lines as it needs. */
+export const ROW_CHOICE = 'desk-choice-row flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm';
+export const ROW_STYLE = { minHeight: 44, borderWidth: 1, borderStyle: 'solid' } as const;
+const rowLook = (on: boolean) =>
+  on
+    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.12)] text-foreground'
+    : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-foreground hover:bg-[var(--desk-surface-hover)]';
+
+/** The square that shows a row is ticked (a radio row passes `round`). */
+export function Tick({ on, round = false }: { on: boolean; round?: boolean }) {
   return (
-    <fieldset style={{ border: 0, margin: 0, padding: 0 }} data-fix-items>
+    <span
+      aria-hidden
+      className={`inline-flex shrink-0 items-center justify-center border text-xs font-bold ${on ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'border-[var(--desk-line-color)]'}`}
+      style={{ width: 20, height: 20, borderRadius: round ? 999 : 6, borderWidth: on ? 2 : 1, borderStyle: 'solid' }}
+    >
+      {on ? '✓' : ''}
+    </span>
+  );
+}
+
+/** A row choice: a checkbox or radio as a full-width, 44 px row with a visible tick when chosen. */
+export function ChoiceRow({
+  on,
+  onClick,
+  role,
+  children,
+  ...data
+}: {
+  on: boolean;
+  onClick: () => void;
+  role: 'checkbox' | 'radio';
+  children: ReactNode;
+} & Record<`data-${string}`, string>) {
+  return (
+    <button type="button" role={role} aria-checked={on} onClick={onClick} className={`${ROW_CHOICE} ${CALM} ${FOCUS} ${rowLook(on)}`} style={ROW_STYLE} {...data}>
+      <Tick on={on} round={role === 'radio'} />
+      <span style={{ minWidth: 0, overflowWrap: 'anywhere', whiteSpace: 'normal' }}>{children}</span>
+    </button>
+  );
+}
+
+/** `onChange` is the list's state setter: each tap toggles from the latest list, so quick taps never undo each other. */
+export function FixItemsPicker({ value, onChange }: { value: readonly FixItem[]; onChange: Dispatch<SetStateAction<FixItem[]>> }) {
+  return (
+    <fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }} data-fix-items>
       <legend className={LABEL} style={{ marginBottom: 6 }}>
         What must the agent fix? (required)
       </legend>
-      <div role="group" aria-label="What must the agent fix?" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {FIX_ITEMS.map((item) => {
-          const on = value.includes(item);
-          return (
-            <button
-              key={item}
-              type="button"
-              role="checkbox"
-              aria-checked={on}
-              onClick={() => onChange(toggleItem(value, item))}
-              data-fix-item={item}
-              className={`desk-pill border text-xs ${CALM} ${FOCUS} ${on ? statusGlass.warn : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:text-foreground'}`}
-              style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderWidth: 1, borderStyle: 'solid', borderRadius: 999 }}
-            >
-              {on ? '✓ ' : ''}
-              {item === 'Other' ? 'Other (needs a note)' : item}
-            </button>
-          );
-        })}
+      {/* One full-width row per item: on a phone the labels never squeeze or overlap. */}
+      <div role="group" aria-label="What must the agent fix?" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {FIX_ITEMS.map((item) => (
+          <ChoiceRow key={item} role="checkbox" on={value.includes(item)} onClick={() => onChange((prev) => toggleItem(prev, item))} data-fix-item={item}>
+            {item === 'Other' ? 'Other (needs a note)' : item}
+          </ChoiceRow>
+        ))}
       </div>
     </fieldset>
   );
