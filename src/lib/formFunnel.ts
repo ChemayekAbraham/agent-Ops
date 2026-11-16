@@ -13,7 +13,15 @@ import { safeUUID } from '@/lib/safeUUID';
 
 export type FunnelForm = 'agent_post' | 'tenant_self';
 export type FunnelEvent = 'open' | 'step' | 'blocked' | 'item_done' | 'submit_ok' | 'submit_fail' | 'close';
-export const FUNNEL_STEPS = ['start', 'repayment', 'tenant', 'house_landlord', 'gps', 'smartphone', 'lc1', 'documents', 'review'] as const;
+/**
+ * The 8 intake steps (intakeSteps.ts) — tenant, rent_plan, landlord, house, household,
+ * tenant_photo, id, lc1_post — plus 'start' (the first answer). The older names stay valid
+ * so rows already logged keep their meaning.
+ */
+export const FUNNEL_STEPS = [
+  'start', 'tenant', 'rent_plan', 'landlord', 'house', 'household', 'tenant_photo', 'id', 'lc1_post',
+  'repayment', 'house_landlord', 'gps', 'smartphone', 'lc1', 'documents', 'review',
+] as const;
 export type FunnelStep = typeof FUNNEL_STEPS[number];
 export const FUNNEL_ITEMS = [
   'house_photos', 'landlord', 'rent', 'gps', 'family_size', 'work', 'id_front', 'id_back', 'lc1_letter',

@@ -40,22 +40,19 @@ const answer = (text: string) => {
 };
 const asked = (re: RegExp) => screen.findAllByText(re).then((els) => els[els.length - 1]);
 
-/** Walks the chat to the family size question. */
+/** Step 1 (the tenant), then a tap on step 5 in the step strip: the family size question. */
 async function reachFamilySize() {
   render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
-  fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
-  answer('300000');
-  fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
-  await asked(/What’s their phone number/);
+  await asked(/What’s the tenant’s phone number/);
   answer('0783123456');
-  await asked(/What’s their full name/);
+  await asked(/What’s the tenant’s full name/);
   fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'John' } });
   fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Mukasa' } });
   fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-  await asked(/Now the NIN/);
-  answer('CM12345678ABCD');
   fireEvent.click(await screen.findByRole('button', { name: 'English' }));
   fireEvent.click(await screen.findByRole('button', { name: /Yes, a smartphone/ }));
+  await asked(/How does the tenant earn their money/);
+  fireEvent.click(screen.getByRole('button', { name: /^Step 5: Household/ }));
   await asked(/How many people live in John’s household/);
 }
 
@@ -98,7 +95,7 @@ describe('Rent request assistant: required intake', () => {
 });
 
 describe('E108 funnel: a blocked Next sends the right item codes', () => {
-  it('a wrong family size is a blocked press on "family_size", in the "tenant" step of the agent_post session', async () => {
+  it('a wrong family size is a blocked press on "family_size", in the "household" step of the agent_post session', async () => {
     const { supabase } = await import('@/integrations/supabase/client');
     const rpc = supabase.rpc as unknown as ReturnType<typeof vi.fn>;
     rpc.mockClear();
@@ -107,10 +104,11 @@ describe('E108 funnel: a blocked Next sends the right item codes', () => {
     expect(await screen.findByText(/between 1 and 30/)).toBeInTheDocument();
     const logs = rpc.mock.calls.filter(([fn]) => fn === 'request_form_log').map(([, row]) => row as Record<string, unknown>);
     expect(logs[0]).toMatchObject({ p_event: 'open', p_form: 'agent_post' });
-    expect(logs.filter((r) => r.p_event === 'step').map((r) => r.p_step)).toEqual(['start', 'repayment', 'tenant', 'smartphone', 'tenant']);
-    expect(logs.at(-1)).toMatchObject({ p_event: 'blocked', p_items: ['family_size'], p_step: 'tenant', p_form: 'agent_post' });
+    // The 8 intake step names (E124); 'start' once the first answer is given.
+    expect(logs.filter((r) => r.p_event === 'step').map((r) => r.p_step)).toEqual(['start', 'tenant', 'rent_plan', 'household']);
+    expect(logs.at(-1)).toMatchObject({ p_event: 'blocked', p_items: ['family_size'], p_step: 'household', p_form: 'agent_post' });
     expect(new Set(logs.map((r) => r.p_session)).size).toBe(1);
     // Items that became valid on the way were logged once each.
-    expect(logs.filter((r) => r.p_event === 'item_done').map((r) => (r.p_items as string[])[0])).toEqual(expect.arrayContaining(['rent', 'phone']));
+    expect(logs.filter((r) => r.p_event === 'item_done').map((r) => (r.p_items as string[])[0])).toEqual(expect.arrayContaining(['phone']));
   });
 });

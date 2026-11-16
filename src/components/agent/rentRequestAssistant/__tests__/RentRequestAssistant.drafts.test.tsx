@@ -127,7 +127,7 @@ const logs = (event: string) => mocks.rpc.mock.calls
 describe('E109: save and finish later', () => {
   it('a blocked Next offers it; saving sends the payload and missing codes, says when we remind, and logs close', async () => {
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
-    answer('0783 123 456'); // the first screen is the tenant's phone number
+    await passStep1();
     fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
     answer('about three hundred'); // the rent question refuses it: a blocked Next
     const save = await screen.findByRole('button', { name: 'Save and finish later' });
@@ -155,7 +155,7 @@ describe('E109: save and finish later', () => {
   it('is hidden while the draft RPCs are not on the database', async () => {
     mocks.drafts = { data: null, error: PGRST202 };
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
-    answer('0783 123 456'); // the first screen is the tenant's phone number
+    await passStep1();
     fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('posting_drafts_mine', {}));
     answer('about three hundred');
@@ -194,6 +194,16 @@ describe('E109: save and finish later', () => {
   });
 });
 
+/** Step 1: the phone, the names, the language and the smartphone answer. */
+async function passStep1() {
+  answer('0783 123 456'); // the first screen is the tenant's phone number
+  fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'John' } });
+  fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Mukasa' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'English' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Yes, a smartphone/ }));
+}
+
 /** A saved request with everything but the family size. */
 function fullPayload(): PostingDraftPayload {
     const path = (b: string, n: string) => ({ bucket: b, path: `agent-1/draft-x/${n}.jpg` });
@@ -230,19 +240,15 @@ async function finishAndPost() {
     await waitFor(() => expect(mocks.submit).toHaveBeenCalled());
 }
 
-describe('Saved drafts: the face check runs again on Continue', () => {
-  it('a draft whose stored check says "passed" but whose photo fails now is caught: it opens at the face photo', async () => {
+describe('E124: the tenant’s photo never blocks', () => {
+  it('a photo the face check finds no face in still posts; the check runs in the background and is recorded', async () => {
     mocks.faceCheck.mockResolvedValue({ status: 'no_face', verdict: 'fail', isFace: false, isPassportPhoto: false, sha256: 'bad' });
-    // The saved payload claims a passed check (older drafts carried one).
-    const payload = fullPayload();
-    expect(payload.fields.faceCheck).toMatchObject({ status: 'ok', verdict: 'pass' });
-    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd2', payload } }} />);
-    expect((await screen.findAllByText(/Now the tenant’s face photo \(head and shoulders\) of John/, {}, { timeout: 3000 })).length).toBeGreaterThan(0);
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd2', payload: fullPayload() } }} />);
+    // It opens on the first incomplete step (Household), not on the photo.
+    await finishAndPost();
     expect(mocks.faceCheck).toHaveBeenCalledWith(expect.any(File), { source: 'agent_rent_request' });
-    // The photo comes first (ahead of the missing family size), with the reason, and nothing is posted.
-    expect(await screen.findByText('No face found. Tap the photo to retake it.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
-    expect(mocks.submit).not.toHaveBeenCalled();
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('face_check_record', { p_request_id: 'req-1', p_status: 'no_face' }));
+    expect(mocks.submit).toHaveBeenCalled();
   });
 });
 
@@ -289,8 +295,8 @@ describe('Agent chat fixes (16 Nov): first screen, face check timeout, photo ref
     await waitFor(() => expect(logs('open').length).toBeGreaterThan(0));
     expect(logs('step')).toHaveLength(0);
     answer('0783 123 456');
-    expect(await screen.findByRole('button', { name: /Weekly earner/ })).toBeInTheDocument();
-    await waitFor(() => expect(logs('step').map((r) => r.p_step)).toEqual(['start', 'repayment']));
+    expect(await screen.findByLabelText('First name')).toBeInTheDocument();
+    await waitFor(() => expect(logs('step').map((r) => r.p_step)).toEqual(['start', 'tenant']));
   });
 
   it('face check timeout: after 15 s the agent can continue, the post sends face_check skipped_timeout, and the funnel logs it', async () => {
@@ -316,6 +322,7 @@ describe('Agent chat fixes (16 Nov): first screen, face check timeout, photo ref
       fireEvent.click(post);
       await waitFor(() => expect(mocks.submit).toHaveBeenCalled());
       expect(mocks.submit.mock.calls[0][0]).toMatchObject({ faceCheck: 'skipped_timeout', faceCheckSha256: null });
+      await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('face_check_record', { p_request_id: 'req-1', p_status: 'skipped_timeout' }));
       expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['tenant_photo'], p_error: 'face_check_timeout' }));
     } finally {
       vi.useRealTimers();

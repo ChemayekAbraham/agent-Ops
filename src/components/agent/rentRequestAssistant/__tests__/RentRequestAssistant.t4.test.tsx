@@ -10,6 +10,13 @@ const mocks = vi.hoisted(() => ({
   renewalStart: vi.fn(),
   update: vi.fn(),
   faceCheck: vi.fn(),
+  openT4: vi.fn(),
+  fetchRejected: vi.fn(),
+}));
+vi.mock('@/lib/t4RentRequest', async (orig) => ({ ...(await orig<typeof import('@/lib/t4RentRequest')>()), openT4RentRequest: mocks.openT4 }));
+vi.mock('@/hooks/useAgentRejectedRequests', async (orig) => ({
+  ...(await orig<typeof import('@/hooks/useAgentRejectedRequests')>()),
+  fetchAgentRejectedRequests: mocks.fetchRejected,
 }));
 vi.mock('@/lib/passportFaceCheck', async (orig) => ({
   ...(await orig<typeof import('@/lib/passportFaceCheck')>()),
@@ -55,7 +62,7 @@ vi.mock('@/integrations/supabase/client', () => {
   };
 });
 // One stable user object, as the real hook gives.
-const auth = vi.hoisted(() => ({ user: { id: 'agent-1', user_metadata: { full_name: 'Agent One' } }, enabledRoles: [] as string[] }));
+const auth = vi.hoisted(() => ({ user: { id: 'agent-1', user_metadata: { full_name: 'Agent One' } }, enabledRoles: [] as string[], rolesResolved: undefined as boolean | undefined }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => auth }));
 const cap = vi.hoisted(() => ({ data: undefined as undefined | Map<string, unknown> }));
 vi.mock('@/hooks/useAgentCapacityMap', () => ({ useAgentCapacityMap: () => ({ data: cap.data, isLoading: false }), DAILY_ELIGIBILITY_THRESHOLD: 0.5 }));
@@ -137,9 +144,14 @@ const listed = (which: 'gate' | 'form') => {
   const g = group(which);
   return g ? within(g).getAllByRole('listitem').map((li) => li.textContent?.replace('• ', '')) : [];
 };
-/** A new request opens on the tenant's phone number; then the earner type. */
+/** Step 1 (the tenant: phone, names, language, smartphone), then the earner type of step 2. */
 const startNew = async (earner: RegExp = /Weekly earner/) => {
   answer('0783 123 456');
+  fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'John' } });
+  fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Mukasa' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'English' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Yes, a smartphone/ }));
   fireEvent.click(await screen.findByRole('button', { name: earner }));
 };
 const fix = (label: RegExp) => fireEvent.click(within(screen.getByTestId('t4-missing')).getByRole('button', { name: label }));
@@ -376,7 +388,7 @@ describe('E63: no rent cap in the form', () => {
     answer(String(rent));
     // Past the rent question: the next step's Continue is there, the amount shows with commas.
     fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
-    expect(await askedLast(/What’s the tenant’s full name/)).toBeInTheDocument();
+    expect(await askedLast(/Who’s the landlord/)).toBeInTheDocument();
     expect(screen.getAllByText(new RegExp(shown.replace(/[,]/g, ',')))).not.toHaveLength(0);
     expect(screen.queryByText(/more than your cap|per tenant|within your cap/)).toBeNull();
   });
@@ -665,5 +677,153 @@ describe('Agent chat fixes (16 Nov): resubmit', () => {
     // Any line opens its question.
     fireEvent.click(within(screen.getByTestId('resubmit-summary')).getByRole('button', { name: 'Redo: House GPS' }));
     expect(await screen.findAllByText(/capture its GPS location/)).not.toHaveLength(0);
+  });
+});
+
+describe('E124: the 8-step intake', () => {
+  const counter = () => screen.getByTestId('intake-counter').textContent;
+  const rpcWith = (answers: Record<string, unknown>) => mocks.rpc.mockImplementation(async (fn: string) => (
+    fn in answers ? { data: answers[fn], error: null } : { data: { ok: true }, error: null }
+  ));
+  const walkStep1 = async () => {
+    answer('0783 123 456');
+    fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'John' } });
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Mukasa' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'English' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Yes, a smartphone/ }));
+  };
+
+  it('the counter on top updates per step; the step strip ticks a done step', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    await waitFor(() => expect(counter()).toBe('Step 1 of 8 · 8 left'));
+    const needed = screen.getByTestId('intake-needed');
+    expect(within(needed).getByText('Tenant’s phone number').closest('li')).toHaveAttribute('data-done', 'no');
+    await walkStep1();
+    await waitFor(() => expect(counter()).toBe('Step 2 of 8 · 7 left'));
+    expect(screen.getByRole('button', { name: 'Step 1: Tenant, done' })).toBeInTheDocument();
+    expect(screen.getAllByRole('progressbar')[0].querySelector('[data-state="done"]')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^Step 4: House/ }));
+    await waitFor(() => expect(counter()).toBe('Step 4 of 8 · 7 left'));
+  });
+
+  it('Post is only on step 8; while steps are incomplete it reads "N left: …" and jumps there', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    await walkStep1();
+    expect(screen.queryByTestId('send-button')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^Step 8: LC1 letter \+ Post/ }));
+    const left = await screen.findByTestId('send-button');
+    expect(left).toHaveTextContent('7 left: Rent plan, Landlord, House, Household, Photo, ID, LC1 letter');
+    expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
+    fireEvent.click(left);
+    await waitFor(() => expect(counter()).toBe('Step 2 of 8 · 7 left'));
+    expect(screen.queryByTestId('send-button')).toBeNull();
+  });
+
+  it('step 1: the agent’s own phone stops here', async () => {
+    rpcWith({ intake_tenant_check: { status: 'own_phone' } });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456');
+    expect(await screen.findByTestId('tenant-check')).toHaveTextContent('This is your own phone number');
+    expect(mocks.rpc).toHaveBeenCalledWith('intake_tenant_check', { p_tenant_phone: '0783123456' });
+    expect(screen.queryByLabelText('First name')).toBeNull();
+    expect(counter()).toBe('Step 1 of 8 · 8 left');
+  });
+
+  it('step 1: an open request says where it is; mine links to it, and it does not continue', async () => {
+    rpcWith({ intake_tenant_check: { status: 'open_request', stage: 'agent_ops_approved', mine: true, request_id: 'req-5' } });
+    const onOpenChange = vi.fn();
+    const seen = vi.fn();
+    window.addEventListener('open-submissions', seen);
+    render(<RentRequestAssistant open onOpenChange={onOpenChange} />);
+    answer('0783 123 456');
+    expect(await screen.findByTestId('tenant-check')).toHaveTextContent('This tenant already has a request at Tenant Ops.');
+    expect(screen.queryByLabelText('First name')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open my request' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect((seen.mock.calls[0][0] as CustomEvent).detail).toEqual({ tab: 'submitted', recordId: 'req-5' });
+    window.removeEventListener('open-submissions', seen);
+  });
+
+  it('step 1: a request returned to me opens its resubmit', async () => {
+    rpcWith({ intake_tenant_check: { status: 'returned_request', mine: true, request_id: 'req-9' } });
+    mocks.fetchRejected.mockResolvedValue([rejectedRequest()]);
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456');
+    await waitFor(() => expect(mocks.openT4).toHaveBeenCalledWith(expect.objectContaining({ mode: 'resubmit', rejected: expect.objectContaining({ id: 'req-9' }) })));
+    expect(mocks.fetchRejected).toHaveBeenCalledWith('agent-1');
+    expect(screen.queryByLabelText('First name')).toBeNull();
+  });
+
+  it('step 1: a request returned to another agent shows the message and stops', async () => {
+    rpcWith({ intake_tenant_check: { status: 'returned_request', mine: false, message: 'Sent back to another agent' } });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    answer('0783 123 456');
+    expect(await screen.findByTestId('tenant-check')).toHaveTextContent('Sent back to another agent');
+    expect(mocks.openT4).not.toHaveBeenCalled();
+  });
+
+  it('who is posting: a user who is not an agent picks "Someone else", which calls become_agent; then the intake opens', async () => {
+    auth.rolesResolved = true;
+    try {
+      render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+      expect(await screen.findByText('Who is this rent request for?')).toBeInTheDocument();
+      expect(screen.queryByTestId('intake-header')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: /Someone else/ }));
+      await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('become_agent', {}));
+      expect(await screen.findAllByText('What’s the tenant’s phone number? 📱')).not.toHaveLength(0);
+      expect(screen.getByTestId('intake-counter')).toHaveTextContent('Step 1 of 8');
+    } finally {
+      auth.rolesResolved = undefined;
+    }
+  });
+
+  it('who is posting: PHONE_REQUIRED asks to confirm the phone by SMS; AGENT_ROLE_DISABLED shows the message', async () => {
+    auth.rolesResolved = true;
+    try {
+      mocks.rpc.mockImplementation(async (fn: string) => (fn === 'become_agent' ? { data: null, error: { message: 'PHONE_REQUIRED' } } : { data: { ok: true }, error: null }));
+      const { unmount } = render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+      fireEvent.click(await screen.findByRole('button', { name: /Someone else/ }));
+      expect(await screen.findByTestId('confirm-phone')).toHaveTextContent('Confirm your phone number first');
+      unmount();
+      mocks.rpc.mockImplementation(async (fn: string) => (fn === 'become_agent' ? { data: null, error: { message: 'AGENT_ROLE_DISABLED: Your agent role was switched off by Agent Ops.' } } : { data: { ok: true }, error: null }));
+      render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+      fireEvent.click(await screen.findByRole('button', { name: /Someone else/ }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Your agent role was switched off by Agent Ops.');
+      expect(screen.queryByRole('button', { name: /Someone else/ })).toBeNull();
+    } finally {
+      auth.rolesResolved = undefined;
+    }
+  });
+
+  it('agents skip the who-is-posting screen', async () => {
+    auth.rolesResolved = true;
+    auth.enabledRoles = ['agent'];
+    try {
+      render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+      expect(await screen.findAllByText('What’s the tenant’s phone number? 📱')).not.toHaveLength(0);
+      expect(screen.queryByText('Who is this rent request for?')).toBeNull();
+    } finally {
+      auth.rolesResolved = undefined;
+      auth.enabledRoles = [];
+    }
+  });
+
+  it('resubmit: the counter reads "N to fix" and only the returned items open, in order (tenant_photo = step 6)', async () => {
+    mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+    rpcWith({ return_items_for: ['tenant_photo', 'id_front'] });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ tenant_photo_url: 'https://cdn/face.jpg' }) }} />);
+    await waitFor(() => expect(screen.getByTestId('intake-counter')).toHaveTextContent('2 to fix'));
+    expect(mocks.rpc).toHaveBeenCalledWith('return_items_for', { p_request_id: 'req-9' });
+    // The photo (step 6) opens first.
+    expect(await screen.findAllByText(/Now the tenant’s face photo/)).not.toHaveLength(0);
+    expect(screen.getByRole('button', { name: /^Step 6: Tenant’s photo/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^Step 2: Rent plan/ })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Tenant’s face photo (head and shoulders)'), { target: { files: [new File(['f'], 'face.jpg', { type: 'image/jpeg' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByTestId('intake-counter')).toHaveTextContent('1 to fix'));
+    // Then the ID front (step 7), even though one is on file.
+    expect(await screen.findByLabelText('National ID front photo')).toBeInTheDocument();
   });
 });
