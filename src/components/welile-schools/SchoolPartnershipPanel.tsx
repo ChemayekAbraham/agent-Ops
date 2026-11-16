@@ -146,6 +146,9 @@ export default function SchoolPartnershipPanel({ school }: { school: SchoolRow }
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {status === 'changes_requested' ? 'Resubmit for approval' : 'Submit for approval'}
           </Button>
+          <Button variant="outline" className="min-h-[48px] w-full" disabled={savingDraft || submitting} onClick={saveDraft}>
+            {savingDraft ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Save as draft
+          </Button>
         </Card>
       )}
     </div>
