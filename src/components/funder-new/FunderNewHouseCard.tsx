@@ -126,7 +126,7 @@ export function FunderNewHouseCard({
       </div>
 
         <div className="space-y-3 p-4">
-        {isEmpty ? null : <FundersIncompleteChip items={incomplete} />}
+        {isEmpty ? null : <FundersIncompleteChip items={incomplete} requestId={planId} />}
         {boardTagsOn ? <FundersBoardTag kind={taken ? 'booked' : tagKindFor(boardTag, category)} /> : null}
         {/* Tapping the text block opens the full house details, like the photo does. */}
         <div

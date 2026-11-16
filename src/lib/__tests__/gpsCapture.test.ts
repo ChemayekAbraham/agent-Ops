@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GPS_IMPROVE_MS, GPS_MAX_AGE_MS, gpsFoundLine, watchHouseGps } from '@/lib/gpsCapture';
+import {
+  GPS_DENIED_LINE, GPS_IMPROVE_MS, GPS_MAX_AGE_MS, GPS_NO_SIGNAL_LINE, gpsCapturedLine, gpsFailLine, gpsPermissionDenied,
+  isInAppBrowser, systemBrowserUrl, watchHouseGps,
+} from '@/lib/gpsCapture';
 
 /** A geolocation whose readings and errors the test sends. */
 function fakeGeo() {
@@ -70,7 +73,31 @@ describe('house GPS: the first reading at once, improved for 15 s', () => {
   });
 
   it('the lines it says', () => {
-    expect(gpsFoundLine({ lat: 0, lng: 0, accuracy: 59.6, source: 'gps' })).toBe('Location found (±60 m) ✓');
-    expect(gpsFoundLine({ lat: 0, lng: 0, accuracy: null, source: 'pin' })).toBe('Pin dropped on the house ✓');
+    expect(gpsCapturedLine({ lat: 0.347621, lng: 32.582514, accuracy: 39.6 })).toBe('Location captured ✓ 0.34762, 32.58251 (±40 m)');
+    expect(gpsFailLine('gps_permission_denied')).toBe(GPS_DENIED_LINE);
+    expect(gpsFailLine('gps_timeout')).toBe(GPS_NO_SIGNAL_LINE);
+    expect(gpsFailLine('gps_unavailable')).toBe(GPS_NO_SIGNAL_LINE);
+  });
+
+  it('in-app browsers, and the link that opens the page in Chrome', () => {
+    expect(isInAppBrowser('Mozilla/5.0 (Linux; Android 13) Chrome/119 Mobile Safari/537.36 WhatsApp/2.23')).toBe(true);
+    expect(isInAppBrowser('Mozilla/5.0 (iPhone) Mobile/15E148 [FBAN/FBIOS;FBAV/440.0]')).toBe(true);
+    expect(isInAppBrowser('Mozilla/5.0 (Linux; Android 12) Instagram 300.0 Android')).toBe(true);
+    expect(isInAppBrowser('Mozilla/5.0 (Linux; Android 12) Telegram-Android/10.2')).toBe(true);
+    expect(isInAppBrowser('Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/119.0 Mobile Safari/537.36')).toBe(false);
+    expect(systemBrowserUrl('https://welile.com/agent?x=1', 'Android WhatsApp'))
+      .toBe('intent://welile.com/agent?x=1#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=https%3A%2F%2Fwelile.com%2Fagent%3Fx%3D1;end');
+    expect(systemBrowserUrl('https://welile.com/agent', 'iPhone FBAN')).toBe('https://welile.com/agent');
+  });
+
+  it('a site already blocked is known before the tap', async () => {
+    await expect(gpsPermissionDenied({ permissions: { query: async () => ({ state: 'denied' }) } } as unknown as Navigator)).resolves.toBe(true);
+    await expect(gpsPermissionDenied({ permissions: { query: async () => ({ state: 'prompt' }) } } as unknown as Navigator)).resolves.toBe(false);
+    await expect(gpsPermissionDenied({} as Navigator)).resolves.toBe(false);
+  });
+
+  it('no map component exists any more', async () => {
+    const modules = import.meta.glob('/src/components/intake/*.tsx');
+    expect(Object.keys(modules).some((k) => /PinDropMap/.test(k))).toBe(false);
   });
 });

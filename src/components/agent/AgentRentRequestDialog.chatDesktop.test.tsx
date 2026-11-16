@@ -50,7 +50,6 @@ vi.mock('@/components/agent/ExistingTenantPhoneNotice', () => ({ ExistingTenantP
 vi.mock('@/components/agent/TenantDuplicateNotice', () => ({ TenantDuplicateNotice: () => null }));
 vi.mock('@/components/executive/EntityDetailSheet', () => ({ EntityDetailSheet: () => null }));
 vi.mock('@/components/shared/DailyRatingThresholdPopover', () => ({ DailyRatingThresholdPopover: () => null }));
-vi.mock('@/components/agent/AgentEditRentRequestDialog', () => ({ AgentEditRentRequestDialog: () => null }));
 
 import AgentRentRequestDialog from './AgentRentRequestDialog';
 

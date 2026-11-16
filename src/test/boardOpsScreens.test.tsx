@@ -79,7 +79,7 @@ describe('Boardroom screen 3: OPS COMMAND MAP', () => {
     expect(document.querySelector('[data-kpi="in_desks"] .ops-kpi-value')?.textContent).toBe('—');
   });
 
-  it('the map: centred on Uganda, night style without POI labels, a marker per point; empty houses and repaying start hidden', async () => {
+  it('the map: centred on Uganda, the light basemap without POI labels (light is the default), a marker per point; empty houses and repaying start hidden', async () => {
     g.load.mockResolvedValue(feed('map'));
     await mount();
     expect(g.made.maps).toHaveLength(1);
@@ -97,7 +97,8 @@ describe('Boardroom screen 3: OPS COMMAND MAP', () => {
     expect(decodeURIComponent(String((ring.opts.icon as { url: string }).url))).toContain('<animate');
     // Frozen agents: amber outline.
     const agentStrokes = g.made.markers.filter((m) => String((m.opts.icon as { path?: unknown }).path).startsWith('M 0 -1')).map((m) => (m.opts.icon as { strokeColor: string }).strokeColor);
-    expect(agentStrokes).toEqual(['#D7E3EC', '#F5A524']);
+    // Light theme: agent bases outlined in ink, a frozen agent's in amber.
+    expect(agentStrokes).toEqual(['#1B1A2E', '#B45309']);
   });
 
   it('layer switches with counts and GPS coverage; a switch hides and shows its markers', async () => {

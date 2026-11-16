@@ -300,7 +300,7 @@ export default function TenantsOnboarding() {
       if (first) funnel.itemDone('gps', { accuracy_m: fix.accuracy === null ? null : Math.round(fix.accuracy), gps_source: 'gps' });
     },
     onFail: (code) => { lastGpsFail.current = code; funnel.blocked(['gps'], code); },
-    onPin: () => funnel.itemDone('gps', { accuracy_m: null, gps_source: 'pin' }, 'gps_pin_used'),
+    onInAppBrowser: () => funnel.blocked(['gps'], 'gps_in_app_browser'),
   });
   const gps = gpsWatch.location
     ? { latitude: gpsWatch.location.lat, longitude: gpsWatch.location.lng, accuracy: gpsWatch.location.accuracy, source: gpsWatch.location.source }
@@ -784,7 +784,6 @@ export default function TenantsOnboarding() {
           gps_lat: gps?.latitude ?? null,
           gps_lng: gps?.longitude ?? null,
           gps_accuracy: gps?.accuracy ?? null,
-          // 'pin' when the tenant dropped a pin on the map (accuracy unknown); else 'gps'.
           gps_source: gps?.source ?? null,
           landlord_id: landlord?.id ?? null,
           landlord_name: landlord?.name ?? newLandlordName.trim(),
@@ -1764,7 +1763,7 @@ export default function TenantsOnboarding() {
                     </div>
                   </div>
                   <GpsCapturePanel className="mt-2" gps={gpsWatch}
-                    value={gps ? { lat: gps.latitude, lng: gps.longitude, accuracy: gps.accuracy, source: gps.source } : null} />
+                    value={gps ? { lat: gps.latitude, lng: gps.longitude, accuracy: gps.accuracy } : null} />
                 </div>
 
                 <Field label="House photos" required hint={`At least ${MIN_HOUSE_PHOTOS} photos — the outside, the door and the room.`}>

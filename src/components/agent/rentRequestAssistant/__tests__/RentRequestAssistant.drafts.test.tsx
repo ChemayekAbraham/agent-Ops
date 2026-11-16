@@ -79,12 +79,6 @@ vi.mock('@/lib/t4RentRequestSubmit', async (orig) => ({
     lcLetter: { bucket: 'lc-letters', path: 'agent-1/new/l.jpg' },
   })),
 }));
-// The pin map (Leaflet) is replaced by one button that drops a pin.
-vi.mock('@/components/intake/PinDropMap', () => ({
-  default: ({ onPick }: { onPick: (lat: number, lng: number) => void }) => (
-    <div data-testid="pin-drop-map"><button type="button" onClick={() => onPick(0.31, 32.58)}>Use this pin</button></div>
-  ),
-}));
 vi.mock('@/lib/t4RentRequest', async (orig) => ({ ...(await orig<typeof import('@/lib/t4RentRequest')>()), openT4RentRequest: mocks.open }));
 
 import RentRequestAssistant from '@/components/agent/rentRequestAssistant/RentRequestAssistant';
@@ -345,18 +339,21 @@ describe('Agent chat fixes (16 Nov): first screen, face check timeout, photo ref
   });
 });
 
-describe('GPS on step 4 just works: the first reading, else a pin; never settings', () => {
+describe('GPS on step 4: Capture location just captures the coordinates; no map anywhere', () => {
   let onPos: PositionCallback = () => {};
   let onErr: PositionErrorCallback = () => {};
   const watchPosition = vi.fn((s: PositionCallback, e: PositionErrorCallback) => { onPos = s; onErr = e; return 3; });
-  const reading = (accuracy: number) => act(() => { onPos({ coords: { latitude: 0.33, longitude: 32.6, accuracy } } as GeolocationPosition); });
-  const noSettingsText = () => expect(document.body.textContent ?? '').not.toMatch(/settings|Location Services|Site settings|Precise/i);
+  const reading = (accuracy: number) => act(() => { onPos({ coords: { latitude: 0.347621, longitude: 32.582514, accuracy } } as GeolocationPosition); });
+  const noMap = () => {
+    expect(document.querySelector('[data-testid="pin-drop-map"], .leaflet-container')).toBeNull();
+    expect(screen.queryByText(/Drop a pin/i)).toBeNull();
+  };
+  const realUa = navigator.userAgent;
   beforeEach(() => {
     watchPosition.mockClear();
-    Object.defineProperty(navigator, 'geolocation', {
-      configurable: true,
-      value: { watchPosition, clearWatch: vi.fn(), getCurrentPosition: vi.fn((_s: PositionCallback, e: PositionErrorCallback) => e({ code: 1 } as GeolocationPositionError)) },
-    });
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { watchPosition, clearWatch: vi.fn(), getCurrentPosition: vi.fn() } });
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: undefined });
+    Object.defineProperty(navigator, 'userAgent', { configurable: true, value: realUa });
   });
   /** A saved request with everything up to the house but no GPS: it reopens on the GPS question. */
   const openAtGps = () => {
@@ -367,47 +364,76 @@ describe('GPS on step 4 just works: the first reading, else a pin; never setting
   };
   const capture = async () => fireEvent.click(await screen.findByRole('button', { name: 'Capture location' }, { timeout: 3000 }));
 
-  it('the first GPS reading is accepted at once, with the in-app line first; the agent continues while it improves', async () => {
+  it('capture shows the coordinates at once, with no map rendered; the agent continues while it improves', async () => {
     openAtGps();
     await capture();
-    expect(screen.getByTestId('gps-asking')).toHaveTextContent('Welile needs your location to confirm the house.');
     expect(watchPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), expect.objectContaining({ enableHighAccuracy: true, maximumAge: 60000 }));
-    reading(60);
-    expect(await screen.findByTestId('gps-found')).toHaveTextContent('Location found (±60 m) ✓');
-    expect(screen.getByTestId('gps-found')).toHaveTextContent('improving');
-    await waitFor(() => expect(logs('item_done')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_meta: expect.objectContaining({ accuracy_m: 60 }) })));
-    // No waiting for a better reading: Continue goes on at once.
+    reading(40);
+    expect(await screen.findByTestId('gps-captured')).toHaveTextContent('Location captured ✓ 0.34762, 32.58251 (±40 m)');
+    await waitFor(() => expect(logs('item_done')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_meta: expect.objectContaining({ accuracy_m: 40 }) })));
+    noMap();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByTestId('send-button')).toHaveTextContent('1 left: Household');
-    noSettingsText();
+    noMap();
   });
 
-  it('permission denied offers the map pin; the pin becomes the GPS; no settings text anywhere', async () => {
+  it('permission denied shows the one lock line, logged; no map', async () => {
     openAtGps();
     await capture();
     act(() => { onErr({ code: 1, message: 'denied' } as GeolocationPositionError); });
-    expect(await screen.findByTestId('gps-pin-offer')).toHaveTextContent('Drop a pin on the house');
+    expect(await screen.findByTestId('gps-failure')).toHaveTextContent(
+      'Location is blocked for Welile in this browser. Tap the 🔒 in the address bar → Location → Allow, then tap Capture again.',
+    );
     await waitFor(() => expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_permission_denied' })));
-    noSettingsText();
-    fireEvent.click(await screen.findByRole('button', { name: 'Use this pin' }));
-    expect(await screen.findByTestId('gps-found')).toHaveTextContent('Pin dropped on the house (accuracy unknown) ✓');
-    await waitFor(() => expect(logs('item_done')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_pin_used', p_meta: expect.objectContaining({ gps_source: 'pin' }) })));
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(await screen.findByTestId('send-button')).toHaveTextContent('1 left: Household');
-    noSettingsText();
+    noMap();
   });
 
-  it('no reading in 15 s (timeout) offers the map pin too, with the reason logged and no settings text', async () => {
+  it('a site the browser already blocks shows the lock line before any tap', async () => {
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: vi.fn(async () => ({ state: 'denied' })) } });
+    openAtGps();
+    expect(await screen.findByTestId('gps-failure')).toHaveTextContent('Location is blocked for Welile in this browser.');
+    expect(watchPosition).not.toHaveBeenCalled();
+  });
+
+  it('inside WhatsApp: "Open this page in Chrome" with a button that opens it in Chrome, logged', async () => {
+    Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Linux; Android 13; SM-A145F) AppleWebKit/537.36 Chrome/119.0 Mobile Safari/537.36 WhatsApp/2.23.24.82' });
+    openAtGps();
+    const box = await screen.findByTestId('gps-in-app');
+    expect(box).toHaveTextContent('Open this page in Chrome to capture location');
+    expect(within(box).getByRole('link', { name: 'Open in Chrome' }).getAttribute('href')).toMatch(/^intent:\/\/.*package=com\.android\.chrome/);
+    await waitFor(() => expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_in_app_browser' })));
+    noMap();
+  });
+
+  it('no reading in 15 s shows the signal line, logged; no map', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       openAtGps();
       await capture();
       await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
-      expect(await screen.findByTestId('gps-pin-offer')).toBeInTheDocument();
+      expect(await screen.findByTestId('gps-failure')).toHaveTextContent('No GPS signal here — step outside or near a window and tap Capture again.');
       await waitFor(() => expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_timeout' })));
-      noSettingsText();
+      noMap();
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('E99: an old draft with "No LC1 letter yet" ticked opens with it cleared', () => {
+  it('the tick and its reason are dropped; the LC1 step shows the photo button and the letter is still needed', async () => {
+    const payload = fullPayload();
+    payload.fields.noLc1Letter = true;
+    payload.fields.noLc1Reason = 'The LC1 is away until Friday';
+    payload.fields.familySize = '4';
+    payload.photos.lcLetter = null;
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd5', payload } }} />);
+    // It reopens on its first incomplete step: the LC1 letter, with the photo button.
+    expect(await screen.findByTestId('lc1-letter-step', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByLabelText('Take photo of LC1 letter')).toBeInTheDocument();
+    expect(screen.queryByText(/No LC1 letter yet/)).toBeNull();
+    expect(screen.queryByDisplayValue('The LC1 is away until Friday')).toBeNull();
+    expect(screen.getByTestId('lc1-no-letter-yet')).toHaveTextContent('Save and finish later');
+    expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
   });
 });

@@ -73,6 +73,7 @@ import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAgentRejectedRequests } from '@/hooks/useAgentRejectedRequests';
 import { openT4RentRequest } from '@/lib/t4RentRequest';
+import { fetchResubmitNeeds } from '@/lib/intakeRpc';
 import type { AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
 import { AT_COO_STATUSES, agentRequestStatus, agentRequestStatusLabel, type AgentRequestStatusView } from '@/lib/agentRequestStatus';
 import { useAgentEligibility } from '@/hooks/useAgentEligibility';
@@ -81,6 +82,7 @@ export type PipelineTab = 'submitted' | 'approved' | 'rejected' | 'landlords';
 
 const PAGE_SIZE = 10;
 
+/** Every request in the pipeline, Service Centre to the COO / funders' board ('approved' is the old name). */
 export const SUBMITTED_STATUSES = [
   'pending',
   'service_center_review',
@@ -90,7 +92,53 @@ export const SUBMITTED_STATUSES = [
   'landlord_ops_approved',
   'partner_ops_approved',
   'coo_approved',
+  'approved',
 ];
+
+/** A request a desk sent back to the agent to fix (or a recalled plan): above "Closed" in To fix. */
+export const isSentBack = (r: { returned_at?: string | null; returned_by_recall?: boolean }) => !!r.returned_at || !!r.returned_by_recall;
+
+/**
+ * The Submitted tab's count: every request of this agent in the pipeline, whatever tab is open
+ * and whatever the filters (they only narrow the list below it).
+ */
+function useSubmittedCount() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['agent-pipeline', 'submitted-count', user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from('rent_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('agent_id', user!.id)
+        .in('status', SUBMITTED_STATUSES);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+}
+
+/** "2 to fix: ID front, ID back" for a sent-back request, from resubmit_needs. */
+function NeedsChips({ requestId }: { requestId: string }) {
+  const { data } = useQuery({
+    queryKey: ['resubmit-needs', requestId],
+    queryFn: () => fetchResubmitNeeds(requestId),
+    staleTime: 60_000,
+  });
+  const items = data?.items ?? [];
+  if (!items.length) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5" data-testid="to-fix-chips">
+      <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">{items.length} to fix:</span>
+      {items.map((i) => (
+        <span key={i.code} className="rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-900 dark:text-amber-200">
+          {i.label ?? i.code.replace(/_/g, ' ')}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export const APPROVED_STATUSES = ['funded', 'disbursed'];
 
@@ -134,6 +182,7 @@ const STAGE_ICON: Record<string, typeof Eye> = {
   funded: Wallet,
   disbursed: HandCoins,
   rejected: XCircle,
+  returned: RefreshCw,
 };
 
 const STAGE_STRIP: Record<string, { bg: string; text: string; iconBg: string }> = {
@@ -148,6 +197,7 @@ const STAGE_STRIP: Record<string, { bg: string; text: string; iconBg: string }> 
   funded: { bg: 'bg-emerald-500', text: 'text-white', iconBg: 'bg-white/20' },
   disbursed: { bg: 'bg-emerald-600', text: 'text-white', iconBg: 'bg-white/20' },
   rejected: { bg: 'bg-destructive', text: 'text-destructive-foreground', iconBg: 'bg-white/20' },
+  returned: { bg: 'bg-amber-600', text: 'text-white', iconBg: 'bg-white/20' },
 };
 
 
@@ -512,7 +562,12 @@ export function AgentRequestPipelineView({
     statusFilter,
   );
   const rejectedQuery = useAgentRejectedRequests();
-  const rejectedAll = rejectedQuery.data ?? [];
+  // To fix: sent back to the agent first, then the closed rejections.
+  const rejectedAll = useMemo(() => {
+    const all = rejectedQuery.data ?? [];
+    return [...all.filter(isSentBack), ...all.filter((r) => !isSentBack(r))];
+  }, [rejectedQuery.data]);
+  const submittedCount = useSubmittedCount();
   const { user } = useAuth();
   // Below 50% or not verified: requests at the COO show "Waiting at the COO" and why.
   const eligibility = useAgentEligibility(user?.id, tab === 'submitted');
@@ -666,7 +721,7 @@ export function AgentRequestPipelineView({
       key: 'submitted',
       label: 'Submitted',
       icon: Send,
-      count: submitted.data?.total ?? submittedRows.length,
+      count: submittedCount.data ?? submitted.data?.total ?? submittedRows.length,
       tone: 'bg-amber-500 text-white',
     },
     {
@@ -678,10 +733,10 @@ export function AgentRequestPipelineView({
     },
     {
       key: 'rejected',
-      label: 'Rejected',
-      icon: XCircle,
+      label: 'To fix',
+      icon: RefreshCw,
       count: filteredRejected.length,
-      tone: 'bg-destructive text-destructive-foreground',
+      tone: 'bg-amber-600 text-white',
     },
     {
       key: 'landlords',
@@ -1028,21 +1083,27 @@ export function AgentRequestPipelineView({
           ) : filteredRejected.length === 0 ? (
             <EmptyState
               icon={XCircle}
-              title={activeFiltersCount > 0 ? 'No matches found' : 'No rejections'}
-              subtitle={activeFiltersCount > 0 ? 'Try adjusting your search or filters.' : "When a request is rejected, the reviewer's reason will show here."}
+              title={activeFiltersCount > 0 ? 'No matches found' : 'Nothing to fix'}
+              subtitle={activeFiltersCount > 0 ? 'Try adjusting your search or filters.' : 'When a desk sends a request back to you, it shows here with what to fix.'}
             />
           ) : (
             <>
-              {rejectedPaged.map((r) => {
+              {rejectedPaged.map((r, i) => {
                 const rv = agentRequestStatus(r);
+                const sentBack = isSentBack(r);
                 const label = r.cancelled_by_agent ? 'Cancelled by you' : r.returned_by_recall ? String(r.stage_label) : rv.label;
                 const returned = rv.tone === 'returned';
+                const firstClosed = !sentBack && (i === 0 || isSentBack(rejectedPaged[i - 1]));
                 return (
+                <div key={r.id} className="space-y-2" data-section={sentBack ? 'sent-back' : 'closed'}>
+                {firstClosed && (
+                  <h3 className="px-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground" data-testid="to-fix-closed-heading">Closed</h3>
+                )}
                 <Card
-                  key={r.id}
-                  className="border-2 border-destructive/40 bg-destructive/5 overflow-hidden"
+                  data-testid={sentBack ? 'to-fix-sent-back' : 'to-fix-closed'}
+                  className={sentBack ? 'border-2 border-amber-500/50 bg-amber-500/5 overflow-hidden' : 'border border-border bg-muted/30 overflow-hidden'}
                 >
-                  <StatusStrip status="rejected" label={label} />
+                  <StatusStrip status={sentBack ? 'returned' : 'rejected'} label={sentBack && !r.returned_by_recall ? 'Sent back to you — fix and resubmit' : label} />
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -1073,11 +1134,12 @@ export function AgentRequestPipelineView({
                         <p className="text-[10px] text-muted-foreground">{r.duration_days} days</p>
                       </div>
                     </div>
+                    {sentBack && <NeedsChips requestId={r.id} />}
                     {/* Prominent reason block */}
-                    <div className="rounded-lg border-2 border-destructive/40 bg-background p-2.5">
+                    <div className={`rounded-lg border-2 bg-background p-2.5 ${sentBack ? 'border-amber-500/40' : 'border-destructive/40'}`}>
                       <div className="flex items-center gap-1.5 mb-1">
-                        <MessageSquare className="h-3.5 w-3.5 text-destructive" />
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-destructive">
+                        <MessageSquare className={`h-3.5 w-3.5 ${sentBack ? 'text-amber-700' : 'text-destructive'}`} />
+                        <p className={`text-[10px] font-bold uppercase tracking-wide ${sentBack ? 'text-amber-800 dark:text-amber-300' : 'text-destructive'}`}>
                           {returned ? 'Note from the desk' : 'Reason'} — {r.reviewer_name}
                         </p>
                       </div>
@@ -1086,17 +1148,20 @@ export function AgentRequestPipelineView({
                       </p>
                     </div>
                       <div className="flex justify-end pt-1">
+                        {/* The same chat resubmit as everywhere (resubmit_needs, "N to fix"); no cap. */}
                         <Button
                           size="sm"
+                          variant={sentBack ? 'default' : 'outline'}
                           onClick={() => openT4RentRequest({ mode: 'resubmit', rejected: r, entry: 'request-pipeline', onDone: onResubmitted })}
                           className="gap-1.5 h-8"
                         >
                           <Pencil className="h-3.5 w-3.5" />
-                          Edit & Resubmit
+                          {sentBack ? 'Edit & Resubmit' : 'Fix and send again'}
                         </Button>
                       </div>
                   </CardContent>
                 </Card>
+                </div>
                 );
               })}
               <Pager
