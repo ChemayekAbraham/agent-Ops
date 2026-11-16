@@ -20,6 +20,7 @@
  * (E58).
  */
 import { useSyncExternalStore } from 'react';
+import type { PostingDraftPayload } from '@/lib/postingDrafts';
 import type { AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
 
 export type T4Mode = 'new' | 'resubmit' | 'renewal';
@@ -71,7 +72,7 @@ interface T4Base {
 }
 
 export type T4Request =
-  | (T4Base & { mode: 'new'; prefill?: T4Prefill })
+  | (T4Base & { mode: 'new'; prefill?: T4Prefill; /** E109: a saved request to finish. */ draft?: { id: string; payload: PostingDraftPayload } })
   | (T4Base & { mode: 'resubmit'; rejected: AgentRejectedRequest })
   | (T4Base & { mode: 'renewal'; renewal: T4Renewal });
 

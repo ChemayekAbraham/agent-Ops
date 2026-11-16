@@ -17,7 +17,7 @@
  * Submit stays off until t4Missing() is empty (SC-2 and Agent Ops gate items).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Square, UserPlus, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, ShieldCheck, Square, UserPlus, Volume2, VolumeX } from 'lucide-react';
 import welileLogo from '@/assets/welile-logo.png';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -33,7 +33,9 @@ import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/La
 import RegisterLandlordDialog from '@/components/agent/RegisterLandlordDialog';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
 import { GuarantorConsentCheckbox } from '@/components/agent/GuarantorConsentCheckbox';
-import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
+import { NOT_VETTED_EVENT, promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
+import { useAgentGateStatus } from '@/hooks/useAgentGateStatus';
+import { AGENT_VERIFICATION_PATH } from '@/hooks/useAgentVetting';
 import { agentNotVettedReason } from '@/lib/agentVetting';
 import { optimizeImage } from '@/lib/imageOptimizer';
 import { runPassportFaceCheck, faceCheckBlocker, type PassportFaceCheck } from '@/lib/passportFaceCheck';
@@ -81,6 +83,13 @@ import {
   type TenantRecord,
 } from '@/lib/t4RentRequestSubmit';
 import { counted, createUploadCounter, sendButtonLabel, type SendProgress } from '@/lib/sendProgress';
+import { landlordCodeFromSearch, normalizeLandlordCode, recordLandlordReferral } from '@/lib/landlordReferral';
+import { createFormFunnel, funnelErrorCode, type FunnelItem, type FunnelStep } from '@/lib/formFunnel';
+import {
+  DRAFT_SAVED_MESSAGE, closeDraft, downloadDraftPhoto, draftsAvailable, fetchMyDrafts, newDraftFolder, onDraftsAvailability,
+  saveDraft, uploadDraftPhoto, type DraftPhoto, type DraftPhotoKind, type PostingDraftPayload,
+} from '@/lib/postingDrafts';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
   computeAssistantFees,
@@ -211,6 +220,35 @@ const ITEM_STEP: Partial<Record<T4ItemKey, StepId>> = {
   tenantPhoto: 'tenantPhoto', gps: 'gps', lc1: 'lc1', lcLetter: 'lcLetter', payoutDay: 'payoutDay', note: 'note',
 };
 
+/** E108 funnel: the stable step name for each question. */
+const FUNNEL_STEP: Record<StepId, FunnelStep> = {
+  type: 'start',
+  rent: 'repayment', plan: 'repayment', days: 'repayment',
+  tenantPhone: 'tenant', tenantName: 'tenant', nationalId: 'tenant', language: 'tenant',
+  familySize: 'tenant', work: 'tenant', workLocation: 'tenant',
+  smartphone: 'smartphone',
+  landlord: 'house_landlord', house: 'house_landlord', location: 'house_landlord', address: 'house_landlord',
+  category: 'house_landlord', photos: 'house_landlord', city: 'house_landlord', payoutDay: 'house_landlord',
+  gps: 'gps',
+  lc1: 'lc1', lc1Phone: 'lc1', lc1Name: 'lc1', lc1Village: 'lc1',
+  tenantPhoto: 'documents', idFront: 'documents', idBack: 'documents', lcLetter: 'documents',
+  note: 'review', review: 'review',
+};
+/** E108 funnel: the item code for each checklist item (anything else is 'other'). */
+const T4_FUNNEL_ITEM: Partial<Record<T4ItemKey, FunnelItem>> = {
+  photos: 'house_photos', landlord: 'landlord', rent: 'rent', gps: 'gps', familySize: 'family_size', work: 'work',
+  lcLetter: 'lc1_letter', idFront: 'id_front', idBack: 'id_back', tenantPhoto: 'tenant_photo', tenantPhone: 'phone',
+  consent: 'agreement', openRequest: 'duplicate',
+};
+/** E108 funnel: what a wrong answer to a question is missing. */
+const STEP_FUNNEL_ITEM: Partial<Record<StepId, FunnelItem>> = {
+  rent: 'rent', tenantPhone: 'phone', familySize: 'family_size', work: 'work', landlord: 'landlord',
+  photos: 'house_photos', gps: 'gps', idFront: 'id_front', idBack: 'id_back', lcLetter: 'lc1_letter', tenantPhoto: 'tenant_photo',
+};
+const t4FunnelItems = (keys: T4ItemKey[]): FunnelItem[] => keys.map((k) => T4_FUNNEL_ITEM[k] ?? 'other');
+/** E108 funnel: what a server refusal of a new request is about. */
+const REFUSAL_FUNNEL_ITEM: Record<string, FunnelItem> = { landlord_missing: 'landlord', duplicate: 'duplicate' };
+
 type PlanType = 'daily' | 'weekly' | 'monthly';
 type Lc1Match = { id: string; name: string; verified: boolean; village: string } | null;
 /** A photo taken now, or one already on file (file null, preview = its URL). */
@@ -247,6 +285,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   // E100 (COO decision): no daily or weekly posting gate. The agent's collection against the
   // 50% rule is shown as information only; it never blocks a post.
   const [collectionPct, setCollectionPct] = useState<number | null>(null);
+  /*
+   * E111: agents always post. An unverified agent's request passes every desk and waits at
+   * the COO / funders' board until Agent Ops verifies them; `notice` says so. Only
+   * `blocked` (the switch turned back on) stops a new request, with the old block.
+   */
+  const gate = useAgentGateStatus(user?.id, open && mode === 'new');
+  const gateBlocked = mode === 'new' && gate?.blocked === true;
+  const vettingNotice = mode === 'new' && !gateBlocked ? gate?.notice ?? null : null;
+  useEffect(() => {
+    if (!gateBlocked) return;
+    window.dispatchEvent(new CustomEvent(NOT_VETTED_EVENT, {
+      detail: gate?.reason || 'Complete your agent verification before posting a rent request.',
+    }));
+  }, [gateBlocked, gate?.reason]);
   useEffect(() => {
     if (!open || !user?.id) return;
     let cancelled = false;
@@ -298,6 +350,49 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [noLc1Reason, setNoLc1Reason] = useState('');
   const [payoutDay, setPayoutDay] = useState('');
   const [consent, setConsent] = useState(false);
+  /**
+   * E108 demand funnel for new requests ("Open rent request form"): open, steps, blocked
+   * presses, items done, post and close. Fire-and-forget; never shown, never awaited.
+   */
+  const funnel = useMemo(() => createFormFunnel('agent_post'), []);
+  const tracking = mode === 'new';
+  useEffect(() => {
+    if (!tracking) return;
+    if (open) funnel.open(); else funnel.close();
+  }, [open, tracking, funnel]);
+  useEffect(() => () => funnel.close(), [funnel]);
+
+  // ----- E109: save and finish later -----
+  const [draftId, setDraftId] = useState<string | null>(request?.mode === 'new' ? request.draft?.id ?? null : null);
+  const [saveOffer, setSaveOffer] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftNote, setDraftNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [refusalItems, setRefusalItems] = useState<FunnelItem[]>([]);
+  const [draftsOk, setDraftsOk] = useState<boolean | null>(draftsAvailable());
+  const [jumpToMissing, setJumpToMissing] = useState(false);
+  /** Where Continue must open regardless of the checklist order (a passport photo that now fails). */
+  const jumpFirst = useRef<StepId | null>(null);
+  /** Photos already stored for a draft, so a second save does not upload them again. */
+  const draftPaths = useRef(new WeakMap<File, DraftPhoto>());
+  const draftFolder = useRef(newDraftFolder());
+  useEffect(() => onDraftsAvailability(() => setDraftsOk(draftsAvailable())), []);
+  useEffect(() => {
+    // Learn once whether the draft RPCs exist; until they do, the button stays hidden.
+    if (open && tracking && draftsAvailable() === null) fetchMyDrafts().catch(() => {});
+  }, [open, tracking]);
+  /** A blocked press: logged for the funnel, and "Save and finish later" is offered. */
+  const blockedNow = (items: FunnelItem[], error?: string | null) => {
+    funnel.blocked(items, error);
+    setSaveOffer(true);
+  };
+  useEffect(() => {
+    if (!open || !tracking || typeof document === 'undefined') return;
+    const onHide = () => { if (document.visibilityState === 'hidden') funnel.close(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, [open, tracking, funnel]);
+  /** Landlord referral code (E107): optional, prefilled from the page link (?ref=L…). */
+  const [landlordCode, setLandlordCode] = useState(() => (typeof window === 'undefined' ? '' : landlordCodeFromSearch(window.location.search)));
   // ----- resubmit / renewal -----
   const [resubmitDays, setResubmitDays] = useState('');
   const [note, setNote] = useState('');
@@ -376,6 +471,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     lc1NoteError: string | null;
     /** Document photos that were not stored or attached, with the server's message. */
     docErrors: string[];
+    /** The landlord referral code was not recorded ("Code not recognised", or the server's words). */
+    referralError?: string | null;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const greeting = useMemo(greetingNow, [open]);
@@ -428,6 +525,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const idx = steps.indexOf(current);
   const furthestIdx = Math.max(steps.indexOf(furthest), idx);
 
+  useEffect(() => {
+    if (open && tracking) funnel.step(FUNNEL_STEP[current]);
+  }, [current, open, tracking, funnel]);
+
   const reset = useCallback(() => {
     setPlanType(null); setRentText(''); setDuration('30'); setRepaymentPeriod('7');
     setTenantPhone(''); setTenantNameParts({ firstName: '', otherNames: '', lastName: '' }); setNationalId('');
@@ -437,9 +538,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setDistrict(''); setCategory(''); setHousePhotos([null, null, null, null]); setTenantPhoto(null); setFaceCheck(null);
     setGps(null); setLc1Phone(''); setLc1Match(null); setLc1Mode(null); setLc1NameParts({ firstName: '', otherNames: '', lastName: '' });
     setLc1Village(''); setCity(''); setLcLetter(null); setNoLc1Letter(false); setNoLc1Reason(''); setPayoutDay(''); setConsent(false);
+    setLandlordCode(typeof window === 'undefined' ? '' : landlordCodeFromSearch(window.location.search));
     setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
     setFixOffer(null); setWrongTries({});
-  }, []);
+    setDraftId(null); setSaveOffer(false); setDraftNote(null); setRefusalItems([]); draftFolder.current = newDraftFolder();
+    // "Post another": a new funnel session.
+    if (tracking) funnel.open();
+  }, [tracking, funnel]);
 
   // Fill the form from what opened it. The host mounts a fresh form for each request.
   useEffect(() => {
@@ -453,6 +558,77 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         // A failed look-up does not block: the database still refuses a duplicate.
         .catch((e) => { console.warn('[T4] open-request check failed', e); if (!cancelled) setOpenStatus(null); });
     };
+    if (request.mode === 'new' && request.draft) {
+      const f = (request.draft.payload?.fields ?? {}) as Record<string, any>;
+      const str = (v: unknown) => (typeof v === 'string' ? v : '');
+      if (f.planType) setPlanType(f.planType);
+      setRentText(str(f.rentText));
+      if (f.duration) setDuration(f.duration);
+      if (f.repaymentPeriod) setRepaymentPeriod(String(f.repaymentPeriod));
+      setTenantPhone(str(f.tenantPhone));
+      if (f.tenantNameParts) setTenantNameParts(f.tenantNameParts);
+      setNationalId(str(f.nationalId));
+      setLanguage(str(f.language));
+      if (typeof f.noSmartphone === 'boolean') setNoSmartphone(f.noSmartphone);
+      setFamilySize(str(f.familySize));
+      setWork(str(f.work));
+      setWorkLocation(str(f.workLocation));
+      if (f.landlord) setLandlord(f.landlord);
+      if (f.house) setHouse(f.house);
+      if (typeof f.houseChoiceMade === 'boolean') setHouseChoiceMade(f.houseChoiceMade);
+      if (f.location) setLocation(f.location);
+      setAddress(str(f.address));
+      setDistrict(str(f.district));
+      setCategory(str(f.category));
+      // A face-check result stored with a draft is never trusted: the photo is checked again below.
+      if (f.gps) setGps(f.gps);
+      setLc1Phone(str(f.lc1Phone));
+      if (f.lc1Match) setLc1Match(f.lc1Match);
+      if (f.lc1Mode) setLc1Mode(f.lc1Mode);
+      if (f.lc1NameParts) setLc1NameParts(f.lc1NameParts);
+      setLc1Village(str(f.lc1Village));
+      setCity(str(f.city));
+      if (typeof f.noLc1Letter === 'boolean') setNoLc1Letter(f.noLc1Letter);
+      setNoLc1Reason(str(f.noLc1Reason));
+      setPayoutDay(str(f.payoutDay));
+      if (str(f.landlordCode)) setLandlordCode(str(f.landlordCode));
+      const ph = request.draft.payload?.photos;
+      void (async () => {
+        const back = async (d: DraftPhoto | null | undefined, name: string): Promise<Photo | null> => {
+          const file = await downloadDraftPhoto(d, name);
+          if (!file || !d) return null;
+          draftPaths.current.set(file, d);
+          return { file, preview: URL.createObjectURL(file) };
+        };
+        const [house4, tp, front, backSide, letter] = await Promise.all([
+          Promise.all([0, 1, 2, 3].map((i) => back(ph?.house?.[i], `house_${i}.jpg`))),
+          back(ph?.tenantPhoto, 'tenant_photo.jpg'),
+          back(ph?.idFront, 'id_front.jpg'),
+          back(ph?.idBack, 'id_back.jpg'),
+          back(ph?.lcLetter, 'lc_letter.jpg'),
+        ]);
+        if (cancelled) return;
+        setHousePhotos(house4);
+        setTenantPhoto(tp);
+        // Re-run the passport face check on the photo that came back, before choosing where to
+        // open: a photo that fails now is caught here, whatever was true when it was saved.
+        if (tp?.file) {
+          setFaceCheck({ status: 'checking' });
+          const check = await runPassportFaceCheck(tp.file, { source: 'agent_rent_request' });
+          if (cancelled) return;
+          setFaceCheck(check);
+          // A photo that fails now opens first; its step says "No face found. Tap the photo to retake it."
+          if (faceCheckBlocker(check)) jumpFirst.current = 'tenantPhoto';
+        } else {
+          setFaceCheck(null);
+        }
+        setIdFront(front);
+        setIdBack(backSide);
+        setLcLetter(letter);
+        setJumpToMissing(true);
+      })();
+      return () => { cancelled = true; };
+    }
     if (request.mode === 'new') {
       const p = request.prefill;
       if (!p) return;
@@ -858,6 +1034,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
   /** Rejects a wrong answer: says what is wrong, offers a fix if there is one, adds a tip on the third try. */
   const reject = (s: StepId, problem: string, text = draft) => {
+    if (tracking) blockedNow([STEP_FUNNEL_ITEM[s] ?? 'other']);
     const tries = (wrongTries[s] ?? 0) + 1;
     setWrongTries((t) => ({ ...t, [s]: tries }));
     const tip = tries >= 3 ? tipFor(s) : null;
@@ -882,9 +1059,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     }
     if (verdict.status === 'free') return true;
     if (verdict.status === 'unknown') {
+      if (tracking) blockedNow(['other'], 'record_check_unavailable');
       setError('I couldn’t check Welile’s records just now. Check your connection and send it again.');
       return false;
     }
+    if (tracking) blockedNow(['duplicate']);
     setRecordBlock(blockFor(step, verdict.hit === 'self', value));
     return false;
   }
@@ -1133,15 +1312,29 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const post = async () => {
     if (mode === 'resubmit') return postResubmit();
     if (mode === 'renewal') return postRenewalPlan();
+    if (gateBlocked) return;
     if (!user || !fees || !landlord || !tenantPhoto || posting) return;
-    if (missing.length) { setError(`Still missing: ${missing.map((m) => m.label).join(', ')}.`); return; }
-    if (!consent) { setError('Tick the box to accept guarantor responsibility.'); return; }
+    if (missing.length) {
+      blockedNow(t4FunnelItems(missing.map((m) => m.key)));
+      setError(`Still missing: ${missing.map((m) => m.label).join(', ')}.`);
+      return;
+    }
+    if (!consent) { blockedNow(['agreement']); setError('Tick the box to accept guarantor responsibility.'); return; }
     // Required intake: every step checks its own answer; this catches anything skipped.
     const intakeMissing = (!isFullName(tenantName) && 'Type the tenant’s full name (first and last), as on the ID.')
       || familySizeProblem(familySize)
       || workProblem(work)
       || lc1LetterProblem({ hasLetter: !!lcLetter, noLetterYet: noLc1Letter, reason: noLc1Reason });
-    if (intakeMissing) { setError(`${intakeMissing} Tap the answer above to fix it.`); return; }
+    if (intakeMissing) {
+      blockedNow([
+        !isFullName(tenantName) ? 'other'
+          : familySizeProblem(familySize) ? 'family_size'
+            : workProblem(work) ? 'work'
+              : 'lc1_letter',
+      ]);
+      setError(`${intakeMissing} Tap the answer above to fix it.`);
+      return;
+    }
     setPosting(true);
     setSendProgress(null);
     setError(null);
@@ -1156,6 +1349,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     const [phoneNow, ninNow] = await Promise.all([checkTenantPhone(tenantPhone, agentSelf), checkNationalId(nationalId, agentSelf)]);
     for (const [step, verdict, value] of [['tenantPhone', phoneNow, tenantPhone], ['nationalId', ninNow, nationalId]] as const) {
       if (verdict.status === 'taken') {
+        blockedNow(['duplicate']);
         setPosting(false);
         setSendProgress(null);
         setCurrent(step);
@@ -1163,6 +1357,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         return;
       }
       if (verdict.status === 'unknown') {
+        blockedNow(['other'], 'record_check_unavailable');
         setPosting(false);
         setSendProgress(null);
         setError('I couldn’t check Welile’s records just now. Check your connection and tap Post again.');
@@ -1205,6 +1400,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       noLc1Reason: null,
     });
     if (res.ok) {
+      funnel.submitOk(res.rentRequestId);
+      if (draftId) void closeDraft(draftId, 'posted', res.rentRequestId);
       setPosting(false);
       setSendProgress({ phase: 'sent' });
       hapticSuccess();
@@ -1217,6 +1414,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         lc1NoteError: res.lc1NoteError,
         docErrors: [],
       });
+      // E107: the landlord referral code is recorded on the saved request. It never blocks or
+      // delays the request; an unknown code is only noted on the "sent" screen.
+      const newId = res.rentRequestId;
+      void recordLandlordReferral(newId, landlordCode).then((o) => {
+        if (o && 'message' in o) setResult((r) => (r && r.id === newId ? { ...r, referralError: o.message } : r));
+      });
       onSuccess?.(res.rentRequestId);
       request?.onDone?.(res.rentRequestId);
       return;
@@ -1224,6 +1427,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setPosting(false);
     setSendProgress(null);
     const fail = res as Extract<AssistantSubmitResult, { ok: false }>;
+    // The server refused: a blocked press and a failed submit, with the server's error code.
+    const refusalItems: FunnelItem[] = [REFUSAL_FUNNEL_ITEM[fail.reason] ?? 'other'];
+    const refusalCode = funnelErrorCode(fail.message, fail.reason);
+    setRefusalItems(refusalItems);
+    blockedNow(refusalItems, refusalCode);
+    funnel.submitFail(refusalCode, refusalItems);
     if (fail.raw && promptIfNotVetted(fail.raw, fail.message)) {
       setError(agentNotVettedReason(fail.raw) ?? agentNotVettedReason(fail.message) ?? fail.message);
       return;
@@ -1263,6 +1472,96 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     resubmitsLeft: !rejected || resubmitAttemptsLeft(rejected.reopen_count, rejected.rejected_reason) !== 0,
   };
   const missing = t4Missing(mode, facts, rejected?.registration_type, openStatus);
+  const doneKey = (Object.keys(facts) as T4ItemKey[]).filter((k) => facts[k]).sort().join(',');
+  useEffect(() => {
+    if (!open || !tracking) return;
+    for (const k of doneKey.split(',')) {
+      const item = T4_FUNNEL_ITEM[k as T4ItemKey];
+      if (item) funnel.itemDone(item);
+    }
+  }, [doneKey, open, tracking, funnel]);
+  useEffect(() => {
+    if (!jumpToMissing) return;
+    setJumpToMissing(false);
+    const forced = jumpFirst.current && steps.includes(jumpFirst.current) ? jumpFirst.current : null;
+    jumpFirst.current = null;
+    const first = forced ?? missing.map((m) => ITEM_STEP[m.key]).find((st): st is StepId => !!st && steps.includes(st));
+    setFurthest('review');
+    setCurrent(first ?? 'review');
+  }, [jumpToMissing, missing, steps]);
+
+  /** Everything entered so far, photos as storage paths (uploaded now when new). */
+  const handleSaveDraft = async () => {
+    if (!user || savingDraft) return;
+    setSavingDraft(true);
+    setDraftNote(null);
+    try {
+      const store = async (ph: Photo | null, kind: DraftPhotoKind, i = 0): Promise<DraftPhoto | null> => {
+        if (!ph?.file) return null;
+        const known = draftPaths.current.get(ph.file);
+        if (known) return known;
+        const stored = await uploadDraftPhoto(user.id, draftFolder.current, kind, ph.file, i);
+        draftPaths.current.set(ph.file, stored);
+        return stored;
+      };
+      const [house4, tp, front, backSide, letter] = await Promise.all([
+        Promise.all(housePhotos.map((ph, i) => store(ph, 'house', i))),
+        store(tenantPhoto, 'tenant_photo'),
+        store(idFront, 'id_front'),
+        store(idBack, 'id_back'),
+        store(lcLetter, 'lc1_letter'),
+      ]);
+      const payload: PostingDraftPayload = {
+        v: 1,
+        fields: {
+          planType, rentText, duration, repaymentPeriod, tenantPhone, tenantNameParts, nationalId, language, noSmartphone,
+          familySize, work, workLocation, landlord, house, houseChoiceMade, location, address, district, category,
+          // Not saved: the face-check result (re-run on Continue) and guarantor consent (ticked again).
+          gps, lc1Phone, lc1Match, lc1Mode, lc1NameParts, lc1Village, city, noLc1Letter, noLc1Reason, payoutDay, landlordCode,
+        },
+        photos: { house: house4, tenantPhoto: tp, idFront: front, idBack: backSide, lcLetter: letter },
+      };
+      const missingItems = Array.from(new Set([...t4FunnelItems(missing.map((m) => m.key)), ...refusalItems]));
+      const res = await saveDraft({
+        payload,
+        missing: missingItems.length ? missingItems : ['other'],
+        tenantName: tenantName || null,
+        tenantPhone: tenantPhone || null,
+        draftId,
+        session: funnel.session,
+      });
+      if ('id' in res) {
+        setDraftId(res.id || draftId);
+        setDraftNote({ ok: true, text: DRAFT_SAVED_MESSAGE });
+        funnel.close({ saved_draft: true });
+      } else if (!res.missingRpc) {
+        // The RPC not being there hides the button (draftsOk); anything else is said as it came.
+        setDraftNote({ ok: false, text: res.message });
+      }
+    } catch (e) {
+      setDraftNote({ ok: false, text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+  const showSaveDraft = tracking && draftsOk === true && !result;
+  const saveDraftBlock = (
+    <div className="flex flex-col gap-1" data-testid="save-draft">
+      <button
+        type="button"
+        onClick={() => void handleSaveDraft()}
+        disabled={savingDraft}
+        className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-primary/40 bg-background text-sm font-semibold text-primary disabled:opacity-60"
+      >
+        {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {savingDraft ? 'Saving…' : draftId ? 'Save changes for later' : 'Save and finish later'}
+      </button>
+      {draftNote && (
+        <p className={cn('text-xs', draftNote.ok ? 'text-success' : 'text-destructive')} role="status">{draftNote.text}</p>
+      )}
+    </div>
+  );
+
   const fixItem = (k: T4ItemKey) => {
     const s = ITEM_STEP[k];
     if (!s) return;
@@ -1468,8 +1767,24 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             </div>
           )}
 
-          {(
+          {gateBlocked ? (
+            <Bot>
+              <Bubble tone="warn">
+                <span data-testid="vetting-blocked">
+                  <b>Complete your agent verification to post rent requests.</b>{' '}
+                  {gate?.reason ?? ''}{' '}
+                  <a href={AGENT_VERIFICATION_PATH} className="font-semibold underline underline-offset-4">Go to verification</a>
+                </span>
+              </Bubble>
+            </Bot>
+          ) : (
             <>
+              {vettingNotice && !result && (
+                <div className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm" role="note" data-testid="vetting-notice">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <span>{vettingNotice} <a href={AGENT_VERIFICATION_PATH} className="font-semibold text-primary underline underline-offset-4">Complete verification</a></span>
+                </div>
+              )}
               {typeof collectionPct === 'number' && (
                 <Bot><Bubble><span data-testid="collection-info">{collectionInfoLine(collectionPct)}</span></Bubble></Bot>
               )}
@@ -1525,6 +1840,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                       {mode === 'new' && !result.existing && ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.`}
                     </Bubble>
                   </Bot>
+                  {vettingNotice && (
+                    <div className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm" role="note" data-testid="vetting-notice">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <span>{vettingNotice} <a href={AGENT_VERIFICATION_PATH} className="font-semibold text-primary underline underline-offset-4">Complete verification</a></span>
+                </div>
+                  )}
                   {result.lcLetterFailed && <Bot><Bubble tone="warn">The LC letter didn’t upload. Add it later from My rent requests.</Bubble></Bot>}
                   {result.docErrors.map((e) => (
                     <Bot key={e}><Bubble tone="warn"><b>Not saved:</b> {e}</Bubble></Bot>
@@ -1534,6 +1855,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                   )}
                   {result.lc1AttachError && (
                     <Bot><Bubble tone="warn"><b>LC1 letter not saved:</b> {result.lc1AttachError}</Bubble></Bot>
+                  )}
+                  {result.referralError && (
+                    <Bot><Bubble tone="warn"><span data-testid="landlord-referral-note"><b>Landlord referral code {landlordCode}:</b> {result.referralError}. The request was still sent.</span></Bubble></Bot>
                   )}
                   {result.intakeError && (
                     <Bot>
@@ -1554,8 +1878,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         </div>
       </div>
 
-      {!result && current !== 'review' && (
+      {!result && !gateBlocked && current !== 'review' && (
         <footer className="border-t border-border bg-card px-3 pb-safe pt-2.5">
+          {showSaveDraft && saveOffer && <div className="mx-auto max-w-xl pb-2">{saveDraftBlock}</div>}
           <div className="mx-auto flex max-w-xl items-center gap-2 pb-3">
             {isTextStep ? (
               <form
@@ -1916,18 +2241,42 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
               <Row k="Household" v={answerOf('familySize')} />
               <Row k="Work" v={`${work}${workLocation ? ` · ${workLocation}` : ''}`} />
               <Row k="Landlord paid on" v={`The ${ordinal(payoutDay)}`} />
+              {landlordCode && <Row k="Landlord referral code" v={landlordCode} />}
               </>
               )}
             </div>
             {mode === 'renewal' && <p className="text-sm text-muted-foreground">Next you set the new rent and days, then {tenantNameParts.firstName || 'the tenant'} confirms with the code we text them.</p>}
+            {mode === 'new' && (
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-semibold">Landlord referral code <span className="font-normal text-muted-foreground">(optional)</span></span>
+                <Input
+                  value={landlordCode}
+                  onChange={(e) => setLandlordCode(normalizeLandlordCode(e.target.value))}
+                  placeholder="e.g. L4K7Q2M9X"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-label="Landlord referral code"
+                  className="h-11 font-mono uppercase"
+                />
+                <span className="text-xs text-muted-foreground">From the landlord&apos;s link: L followed by 8 letters or numbers.</span>
+              </label>
+            )}
             {mode === 'new' && <GuarantorConsentCheckbox checked={consent} onCheckedChange={(c) => { setConsent(c); setError(null); }} />}
             <MissingChecklist items={missing} onFix={fixItem} />
+            {showSaveDraft && (missing.length > 0 || saveOffer) && saveDraftBlock}
+            {/* A tap on the disabled button lands on this wrapper: still a blocked press (E108). */}
+            <div
+              className="flex flex-col"
+              onClick={() => { if (tracking && !posting && missing.length > 0) blockedNow(t4FunnelItems(missing.map((m) => m.key))); }}
+              data-testid="send-button-wrap"
+            >
             <button
               type="button"
               onClick={() => void post()}
               disabled={posting || sendProgress?.phase === 'sent' || missing.length > 0 || (mode === 'resubmit' && !original)}
               aria-live="polite"
-              className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary font-display text-base font-bold text-primary-foreground shadow-lg disabled:opacity-50"
+              className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary font-display text-base font-bold text-primary-foreground shadow-lg disabled:pointer-events-none disabled:opacity-50"
               data-testid="send-button"
             >
               {sendProgress?.phase === 'sent'
@@ -1936,6 +2285,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                   ? <><Loader2 className="h-5 w-5 animate-spin" /> {sendButtonLabel(sendProgress, 'Sending…')}</>
                   : <><Send className="h-5 w-5" /> {mode === 'resubmit' ? 'Resubmit rent request' : mode === 'renewal' ? 'Renew Rent Plan' : 'Post rent request'}</>}
             </button>
+            </div>
           </div>
         );
       default:

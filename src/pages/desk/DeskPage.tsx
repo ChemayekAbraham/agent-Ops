@@ -8,6 +8,10 @@ import { DESKS, DESK_ALIASES, feedsOf, landingDesk, show, type Desk, type Getter
 import { useDeskFeeds, type FeedState, type Row } from './useDeskFeed';
 import { DeskTable, type ReviewHook } from './DeskTable';
 import { CommandCentre } from './CommandCentre';
+import { AgentArrearsTab } from './arrears/AgentArrearsTab';
+import { TenantArrearsTab } from './arrears/TenantArrearsTab';
+import { ReferralLandlords } from './ReferralLandlords';
+import { PostingFunnelCard } from './coo/PostingFunnel';
 import { TileGrid } from './Tiles';
 import { SkeletonLead, SkeletonTiles } from './Skeleton';
 import { DeskPrefsProvider, KampalaClock, clockTime, useDeskPrefs } from './deskPrefs';
@@ -30,6 +34,7 @@ import type { Period as FundersPeriod } from './cfo/cfoApi';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
 import { DeskSwitcher, DeskTabs } from './DeskTabs';
+import { useOpenConcernsCount } from './concerns/concernsQueueApi';
 import { DecisionButton, Sheet, atLeast, useBreakpoint, type Breakpoint } from './ui';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
 import { ReadyBoard, type DrawerContext, type DrawerStart, type OpenDrawer } from './ReadyBoard';
@@ -68,6 +73,10 @@ const QUEUE_TABLE: Record<string, string> = {
 const EXTRA_TAB: Record<string, string> = {
   'partner-ops': 'Funder board — preview',
   ontology: 'Ontology',
+  // E102: the arrears watch, per desk; E107: landlords whose tenants pay well.
+  'agent-ops': 'Arrears calls',
+  'tenant-ops': 'Arrears calls',
+  'landlord-ops': 'Referral landlords',
 };
 
 function ToolButton({
@@ -319,6 +328,9 @@ export function DeskHeader({
   board: boolean;
   bp: Breakpoint;
 }) {
+  // E64: open concerns on the Command centre tab, for people who can open that desk.
+  const openConcerns = useOpenConcernsCount(allowed.some((d) => d.id === 'command'));
+  const tabCounts = { command: openConcerns };
   if (!atLeast(bp, 'md')) {
     return (
       <header
@@ -327,7 +339,7 @@ export function DeskHeader({
         style={{ position: 'sticky', top: 0, zIndex: 30, display: 'flex', alignItems: 'center', gap: 8, minHeight: 52, maxHeight: 56, margin: '0 -1rem', padding: '2px 1rem', minWidth: 0 }}
       >
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', alignItems: 'center' }}>
-          <DeskSwitcher desks={allowed} activeId={desk.id} board={board} />
+          <DeskSwitcher desks={allowed} activeId={desk.id} board={board} counts={tabCounts} />
         </div>
         <LivePill dotOnly={bp === 'xs'} />
         <ShortClock />
@@ -355,7 +367,7 @@ export function DeskHeader({
         <Toolbar updated={updated} failed={failed} board={board} bp={bp} />
       </div>
 
-      {allowed.length > 1 && <DeskTabs desks={allowed} activeId={desk.id} board={board} />}
+      {allowed.length > 1 && <DeskTabs desks={allowed} activeId={desk.id} board={board} counts={tabCounts} />}
     </header>
   );
 }
@@ -591,6 +603,9 @@ function DeskView({
     <>
       {extraTab && tab === 'extra' && desk.id === 'partner-ops' && <FunderBoard board={board} />}
       {extraTab && tab === 'extra' && desk.id === 'ontology' && <OntologyTab board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'agent-ops' && <AgentArrearsTab board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'tenant-ops' && <TenantArrearsTab board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'landlord-ops' && <ReferralLandlords board={board} />}
     </>
   );
 
@@ -639,6 +654,7 @@ function DeskView({
         ) : (
           <p className="text-sm text-muted-foreground">The Service Centre desk is switched off right now. Try again later.</p>
         )}
+        {checklistOn && <PostingFunnelCard board={board} />}
         {drawer}
       </div>
     );
@@ -679,6 +695,8 @@ function DeskView({
         </section>
 
         {desk.id === 'agent-ops' && <AgentRankingFold board={board} />}
+        {/* E108: where rent requests get stuck before they are posted. */}
+        {(desk.id === 'agent-ops' || desk.id === 'service-centre') && <PostingFunnelCard board={board} />}
         <AgentsLiveFold deskId={desk.id} board={board} />
         <WaitingOnFold deskId={desk.id} board={board} />
         <DoneTodayFold deskId={desk.id} board={board} />

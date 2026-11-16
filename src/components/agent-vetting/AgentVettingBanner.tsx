@@ -23,9 +23,8 @@ export default function AgentVettingBanner() {
           </p>
           {!submitted && (
             <p className="text-sm text-muted-foreground leading-snug">
-              {vetting.enforced
-                ? 'You need to be verified to add tenants and post Rent Plan requests.'
-                : `${done} of ${total} done`}
+              {/* E111: posting is open; unverified agents' requests wait at the COO. */}
+              {`${done} of ${total} done · You can post rent requests. They wait at the COO until you are verified.`}
             </p>
           )}
         </div>

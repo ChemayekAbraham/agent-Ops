@@ -128,6 +128,12 @@ export type GateStatus = {
   /** The server's message; for 'expired' it says how to verify again. */
   reason: string | null;
   expires_at: string | null;
+  /** E111: Agent Ops has verified this agent (null when the server did not say). */
+  vetted: boolean | null;
+  /** E111: the agent's requests post, but wait at the COO / funders' board until verified. */
+  funding_frozen: boolean;
+  /** E111: a calm line for the agent, e.g. "You can post rent requests. They wait at the COO…". */
+  notice: string | null;
 };
 
 export function parseGateStatus(raw: unknown): GateStatus {
@@ -141,6 +147,9 @@ export function parseGateStatus(raw: unknown): GateStatus {
     blocked: o.blocked === true,
     reason: s(o.reason) ?? s(o.message),
     expires_at: s(o.expires_at),
+    vetted: typeof o.vetted === 'boolean' ? o.vetted : null,
+    funding_frozen: o.funding_frozen === true,
+    notice: s(o.notice),
   };
 }
 
