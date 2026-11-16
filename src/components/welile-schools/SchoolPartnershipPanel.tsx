@@ -74,6 +74,9 @@ export default function SchoolPartnershipPanel({ school }: { school: SchoolRow }
   const refresh = () => qc.invalidateQueries({ queryKey });
 
   const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [details, setDetails] = useState<PartnershipDraft>(() => draftFrom(partnership));
+  useEffect(() => { setDetails(draftFrom(partnership)); }, [partnership]);
   const missing = useMemo(() => missingForSubmit(partnership, terms, fees, todayKampala()), [partnership, terms, fees]);
 
   if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
@@ -89,6 +92,21 @@ export default function SchoolPartnershipPanel({ school }: { school: SchoolRow }
       toast.error('Could not submit', { description: partnershipErrorMessage(e) });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /** Saves the bursar and payout details as they are, without sending to ops. Terms and the agreement save on their own. */
+  const saveDraft = async () => {
+    if (Object.keys(partnershipDraftErrors(details)).length) { toast.error('Check the highlighted fields'); return; }
+    setSavingDraft(true);
+    try {
+      await savePartnership(school.id, details, null);
+      toast.success('Draft saved', { description: 'You can come back and finish it later.' });
+      refresh();
+    } catch (e) {
+      toast.error('Could not save the draft', { description: partnershipErrorMessage(e) });
+    } finally {
+      setSavingDraft(false);
     }
   };
 
@@ -113,7 +131,7 @@ export default function SchoolPartnershipPanel({ school }: { school: SchoolRow }
         {status === 'approved' && <p className="text-sm text-muted-foreground">This school is a Welile Schools partner. If its terms or fees change, ask Welile ops to update them.</p>}
       </Card>
 
-      <PartnershipDetailsCard school={school} partnership={partnership} editable={editable} onSaved={refresh} />
+      <PartnershipDetailsCard school={school} partnership={partnership} editable={editable} onSaved={refresh} draft={details} setDraft={setDetails} />
       <TermsCard schoolId={school.id} terms={terms} fees={fees} editable={editable} onSaved={refresh} />
       <AgreementCard school={school} partnership={partnership} editable={editable} onSaved={refresh} />
 
@@ -134,10 +152,12 @@ export default function SchoolPartnershipPanel({ school }: { school: SchoolRow }
   );
 }
 
-function PartnershipDetailsCard({ school, partnership, editable, onSaved }: { school: SchoolRow; partnership: PartnershipRow | null; editable: boolean; onSaved: () => void }) {
-  const [draft, setDraft] = useState<PartnershipDraft>(() => draftFrom(partnership));
+function PartnershipDetailsCard({ school, partnership, editable, onSaved, draft, setDraft }: {
+  school: SchoolRow; partnership: PartnershipRow | null; editable: boolean; onSaved: () => void;
+  // Held by the panel so "Save as draft" can save what is typed here.
+  draft: PartnershipDraft; setDraft: React.Dispatch<React.SetStateAction<PartnershipDraft>>;
+}) {
   const [saving, setSaving] = useState(false);
-  useEffect(() => { setDraft(draftFrom(partnership)); }, [partnership]);
   const errors = partnershipDraftErrors(draft);
   const set = (patch: Partial<PartnershipDraft>) => setDraft((d) => ({ ...d, ...patch }));
   const dirty = JSON.stringify(draft) !== JSON.stringify(draftFrom(partnership));
