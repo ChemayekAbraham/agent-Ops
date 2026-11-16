@@ -81,6 +81,7 @@ export function ReadyToRenewCard() {
                 <p className="text-xs text-muted-foreground">
                   {formatUGX(row.lastRent)} · {row.lastDays} days
                   {done ? ` · Completed ${done}` : ''}
+                  {row.ref ? ` · ${row.ref}` : ''}
                 </p>
               </div>
               <Button size="sm" className="shrink-0" onClick={() => renewRow(row)}>

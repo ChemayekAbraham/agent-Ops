@@ -26,37 +26,50 @@ beforeEach(() => {
   openMock.mockReset();
 });
 
+/** A row exactly as ready_to_renew returns it (E128). */
+const exactRow = (over: Record<string, unknown> = {}) => ({
+  last_request_id: '6f1c2a9e-0000-4000-8000-000000000001', ref: 'RR-1042',
+  tenant: { id: 't-1', name: 'Grace Nakato', phone: '0700000001' },
+  agent: { id: 'a-2', name: 'Agent Two', phone: '0700000002' },
+  last_rent: 300000, last_days: 30, repaid: 420000, total: 420000,
+  completed_on: '2026-11-01', tenant_asked: false,
+  ...over,
+});
+
 describe('ReadyToRenewCard', () => {
-  it('lists tenant-asked rows first and Renew opens the T4 renewal', async () => {
-    rpcMock.mockResolvedValue({
-      data: [
-        { prev_request_id: 'rr-new', tenant: { id: 't-1', name: 'Newest Done', phone: '0701' }, agent: { id: 'a-1', name: 'Me' }, last_rent: 200000, last_days: 30, completed_on: '2026-11-10', tenant_asked: false },
-        { prev_request_id: 'rr-asked', tenant: { id: 't-2', name: 'Asked Tenant', phone: '0702' }, agent: { id: 'a-2', name: 'Other' }, last_rent: 350000, last_days: 60, completed_on: '2026-10-01', tenant_asked: true },
-      ],
-      error: null,
-    });
+  it('one row in the exact E128 shape renders, and Renew opens the renewal (step 1) with last_request_id', async () => {
+    rpcMock.mockResolvedValue({ data: [exactRow()], error: null });
     renderCard();
-
-    const rows = await screen.findAllByTestId('ready-to-renew-row');
+    const [row] = await screen.findAllByTestId('ready-to-renew-row');
     expect(rpcMock).toHaveBeenCalledWith('ready_to_renew', {});
-    expect(screen.getByText('Ready to renew (2)')).toBeInTheDocument();
-    expect(within(rows[0]).getByText('Asked Tenant')).toBeInTheDocument();
-    expect(within(rows[0]).getByText('Tenant asked')).toBeInTheDocument();
-    expect(within(rows[1]).getByText('Newest Done')).toBeInTheDocument();
-    expect(within(rows[1]).queryByText('Tenant asked')).toBeNull();
-    expect(rows[0].textContent).toMatch(/350,000/);
-    expect(rows[0].textContent).toMatch(/60 days/);
-    expect(rows[0].textContent).toMatch(/Completed 1 Oct 2026/);
-
-    await userEvent.click(within(rows[0]).getByRole('button', { name: 'Renew' }));
+    expect(screen.getByText('Ready to renew (1)')).toBeInTheDocument();
+    expect(within(row).getByText('Grace Nakato')).toBeInTheDocument();
+    expect(row.textContent).toMatch(/300,000 · 30 days · Completed 1 Nov 2026 · RR-1042/);
+    await userEvent.click(within(row).getByRole('button', { name: 'Renew' }));
     expect(openMock).toHaveBeenCalledWith({
       mode: 'renewal',
       entry: 'ready-to-renew',
       renewal: {
-        prevId: 'rr-asked', tenantId: 't-2', tenantName: 'Asked Tenant', tenantPhone: '0702',
-        currentRent: 350000, currentDays: 60, agentId: 'a-2', tenantAsked: true,
+        prevId: '6f1c2a9e-0000-4000-8000-000000000001', tenantId: 't-1', tenantName: 'Grace Nakato', tenantPhone: '0700000001',
+        currentRent: 300000, currentDays: 30, agentId: 'a-2', tenantAsked: false,
       },
     });
+  });
+
+  it('lists tenant-asked rows first', async () => {
+    rpcMock.mockResolvedValue({
+      data: [
+        exactRow({ last_request_id: 'rr-new', tenant: { id: 't-1', name: 'Newest Done', phone: '0701' }, completed_on: '2026-11-10' }),
+        exactRow({ last_request_id: 'rr-asked', tenant: { id: 't-2', name: 'Asked Tenant', phone: '0702' }, completed_on: '2026-10-01', tenant_asked: true }),
+      ],
+      error: null,
+    });
+    renderCard();
+    const rows = await screen.findAllByTestId('ready-to-renew-row');
+    expect(within(rows[0]).getByText('Asked Tenant')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('Tenant asked')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('Newest Done')).toBeInTheDocument();
+    expect(within(rows[1]).queryByText('Tenant asked')).toBeNull();
   });
 
   it('renders nothing when the list is empty', async () => {
