@@ -26,6 +26,7 @@ import { PaymentHealthPanel } from './paymentHealth';
 import { ConcernsSection, concernDeskFor } from './concerns';
 import { LandlordContextPanel, RENT_EXACT_HINT, ScriptPanel, rentOnRequestText, useLandlordContext } from './landlordOps';
 import { DecisionButton, atLeast, stackLayout, useBreakpoint } from './ui';
+import { CooOverrideLine } from '@/components/coo/CooOverrideLine';
 import type { DrawerContext, DrawerStart } from './ReadyBoard';
 import {
   lcLetterUrl,
@@ -606,6 +607,8 @@ export function ReviewDrawer({
             // Hidden rather than unmounted on the Photos tab, so ticks and notes survive a tab switch.
             <div className={tab !== 'review' ? 'hidden' : 'space-y-5'}>
               {ctx?.facts}
+              {/* E131: pushed by the COO with items missing — what was missing and why. */}
+              <CooOverrideLine requestId={requestId} />
               {/* E124: the system's face-photo FLAG, in red, above the photos (Tenant Ops). */}
               {photoFlag && (
                 <p role="alert" className={`rounded-md border border-[hsl(var(--destructive)/0.6)] bg-[hsl(var(--destructive)/0.12)] p-3 text-sm font-semibold ${statusText.bad}`} style={{ margin: 0 }} data-photo-flag>

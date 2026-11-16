@@ -176,7 +176,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
 
       <div className="flex flex-col gap-3 p-3.5 @[420px]:p-4">
         {/* COO/CEO: what is still missing, above the demote control. */}
-        {category === 'ready' ? <FundersIncompleteChip items={incomplete} /> : null}
+        {category === 'ready' ? <FundersIncompleteChip items={incomplete} requestId={planId} /> : null}
         {demoteMode ? (
           <label
             data-testid="fv3-demote-check"

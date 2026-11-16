@@ -20,6 +20,7 @@ import { MissingLine, SendBackIncompleteSheet } from './incomplete';
 import { missingChip } from './boardRowModel';
 import { awaitingRentRequestIds } from '@/lib/fundersBoard';
 import { useCooDemoted } from './fundersBoard/DemotedPanel';
+import { PushAnywaySheet, isHeldForMissing } from './pushAnyway';
 import {
   AgentGradeBadge,
   AgentGradeBody,
@@ -80,6 +81,8 @@ export type CooRow = {
   frozen?: { reason: string | null; since: string | null; returns_to_agent_ops_at: string | null } | null;
   /** E62: a serious concern is open on this request; the server will not push it. */
   concern_block?: boolean | null;
+  /** The tenant, agent and landlord phones differ; the server will not push it. */
+  phone_block?: boolean | null;
   /** E58: demoted from the funders board and waiting for the COO to choose its level; never pushed from here. */
   demoted_awaiting?: boolean;
 };
@@ -312,6 +315,7 @@ function CooRowLine({
   onAgent,
   onSendBack,
   onSendBackAgentOps,
+  onPushAnyway,
   concerns,
   select,
 }: {
@@ -327,6 +331,8 @@ function CooRowLine({
   onSendBack: (row: CooRow) => void;
   /** E82 / E89: "Send back…" for a row that misses something (Agent Ops, Service Centre or agent). */
   onSendBackAgentOps?: (row: CooRow) => void;
+  /** E131 (COO only): push a row held only for missing items, with a reason. */
+  onPushAnyway?: (row: CooRow) => void;
   /** Concerns any desk logged on this request. */
   concerns?: ConcernSummary;
   /** Select mode: the row's tick box. */
@@ -451,6 +457,8 @@ function CooRowLine({
   // E82: what is missing, with the shortcut back to Agent Ops (the server already keeps the row from the push).
   const missingEl = <MissingLine list={row.incomplete} onSendBack={onSendBackAgentOps ? () => onSendBackAgentOps(row) : undefined} />;
   const missing = (row.incomplete ?? []).filter(Boolean).length > 0;
+  // E131: held only for missing items, the agent not frozen: the COO may push anyway.
+  const anyway = !!onPushAnyway && isHeldForMissing(row);
 
   if (layout === 'card') {
     return (
@@ -479,7 +487,13 @@ function CooRowLine({
               {ratingsBadge}
             </>
           }
-          primary={isPushable(row) ? { label: 'Push to funders', onClick: () => onPush(row) } : undefined}
+          primary={
+            isPushable(row)
+              ? { label: 'Push to funders', onClick: () => onPush(row) }
+              : anyway
+                ? { label: 'Push anyway', onClick: () => onPushAnyway!(row) }
+                : undefined
+          }
           actions={rowActions}
           menu={menu}
           menuLabel={`More for ${row.tenant ?? 'this request'}`}
@@ -520,6 +534,11 @@ function CooRowLine({
         {isPushable(row) && (
           <DecisionButton variant="primary" onClick={() => onPush(row)}>
             Push to funders
+          </DecisionButton>
+        )}
+        {anyway && (
+          <DecisionButton variant="primary" onClick={() => onPushAnyway!(row)} data-push-anyway>
+            Push anyway
           </DecisionButton>
         )}
         {rowActions}
@@ -715,6 +734,8 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
   const [n, setN] = useState(COO_PUSH_DEFAULT);
   const [confirm, setConfirm] = useState(false);
   const [pushRow, setPushRow] = useState<CooRow | null>(null);
+  // E131: rows to push anyway (one, or the ticked held ones).
+  const [anywayRows, setAnywayRows] = useState<CooRow[] | null>(null);
   const [agentRow, setAgentRow] = useState<CooRow | null>(null);
   const closeAgent = useCallback(() => setAgentRow(null), []);
   const [sendBackRow, setSendBackRow] = useState<CooRow | null>(null);
@@ -758,6 +779,8 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
 
   const canPush = q.data?.can_push === true;
   const valid = Number.isFinite(n) && n >= 1;
+  // Select mode: only rows held for missing items can be pushed anyway; frozen ones never.
+  const heldSelected = rows.filter((r) => selected.has(r.id) && isHeldForMissing(r));
 
   return (
     <section className={`${PANEL} p-4 sm:p-5`} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -843,6 +866,7 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
               onAgent={setAgentRow}
               onSendBack={setSendBackRow}
               onSendBackAgentOps={setAgentOpsRow}
+              onPushAnyway={canPush ? (row) => setAnywayRows([row]) : undefined}
               concerns={concerns.data?.[r.id]}
               select={selecting ? { checked: selected.has(r.id), onToggle: () => toggleSelected(r.id) } : undefined}
             />
@@ -865,6 +889,11 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
             <DecisionButton variant="quiet" onClick={() => setSelected(new Set())}>
               Clear
             </DecisionButton>
+            {canPush && heldSelected.length > 0 && (
+              <DecisionButton variant="primary" onClick={() => setAnywayRows(heldSelected)} data-coo-push-selected-anyway>
+                Push selected anyway ({fmt('int', heldSelected.length)})
+              </DecisionButton>
+            )}
             <DecisionButton variant="warn" onClick={() => setBulkTargets(rows.filter((r) => selected.has(r.id)).map((r) => ({ id: r.id, tenant: r.tenant })))}>
               Send back selected
             </DecisionButton>
@@ -874,6 +903,14 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
 
       {confirm && valid && <PushSheet plan={plan} n={n} onClose={() => setConfirm(false)} />}
       {pushRow && <RowPushConfirm row={pushRow} onClose={() => setPushRow(null)} />}
+      {anywayRows && (
+        <PushAnywaySheet
+          rows={anywayRows}
+          onClose={() => setAnywayRows(null)}
+          // Pushed ones leave the selection; skipped ones (a frozen agent, say) stay ticked.
+          onDone={(done) => setSelected((cur) => new Set(Array.from(cur).filter((id) => !done.includes(id))))}
+        />
+      )}
       {/* One row: the E63 sheet (offices with hints, the COO's reasons, the server's message on refusal). */}
       {sendBackRow && <SendBackSheet requestId={sendBackRow.id} stage="coo" tenant={sendBackRow.tenant} onClose={closeSendBack} />}
       {bulkTargets && (

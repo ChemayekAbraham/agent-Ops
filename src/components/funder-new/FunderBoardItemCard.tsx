@@ -73,7 +73,7 @@ export function FunderBoardItemCard({
       </div>
       <div className="flex flex-col gap-2 p-3.5">
         {/* COO/CEO: what is still missing, above the demote control (Verified only). */}
-        {item.tag === 'verified' ? <FundersIncompleteChip items={item.incomplete} /> : null}
+        {item.tag === 'verified' ? <FundersIncompleteChip items={item.incomplete} requestId={item.id} /> : null}
         {canDemote ? (
           <label
             data-testid="fv3-demote-check"
