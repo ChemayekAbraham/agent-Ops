@@ -270,18 +270,47 @@ function upsertLocalGateLog(row: SchoolGateLogRow) {
   writeLocalGateLogs(all);
 }
 
-/** Save a gate log: instant local write, then upsert to Supabase; on failure queue for retry. */
-export async function saveGateLog(row: SchoolGateLogRow): Promise<{ saved: boolean; row: SchoolGateLogRow }> {
+function removeLocalGateLog(row: SchoolGateLogRow) {
+  writeLocalGateLogs(readLocalGateLogs().filter((l) => l.id !== row.id && !(row.client_ref && l.client_ref === row.client_ref)));
+}
+
+/** The database refused a second entry (or exit) for the same student on the same day. */
+export function isDuplicateDailyMove(error: { code?: string; message?: string } | null | undefined): boolean {
+  return error?.code === '23505' && /gate_logs_one_per_day|duplicate/i.test(error?.message ?? '');
+}
+
+/**
+ * Students get one entry and one exit per day (Kampala time). Returns which of the two this
+ * student has already used today; staff and visitors are not limited.
+ */
+export function studentMovesToday(logs: SchoolGateLogRow[], profileId: string, now: Date = new Date()): { in: boolean; out: boolean } {
+  const today = eatDateKey(now);
+  const mine = logs.filter((l) => l.profile_id === profileId && eatDateKey(l.recorded_at) === today);
+  return { in: mine.some((l) => l.direction === 'in'), out: mine.some((l) => l.direction === 'out') };
+}
+
+/** Save a gate log: instant local write, then upsert to Supabase; offline it is queued for retry. */
+export async function saveGateLog(row: SchoolGateLogRow): Promise<{ saved: boolean; row: SchoolGateLogRow; error?: string }> {
   upsertLocalGateLog(row);
   const { id, created_at, ...payload } = row;
   let data: unknown = null;
-  let error: { message?: string } | null = null;
+  let error: { message?: string; code?: string } | null = null;
   try {
     ({ data, error } = await db.from('welile_school_gate_logs')
       .upsert({ id, ...payload }, { onConflict: 'client_ref', ignoreDuplicates: false })
       .select().abortSignal(saveTimeoutSignal()).single());
   } catch (e) {
-    error = { message: e instanceof Error ? e.message : String(e) };
+    error = { message: `network: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (error && !isNetworkError(error)) {
+    // Refused (e.g. a second entry today): undo the local copy and say why; never queue it.
+    removeLocalGateLog(row);
+    return {
+      saved: false, row,
+      error: isDuplicateDailyMove(error)
+        ? `${row.person_name} already has ${row.direction === 'in' ? 'an entry' : 'an exit'} recorded today.`
+        : error.message || 'The server refused this gate record.',
+    };
   }
   if (error) {
     writePendingGateLogs([...readPendingGateLogs().filter((l) => l.client_ref !== row.client_ref), row]);
@@ -299,6 +328,12 @@ export async function flipGateLogDirection(log: SchoolGateLogRow): Promise<{ sav
   writePendingGateLogs(readPendingGateLogs().map((l) => (l.id === row.id || (row.client_ref && l.client_ref === row.client_ref) ? row : l)));
   const { data, error } = await db.from('welile_school_gate_logs')
     .update({ direction: row.direction }).eq('id', row.id).select().single();
+  if (error && isDuplicateDailyMove(error)) {
+    // Flipping would give the student a second entry or exit today: put it back.
+    upsertLocalGateLog(log);
+    writePendingGateLogs(readPendingGateLogs().map((l) => (l.id === log.id || (log.client_ref && l.client_ref === log.client_ref) ? log : l)));
+    return { saved: false, row: log, error: `${log.person_name} already has ${row.direction === 'in' ? 'an entry' : 'an exit'} recorded today.` };
+  }
   if (error) return { saved: false, row };
   const saved = data as SchoolGateLogRow;
   upsertLocalGateLog(saved);
@@ -314,6 +349,8 @@ export async function flushPendingGateLogs(): Promise<number> {
     if (l.school_id.startsWith('local-')) { left.push(l); continue; }
     const { id, created_at, ...payload } = l;
     const { error } = await db.from('welile_school_gate_logs').upsert({ id, ...payload }, { onConflict: 'client_ref' });
+    // A second entry/exit made offline on the same day is dropped, not retried forever.
+    if (error && isDuplicateDailyMove(error)) { removeLocalGateLog(l); continue; }
     if (error) left.push(l); else sent++;
   }
   writePendingGateLogs(left);
