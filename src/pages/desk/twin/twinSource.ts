@@ -54,12 +54,23 @@ export function staffSource(client: SupabaseClient): TwinSource {
 
 /** A boardroom display: the code is checked by the server on every call. */
 export function boardSource(client: SupabaseClient, token: string): TwinSource {
-  const rpc = client.rpc.bind(client) as unknown as Rpc;
+  const raw = client.rpc.bind(client) as unknown as Rpc;
+  // Once the server refuses this display code, stop asking: every timed reload would only repeat the refusal.
+  let refused: TwinError | null = null;
+  const guarded = async (fn: string, args: Record<string, unknown>, s: AbortSignal) => {
+    if (refused) throw refused;
+    try {
+      return await call(raw, fn, args, s);
+    } catch (e) {
+      if (e instanceof TwinError && (e.code === '42501' || e.notAllowed)) refused = e;
+      throw e;
+    }
+  };
   return {
     kind: 'board',
-    now: async (s) => readTwin(await call(rpc, 'ops_twin_board_now', { p_token: token }, s)),
-    day: async (date, s) => readTwin(await call(rpc, 'ops_twin_board_day', { p_token: token, p_date: date }, s)),
-    history: async (days, s) => readHistory(await call(rpc, 'ops_twin_board_history', { p_token: token, p_days: days }, s)),
+    now: async (s) => readTwin(await guarded('ops_twin_board_now', { p_token: token }, s)),
+    day: async (date, s) => readTwin(await guarded('ops_twin_board_day', { p_token: token, p_date: date }, s)),
+    history: async (days, s) => readHistory(await guarded('ops_twin_board_history', { p_token: token, p_days: days }, s)),
     realtime: null,
   };
 }
