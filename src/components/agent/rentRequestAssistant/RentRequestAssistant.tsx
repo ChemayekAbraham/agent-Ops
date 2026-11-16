@@ -46,7 +46,6 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { hapticSuccess, hapticTap } from '@/lib/haptics';
 import { joinPersonName, splitPersonName, type PersonNameParts } from '@/lib/authValidation';
 import { useRenewalFlow } from '@/components/agent/RenewalDialog';
-import { resubmitAttemptsLeft } from '@/lib/rentRequestReopen';
 import {
   RESUBMIT_DAYS_MAX,
   RESUBMIT_DAYS_MIN,
@@ -1471,7 +1470,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     payoutDay: !!payoutDay,
     consent,
     note: note.trim().length >= RESUBMIT_NOTE_MIN_CHARS,
-    resubmitsLeft: !rejected || resubmitAttemptsLeft(rejected.reopen_count, rejected.rejected_reason) !== 0,
   };
   const missing = t4Missing(mode, facts, rejected?.registration_type, openStatus);
   const doneKey = (Object.keys(facts) as T4ItemKey[]).filter((k) => facts[k]).sort().join(',');

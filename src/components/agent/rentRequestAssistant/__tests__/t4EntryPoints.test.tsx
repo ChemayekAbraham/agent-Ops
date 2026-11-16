@@ -81,6 +81,16 @@ describe('old entry points open T4', () => {
     expect(mocks.refetch).toHaveBeenCalled();
   });
 
+  it('E118: a request returned 6 times still opens for resubmit; no cap, no manager reopen', () => {
+    mocks.rejected = [{ ...rejectedRequest, reopen_count: 6 }];
+    render(wrap(<AgentRejectedRequestsSection />));
+    const button = screen.getByRole('button', { name: /Edit & Resubmit/ });
+    expect(button).toBeEnabled();
+    expect(screen.queryByText(/Manager reopen required|Resubmits used|ask a manager to reopen/i)).toBeNull();
+    fireEvent.click(button);
+    expect(getT4Request()).toMatchObject({ mode: 'resubmit', rejected: { id: 'req-9', reopen_count: 6 } });
+  });
+
   it('"Post a rent request" is first in the agent hub menu and opens a new T4 request', async () => {
     render(wrap(<AgentHubDrawer open onClose={vi.fn()} />));
     const items = screen.getAllByRole('button').map((b) => b.textContent?.trim()).filter(Boolean);
