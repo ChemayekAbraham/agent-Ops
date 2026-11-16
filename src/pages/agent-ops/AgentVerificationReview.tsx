@@ -292,9 +292,9 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
       </SheetHeader>
 
       <Section title="Identity" badge={faceAt ? <Badge variant="outline" className="border-success/30 bg-success/10 text-success">Selfie matches the ID · {abs(faceAt)}</Badge> : undefined}>
-        {/* E78: the passport selfie beside the ID front, for the face check. */}
+        {/* E78: the face photo beside the ID front, for the face check. */}
         <div className="grid max-w-xl grid-cols-2 gap-3" data-face-check>
-          <div className="min-w-0 space-y-1"><p className="text-xs text-muted-foreground">Passport selfie</p><Photo url={photos.data?.passport} alt="Passport photo" /></div>
+          <div className="min-w-0 space-y-1"><p className="text-xs text-muted-foreground">Face photo</p><Photo url={photos.data?.passport} alt="Agent's face photo" /></div>
           <div className="min-w-0 space-y-1"><p className="text-xs text-muted-foreground">ID front</p><Photo url={photos.data?.id_front} alt="ID front for the face check" /></div>
         </div>
         {verdict && <Badge variant={verdict === 'fail' ? 'destructive' : verdict === 'review' ? 'outline' : 'default'}>Photo: {verdict}</Badge>}
@@ -432,7 +432,7 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
             <AlertDialogTitle>What should the agent fix?</AlertDialogTitle>
             <AlertDialogDescription>The agent sees this word for word.</AlertDialogDescription>
           </AlertDialogHeader>
-          <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="For example: Your passport photo is blurry. Please take it again in good light." />
+          <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="For example: Your face photo is blurry. Please take it again in good light." />
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-11">Cancel</AlertDialogCancel>
             <AlertDialogAction className="min-h-11" disabled={!note.trim()} onClick={() => run(false)}>Send back</AlertDialogAction>

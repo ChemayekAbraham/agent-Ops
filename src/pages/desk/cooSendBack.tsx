@@ -7,6 +7,7 @@ import { fmt } from './format';
 import { DecisionButton, ErrorLine, LoadingRows, Sheet, stackLayout } from './ui';
 import { SEND_BACK_NOTE_MIN, noteNeeded, useSendBackOptions, type SendBackReason } from './sendBack';
 import { sendBackTo } from './sendBackApi';
+import { FixItemsPicker, itemsBlocked, itemsNote, type FixItem } from './sendBackItems';
 
 /**
  * The COO sends back any request in the COO queue, frozen and held ones
@@ -58,16 +59,19 @@ export function CooSendBackSheet({ targets, onDone, onClose }: { targets: CooTar
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<CooSendBackResult | null>(null);
+  const [items, setItems] = useState<FixItem[]>([]);
   const many = targets.length > 1;
   const reason = reasons.find((r) => r.code === reasonCode) ?? null;
   const needsNote = noteNeeded(reason);
-  const blocked = !to ? 'Choose where to send it back.' : !reason ? 'Choose a reason.' : needsNote && note.trim().length < SEND_BACK_NOTE_MIN ? `Write at least ${SEND_BACK_NOTE_MIN} characters explaining the reason.` : null;
+  const blocked =
+    (!to ? 'Choose where to send it back.' : !reason ? 'Choose a reason.' : needsNote && note.trim().length < SEND_BACK_NOTE_MIN ? `Write at least ${SEND_BACK_NOTE_MIN} characters explaining the reason.` : null) ??
+    itemsBlocked(items, note);
 
   const go = async () => {
     if (blocked) return setProblem(blocked);
     setSaving(true);
     setProblem(null);
-    const r = await sendBackMany(targets, { to: to as CooDestination, reasonCode, note });
+    const r = await sendBackMany(targets, { to: to as CooDestination, reasonCode, note: itemsNote(items, note) });
     setSaving(false);
     void qc.invalidateQueries({ queryKey: ['desk-feed'] });
     if (r.done.length) onDone?.(r.done);
@@ -138,6 +142,7 @@ export function CooSendBackSheet({ targets, onDone, onClose }: { targets: CooTar
             ))}
           </div>
         </fieldset>
+        <FixItemsPicker value={items} onChange={setItems} />
         <label style={stackLayout(4)}>
           <span className={LABEL}>Reason</span>
           {codes.isLoading ? (

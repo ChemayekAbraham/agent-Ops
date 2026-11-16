@@ -143,9 +143,10 @@ describe('Service Centre Select mode', () => {
     expect(dlg.querySelector('[data-discard-warning]')).toBeNull();
     fireEvent.click(dlg.querySelector('[data-reason="OTHER"]')!);
     fireEvent.change(dlg.querySelector('[data-bulk-note]')!, { target: { value: 'Photos unreadable, please retake' } });
+    fireEvent.click(dlg.querySelector('[data-fix-item="House photos"]') as HTMLElement);
     fireEvent.click(within(dlg).getByRole('button', { name: 'Send back to agent · 1' }));
     await waitFor(() => expect(bulkCalls()).toHaveLength(1));
-    expect(bulkCalls()[0][1]).toEqual({ p_request_ids: ['r-old-1'], p_decision: 'send_back', p_reason_code: 'OTHER', p_note: 'Photos unreadable, please retake' });
+    expect(bulkCalls()[0][1]).toEqual({ p_request_ids: ['r-old-1'], p_decision: 'send_back', p_reason_code: 'OTHER', p_note: '[House photos] Photos unreadable, please retake' });
     expect(await screen.findByText('Done: 1 · Skipped: 0')).toBeTruthy();
   });
 
@@ -160,6 +161,7 @@ describe('Service Centre Select mode', () => {
     const dlg = await screen.findByRole('dialog', { name: 'Send back to agent · 1 request' });
     fireEvent.click(dlg.querySelector('[data-reason="OTHER"]')!);
     fireEvent.change(dlg.querySelector('[data-bulk-note]')!, { target: { value: 'Anything long enough' } });
+    fireEvent.click(dlg.querySelector('[data-fix-item="Rent"]') as HTMLElement);
     fireEvent.click(within(dlg).getByRole('button', { name: 'Send back to agent · 1' }));
     expect((await within(dlg).findByRole('alert')).textContent).toBe('BULK_LIMIT: at most 500 requests at a time');
   });

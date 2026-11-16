@@ -6,6 +6,7 @@ import { CALM, FOCUS, LABEL, statusText } from './deskTheme';
 import { fmt } from './format';
 import { DecisionButton, ErrorLine, Sheet, stackLayout } from './ui';
 import type { BoardRow } from './boardApi';
+import { FixItemsPicker, itemsBlocked, itemsNote, type FixItem } from './sendBackItems';
 
 /**
  * E120: Service Centre bulk Discard / Send back, `sc_bulk_decide`. The
@@ -174,15 +175,20 @@ export function BulkDialog({
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<BulkResult | null>(null);
+  const [items, setItems] = useState<FixItem[]>([]);
   const n = ids.length;
   const noteShort = note.trim().length < NOTE_MIN;
+  // A send-back names what the agent must fix; a discard goes nowhere, so it needs none.
+  const itemsProblem = decision === 'send_back' ? itemsBlocked(items, note) : null;
 
   const go = async () => {
     if (!reason) return setProblem('Choose a reason.');
     if (noteShort) return setProblem(`Write a note of at least ${NOTE_MIN} characters.`);
+    if (itemsProblem) return setProblem(itemsProblem);
     setSaving(true);
     setProblem(null);
-    const { data, error } = await rpc('sc_bulk_decide', { p_request_ids: ids, p_decision: decision, p_reason_code: reason, p_note: note.trim() });
+    const sentNote = decision === 'send_back' ? itemsNote(items, note) : note.trim();
+    const { data, error } = await rpc('sc_bulk_decide', { p_request_ids: ids, p_decision: decision, p_reason_code: reason, p_note: sentNote });
     setSaving(false);
     if (error) return setProblem(asIs(error));
     const d = (data ?? {}) as Partial<BulkResult>;
@@ -227,13 +233,14 @@ export function BulkDialog({
       footer={
         <div style={stackLayout(8)}>
           {problem && <ErrorLine>{problem}</ErrorLine>}
-          <DecisionButton variant={decision === 'reject' ? 'danger' : 'warn'} disabled={saving || !reason || noteShort} onClick={() => void go()} data-bulk-confirm>
+          <DecisionButton variant={decision === 'reject' ? 'danger' : 'warn'} disabled={saving || !reason || noteShort || !!itemsProblem} onClick={() => void go()} data-bulk-confirm>
             {saving ? 'Working…' : `${BULK_WORDS[decision]} · ${fmt('int', n)}`}
           </DecisionButton>
         </div>
       }
     >
       <div style={stackLayout(14)}>
+        {decision === 'send_back' && <FixItemsPicker value={items} onChange={setItems} />}
         <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
           <legend className={LABEL}>Reason</legend>
           <div style={{ ...stackLayout(6), marginTop: 6 }}>

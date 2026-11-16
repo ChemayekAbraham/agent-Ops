@@ -116,9 +116,10 @@ describe('every COO row can be reviewed and sent back', () => {
     await within(sheet).findByText('Agent Ops');
     fireEvent.click(sheet.querySelector('[data-office="agent_ops"]') as HTMLElement);
     fireEvent.click((await waitFor(() => sheet.querySelector('[data-reason="AGENT_FROZEN"]'))) as HTMLElement);
+    fireEvent.click(sheet.querySelector('[data-fix-item="GPS"]') as HTMLElement);
     fireEvent.click(within(sheet).getByRole('button', { name: 'Send back to Agent Ops' }));
     await waitFor(() => expect(sendBackCalls()).toHaveLength(1));
-    expect(sendBackCalls()[0][1]).toEqual({ p_request_id: 'f1', p_from_stage: 'coo', p_to: 'agent_ops', p_reason_code: 'AGENT_FROZEN', p_note: null });
+    expect(sendBackCalls()[0][1]).toEqual({ p_request_id: 'f1', p_from_stage: 'coo', p_to: 'agent_ops', p_reason_code: 'AGENT_FROZEN', p_note: '[GPS]' });
   });
 });
 
@@ -145,6 +146,7 @@ describe('Select mode on the COO queue', () => {
     const sheet = await screen.findByRole('dialog', { name: 'Send back 2 requests' });
     await within(sheet).findByText('Agent Ops');
     fireEvent.click(sheet.querySelector('[data-destination="agent_ops"]') as HTMLElement);
+    fireEvent.click(sheet.querySelector('[data-fix-item="Family size"]') as HTMLElement);
     await waitFor(() => expect(sheet.querySelector('[data-coo-reason] option[value="OTHER"]')).toBeTruthy());
     fireEvent.change(sheet.querySelector('[data-coo-reason]')!, { target: { value: 'OTHER' } });
     const confirm = within(sheet).getByRole('button', { name: 'Send back 2' }) as HTMLButtonElement;
@@ -155,8 +157,8 @@ describe('Select mode on the COO queue', () => {
 
     await waitFor(() => expect(sendBackCalls()).toHaveLength(2));
     expect(sendBackCalls().map((c) => c[1])).toEqual([
-      { p_request_id: 'f1', p_from_stage: 'coo', p_to: 'agent_ops', p_reason_code: 'OTHER', p_note: 'Agent collections under 50% for a month' },
-      { p_request_id: 'f2', p_from_stage: 'coo', p_to: 'agent_ops', p_reason_code: 'OTHER', p_note: 'Agent collections under 50% for a month' },
+      { p_request_id: 'f1', p_from_stage: 'coo', p_to: 'agent_ops', p_reason_code: 'OTHER', p_note: '[Family size] Agent collections under 50% for a month' },
+      { p_request_id: 'f2', p_from_stage: 'coo', p_to: 'agent_ops', p_reason_code: 'OTHER', p_note: '[Family size] Agent collections under 50% for a month' },
     ]);
     const result = await screen.findByRole('dialog', { name: 'Send back 2 requests' });
     expect((await waitFor(() => result.querySelector('[data-coo-bulk-summary]') as HTMLElement)).textContent).toBe('Done 1 · Skipped 1');
