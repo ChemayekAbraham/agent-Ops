@@ -647,7 +647,8 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
                 )}
               </div>
             )}
-            {group === 'pupil' && !tertiary && <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>}
+            {/* Only once a class is chosen, and only for nursery to secondary (not vocational / university). */}
+            {group === 'pupil' && !!f.class_grade && !tertiary && <Field label="Day or boarding"><Chips options={['Day', 'Boarding']} value={f.boarding_status ?? ''} onChange={(v) => setF((d) => ({ ...d, boarding_status: v }))} /></Field>}
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date of birth"><Input type="date" value={f.date_of_birth ?? ''} onChange={set('date_of_birth')} /></Field>
               <Field label="Age"><Input inputMode="numeric" value={(f.age as any) ?? ''} onChange={set('age')} /></Field>
