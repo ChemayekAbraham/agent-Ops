@@ -55513,6 +55513,45 @@ export type Database = {
         }
         Relationships: []
       }
+      schema_change_log: {
+        Row: {
+          app_name: string | null
+          at: string
+          client_addr: unknown
+          command_tag: string
+          db_role: string
+          id: number
+          object_identity: string | null
+          object_type: string | null
+          schema_name: string | null
+          statement: string | null
+        }
+        Insert: {
+          app_name?: string | null
+          at?: string
+          client_addr?: unknown
+          command_tag: string
+          db_role?: string
+          id?: never
+          object_identity?: string | null
+          object_type?: string | null
+          schema_name?: string | null
+          statement?: string | null
+        }
+        Update: {
+          app_name?: string | null
+          at?: string
+          client_addr?: unknown
+          command_tag?: string
+          db_role?: string
+          id?: never
+          object_identity?: string | null
+          object_type?: string | null
+          schema_name?: string | null
+          statement?: string | null
+        }
+        Relationships: []
+      }
       security_ip_audit_alerts: {
         Row: {
           action_or_event: string | null
@@ -71349,6 +71388,71 @@ export type Database = {
           },
           {
             foreignKeyName: "welile_school_gate_logs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "welile_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_school_parent_requests: {
+        Row: {
+          agent_id: string
+          agent_note: string | null
+          boarding_status: string | null
+          child_name: string
+          class_grade: string | null
+          created_at: string
+          handled_at: string | null
+          id: string
+          note: string | null
+          parent_id: string
+          parent_name: string
+          parent_phone: string
+          school_id: string
+          status: string
+          term_fee: number | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          agent_note?: string | null
+          boarding_status?: string | null
+          child_name: string
+          class_grade?: string | null
+          created_at?: string
+          handled_at?: string | null
+          id?: string
+          note?: string | null
+          parent_id?: string
+          parent_name: string
+          parent_phone: string
+          school_id: string
+          status?: string
+          term_fee?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          agent_note?: string | null
+          boarding_status?: string | null
+          child_name?: string
+          class_grade?: string | null
+          created_at?: string
+          handled_at?: string | null
+          id?: string
+          note?: string | null
+          parent_id?: string
+          parent_name?: string
+          parent_phone?: string
+          school_id?: string
+          status?: string
+          term_fee?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_parent_requests_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "welile_schools"
@@ -89451,6 +89555,10 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: Json
       }
+      get_backend_change_digest: {
+        Args: { p_since?: string; p_until?: string }
+        Returns: Json
+      }
       get_bike_lease_suppliers: {
         Args: { p_sale_ids: string[] }
         Returns: {
@@ -105756,6 +105864,79 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      welile_school_parent_request_create: {
+        Args: {
+          p_boarding_status: string
+          p_child_name: string
+          p_class_grade: string
+          p_note: string
+          p_parent_name: string
+          p_parent_phone: string
+          p_school_id: string
+          p_term_fee: number
+        }
+        Returns: {
+          agent_id: string
+          agent_note: string | null
+          boarding_status: string | null
+          child_name: string
+          class_grade: string | null
+          created_at: string
+          handled_at: string | null
+          id: string
+          note: string | null
+          parent_id: string
+          parent_name: string
+          parent_phone: string
+          school_id: string
+          status: string
+          term_fee: number | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_parent_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      welile_school_parent_request_update: {
+        Args: { p_id: string; p_note?: string; p_status: string }
+        Returns: {
+          agent_id: string
+          agent_note: string | null
+          boarding_status: string | null
+          child_name: string
+          class_grade: string | null
+          created_at: string
+          handled_at: string | null
+          id: string
+          note: string | null
+          parent_id: string
+          parent_name: string
+          parent_phone: string
+          school_id: string
+          status: string
+          term_fee: number | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_parent_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      welile_school_partner_schools: {
+        Args: never
+        Returns: {
+          district: string
+          id: string
+          name: string
+          school_level: string
+          town: string
+        }[]
       }
       welile_school_partnership_editable: {
         Args: { p_school_id: string }
