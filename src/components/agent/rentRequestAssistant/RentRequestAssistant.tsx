@@ -571,7 +571,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       let d: Record<string, any> | null = null;
       try { d = JSON.parse(localStorage.getItem(draftKey) ?? 'null'); } catch { d = null; }
       // A prefilled form (opened for one tenant) or a saved request (E109) starts from that, not the old draft.
-      const usable = !!d && !request?.prefill && !(request?.mode === 'new' && request.draft) && Date.now() - Number(d.savedAt ?? 0) < DRAFT_MAX_AGE_MS
+      const usable = !!d && !(request?.mode === 'new' && request.prefill) && !(request?.mode === 'new' && request.draft) && Date.now() - Number(d.savedAt ?? 0) < DRAFT_MAX_AGE_MS
         && (ALL_STEPS as string[]).includes(d.current);
       if (usable && d) {
         const ph = await loadFormPhotos<{ house?: (File | null)[]; tenant?: File | null; idFront?: File | null; idBack?: File | null; lcLetter?: File | null }>(draftKey);
