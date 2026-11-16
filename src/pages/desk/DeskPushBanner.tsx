@@ -70,7 +70,8 @@ export function DeskPushBanner() {
       setState('subscribed');
       toast.success('Notifications are on. Your call list arrives at 07:30.');
     } else {
-      setProblem(result.message);
+      // Non-strict config: the union does not narrow, so read the refusal's words directly.
+      setProblem((result as { message?: string }).message ?? 'Notifications could not be turned on on this device.');
     }
   };
 
