@@ -3,13 +3,23 @@ import type { BoardItem } from '@/lib/fundersBoard';
 import type { FunderNewCategory, FunderNewEmptyHouse, FunderNewFilters, FunderNewReadyPlan, FunderNewSort } from './types';
 import { amountRange, itemAmount, itemId } from './utils';
 import { withinRadius } from './feedOrder';
+import { isFundedOrClaimed } from './funderListRefresh';
 
 type FeedEntry = { category: FunderNewCategory; item: FunderNewEmptyHouse | FunderNewReadyPlan };
 
 /** One card in a group: an existing (fundable) feed card, or a view-only board item. */
 export type BoardRow<E extends FeedEntry = FeedEntry> =
   | { kind: 'feed'; cardId: string; tag: BoardTag; entry: E; /** COO/CEO only: what a Verified request still lacks. */ incomplete?: string[] | null }
-  | { kind: 'board'; cardId: string; tag: BoardRequestTag; item: BoardItem };
+  | {
+      kind: 'board';
+      cardId: string;
+      tag: BoardRequestTag;
+      item: BoardItem;
+      /** Verified on the board but its fundable plan has not loaded yet: no Fund button until it does. */
+      checking?: boolean;
+      /** This funder booked it in this session: "Booked — waiting for landlord payment". */
+      mine?: boolean;
+    };
 
 export type BoardGroup<E extends FeedEntry = FeedEntry> = {
   tag: BoardTag;
@@ -40,38 +50,6 @@ const ts = (v: unknown) => {
 };
 
 /**
- * A fundable Rent Plan built from a selectable Verified board item, for the
- * moments its own page of the fundable-plans read has not loaded yet. The
- * server checks everything again when the funder picks it.
- */
-export function boardItemToReadyPlan(item: BoardItem): FunderNewReadyPlan {
-  const photos = item.photos.length > 0 ? item.photos : item.mainPhoto ? [item.mainPhoto] : [];
-  return {
-    rent_request_id: item.id,
-    funding_amount: item.rentAmount,
-    duration_days: item.durationDays,
-    daily_repayment: item.dailyRepayment,
-    request_city: item.city,
-    house_category: item.houseCategory,
-    projected_end_date: null,
-    repayment_cadence: null,
-    tenant_full_name: null,
-    tenant_first_name: item.tenantFirstName,
-    tenant_location: null,
-    tenant_avatar_url: null,
-    landlord_name: null,
-    landlord_phone: null,
-    lc1_chairperson_name: null,
-    house_image_urls: photos.length > 0 ? photos : null,
-    request_latitude: item.lat,
-    request_longitude: item.lng,
-    proxy_agent_phone: null,
-    held_by: null,
-    hold_expires_at: null,
-  };
-}
-
-/**
  * E72b grouped funders list: Verified, Booked, Funded, Pending verification
  * (in the server's order), then Empty houses. Never mixed. The chosen sort
  * applies inside each group only; "Nearest first" never hides anything; only a
@@ -88,34 +66,51 @@ export function buildBoardGroups<E extends FeedEntry>(args: {
   filters: Pick<FunderNewFilters, 'search' | 'location' | 'amount' | 'rentMin' | 'rentMax'>;
   /** Every empty house matching the filters (the read's total), for that group's header. */
   emptyTotal: number;
+  /** Every page of the fundable plans read has loaded (default true). */
+  feedComplete?: boolean;
+  /** Rent requests this funder funded in this session (shown as theirs, never fundable). */
+  bookedByMe?: ReadonlySet<string>;
 }): BoardGroup<E>[] {
-  const { board, ready, empty, sort, radiusKm, kmOfEntry, kmOfItem, filters, emptyTotal } = args;
+  const { board, ready, empty, sort, radiusKm, kmOfEntry, kmOfItem, filters, emptyTotal, feedComplete = true, bookedByMe } = args;
+  const mine = (id: string) => bookedByMe?.has(id) ?? false;
+  const booked = (item: BoardItem): BoardItem => ({ ...item, tag: 'booked', selectable: false, held: false, incomplete: null });
   const readyById = new Map(ready.map((entry) => [itemId('ready', entry.item), entry]));
   const used = new Set<string>();
   const byTag = new Map<BoardTag, BoardRow<E>[]>(BOARD_GROUPS.map((t) => [t, []]));
 
+  // Every fundable card comes from the fundable plans read (partner_self_list_fundable_plans):
+  // the board only places and labels it. A request the board, the plan itself or this
+  // funder's own booking says is funded or claimed is never fundable here.
   for (const item of board) {
-    if (item.tag === 'verified') used.add(item.id);
-    const loaded = item.tag === 'verified' ? readyById.get(item.id) : undefined;
-    // A Verified card follows the server's `selectable`, never what has loaded so far:
-    //  • selectable → always the fundable card. The fundable plans arrive in pages
-    //    (6, then 12 at a time), so until its page lands the card is built from the
-    //    board item itself rather than shown as "View only".
-    //  • not selectable (held by a funder) → view only, unless the plan the feed
-    //    returned is held by this viewer (the feed only returns their own holds).
-    if (item.tag === 'verified' && (item.selectable || (loaded && (loaded.item as FunderNewReadyPlan).held_by))) {
-      if (loaded) byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${item.id}`, tag: 'verified', entry: loaded, incomplete: item.incomplete });
-      else if (boardItemMatches(item, filters)) {
-        byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${item.id}`, tag: 'verified', entry: { category: 'ready', item: boardItemToReadyPlan(item) } as E, incomplete: item.incomplete });
+    used.add(item.id);
+    const loaded = readyById.get(item.id);
+    const taken = mine(item.id) || (loaded ? isFundedOrClaimed(loaded.item) : false);
+    if (item.tag === 'verified' && !taken) {
+      const heldByViewer = !!loaded && !!(loaded.item as FunderNewReadyPlan).held_by;
+      if (loaded && (item.selectable || heldByViewer)) {
+        byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${item.id}`, tag: 'verified', entry: loaded, incomplete: item.incomplete });
+      } else if (!boardItemMatches(item, filters)) {
+        continue;
+      } else if (item.selectable && !feedComplete) {
+        // Its page of fundable plans is still loading.
+        byTag.get('verified')!.push({ kind: 'board', cardId: `board:${item.id}`, tag: 'verified', item, checking: true });
+      } else if (item.selectable) {
+        // The fundable read no longer has it: a funder has taken it (the board catches up on refetch).
+        byTag.get('booked')!.push({ kind: 'board', cardId: `board:${item.id}`, tag: 'booked', item: booked(item) });
+      } else {
+        byTag.get('verified')!.push({ kind: 'board', cardId: `board:${item.id}`, tag: 'verified', item });
       }
     } else if (boardItemMatches(item, filters)) {
-      byTag.get(item.tag)!.push({ kind: 'board', cardId: `board:${item.id}`, tag: item.tag, item });
+      const shown = item.tag === 'verified' ? booked(item) : item;
+      byTag.get(shown.tag)!.push({ kind: 'board', cardId: `board:${item.id}`, tag: shown.tag, item: shown, mine: mine(item.id) });
     }
   }
-  // A fundable Rent Plan the board does not list yet still belongs with Verified.
+  // A fundable Rent Plan the board does not list yet still belongs with Verified,
+  // unless it is already funded or claimed (a stale list).
   for (const entry of ready) {
     const id = itemId('ready', entry.item);
-    if (!used.has(id)) byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${id}`, tag: 'verified', entry });
+    if (used.has(id) || mine(id) || isFundedOrClaimed(entry.item)) continue;
+    byTag.get('verified')!.push({ kind: 'feed', cardId: `ready:${id}`, tag: 'verified', entry });
   }
   for (const entry of empty) {
     byTag.get('empty_house')!.push({ kind: 'feed', cardId: `empty:${itemId('empty', entry.item)}`, tag: 'empty_house', entry });

@@ -429,8 +429,9 @@ for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
     await expect(page.getByTestId('fv3-count-sub')).toHaveCount(0);
     await expect(page.getByText(/ready to fund ·/)).toHaveCount(0);
     await expect(page.locator('[data-testid="board-group-head"]')).toHaveCount(GROUP_ORDER.length);
-    // A Verified item the server marks selectable is fundable even before its page of plans loads.
-    await expect(page.locator('article[data-card-id="ready:rq-late"] [data-testid="fv3-fund-button"]')).toHaveText(/Fund this House/);
+    // Every fundable card comes from the fundable plans read: a Verified item it no longer has is Booked, never fundable.
+    await expect(page.locator('[data-board-group="booked"] article[data-card-id="board:rq-late"]')).toHaveAttribute('data-tag', 'booked');
+    await expect(page.locator('[data-card-id$="rq-late"] [data-testid="fv3-fund-button"]')).toHaveCount(0);
     await expect(page.locator('[data-board-group="verified"]').getByText('View only.', { exact: true })).toHaveCount(0);
     // Every card in a group carries that group's tag only (never mixed), and exactly one chip.
     for (const tag of GROUP_ORDER) {
@@ -537,6 +538,29 @@ for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
     await noHorizontalScroll(page);
     await plan.scrollIntoViewIfNeeded();
     await page.screenshot({ path: join(SHOTS, `houses-ref-${size.width}x${size.height}.png`) });
+  });
+}
+
+for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
+  test(`${size.width}x${size.height}: a Rent Plan this funder just funded leaves Verified and shows as Booked for them`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await open(page, 'view=houses&count=24&tags=board');
+    const verifiedHead = page.locator('[data-board-group="verified"]');
+    await expect(page.locator('article[data-card-id="ready:plan-0"] [data-testid="fv3-fund-button"]')).toBeVisible();
+    const before = Number((await verifiedHead.getAttribute('aria-label'))!.split(', ')[1]);
+
+    await open(page, 'view=houses&count=24&tags=board&funded=plan-0');
+    await expect(page.locator('article[data-card-id="ready:plan-0"]')).toHaveCount(0);
+    const after = Number((await verifiedHead.getAttribute('aria-label'))!.split(', ')[1]);
+    expect(after).toBe(before - 1);
+    const mine = page.locator('[data-board-group="booked"] article[data-card-id="board:plan-0"]');
+    await expect(mine).toHaveAttribute('data-mine', 'true');
+    await expect(mine.getByTestId('board-item-note')).toHaveText('Booked — waiting for landlord payment');
+    await expect(mine.getByTestId('fv3-fund-button')).toHaveCount(0);
+    await expect(mine.getByTestId('funders-board-tag')).toHaveAttribute('data-tag', 'booked');
+    await noHorizontalScroll(page);
+    await mine.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, `houses-funded-mine-${size.width}x${size.height}.png`) });
   });
 }
 

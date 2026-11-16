@@ -258,6 +258,8 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
                         demoteMode={demoteMode}
                         demoteChecked={demoteChecked?.has(row.cardId) ?? false}
                         onDemoteToggle={onDemoteToggleBoard ? () => onDemoteToggleBoard(item) : undefined}
+                        checking={row.checking}
+                        mine={row.mine}
                       />
                     );
                   })}
