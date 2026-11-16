@@ -41747,6 +41747,7 @@ export type Database = {
           kind: string
           lane: string | null
           lean: string | null
+          nodes: string[]
           priority: number | null
           question: string
           raised_on: string
@@ -41761,6 +41762,7 @@ export type Database = {
           kind?: string
           lane?: string | null
           lean?: string | null
+          nodes?: string[]
           priority?: number | null
           question: string
           raised_on?: string
@@ -41775,6 +41777,7 @@ export type Database = {
           kind?: string
           lane?: string | null
           lean?: string | null
+          nodes?: string[]
           priority?: number | null
           question?: string
           raised_on?: string
@@ -80708,6 +80711,10 @@ export type Database = {
         Returns: Json
       }
       _request_incomplete: { Args: { p_request_id: string }; Returns: string[] }
+      _request_incomplete_at: {
+        Args: { p_request_id: string; p_stage: string }
+        Returns: string[]
+      }
       _request_kind_json: { Args: { p_request_id: string }; Returns: Json }
       _return_cycle_can_request: {
         Args: { _user_id: string }
