@@ -5,6 +5,7 @@ import { fmt } from '../format';
 import { Chip, EmptyState, ErrorLine, LoadingRows, moneyFull, stackLayout } from '../ui';
 import { TIERS, TIER_WORDS, callDay, defaultWatchMode, lastSundayKampala, plainError, tierTone, useArrearsAgents, useArrearsWatch, yesterdayKampala, type ArrearsAgent, type ArrearsRow, type WatchMode } from './arrearsApi';
 import { CallButtons, CallLine, EligibleBadge, LogCallSheet, PRIMARY_BUTTON, TenantCard, WatchControls, rangeText } from './ArrearsParts';
+import { DeskPromises } from './promises';
 
 /**
  * Agent Ops · Arrears calls (E102): one row per agent with tenants short on
@@ -86,6 +87,8 @@ export function AgentArrearsTab({ board: _board }: { board: boolean }) {
   const logDay = callDay(mode, day, q.data);
   return (
     <section aria-label="Arrears calls" data-arrears-tab="agent-ops" style={stackLayout(14)}>
+      {/* E116: my promises, the desk board and the broken promises, first. */}
+      <DeskPromises desk="agent-ops" />
       <WatchControls mode={mode} onMode={setMode} value={day} onValue={(v) => setDates((d) => ({ ...d, [mode]: v }))} />
       {q.data && (
         <p className="text-base font-semibold text-foreground" style={{ margin: 0 }} data-watch-range>

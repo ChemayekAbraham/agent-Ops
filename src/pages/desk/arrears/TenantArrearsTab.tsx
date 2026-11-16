@@ -4,6 +4,7 @@ import { fmt } from '../format';
 import { Chip, EmptyState, ErrorLine, LoadingRows, Tile, TileRow, moneyFull, stackLayout } from '../ui';
 import { TIERS, TIER_WORDS, callDay, defaultWatchMode, lastSundayKampala, plainError, tierTone, useArrearsWatch, yesterdayKampala, type ArrearsRow, type ArrearsTotals, type Tier, type WatchMode } from './arrearsApi';
 import { ACTION_BUTTON, LogCallSheet, TenantCard, WatchControls, rangeText } from './ArrearsParts';
+import { DeskPromises } from './promises';
 
 /**
  * Tenant Ops · Arrears calls (E102): every plan short on the watch day,
@@ -77,6 +78,8 @@ export function TenantArrearsTab({ board }: { board: boolean }) {
   const matching = d?.matching ?? null;
   return (
     <section aria-label="Arrears calls" data-arrears-tab="tenant-ops" style={stackLayout(14)}>
+      {/* E116: my promises, the desk board and the broken promises, first. */}
+      <DeskPromises desk="tenant-ops" />
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 12 }}>
         <WatchControls mode={mode} onMode={setMode} value={day} onValue={(v) => setDates((d) => ({ ...d, [mode]: v }))} />
         <label style={{ ...stackLayout(4), flex: '1 1 220px' }}>

@@ -310,13 +310,18 @@ export function LogCallSheet({
           </select>
         </label>
         {needsDate(outcome) && (
+          <p className={LABEL} style={{ margin: 0 }} data-amount-hint>
+            With an amount the promise is judged exactly; without one, half of what falls due counts as kept.
+          </p>
+        )}
+        {needsDate(outcome) && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
             <label style={stackLayout(4)}>
               <span className={LABEL}>Promised date (needed)</span>
               <input type="date" value={promisedDate} onChange={(e) => setPromisedDate(e.target.value)} className="rounded-md border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-2 py-1.5 text-sm text-foreground" data-promised-date />
             </label>
             <label style={stackLayout(4)}>
-              <span className={LABEL}>Amount (optional)</span>
+              <span className={LABEL}>Promised amount (optional, recommended)</span>
               <input inputMode="numeric" value={promisedAmount} onChange={(e) => setPromisedAmount(e.target.value)} placeholder="UGX" className="rounded-md border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-2 py-1.5 text-sm text-foreground" data-promised-amount />
             </label>
           </div>
