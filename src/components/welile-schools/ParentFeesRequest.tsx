@@ -43,7 +43,7 @@ export default function ParentFeesRequest() {
 
   if (!user) {
     return (
-      <section className="space-y-3 rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
+      <section className="space-y-3 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm dark:border-emerald-800/60 dark:bg-emerald-950/40">
         <h3 className="text-base font-semibold">Request school fees for your child</h3>
         <p className="text-sm text-muted-foreground">Sign in, choose your child's school and send your request. The Welile agent at that school will contact you.</p>
         <Button className="min-h-[52px] w-full gap-2 rounded-2xl text-base" onClick={() => navigate(`/auth?redirect=${encodeURIComponent('/schools?role=parent')}`)}>
@@ -110,7 +110,7 @@ function SignedInParentRequest({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-4">
-      <section aria-labelledby="ws-parent-request" className="space-y-4 rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
+      <section aria-labelledby="ws-parent-request" className="space-y-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm dark:border-emerald-800/60 dark:bg-emerald-950/40">
         <div>
           <h3 id="ws-parent-request" className="text-base font-semibold">Request school fees for your child</h3>
           <p className="text-sm text-muted-foreground">Your request goes to the Welile agent at your child's school. They will call you to finish it.</p>
@@ -129,7 +129,7 @@ function SignedInParentRequest({ userId }: { userId: string }) {
         ) : schools.error ? (
           <p className="rounded-2xl bg-muted/60 p-3 text-sm text-muted-foreground">{parentRequestErrorMessage(schools.error)}</p>
         ) : schoolList.length === 0 ? (
-          <p className="rounded-2xl bg-muted/60 p-3 text-sm text-muted-foreground">No schools have joined Welile Schools yet. Check back soon, or ask your child's school to partner with Welile.</p>
+          <p className="rounded-2xl bg-white/70 p-3 text-sm text-muted-foreground dark:bg-background/40">No schools have joined Welile Schools yet. Check back soon, or ask your child's school to partner with Welile.</p>
         ) : (
           <>
             <Field label="Your child's school" error={tried ? errors.school_id : undefined}>
