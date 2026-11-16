@@ -13,7 +13,8 @@ import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-photo-source, x-subject-user-id",
 };
 
 const json = (data: unknown, status = 200) =>
@@ -44,11 +45,22 @@ function decodeImage(input: string): { bytes: Uint8Array; mime: string } | null 
   }
 }
 
-/** JPEG/PNG magic bytes — a renamed file must not slip through. */
-function looksLikeJpegOrPng(b: Uint8Array): boolean {
-  const jpeg = b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
-  const png = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
-  return jpeg || png;
+/**
+ * The type, read from the magic bytes — null when it is neither JPEG nor PNG.
+ *
+ * What a caller SAYS the photo is (a data-URL prefix, a Content-Type header) is
+ * only a claim, so the bytes decide, and a renamed file cannot slip through.
+ */
+function sniffMime(b: Uint8Array): string | null {
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+  return null;
+}
+
+/** A short, trimmed header value, or the fallback. */
+function headerText(req: Request, name: string, fallback: string, max = 40): string {
+  const v = (req.headers.get(name) || "").trim();
+  return v ? v.slice(0, max) : fallback;
 }
 
 interface PassGateCheck {
@@ -75,13 +87,49 @@ Deno.serve(async (req) => {
   const { data: authData, error: authErr } = await (bearerHasSub(token) ? admin.auth.getUser(token) : noUserResult());
   if (authErr || !authData?.user) return err("Sign in to continue", 401);
 
-  let body: { image_base64?: unknown; source?: unknown; subject_user_id?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return err("Invalid request body");
+  /* The photo arrives one of two ways.
+     A picture POSTed as a picture is the fast path: nothing is encoded as text,
+     so the agent's phone sends about a quarter fewer bytes over the connection
+     that is the slow part of this, and neither end builds the whole image as a
+     string. The older JSON body, with the photo as base64, is still read, so a
+     browser running yesterday's bundle keeps working. */
+  const contentType = (req.headers.get("content-type") || "").toLowerCase();
+  const binary = contentType.startsWith("image/") || contentType.startsWith("application/octet-stream");
+
+  let bytes: Uint8Array;
+  let source: string;
+  let claimedSubject: string | null;
+
+  if (binary) {
+    const declared = Number(req.headers.get("content-length") || 0);
+    if (declared > MAX_IMAGE_BYTES) return err("That photo is larger than 5 MB");
+    try {
+      bytes = new Uint8Array(await req.arrayBuffer());
+    } catch {
+      return err("That photo could not be read");
+    }
+    if (bytes.byteLength === 0) return err("No photo was sent");
+    source = headerText(req, "x-photo-source", "tenant_onboarding");
+    const claimed = (req.headers.get("x-subject-user-id") || "").trim();
+    claimedSubject = UUID_RE.test(claimed) ? claimed : null;
+  } else {
+    let body: { image_base64?: unknown; source?: unknown; subject_user_id?: unknown };
+    try {
+      body = await req.json();
+    } catch {
+      return err("Invalid request body");
+    }
+    if (typeof body.image_base64 !== "string" || !body.image_base64) return err("No photo was sent");
+    const decoded = decodeImage(body.image_base64);
+    if (!decoded) return err("That photo could not be read");
+    bytes = decoded.bytes;
+    source = typeof body.source === "string" && body.source.trim()
+      ? body.source.trim().slice(0, 40)
+      : "tenant_onboarding";
+    claimedSubject = typeof body.subject_user_id === "string" && UUID_RE.test(body.subject_user_id)
+      ? body.subject_user_id
+      : null;
   }
-  if (typeof body.image_base64 !== "string" || !body.image_base64) return err("No photo was sent");
 
   /* Whose face is this?
      Self-onboarding: the caller's own. An agent registering a tenant: the
@@ -90,12 +138,6 @@ Deno.serve(async (req) => {
      the rent request exists. A browser-supplied subject is only honoured for
      someone allowed to register tenants; everyone else gets their own id. */
   const callerId = authData.user.id;
-  const source = typeof body.source === "string" && body.source.trim()
-    ? body.source.trim().slice(0, 40)
-    : "tenant_onboarding";
-  const claimedSubject = typeof body.subject_user_id === "string" && UUID_RE.test(body.subject_user_id)
-    ? body.subject_user_id
-    : null;
 
   let subjectId = callerId;
   if (claimedSubject && claimedSubject !== callerId) {
@@ -108,14 +150,12 @@ Deno.serve(async (req) => {
     if (roles && roles.length > 0) subjectId = claimedSubject;
   }
 
-  const decoded = decodeImage(body.image_base64);
-  if (!decoded) return err("That photo could not be read");
-  if (!ALLOWED_IMAGE_TYPES.includes(decoded.mime)) return err("Only JPG, JPEG or PNG photos are allowed");
-  if (decoded.bytes.byteLength > MAX_IMAGE_BYTES) return err("That photo is larger than 5 MB");
-  if (!looksLikeJpegOrPng(decoded.bytes)) return err("Only JPG, JPEG or PNG photos are allowed");
+  if (bytes.byteLength > MAX_IMAGE_BYTES) return err("That photo is larger than 5 MB");
+  const mime = sniffMime(bytes);
+  if (!mime || !ALLOWED_IMAGE_TYPES.includes(mime)) return err("Only JPG, JPEG or PNG photos are allowed");
 
   const form = new FormData();
-  form.append("image", new Blob([decoded.bytes], { type: decoded.mime }), "photo.jpg");
+  form.append("image", new Blob([bytes], { type: mime }), mime === "image/png" ? "photo.png" : "photo.jpg");
   form.append("view", "full");
 
   let res: Response;

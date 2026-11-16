@@ -13,6 +13,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { calculateRentRepayment } from '@/lib/rentCalculations';
 import { optimizeImage } from '@/lib/imageOptimizer';
+import { FACE_PHOTO_ENCODING, facePhotoIsReadyToSend } from '@/lib/passportFaceCheck';
 import { archiveToDrive } from '@/lib/archiveToDrive';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
 import { safeUUID } from '@/lib/safeUUID';
@@ -176,12 +177,19 @@ type Loose = never;
  */
 export async function storeTenantPhoto(agentId: string, file: File): Promise<string | null> {
   try {
-    const optimized = await optimizeImage(file, { maxWidth: 1200, quality: 0.85 });
-    const ext = optimized.file.name.split('.').pop() || 'webp';
+    // The capture already encoded this once (FACE_PHOTO_ENCODING), and the face
+    // checker graded those exact bytes. Re-encoding them here would be a third
+    // full pass over the picture at send time, for nothing — so a face photo
+    // that is already a small enough JPEG or PNG is uploaded as it is.
+    const ready = facePhotoIsReadyToSend(file);
+    const upload = ready ? file : (await optimizeImage(file, FACE_PHOTO_ENCODING)).file;
+    const ext = upload.name.split('.').pop() || 'jpg';
     const path = `${agentId}/${safeUUID()}/tenant_passport.${ext}`;
     const { error } = await supabase.storage
       .from('house-images')
-      .upload(path, optimized.file, { cacheControl: '86400', upsert: true });
+      // A year: the path carries a fresh id on every upload, so these bytes
+      // never change and a reviewer opening the photo twice fetches it once.
+      .upload(path, upload, { cacheControl: '31536000', upsert: true });
     if (error) throw error;
     archiveToDrive('house-images', path, 'tenant_id');
     return supabase.storage.from('house-images').getPublicUrl(path).data.publicUrl;

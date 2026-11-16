@@ -40,7 +40,7 @@ import { useAgentGateStatus } from '@/hooks/useAgentGateStatus';
 import { AGENT_VERIFICATION_PATH } from '@/hooks/useAgentVetting';
 import { agentNotVettedReason } from '@/lib/agentVetting';
 import { optimizeImage } from '@/lib/imageOptimizer';
-import { runPassportFaceCheck, runPassportFaceCheckWithin, faceCheckBlocker, type PassportFaceCheck } from '@/lib/passportFaceCheck';
+import { FACE_PHOTO_ENCODING, runPassportFaceCheck, runPassportFaceCheckWithin, faceCheckBlocker, type PassportFaceCheck } from '@/lib/passportFaceCheck';
 import { FACE_CHECK_SLOW_MESSAGE, FACE_CHECK_TIMEOUT_MS, TENANT_FACE_PHOTO, facePhotoRefusal, itemsMentioned, type ReasonItem } from '@/lib/tenantFacePhoto';
 import { notifyVerificationCreated } from '@/lib/landlordVerificationNotify';
 import { normalizeDistrict } from '@/lib/ugandaDistricts';
@@ -985,11 +985,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     e.preventDefault();
     setCamera({ ...opts, input: e.currentTarget.querySelector('input[type=file]') });
   };
-  const readPhoto = async (file: File): Promise<(Photo & { file: File }) | null> => {
+  const readPhoto = async (file: File, encoding?: Parameters<typeof optimizeImage>[1]): Promise<(Photo & { file: File }) | null> => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) { toast.error('Use a JPG, PNG, WebP or HEIC photo'); return null; }
     if (file.size > 10 * 1024 * 1024) { toast.error('That photo is over 10 MB'); return null; }
     try {
-      const optimized = await optimizeImage(file);
+      const optimized = await optimizeImage(file, encoding);
       return { file: optimized.file, preview: optimized.previewUrl };
     } catch {
       return { file, preview: URL.createObjectURL(file) };
@@ -1003,7 +1003,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   };
   const onTenantPhoto = async (file: File | undefined) => {
     if (!file) return;
-    const p = await readPhoto(file);
+    // Encoded once, as JPEG (FACE_PHOTO_ENCODING), because the face checker reads
+    // JPEG and PNG only: the same bytes then serve the check, the preview and
+    // storage. As WebP the phone had to decode and re-encode this picture again
+    // before it could be graded, which is most of the wait on a cheap handset.
+    const p = await readPhoto(file, FACE_PHOTO_ENCODING);
     if (!p) return;
     setTenantPhoto((prev) => { if (prev) URL.revokeObjectURL(prev.preview); return p; });
     setFaceCheck({ status: 'checking' });
