@@ -74,7 +74,10 @@ function Chips({ options, value, onChange }: { options: readonly string[]; value
     <div className="flex flex-wrap gap-2">
       {options.map((o) => (
         <Button key={o} type="button" variant="outline" aria-pressed={value === o} onClick={() => onChange(o)}
-          className={cn('min-h-[44px] px-3 rounded-xl border text-sm', value === o ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
+          className={cn('min-h-[44px] px-3 rounded-xl border text-sm', value === o
+            // Keep the chosen chip purple on hover/tap too (phones keep :hover after a tap).
+            ? 'bg-primary text-primary-foreground border-primary hover:bg-primary hover:text-primary-foreground active:bg-primary'
+            : 'bg-card border-border')}>
           {o}
         </Button>
       ))}
