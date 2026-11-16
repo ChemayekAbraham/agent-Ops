@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { AlertTriangle, Copy, Download, FileWarning, Loader2, Printer } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { AlertTriangle, Copy, Download, FileText, FileWarning, Loader2, Printer } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { PayoutProofDialog } from '@/components/shared/PayoutProofDialog';
+import { classifyProof } from '@/lib/payoutProof';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -55,6 +59,20 @@ export function ReceiptDetailDrawer({ row, onClose, canIssue }: { row: ArchiveRo
   const isIn = row?.source === 'partner_receipt';
   const history = useReceiptHistory(isIn ? row!.id : null);
   const [busy, setBusy] = useState<'print' | 'pdf' | null>(null);
+  const [proofOpen, setProofOpen] = useState(false);
+  // Payout rows only: the proof the merchant agent uploaded on the withdrawal request.
+  const proof = useQuery({
+    queryKey: ['receipt-payout-proof', row?.id],
+    enabled: !!row && !isIn,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('withdrawal_requests')
+        .select('id,amount,payout_proof,payout_proof_type,payout_proof_path,payout_proof_bucket,payout_proof_uploaded_at')
+        .eq('id', row!.id).maybeSingle();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+  });
+  const proofState = proof.data ? classifyProof(proof.data) : 'missing';
 
   const fail = (e: unknown) => toast({ title: 'Could not do that', description: e instanceof Error ? e.message : String(e), variant: 'destructive' });
   const data = bundle.data;
@@ -181,8 +199,20 @@ export function ReceiptDetailDrawer({ row, onClose, canIssue }: { row: ArchiveRo
                         <Row k="Public receipt" v={<a className="text-primary underline" href={`${PAYOUT_RECEIPT_BASE_URL}${row.link_token}`} target="_blank" rel="noopener noreferrer">Open the page sent to the recipient</a>} />
                       )}
                     </Section>
+                    <Section title="Proof of payment (merchant agent)">
+                      {proof.isLoading ? <Skeleton className="h-8 w-full" /> : proofState === 'missing' ? (
+                        <p className="text-muted-foreground">The merchant agent has not uploaded proof for this payout.</p>
+                      ) : (
+                        <>
+                          <Row k="Uploaded" v={proof.data?.payout_proof_uploaded_at ? format(new Date(proof.data.payout_proof_uploaded_at), 'dd MMM yyyy HH:mm') : '—'} />
+                          <Button size="sm" variant="outline" onClick={() => setProofOpen(true)}>
+                            <FileText className="h-4 w-4 mr-1" /> View proof of payment
+                          </Button>
+                        </>
+                      )}
+                    </Section>
                     <p className="text-xs text-muted-foreground">
-                      Payout proof of payment and who funded the payout are on the Payout proofs tab.
+                      Who funded the payout is on the Payout proofs tab.
                     </p>
                   </>
                 )}
@@ -190,6 +220,7 @@ export function ReceiptDetailDrawer({ row, onClose, canIssue }: { row: ArchiveRo
             </div>
           </>
         )}
+        <PayoutProofDialog row={proof.data ?? null} open={proofOpen} onOpenChange={setProofOpen} />
       </SheetContent>
     </Sheet>
   );
