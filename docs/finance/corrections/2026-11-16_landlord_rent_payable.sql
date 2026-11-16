@@ -19,7 +19,7 @@ begin isolation level repeatable read;
 
 -- P1 expectation is set from the preview (2026-11-16_landlord_rent_payable_preview.sql) at apply time.
 create temp table _expected (p1_n int not null, p1_amount numeric not null, p2_n int not null, p2_amount numeric not null) on commit drop;
-insert into _expected values (0, 0, 23, 9290000);
+insert into _expected values (1497, 872485000, 23, 9290000);  -- preview 16 Nov 2026
 
 -- P2: Rent Plan, amount to undo (= least of returned and paid), paid to the landlord, reversed in the books
 create temp table _undo (rent_request_id uuid primary key, amount numeric not null, paid numeric not null, returned numeric not null) on commit drop;
