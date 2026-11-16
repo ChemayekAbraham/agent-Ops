@@ -1,25 +1,29 @@
 /**
- * GPS of the house for the rent-request intake (agent chat and /tenants-onboarding).
- * It must just work: the only prompt the agent sees is the browser's own "Allow".
+ * GPS of the house for the rent-request intake (agent chat step 4 and /tenants-onboarding).
+ * "Capture location" just captures and stores the coordinates. No map anywhere.
  *
  *   - watchPosition (high accuracy, readings up to 60 s old allowed); the FIRST reading is
- *     accepted at once, whatever its accuracy, and the agent can continue;
- *   - it keeps improving the reading for up to 15 s in the background;
- *   - no reading at all (permission denied, unavailable, or nothing in 15 s): the agent drops a
- *     pin on the house on a map instead (source 'pin', accuracy unknown). Never a dead end,
- *     never a trip to the phone's settings.
+ *     accepted at once ("Location captured ✓ 0.34762, 32.58251 (±40 m)") and improved silently
+ *     for up to 15 s;
+ *   - permission denied (the browser answers at once when the site is blocked): one line on how
+ *     to allow it; shown before the tap too when navigator.permissions already says 'denied';
+ *   - no reading in 15 s (timeout / unavailable): one line to step outside and try again;
+ *   - inside WhatsApp / Facebook / Instagram / Telegram's own browser: "Open this page in Chrome".
  * Reason codes for request_form_log: gps_permission_denied, gps_timeout, gps_unavailable,
- * gps_pin_used.
+ * gps_in_app_browser.
  */
 
 export const GPS_IMPROVE_MS = 15_000;
 export const GPS_MAX_AGE_MS = 60_000;
-/** Kampala: where the pin map opens when nothing better is known. */
-export const DEFAULT_MAP_CENTRE = { lat: 0.3476, lng: 32.5825 };
 
 export type GpsFailCode = 'gps_permission_denied' | 'gps_timeout' | 'gps_unavailable';
-export type GpsSource = 'gps' | 'pin';
+export type GpsSource = 'gps';
 export interface GpsFix { lat: number; lng: number; accuracy: number | null; source: GpsSource }
+
+/** The lines the agent sees. */
+export const GPS_DENIED_LINE = 'Location is blocked for Welile in this browser. Tap the 🔒 in the address bar → Location → Allow, then tap Capture again.';
+export const GPS_NO_SIGNAL_LINE = 'No GPS signal here — step outside or near a window and tap Capture again.';
+export const GPS_IN_APP_LINE = 'Open this page in Chrome to capture location';
 
 const getGeo = (geo?: Geolocation | null): Geolocation | null =>
   geo !== undefined ? geo : (typeof navigator !== 'undefined' ? navigator.geolocation ?? null : null);
@@ -67,8 +71,8 @@ export function watchHouseGps(opts: {
       },
       (err) => {
         if (ended) return;
-        // Denied: no reading will come, so straight to the pin. Unavailable / timeout: the phone
-        // often recovers, so keep watching until the window ends.
+        // Denied: nothing will come. Unavailable / timeout: the phone often recovers, so keep
+        // watching until the window ends.
         if (err.code === 1 && !best) end('gps_permission_denied');
         else if (err.code === 2) sawUnavailable = true;
       },
@@ -80,32 +84,40 @@ export function watchHouseGps(opts: {
   return () => end(null);
 }
 
-/**
- * Where the pin map opens: a rough network fix if the phone gives one quickly (no high
- * accuracy, any age), else the given fallback (the last known reading), else Kampala.
- */
-export function networkCentre(fallback?: { lat: number; lng: number } | null, geolocation?: Geolocation | null): Promise<{ lat: number; lng: number }> {
-  const geo = getGeo(geolocation);
-  const base = fallback ?? DEFAULT_MAP_CENTRE;
-  if (!geo || typeof geo.getCurrentPosition !== 'function') return Promise.resolve(base);
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = (v: { lat: number; lng: number }) => { if (!done) { done = true; resolve(v); } };
-    setTimeout(() => finish(base), 4000);
-    try {
-      geo.getCurrentPosition(
-        (p) => finish({ lat: p.coords.latitude, lng: p.coords.longitude }),
-        () => finish(base),
-        { enableHighAccuracy: false, maximumAge: Infinity, timeout: 4000 },
-      );
-    } catch {
-      finish(base);
-    }
-  });
+/** "Location captured ✓ 0.34762, 32.58251 (±40 m)". */
+export function gpsCapturedLine(fix: { lat: number; lng: number; accuracy: number | null }): string {
+  const acc = fix.accuracy !== null && Number.isFinite(fix.accuracy) ? ` (±${Math.round(fix.accuracy)} m)` : '';
+  return `Location captured ✓ ${fix.lat.toFixed(5)}, ${fix.lng.toFixed(5)}${acc}`;
 }
 
-/** "Location found (±60 m) ✓", or for a pin "Pin dropped on the house ✓". */
-export function gpsFoundLine(fix: GpsFix): string {
-  if (fix.source === 'pin') return 'Pin dropped on the house ✓';
-  return fix.accuracy !== null ? `Location found (±${Math.round(fix.accuracy)} m) ✓` : 'Location found ✓';
+/** The line for a capture that got no reading. */
+export const gpsFailLine = (code: GpsFailCode): string => (code === 'gps_permission_denied' ? GPS_DENIED_LINE : GPS_NO_SIGNAL_LINE);
+
+/** Whether the browser already says the site may not read the location (no prompt will come). */
+export async function gpsPermissionDenied(nav: Navigator | undefined = typeof navigator !== 'undefined' ? navigator : undefined): Promise<boolean> {
+  try {
+    const status = await nav?.permissions?.query({ name: 'geolocation' as PermissionName });
+    return status?.state === 'denied';
+  } catch {
+    return false;
+  }
+}
+
+/** WhatsApp, Facebook (incl. Messenger), Instagram or Telegram's own in-app browser. */
+export function isInAppBrowser(ua: string = typeof navigator !== 'undefined' ? navigator.userAgent : ''): boolean {
+  return /WhatsApp|FBAN|FBAV|FB_IAB|FBIOS|Instagram|Telegram/i.test(ua);
+}
+
+/**
+ * The same page in the phone's own browser: an intent:// link that opens Chrome on Android;
+ * elsewhere the plain address (the in-app browser's "Open in browser" handles it).
+ */
+export function systemBrowserUrl(href: string, ua: string = typeof navigator !== 'undefined' ? navigator.userAgent : ''): string {
+  if (!/Android/i.test(ua)) return href;
+  try {
+    const u = new URL(href);
+    return `intent://${u.host}${u.pathname}${u.search}${u.hash}#Intent;scheme=${u.protocol.replace(':', '')};package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(href)};end`;
+  } catch {
+    return href;
+  }
 }

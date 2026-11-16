@@ -114,7 +114,7 @@ export interface FormFunnel {
   open(meta?: Record<string, unknown>): void;
   step(step: FunnelStep): void;
   blocked(items: FunnelItem[], error?: string | null): void;
-  /** An item became valid; `meta` / `error` ride with it (e.g. gps { accuracy_m }, or gps_pin_used). */
+  /** An item became valid; `meta` / `error` ride with it (e.g. gps { accuracy_m }). */
   itemDone(item: FunnelItem, meta?: Record<string, unknown> | null, error?: string | null): void;
   /** Posted; `meta` rides with the request id, e.g. { gps_note: 'Low GPS accuracy (120 m)' } for the Service Centre. */
   submitOk(rentRequestId: string, meta?: Record<string, unknown>): void;

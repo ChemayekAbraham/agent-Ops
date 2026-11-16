@@ -396,7 +396,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [housePhotos, setHousePhotos] = useState<(Photo | null)[]>([null, null, null, null]);
   const [tenantPhoto, setTenantPhoto] = useState<Photo | null>(null);
   const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
-  /** The house GPS. accuracy null = unknown (a dropped pin); source 'pin' when the agent dropped it. */
+  /** The house GPS. source 'gps' when captured here; accuracy 0 = from the house listing or on file. */
   const [gps, setGps] = useState<{ lat: number; lng: number; accuracy: number | null; source?: GpsSource } | null>(null);
   const [lc1Phone, setLc1Phone] = useState('');
   const [lc1Match, setLc1Match] = useState<Lc1Match>(null);
@@ -1127,11 +1127,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   };
 
   /*
-   * The house GPS (gpsCapture.ts): the first reading is taken at once, any accuracy, and
-   * improved for up to 15 s; no reading means a pin dropped on a map. Never a trip to the
-   * phone's settings, never a dead end. request_form_log: item_done gps { accuracy_m }, or the
-   * reason there was no reading (gps_permission_denied / gps_timeout / gps_unavailable), and
-   * gps_pin_used for a pin.
+   * The house GPS (gpsCapture.ts): "Capture location" just captures and stores the coordinates.
+   * The first reading is taken at once and improved silently for up to 15 s. No map.
+   * request_form_log: item_done gps { accuracy_m }, or why there was no reading
+   * (gps_permission_denied / gps_timeout / gps_unavailable), and gps_in_app_browser.
    */
   const lastGpsFail = useRef<GpsFailCode | null>(null);
   const gpsWatch = useGpsCapture({
@@ -1145,11 +1144,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       lastGpsFail.current = code;
       if (tracking) blockedNow(['gps'], code);
     },
-    onPin: (fix) => {
-      setGps({ lat: fix.lat, lng: fix.lng, accuracy: null, source: 'pin' });
-      setError(null);
-      if (tracking) funnel.itemDone('gps', { accuracy_m: null, gps_source: 'pin' }, 'gps_pin_used');
-    },
+    onInAppBrowser: () => { if (tracking) blockedNow(['gps'], 'gps_in_app_browser'); },
   });
 
   // ----- LC1 lookup -----
@@ -1247,7 +1242,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'idBack':
         return idBack ? null : 'Take a photo of the BACK of the National ID first 🪪';
       case 'gps':
-        return gps ? null : 'Tap “Capture location” at the house, or drop a pin on the map 📍';
+        return gps ? null : 'Tap “Capture location” while you’re at the house 📍';
       case 'lc1':
         return lc1Mode ? null : 'Search for the chairperson above, or tap “Register a new LC1” 👆';
       case 'lc1Phone': {
@@ -2157,7 +2152,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'idFront': return idFront ? (idFront.file ? 'ID front photo taken' : 'On file ✓') : '';
       case 'idBack': return idBack ? (idBack.file ? 'ID back photo taken' : 'On file ✓') : '';
       case 'gps': return gps
-        ? (gps.source === 'pin' ? 'Pin dropped on the house' : gps.accuracy ? `Location found (±${Math.round(gps.accuracy)} m)` : gpsOnFile ? 'GPS on file' : 'GPS from the house listing')
+        ? (gps.source === 'gps' ? `Location captured (${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)})` : gpsOnFile ? 'GPS on file' : 'GPS from the house listing')
         : '';
       case 'lc1': return lc1Mode === 'existing' ? lc1Name : lc1Mode === 'new' ? 'Register a new LC1' : '';
       case 'lc1Phone': return lc1Phone;
@@ -2845,7 +2840,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'gps':
         return (
           <div className="flex flex-wrap items-center gap-2">
-            <GpsCapturePanel gps={gpsWatch} value={gps} className="basis-full" />
+            <GpsCapturePanel gps={gpsWatch} value={gps?.source === 'gps' ? gps : null} className="basis-full" />
             {gps && !gps.source && gps.accuracy === 0 && <span className="text-sm text-muted-foreground">{gpsOnFile ? 'GPS on file' : 'From the house listing'}</span>}
           </div>
         );
