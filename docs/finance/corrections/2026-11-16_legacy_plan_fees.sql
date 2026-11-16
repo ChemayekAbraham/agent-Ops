@@ -6,7 +6,7 @@
 -- CFO decision 16 Nov 2026: fees of Rent Plans funded before the fee entries began (8 Sep 2026) — absorbed into Legacy
 -- Opening Balance Adjustments (E3) by the 22 Sep 2026 restatement — are recognised: collected → revenue (R1), not yet
 -- collected → deferred fees (L7), released as tenants repay (nightly job recognise_legacy_plan_fees).
--- Scope: 928 Rent Plans restated on 22 Sep 2026 with a fee (fee = total repayable − rent). Fee collected = amount
+-- Scope: 927 Rent Plans restated on 22 Sep 2026 with a fee (fee = total repayable − rent). Fee collected = amount
 -- repaid × fee / total repayable (the same proportional split as today's repayment split). Completed Plans: only the
 -- collected fee is recognised; any unpaid remainder stays in E3. Held: 235 Plans not in the restatement (fee 7.2M).
 --   G (per Plan, dated 22 Sep 2026 12:00 EAT, the restatement): DR E3 legacy_plan_fee_restated_e3 (UGX 180,767,810) /
@@ -18,7 +18,7 @@
 begin isolation level repeatable read;
 
 create temp table _expected (n int, e3 numeric, before_rst numeric, after_rst numeric, months int) on commit drop;
-insert into _expected values (928, 180767810, 128688782, 10895220, 662);
+insert into _expected values (927, 180767810, 128688782, 10895220, 662);
 
 -- Rent Plan, fee, total repayable, recognisable fee, fee collected before 22 Sep 2026, fee collected after by month
 create temp table _p (rent_request_id uuid primary key, fee numeric not null, total numeric not null, eff numeric not null,
@@ -841,7 +841,6 @@ insert into _p (rent_request_id, fee, total, eff, before_rst, months) values
   ('80a8e4c8-1710-4abf-ac91-8b596bb6f346', 119000, 419000, 119000, 119000, '{}'::jsonb),
   ('1ccbbbac-50ee-4b8a-8b0a-e073298dd977', 76000, 276000, 76000, 76000, '{}'::jsonb),
   ('d9c18db9-a810-49a9-bcfa-8a4e09967ce8', 59500, 209500, 59500, 59500, '{}'::jsonb),
-  ('7d4eff5d-2b8b-4d22-90ad-e1dca04e54b8', 831582, 1431582, 0, 0, '{}'::jsonb),
   ('287676fb-87bb-492b-a983-aa4045795ecd', 102500, 352500, 102500, 102500, '{}'::jsonb),
   ('e834a6f1-8ed4-43cd-9ef0-5e3a59010e3b', 135500, 485500, 135500, 135500, '{}'::jsonb),
   ('cbe95c05-f33b-4577-888a-1bf74dd73870', 185000, 685000, 185000, 185000, '{}'::jsonb),

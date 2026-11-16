@@ -100,9 +100,9 @@ describe('item 7: revenue recognition', () => {
     before = await accts();
   });
 
-  it('the production schedule: 928 Rent Plans, E3 180,767,810 = revenue 128,688,782 + 10,895,220 released + 41,183,808 deferred', () => {
+  it('the production schedule: 927 Rent Plans, E3 180,767,810 = revenue 128,688,782 + 10,895,220 released + 41,183,808 deferred', () => {
     const rows = BATCH.slice(BATCH.indexOf('insert into _p'), BATCH.indexOf('\n;', BATCH.indexOf('insert into _p'))).split('\n').slice(1);
-    expect(rows.length).toBe(928);
+    expect(rows.length).toBe(927);
     let e3 = 0; let b = 0; let m = 0;
     for (const l of rows) {
       const x = l.match(/\('([0-9a-f-]{36})', (\d+), (\d+), (\d+), (\d+), '(.*)'::jsonb\)/)!;
@@ -113,7 +113,7 @@ describe('item 7: revenue recognition', () => {
       e3 += Number(x[4]); b += Number(x[5]); m += months;
     }
     expect([e3, b, m]).toEqual([180767810, 128688782, 10895220]);
-    expect(BATCH).toMatch(/insert into _expected values \(928, 180767810, 128688782, 10895220, 662\);/);
+    expect(BATCH).toMatch(/insert into _expected values \(927, 180767810, 128688782, 10895220, 662\);/);
   });
 
   it('7b: the partners\' share of a collected fee reduces Supporter Returns (X2) instead of deferred fees (L7)', async () => {
