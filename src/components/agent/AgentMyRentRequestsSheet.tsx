@@ -5,7 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { PostingDraftsList } from '@/components/agent/PostingDraftsList';
-import { useAgentGateStatus } from '@/hooks/useAgentGateStatus';
+import { useAgentEligibility } from '@/hooks/useAgentEligibility';
+import { agentRequestStatus, type AgentStatusTone } from '@/lib/agentRequestStatus';
 import { AGENT_VERIFICATION_PATH } from '@/hooks/useAgentVetting';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,6 +47,8 @@ interface AgentRentRequest {
   duration_days: number;
   daily_repayment: number;
   status: string | null;
+  returned_at?: string | null;
+  rejected_reason?: string | null;
   created_at: string;
   tenant_id: string;
   landlord_id: string;
@@ -97,11 +100,9 @@ function buildScheduleDays(createdAt: string, durationDays: number) {
 export function AgentMyRentRequestsSheet({ open, onOpenChange }: AgentMyRentRequestsSheetProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  // E111: while the agent is not verified, their open requests wait at the COO / funders' board.
-  const gate = useAgentGateStatus(user?.id, open);
-  const waitingAtCoo = (req: { agent_id?: string | null; status: string | null }) =>
-    gate?.vetted === false && req.agent_id === user?.id
-    && !['funded', 'disbursed', 'repaying', 'completed', 'rejected', 'cancelled', 'deleted_by_agent'].includes(req.status || '');
+  // Below 50% or not verified: the agent's own requests at the COO show "Waiting at the COO" and why.
+  const eligibility = useAgentEligibility(user?.id, open);
+  const statusOf = (req: AgentRentRequest) => agentRequestStatus(req, req.agent_id === user?.id ? eligibility : null);
   const [requests, setRequests] = useState<AgentRentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -121,7 +122,7 @@ export function AgentMyRentRequestsSheet({ open, onOpenChange }: AgentMyRentRequ
 
     const { data, error } = await supabase
       .from('rent_requests')
-      .select('id, rent_amount, total_repayment, amount_repaid, duration_days, daily_repayment, status, created_at, tenant_id, landlord_id, agent_id, house_listing_id, registration_type, initial_outstanding_balance, outstanding_grace_days, agent_verified, manager_verified, request_latitude, request_longitude, request_city, request_country, pricing_version')
+      .select('id, rent_amount, total_repayment, amount_repaid, duration_days, daily_repayment, status, returned_at, rejected_reason, created_at, tenant_id, landlord_id, agent_id, house_listing_id, registration_type, initial_outstanding_balance, outstanding_grace_days, agent_verified, manager_verified, request_latitude, request_longitude, request_city, request_country, pricing_version')
       .or(`agent_id.eq.${user.id},agent_verified_by.eq.${user.id}`)
       .neq('status', 'deleted_by_agent')
       .order('created_at', { ascending: false });
@@ -232,34 +233,30 @@ export function AgentMyRentRequestsSheet({ open, onOpenChange }: AgentMyRentRequ
     }
   };
 
-  const getStatusBadge = (status: string | null) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 gap-1"><Clock className="h-3 w-3" />Pending</Badge>;
-      case 'approved':
-        return <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 gap-1"><CheckCircle className="h-3 w-3" />Approved</Badge>;
-      case 'funded':
-      case 'disbursed':
-        return <Badge variant="outline" className="bg-success/10 text-success border-success/30 gap-1"><Banknote className="h-3 w-3" />Funded</Badge>;
-      case 'completed':
-        return <Badge className="bg-success text-success-foreground gap-1"><CheckCircle className="h-3 w-3" />Done</Badge>;
-      case 'rejected':
-        return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />Rejected</Badge>;
-      default:
-        return <Badge variant="secondary">{status || 'Unknown'}</Badge>;
-    }
+  const TONE_BADGE: Record<AgentStatusTone, string> = {
+    review: 'bg-warning/10 text-warning border-warning/30',
+    coo: 'bg-warning/10 text-warning border-warning/30',
+    waiting: 'bg-warning/10 text-warning border-warning/30',
+    board: 'bg-primary/10 text-primary border-primary/30',
+    funded: 'bg-success/10 text-success border-success/30',
+    live: 'bg-chart-5/10 text-chart-5 border-chart-5/30',
+    done: 'bg-success text-success-foreground border-transparent',
+    returned: 'bg-destructive/10 text-destructive border-destructive/30',
+    rejected: 'bg-destructive text-destructive-foreground border-transparent',
+    other: '',
   };
-
-  // Defensive: only show "Done" when the rent has actually been fully repaid.
-  const getStatusBadgeForRequest = (req: { status: string | null; amount_repaid?: number | null; total_repayment?: number | null }) => {
-    if (req.status === 'completed') {
-      const repaid = Number(req.amount_repaid ?? 0);
-      const total = Number(req.total_repayment ?? 0);
-      if (total > 0 && repaid < total) {
-        return <Badge variant="outline" className="bg-chart-5/10 text-chart-5 border-chart-5/30 gap-1"><Banknote className="h-3 w-3" />Active</Badge>;
-      }
-    }
-    return getStatusBadge(req.status);
+  const TONE_ICON: Record<AgentStatusTone, typeof Clock> = {
+    review: Clock, coo: Clock, waiting: Clock, board: Clock, funded: Banknote, live: Banknote,
+    done: CheckCircle, returned: RefreshCw, rejected: XCircle, other: Clock,
+  };
+  const getStatusBadgeForRequest = (req: AgentRentRequest) => {
+    const v = statusOf(req);
+    const Icon = TONE_ICON[v.tone];
+    return (
+      <Badge variant="outline" className={`gap-1 text-right whitespace-normal ${TONE_BADGE[v.tone]}`} data-testid="request-status">
+        <Icon className="h-3 w-3 shrink-0" />{v.label}
+      </Badge>
+    );
   };
 
   const openGoogleMaps = (lat: number, lng: number) => {
@@ -341,15 +338,24 @@ export function AgentMyRentRequestsSheet({ open, onOpenChange }: AgentMyRentRequ
                               {req.tenant?.full_name || 'Unknown Tenant'}
                             </span>
                           </div>
-                          {!waitingAtCoo(req) && getStatusBadgeForRequest(req)}
+                          {getStatusBadgeForRequest(req)}
                         </div>
-                        {waitingAtCoo(req) && (
-                          <a href={AGENT_VERIFICATION_PATH} data-testid="waiting-at-coo"
-                            className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-medium text-primary">
-                            <Clock className="h-4 w-4 shrink-0" aria-hidden />
-                            Waiting at COO: complete your verification
-                          </a>
-                        )}
+                        {(() => {
+                          const v = statusOf(req);
+                          if (!v.note && !v.next) return null;
+                          const verify = v.tone === 'waiting' && /not verified/i.test(v.note ?? '');
+                          return (
+                            <div className="mx-4 mb-2 space-y-0.5 text-xs" data-testid={v.tone === 'waiting' ? 'waiting-at-coo' : 'status-detail'}>
+                              {v.note && (
+                                <p className={v.tone === 'returned' || v.tone === 'rejected' ? 'font-medium text-destructive' : 'font-medium text-foreground'}>
+                                  {v.note}
+                                  {verify && <> <a href={AGENT_VERIFICATION_PATH} className="font-semibold text-primary underline underline-offset-4">Complete verification</a></>}
+                                </p>
+                              )}
+                              {v.next && <p className="text-muted-foreground">{v.next}</p>}
+                            </div>
+                          );
+                        })()}
 
                         {/* Landlord verification status banner */}
                         {req.landlord?.verified ? (

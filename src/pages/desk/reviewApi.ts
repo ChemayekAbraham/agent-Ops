@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { deskWords } from './sendBackItems';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -281,5 +282,6 @@ export async function lcLetterUrl(bucket: string | null, path: string): Promise<
 
 /** Only the items for the desk being reviewed. */
 export function stageChecklist(sheet: ReviewSheet | undefined, stage: Stage): ChecklistItem[] {
-  return (sheet?.checklist ?? []).filter((c) => c.stage === stage);
+  // The catalogue's words, in the desks' wording ("Tenant's face photo", never "passport photo").
+  return (sheet?.checklist ?? []).filter((c) => c.stage === stage).map((c) => ({ ...c, label: deskWords(c.label), question: deskWords(c.question) }));
 }

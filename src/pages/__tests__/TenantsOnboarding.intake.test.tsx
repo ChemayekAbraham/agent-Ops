@@ -62,6 +62,8 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  // The form keeps a draft (step, answers) on the device; each test starts fresh.
+  localStorage.clear();
   vi.clearAllMocks();
   mocks.gps = { latitude: 0.3136, longitude: 32.5811, accuracy: 8 };
   mocks.landlordPhone = undefined;

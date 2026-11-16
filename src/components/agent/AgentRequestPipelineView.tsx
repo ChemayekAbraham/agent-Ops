@@ -74,6 +74,8 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { useAgentRejectedRequests } from '@/hooks/useAgentRejectedRequests';
 import { openT4RentRequest } from '@/lib/t4RentRequest';
 import type { AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
+import { AT_COO_STATUSES, agentRequestStatus, agentRequestStatusLabel, type AgentRequestStatusView } from '@/lib/agentRequestStatus';
+import { useAgentEligibility } from '@/hooks/useAgentEligibility';
 
 export type PipelineTab = 'submitted' | 'approved' | 'rejected' | 'landlords';
 
@@ -92,33 +94,24 @@ export const SUBMITTED_STATUSES = [
 
 export const APPROVED_STATUSES = ['funded', 'disbursed'];
 
-const STAGE_LABEL: Record<string, string> = {
-  service_center_review: 'Service Center review',
-  pending: 'Agent Ops review',
-  agent_ops_approved: 'Tenant Ops review',
-  agent_verified: 'Tenant Ops review',
-  tenant_ops_approved: 'Landlord Ops review',
-  landlord_ops_approved: 'Partner Ops review',
-  partner_ops_approved: 'COO review',
-  coo_approved: 'CFO funding',
-  funded: 'Funded — awaiting disbursal',
-  disbursed: 'Disbursed — ready to collect',
+/*
+ * Status labels and "Next" lines come from agentRequestStatus (the current pipeline:
+ * Service Centre → Agent Ops → Tenant Ops → COO → funders' board → funded → live).
+ * The filter offers one entry per step; "At the COO" covers the three statuses that sit there.
+ */
+const STATUS_FILTER_GROUPS: Record<string, string[]> = {
+  service_center_review: ['service_center_review'],
+  pending: ['pending'],
+  agent_ops_approved: ['agent_ops_approved', 'agent_verified'],
+  at_coo: [...AT_COO_STATUSES],
+  coo_approved: ['coo_approved'],
+  funded: ['funded'],
+  disbursed: ['disbursed'],
 };
-
-
-const STAGE_NEXT: Record<string, string> = {
-  service_center_review: 'Next: Agent Ops review',
-  pending: 'Next: Tenant Ops review',
-  agent_verified: 'Next: Landlord Ops review',
-  agent_ops_approved: 'Next: Landlord Ops review',
-  tenant_ops_approved: 'Next: Partner Ops review',
-  landlord_ops_approved: 'Next: Partner Ops review',
-  partner_ops_approved: 'Next: COO review',
-  coo_approved: 'Next: Funds sent to landlord',
-  funded: 'Next: Tenant starts repayments',
-  disbursed: 'Next: Collect rent from tenant',
-  rejected: 'Next: Edit & resubmit',
-};
+const SUBMITTED_FILTERS = ['service_center_review', 'pending', 'agent_ops_approved', 'at_coo', 'coo_approved'];
+const APPROVED_FILTERS = ['funded', 'disbursed'];
+const filterLabel = (key: string) => agentRequestStatusLabel(STATUS_FILTER_GROUPS[key]?.[0] ?? key);
+const statusesForFilter = (key: string) => STATUS_FILTER_GROUPS[key] ?? [key];
 
 const EVENT_LABEL: Record<string, string> = {
   rent_request_created: 'Submitted for review',
@@ -195,10 +188,8 @@ function usePipelineRequests(
     queryFn: async (): Promise<{ rows: PipelineRow[]; total: number }> => {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      const effectiveStatuses =
-        selectedStatus !== 'all' && statuses.includes(selectedStatus)
-          ? [selectedStatus]
-          : statuses;
+      const picked = selectedStatus !== 'all' ? statusesForFilter(selectedStatus).filter((x) => statuses.includes(x)) : [];
+      const effectiveStatuses = picked.length > 0 ? picked : statuses;
 
       let query = supabase
         .from('rent_requests')
@@ -337,10 +328,9 @@ function Pager({
   );
 }
 
-function StatusStrip({ status, label }: { status: string; label: string }) {
+function StatusStrip({ status, label, next, note }: { status: string; label: string; next?: string | null; note?: string | null }) {
   const strip = STAGE_STRIP[status] ?? { bg: 'bg-muted', text: 'text-muted-foreground', iconBg: 'bg-foreground/10' };
   const Icon = STAGE_ICON[status] ?? Eye;
-  const next = STAGE_NEXT[status];
   return (
     <div className={`${strip.bg} ${strip.text}`}>
       <div className="flex items-center gap-2 px-3 py-1.5">
@@ -349,9 +339,10 @@ function StatusStrip({ status, label }: { status: string; label: string }) {
         </div>
         <span className="text-xs font-bold tracking-wide">{label}</span>
       </div>
-      {next && (
-        <div className="px-3 pb-1.5 pt-0">
-          <span className="text-[10px] font-medium opacity-90">{next}</span>
+      {(note || next) && (
+        <div className="px-3 pb-1.5 pt-0 space-y-0.5">
+          {note && <p className="text-[11px] font-semibold" data-testid="status-note">{note}</p>}
+          {next && <p className="text-[10px] font-medium opacity-90">{next}</p>}
         </div>
       )}
     </div>
@@ -361,14 +352,14 @@ function StatusStrip({ status, label }: { status: string; label: string }) {
 function RowCard({
   row,
   tone,
-  stageLabel,
+  view,
   rightSlot,
   onClick,
   highlighted,
 }: {
   row: PipelineRow;
   tone: 'amber' | 'emerald' | 'destructive';
-  stageLabel: string;
+  view: AgentRequestStatusView;
   rightSlot?: React.ReactNode;
   onClick?: () => void;
   highlighted?: boolean;
@@ -400,7 +391,7 @@ function RowCard({
       }
       style={onClick ? { touchAction: 'manipulation' } : undefined}
     >
-      <StatusStrip status={row.status} label={stageLabel} />
+      <StatusStrip status={row.status} label={view.label} next={view.next} note={view.note} />
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -522,6 +513,10 @@ export function AgentRequestPipelineView({
   );
   const rejectedQuery = useAgentRejectedRequests();
   const rejectedAll = rejectedQuery.data ?? [];
+  const { user } = useAuth();
+  // Below 50% or not verified: requests at the COO show "Waiting at the COO" and why.
+  const eligibility = useAgentEligibility(user?.id, tab === 'submitted');
+  const statusView = (r: PipelineRow) => agentRequestStatus(r, eligibility);
   const landlordsQuery = useRegisteredLandlords(tab === 'landlords');
 
   // Client-side filtering helpers
@@ -540,7 +535,7 @@ export function AgentRequestPipelineView({
 
   const filterByStatus = (row: PipelineRow) => {
     if (statusFilter === 'all') return true;
-    return row.status === statusFilter;
+    return statusesForFilter(statusFilter).includes(row.status);
   };
 
   const filterByDate = (row: PipelineRow) => {
@@ -647,7 +642,7 @@ export function AgentRequestPipelineView({
       escape(r.tenant_phone),
       escape(r.landlord_name),
       escape(r.landlord_address),
-      escape(STAGE_LABEL[r.status] ?? r.status),
+      escape(tab === 'rejected' ? agentRequestStatus(r).label : statusView(r).label),
       escape(r.rent_amount),
       escape(r.duration_days),
       escape(format(new Date(r.created_at), 'yyyy-MM-dd')),
@@ -802,19 +797,9 @@ export function AgentRequestPipelineView({
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
                   {tab === 'submitted' ? (
-                    <>
-                      <SelectItem value="pending">Agent Ops review</SelectItem>
-                      <SelectItem value="tenant_ops_approved">Tenant Ops review</SelectItem>
-                      <SelectItem value="agent_verified">Tenant Ops review</SelectItem>
-                      <SelectItem value="agent_ops_approved">Landlord Ops review</SelectItem>
-                      <SelectItem value="landlord_ops_approved">COO review</SelectItem>
-                      <SelectItem value="coo_approved">CFO funding</SelectItem>
-                    </>
+                    SUBMITTED_FILTERS.map((k) => <SelectItem key={k} value={k}>{filterLabel(k)}</SelectItem>)
                   ) : (
-                    <>
-                      <SelectItem value="funded">Funded — awaiting disbursal</SelectItem>
-                      <SelectItem value="disbursed">Disbursed — ready to collect</SelectItem>
-                    </>
+                    APPROVED_FILTERS.map((k) => <SelectItem key={k} value={k}>{filterLabel(k)}</SelectItem>)
                   )}
                 </SelectContent>
               </Select>
@@ -971,7 +956,7 @@ export function AgentRequestPipelineView({
                   key={r.id}
                   row={r}
                   tone="amber"
-                  stageLabel={STAGE_LABEL[r.status] ?? 'In review'}
+                  view={statusView(r)}
                   onClick={() => setDetailRow(r)}
                   highlighted={activeHighlight === r.id}
                 />
@@ -1005,7 +990,7 @@ export function AgentRequestPipelineView({
                   key={r.id}
                   row={r}
                   tone="emerald"
-                  stageLabel={STAGE_LABEL[r.status] ?? 'Approved'}
+                  view={statusView(r)}
                   onClick={() => setDetailRow(r)}
                   highlighted={activeHighlight === r.id}
                   rightSlot={
@@ -1048,12 +1033,16 @@ export function AgentRequestPipelineView({
             />
           ) : (
             <>
-              {rejectedPaged.map((r) => (
+              {rejectedPaged.map((r) => {
+                const rv = agentRequestStatus(r);
+                const label = r.cancelled_by_agent ? 'Cancelled by you' : r.returned_by_recall ? String(r.stage_label) : rv.label;
+                const returned = rv.tone === 'returned';
+                return (
                 <Card
                   key={r.id}
                   className="border-2 border-destructive/40 bg-destructive/5 overflow-hidden"
                 >
-                  <StatusStrip status="rejected" label={r.cancelled_by_agent ? 'Cancelled by you' : r.returned_by_recall ? String(r.stage_label) : `Rejected at ${r.stage_label}`} />
+                  <StatusStrip status="rejected" label={label} />
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -1061,7 +1050,7 @@ export function AgentRequestPipelineView({
                           <User className="h-4 w-4 text-primary shrink-0" />
                           <span className="font-semibold truncate text-sm">{r.tenant_name}</span>
                           <Badge variant="destructive" className="text-[10px]">
-                            {r.cancelled_by_agent ? 'Cancelled by you' : `Rejected at ${r.stage_label}`}
+                            {r.cancelled_by_agent ? 'Cancelled by you' : returned ? `From ${r.stage_label}` : `Rejected at ${r.stage_label}`}
                           </Badge>
                         </div>
                         <div className="text-[11px] text-muted-foreground space-y-0.5">
@@ -1089,7 +1078,7 @@ export function AgentRequestPipelineView({
                       <div className="flex items-center gap-1.5 mb-1">
                         <MessageSquare className="h-3.5 w-3.5 text-destructive" />
                         <p className="text-[10px] font-bold uppercase tracking-wide text-destructive">
-                          Reason — {r.reviewer_name}
+                          {returned ? 'Note from the desk' : 'Reason'} — {r.reviewer_name}
                         </p>
                       </div>
                       <p className="text-sm text-foreground/90 whitespace-pre-wrap font-medium">
@@ -1108,7 +1097,8 @@ export function AgentRequestPipelineView({
                       </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
               <Pager
                 page={rejectedPage}
                 total={rejectedAll.length}
@@ -1192,7 +1182,7 @@ export function AgentRequestPipelineView({
 
       <RequestDetailDrawer
         row={detailRow}
-        stageLabel={detailRow ? STAGE_LABEL[detailRow.status] ?? 'In review' : ''}
+        view={detailRow ? statusView(detailRow) : null}
         onClose={() => setDetailRow(null)}
       />
     </div>
@@ -1229,11 +1219,11 @@ function DetailRow({
 
 function RequestDetailDrawer({
   row,
-  stageLabel,
+  view,
   onClose,
 }: {
   row: PipelineRow | null;
-  stageLabel: string;
+  view: AgentRequestStatusView | null;
   onClose: () => void;
 }) {
   const { user } = useAuth();
@@ -1297,11 +1287,13 @@ function RequestDetailDrawer({
             <DrawerHeader className="text-left shrink-0">
               <div className="flex items-center justify-between gap-2">
                 <DrawerTitle className="text-base">Request details</DrawerTitle>
-                <Badge variant="secondary" className="text-[10px]">{stageLabel}</Badge>
+                <Badge variant="secondary" className="text-[10px]">{view?.label}</Badge>
               </div>
               <DrawerDescription>
                 Submitted {format(new Date(row.created_at), 'MMM d, yyyy · h:mm a')}
               </DrawerDescription>
+              {view?.note && <p className="text-xs font-medium text-foreground">{view.note}</p>}
+              {view?.next && <p className="text-xs text-muted-foreground">{view.next}</p>}
             </DrawerHeader>
 
             <div className="px-4 pb-2 space-y-3 flex-1 min-h-0 overflow-y-auto">

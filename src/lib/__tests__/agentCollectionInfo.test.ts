@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc } }));
 
-import { collectionInfoLine, fetchMyCollectionPct, formatPct, parseCollectionPct } from '@/lib/agentCollectionInfo';
+import { collectionInfoLine, fetchMyCollectionInfo, fetchMyCollectionPct, formatPct, parseCollectionPct } from '@/lib/agentCollectionInfo';
 
 beforeEach(() => mocks.rpc.mockReset());
 
@@ -22,6 +22,15 @@ describe('E100: collection is information, never a gate', () => {
     expect(mocks.rpc).toHaveBeenCalledWith('agent_eligibility_of', { p_agent: 'veron' });
     mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'permission denied' } });
     await expect(fetchMyCollectionPct('veron')).resolves.toBeNull();
+  });
+
+  it('E119: reads the agent\'s own % and reason; another agent\'s id is refused and gives null', async () => {
+    mocks.rpc.mockImplementation(async (_fn: string, args?: { p_agent?: string }) => (args?.p_agent === 'me'
+      ? { data: { eligible: false, pct: 31, reason: 'You are not verified yet.' }, error: null }
+      : { data: null, error: { message: 'NOT_ALLOWED' } }));
+    await expect(fetchMyCollectionInfo('me')).resolves.toEqual({ pct: 31, reason: 'You are not verified yet.' });
+    await expect(fetchMyCollectionInfo('someone-else')).resolves.toBeNull();
+    expect(mocks.rpc).toHaveBeenCalledWith('agent_eligibility_of', { p_agent: 'someone-else' });
   });
 
   it('says it as the COO wrote it', () => {

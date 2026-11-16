@@ -41,6 +41,7 @@ export function RowCard({
   menuLabel,
   why,
   board = false,
+  actions,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
@@ -53,6 +54,8 @@ export function RowCard({
   /** The row's reason, in plain words. */
   why?: ReactNode;
   board?: boolean;
+  /** Extra buttons on the button row, before the ⋯ menu (the COO's Review and Send back). */
+  actions?: ReactNode;
 }) {
   const shownChips = chips.slice(0, CHIP_MAX);
   const extra = chips.length - shownChips.length;
@@ -75,9 +78,9 @@ export function RowCard({
       )}
       {meta && <div className="text-sm tabular-nums text-foreground" style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px' }}>{meta}</div>}
       {why && <div className={LABEL}>{why}</div>}
-      {(primary || menu) && (
+      {(primary || menu || actions) && (
         <div style={stackLayout(4)}>
-          <div style={{ display: 'flex', alignItems: 'stretch', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch', gap: 8 }}>
             {primary && split && (
               <DecisionButton
                 size="md"
@@ -90,6 +93,7 @@ export function RowCard({
                 {split.label}
               </DecisionButton>
             )}
+            {actions}
             {menu && <MoreMenu label={menuLabel ?? 'More for this request'}>{menu}</MoreMenu>}
           </div>
           {detail && <div className={LABEL} style={{ overflowWrap: 'anywhere' }}>{detail}</div>}

@@ -19,7 +19,7 @@ import { optimizeImage } from '@/lib/imageOptimizer';
 import { captureGps, isGpsRequiredError } from '@/lib/captureGps';
 import { renewRpcArgs, type RenewalChoice } from '@/lib/renewalAdvice';
 import { attachLc1Letter, noteLc1Missing, saveIntakeDetails } from '@/lib/agentIntakeDetails';
-import { uploadLcLetter } from '@/lib/rentRequestAssistantSubmit';
+import { storeTenantPhoto, uploadLcLetter } from '@/lib/rentRequestAssistantSubmit';
 import { safeUUID } from '@/lib/safeUUID';
 import { OPEN_REQUEST_STATUSES, type TenantIdFields } from '@/lib/t4RentRequest';
 import { counted, createSendTimer, createUploadCounter, type OnSendProgress, type UploadCounter } from '@/lib/sendProgress';
@@ -118,6 +118,11 @@ export interface ResubmitInput {
   details: { familySize: number | null; workBusiness: string | null; workLocation: string | null } | null;
   /** ID front / back and LC1 letter to attach (request_attach_document) before the resubmit. */
   docs?: Partial<Record<DocKind, DocSource>>;
+  /**
+   * A retaken tenant face photo: stored, set on the request (tenant_photo_url) and sent in the
+   * patch, with its face-check fingerprint, or face_check 'skipped_timeout' when the check timed out.
+   */
+  tenantPhoto?: { file: File; sha256: string | null; faceCheck: 'skipped_timeout' | null } | null;
   /** "Uploading photos 3/6…", "Saving…": the button follows this. */
   onProgress?: OnSendProgress;
 }
@@ -142,15 +147,31 @@ async function resubmitTimed(input: ResubmitInput, timer: ReturnType<typeof crea
   const docsP = input.docs ? attachT4Documents(input.agentId, input.requestId, input.docs, counter) : Promise.resolve([] as string[]);
   const evidenceP = uploadResubmitEvidence(input.agentId, input.requestId, input.photos, input.extraPhotoUrls, input.lcLetter, counter)
     .then((patch) => ({ patch }), (e: unknown) => ({ error: errorText(e) }));
-  const [saved, docProblems, evidence] = await timer.step('details, documents and photos', Promise.all([intakeP, docsP, evidenceP]));
+  const face = input.tenantPhoto ?? null;
+  if (face) counter.add(1);
+  const faceP = face ? counted(counter, storeTenantPhoto(input.agentId, face.file)) : Promise.resolve(null);
+  const [saved, docProblems, evidence, faceUrl] = await timer.step('details, documents and photos', Promise.all([intakeP, docsP, evidenceP, faceP]));
   counter.saving();
   if (saved && !saved.ok) return { ok: false, message: saved.message || 'The family size and work were not saved.' };
   if (docProblems.length) return { ok: false, message: docProblems.join(' · ') };
   if ('error' in evidence) return { ok: false, message: evidence.error };
+  const facePatch: Record<string, unknown> = {};
+  if (face) {
+    if (!faceUrl) return { ok: false, message: "Couldn't upload the tenant's face photo. Check your connection and try again." };
+    facePatch.tenant_photo_url = faceUrl;
+    if (face.faceCheck) facePatch.face_check = face.faceCheck;
+    // The request row carries the photo the desks see; the server's own error is returned as it comes.
+    const { error: photoError } = await untypedFrom('rent_requests').update({ tenant_photo_url: faceUrl }).eq('id', input.requestId);
+    if (photoError) return { ok: false, message: errorText(photoError) || "The tenant's face photo was not saved on the request." };
+    if (face.sha256) {
+      void rpc('link_identity_photo_fingerprint', { p_sha256: face.sha256, p_rent_request_id: input.requestId, p_photo_url: faceUrl })
+        .catch((e: unknown) => console.warn('[T4] face fingerprint link failed', e));
+    }
+  }
   try {
     const { error } = await timer.step('resubmit', rpc('agent_resubmit_rent_request', {
       p_request_id: input.requestId,
-      p_patch: { ...input.patch, ...evidence.patch },
+      p_patch: { ...input.patch, ...evidence.patch, ...facePatch },
       p_agent_note: input.note.trim(),
     }));
     if (error) return { ok: false, message: errorText(error) || 'The request was not resubmitted.' };

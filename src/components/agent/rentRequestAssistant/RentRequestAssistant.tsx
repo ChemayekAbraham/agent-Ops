@@ -24,10 +24,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useAssistantSpeech } from './useAssistantSpeech';
 import { Lc1SearchStep, type Lc1Hit } from './Lc1SearchStep';
 import { toast } from 'sonner';
+import { AGENT_RENT_REQUEST_REOPEN_FLAG as REOPEN_FLAG, clearFormPhotos, loadFormPhotos, previewOf, saveFormPhotos } from '@/lib/formPhotoDraft';
+import SelfieCameraCapture from '@/components/wallet/SelfieCameraCapture';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { collectionInfoLine, fetchMyCollectionPct } from '@/lib/agentCollectionInfo';
-import { canViewDeskReads } from '@/lib/deskViewerRoles';
+import { collectionInfoLine, fetchMyCollectionInfo, type MyCollectionInfo } from '@/lib/agentCollectionInfo';
 import { listingHasRealPhoto } from '@/hooks/useHouseListings';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
@@ -39,7 +40,8 @@ import { useAgentGateStatus } from '@/hooks/useAgentGateStatus';
 import { AGENT_VERIFICATION_PATH } from '@/hooks/useAgentVetting';
 import { agentNotVettedReason } from '@/lib/agentVetting';
 import { optimizeImage } from '@/lib/imageOptimizer';
-import { runPassportFaceCheck, faceCheckBlocker, type PassportFaceCheck } from '@/lib/passportFaceCheck';
+import { FACE_PHOTO_ENCODING, runPassportFaceCheck, runPassportFaceCheckWithin, faceCheckBlocker, type PassportFaceCheck } from '@/lib/passportFaceCheck';
+import { FACE_CHECK_SLOW_MESSAGE, FACE_CHECK_TIMEOUT_MS, TENANT_FACE_PHOTO, facePhotoRefusal, itemsMentioned, type ReasonItem } from '@/lib/tenantFacePhoto';
 import { notifyVerificationCreated } from '@/lib/landlordVerificationNotify';
 import { normalizeDistrict } from '@/lib/ugandaDistricts';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -195,8 +197,9 @@ type StepId =
 
 /** Every question in order; `steps` drops the ones an answer makes unnecessary. */
 const ALL_STEPS: StepId[] = [
-  'type', 'rent', 'plan',
-  'tenantPhone', 'tenantName', 'nationalId', 'language', 'smartphone',
+  // The first screen is the tenant's phone number: no greeting step, no extra Continue.
+  'tenantPhone', 'type', 'rent', 'plan',
+  'tenantName', 'nationalId', 'language', 'smartphone',
   'familySize', 'work', 'workLocation',
   'landlord', 'house', 'location', 'address', 'category', 'photos', 'tenantPhoto', 'idFront', 'idBack', 'gps',
   'lc1', 'lc1Phone', 'lc1Name', 'lc1Village', 'city', 'lcLetter', 'payoutDay', 'review',
@@ -205,8 +208,13 @@ const ALL_STEPS: StepId[] = [
 /** Resubmit: what a rejected request can change, the T4 intake, and a note for the reviewer. */
 const RESUBMIT_STEPS: StepId[] = [
   'rent', 'days', 'tenantName', 'tenantPhone', 'nationalId', 'language', 'smartphone',
-  'familySize', 'work', 'workLocation', 'landlord', 'category', 'photos', 'idFront', 'idBack', 'gps', 'lcLetter', 'note', 'review',
+  'familySize', 'work', 'workLocation', 'landlord', 'category', 'photos', 'tenantPhoto', 'idFront', 'idBack', 'gps', 'lcLetter', 'note', 'review',
 ];
+/** The question a return reason or a desk's failed check points at. */
+const REASON_STEP: Record<ReasonItem, StepId> = {
+  rent: 'rent', landlord: 'landlord', photos: 'photos', tenantPhoto: 'tenantPhoto', idFront: 'idFront', idBack: 'idBack',
+  gps: 'gps', lcLetter: 'lcLetter', familySize: 'familySize', work: 'work',
+};
 /**
  * Renewal: same tenant, house and landlord. The Agent Ops gate still needs the
  * full name, a tenant ID, 3+ house photos, GPS and the LC1 letter; each is
@@ -222,7 +230,8 @@ const ITEM_STEP: Partial<Record<T4ItemKey, StepId>> = {
 
 /** E108 funnel: the stable step name for each question. */
 const FUNNEL_STEP: Record<StepId, FunnelStep> = {
-  type: 'start',
+  // 'start' is logged once the first answer is given, not on open (see funnelStarted).
+  type: 'repayment',
   rent: 'repayment', plan: 'repayment', days: 'repayment',
   tenantPhone: 'tenant', tenantName: 'tenant', nationalId: 'tenant', language: 'tenant',
   familySize: 'tenant', work: 'tenant', workLocation: 'tenant',
@@ -251,6 +260,9 @@ const REFUSAL_FUNNEL_ITEM: Record<string, FunnelItem> = { landlord_missing: 'lan
 
 type PlanType = 'daily' | 'weekly' | 'monthly';
 type Lc1Match = { id: string; name: string; verified: boolean; village: string } | null;
+/** A draft older than this is dropped; the agent has moved on. */
+const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 /** A photo taken now, or one already on file (file null, preview = its URL). */
 type Photo = { file: File | null; preview: string };
 
@@ -265,7 +277,7 @@ interface Props {
 
 /** Where the form opens: a resubmit or renewal at its review, with the checklist of what is missing. */
 function firstStep(request: T4Request | null | undefined): StepId {
-  return request?.mode === 'resubmit' || request?.mode === 'renewal' ? 'review' : 'type';
+  return request?.mode === 'resubmit' || request?.mode === 'renewal' ? 'review' : 'tenantPhone';
 }
 
 function greetingNow(): { text: string; emoji: string } {
@@ -276,16 +288,17 @@ function greetingNow(): { text: string; emoji: string } {
 }
 
 export default function RentRequestAssistant({ open, onOpenChange, onSuccess, request }: Props) {
-  const { user, enabledRoles } = useAuth();
-  const canReadEligibility = canViewDeskReads(enabledRoles);
+  const { user } = useAuth();
   const mode = request?.mode ?? 'new';
+  const draftKey = user?.id ? `welile_agent_rent_request_draft_${user.id}` : '';
   const rejected = request?.mode === 'resubmit' ? request.rejected : null;
   const renewal = request?.mode === 'renewal' ? request.renewal : null;
   // E63: no rent cap per tenant. Any monthly rent can be entered; the server's own rule
   // (tenant arrears) refuses what it should, and its message is shown as it is.
   // E100 (COO decision): no daily or weekly posting gate. The agent's collection against the
   // 50% rule is shown as information only; it never blocks a post.
-  const [collectionPct, setCollectionPct] = useState<number | null>(null);
+  // E119: the agent reads their own figure (agent_eligibility_of with their own id) and its reason.
+  const [collection, setCollection] = useState<MyCollectionInfo | null>(null);
   /*
    * E111: agents always post. An unverified agent's request passes every desk and waits at
    * the COO / funders' board until Agent Ops verifies them; `notice` says so. Only
@@ -301,11 +314,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     }));
   }, [gateBlocked, gate?.reason]);
   useEffect(() => {
-    if (!open || !user?.id || !canReadEligibility) return;
+    if (!open || !user?.id) return;
     let cancelled = false;
-    void fetchMyCollectionPct(user.id).then((p) => { if (!cancelled) setCollectionPct(p); });
+    void fetchMyCollectionInfo(user.id).then((c) => { if (!cancelled) setCollection(c); });
     return () => { cancelled = true; };
-  }, [open, user?.id, canReadEligibility]);
+  }, [open, user?.id]);
 
   // ----- answers -----
   const [planType, setPlanType] = useState<PlanType | null>(null);
@@ -362,6 +375,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     if (open) funnel.open(); else funnel.close();
   }, [open, tracking, funnel]);
   useEffect(() => () => funnel.close(), [funnel]);
+  /** Step 'start' is logged once the first answer is given; until then only 'open' (and 'close'). */
+  const [funnelStarted, setFunnelStarted] = useState(false);
 
   // ----- E109: save and finish later -----
   const [draftId, setDraftId] = useState<string | null>(request?.mode === 'new' ? request.draft?.id ?? null : null);
@@ -371,7 +386,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [refusalItems, setRefusalItems] = useState<FunnelItem[]>([]);
   const [draftsOk, setDraftsOk] = useState<boolean | null>(draftsAvailable());
   const [jumpToMissing, setJumpToMissing] = useState(false);
-  /** Where Continue must open regardless of the checklist order (a passport photo that now fails). */
+  /** Where Continue must open regardless of the checklist order (a face photo that now fails). */
   const jumpFirst = useRef<StepId | null>(null);
   /** Photos already stored for a draft, so a second save does not upload them again. */
   const draftPaths = useRef(new WeakMap<File, DraftPhoto>());
@@ -385,6 +400,15 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const blockedNow = (items: FunnelItem[], error?: string | null) => {
     funnel.blocked(items, error);
     setSaveOffer(true);
+  };
+  /**
+   * The face check, given up after 15 seconds (or at once when offline): then the agent can
+   * continue, the office checks the photo, and the funnel logs it as a blocked press.
+   */
+  const checkFace = async (file: File): Promise<PassportFaceCheck> => {
+    const r = await runPassportFaceCheckWithin(file, { source: 'agent_rent_request' }, FACE_CHECK_TIMEOUT_MS, runPassportFaceCheck);
+    if (r.status === 'skipped_timeout' && mode === 'new') funnel.blocked(['tenant_photo'], 'face_check_timeout');
+    return r;
   };
   useEffect(() => {
     if (!open || !tracking || typeof document === 'undefined') return;
@@ -428,6 +452,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const sideSteps = useMemo(() => (sideMissing ? new Set<SideMissingStep>(sideMissing.flatMap(sideMissingSteps)) : null), [sideMissing]);
   /** A question the agent opened from the checklist that the server list did not name. */
   const [extraSteps, setExtraSteps] = useState<StepId[]>([]);
+  /** The server list has been read (or could not be): the flagged items can be opened. */
+  const [sideLoaded, setSideLoaded] = useState(false);
+  /** Resubmit: items the return reason or the desk's checks point at, still to open after this one. */
+  const redoQueue = useRef<StepId[]>([]);
+  const flaggedOpened = useRef(false);
+  /** An error to show on the question being opened (the composer's reset would clear it otherwise). */
+  const pendingError = useRef<string | null>(null);
   /** The server lists this document, so a photo on file elsewhere does not count. */
   const listedDoc = (k: SideMissingStep) => mode === 'resubmit' && !!sideSteps?.has(k);
   /** Short-lived preview links for the documents on file. */
@@ -453,7 +484,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
   // ----- flow -----
   const [current, setCurrent] = useState<StepId>(() => firstStep(request));
-  const [furthest, setFurthest] = useState<StepId>(() => (mode === 'new' ? 'type' : 'review'));
+  const [furthest, setFurthest] = useState<StepId>(() => (mode === 'new' ? 'tenantPhone' : 'review'));
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   /** A corrected answer the agent can accept with one tap ("Did you mean …?"). */
@@ -503,7 +534,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     // DOCS-1: a document already on file is not asked for again.
     const onFile = (s: StepId) => (s === 'idFront' && !!docsOnFile.id_front)
       || (s === 'idBack' && !!docsOnFile.id_back)
-      || (s === 'lcLetter' && !!docsOnFile.lc1_letter);
+      || (s === 'lcLetter' && !!docsOnFile.lc1_letter)
+      || (s === 'tenantPhoto' && !!rejected?.tenant_photo_url?.trim());
     if (mode === 'renewal') return RENEWAL_STEPS.filter((s) => !onFile(s));
     if (mode === 'resubmit') {
       if (sideSteps) {
@@ -514,7 +546,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       }
       // SC-2 does not ask a renewal for family size or work again.
       const skip = rejected?.registration_type === 'renewal' ? ['familySize', 'work', 'workLocation'] : [];
-      return RESUBMIT_STEPS.filter((s) => !skip.includes(s) && !onFile(s));
+      return RESUBMIT_STEPS.filter((s) => extraSteps.includes(s) || (!skip.includes(s) && !onFile(s)));
     }
     return ALL_STEPS.filter((s) => {
       // Picked from the search: phone and name are already known.
@@ -522,13 +554,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       // New LC1 whose phone turned out to be on file: the name is known.
       return !(s === 'lc1Name' && lc1Match);
     });
-  }, [lc1Match, lc1Mode, mode, rejected?.registration_type, docsOnFile, sideSteps, extraSteps]);
+  }, [lc1Match, lc1Mode, mode, rejected?.registration_type, rejected?.tenant_photo_url, docsOnFile, sideSteps, extraSteps]);
   const idx = steps.indexOf(current);
   const furthestIdx = Math.max(steps.indexOf(furthest), idx);
 
   useEffect(() => {
-    if (open && tracking) funnel.step(FUNNEL_STEP[current]);
-  }, [current, open, tracking, funnel]);
+    if (open && tracking && funnelStarted) funnel.step(FUNNEL_STEP[current]);
+  }, [current, open, tracking, funnel, funnelStarted]);
 
   const reset = useCallback(() => {
     setPlanType(null); setRentText(''); setDuration('30'); setRepaymentPeriod('7');
@@ -540,12 +572,98 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setGps(null); setLc1Phone(''); setLc1Match(null); setLc1Mode(null); setLc1NameParts({ firstName: '', otherNames: '', lastName: '' });
     setLc1Village(''); setCity(''); setLcLetter(null); setNoLc1Letter(false); setNoLc1Reason(''); setPayoutDay(''); setConsent(false);
     setLandlordCode(typeof window === 'undefined' ? '' : landlordCodeFromSearch(window.location.search));
-    setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
+    setCurrent('tenantPhone'); setFurthest('tenantPhone'); setFunnelStarted(false); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
     setFixOffer(null); setWrongTries({});
     setDraftId(null); setSaveOffer(false); setDraftNote(null); setRefusalItems([]); draftFolder.current = newDraftFolder();
+    setIdFront(null); setIdBack(null);
+    if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } void clearFormPhotos(draftKey); }
     // "Post another": a new funnel session.
     if (tracking) funnel.open();
-  }, [tracking, funnel]);
+  }, [tracking, funnel, draftKey]);
+
+  /* ----- keep a new request on this phone until it is sent (doc 276) -----
+     The phone's camera app sends the browser to the background and Android often
+     reloads the page when it comes back, which used to throw the agent back to the
+     first question with everything gone. Answers go to localStorage, photos to
+     IndexedDB; the dashboard reopens the form after a reload (REOPEN_FLAG).
+     Resubmits and renewals are filled from the server, so they are not kept. */
+  const keepDraft = mode === 'new' && !!draftKey;
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  useEffect(() => {
+    if (!open || !keepDraft || draftLoaded) return;
+    let cancelled = false;
+    void (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let d: Record<string, any> | null = null;
+      try { d = JSON.parse(localStorage.getItem(draftKey) ?? 'null'); } catch { d = null; }
+      // A prefilled form (opened for one tenant) or a saved request (E109) starts from that, not the old draft.
+      const usable = !!d && !(request?.mode === 'new' && request.prefill) && !(request?.mode === 'new' && request.draft) && Date.now() - Number(d.savedAt ?? 0) < DRAFT_MAX_AGE_MS
+        && (ALL_STEPS as string[]).includes(d.current);
+      if (usable && d) {
+        const ph = await loadFormPhotos<{ house?: (File | null)[]; tenant?: File | null; idFront?: File | null; idBack?: File | null; lcLetter?: File | null }>(draftKey);
+        if (cancelled) return;
+        setPlanType(d.planType ?? null); setRentText(d.rentText ?? ''); setDuration(d.duration ?? '30'); setRepaymentPeriod(d.repaymentPeriod ?? '7');
+        setTenantPhone(d.tenantPhone ?? ''); if (d.tenantNameParts) setTenantNameParts(d.tenantNameParts); setNationalId(d.nationalId ?? '');
+        setLanguage(d.language ?? ''); setNoSmartphone(d.noSmartphone ?? null); setFamilySize(d.familySize ?? ''); setWork(d.work ?? ''); setWorkLocation(d.workLocation ?? '');
+        setLandlord(d.landlord ?? null); setHouses(d.houses ?? null); setHouse(d.house ?? null); setHouseChoiceMade(!!d.houseChoiceMade);
+        setLocation(d.location ?? null); setAddress(d.address ?? ''); setDistrict(d.district ?? ''); setCategory(d.category ?? '');
+        setGps(d.gps ?? null); setLc1Phone(d.lc1Phone ?? ''); setLc1Match(d.lc1Match ?? null); setLc1Mode(d.lc1Mode ?? null);
+        if (d.lc1NameParts) setLc1NameParts(d.lc1NameParts);
+        setLc1Village(d.lc1Village ?? ''); setCity(d.city ?? ''); setNoLc1Letter(!!d.noLc1Letter); setNoLc1Reason(d.noLc1Reason ?? ''); setPayoutDay(d.payoutDay ?? '');
+        setCurrent(d.current); setFurthest(d.furthest ?? d.current);
+        if (d.current !== 'tenantPhone') setFunnelStarted(true);
+        if (ph) {
+          setHousePhotos([0, 1, 2, 3].map((i) => previewOf(ph.house?.[i])));
+          setIdFront(previewOf(ph.idFront)); setIdBack(previewOf(ph.idBack)); setLcLetter(previewOf(ph.lcLetter));
+          const face = previewOf(ph.tenant);
+          if (face) {
+            setTenantPhoto(face);
+            // The face check result was not kept; run it again.
+            setFaceCheck({ status: 'checking' });
+            if (face.file) void checkFace(face.file).then((r) => { if (!cancelled) setFaceCheck(r); });
+          }
+        }
+        toast.success('Picked up where you left off', { action: { label: 'Start over', onClick: () => reset() } });
+      }
+      if (!cancelled) setDraftLoaded(true);
+    })();
+    return () => { cancelled = true; };
+    // Once per open form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, keepDraft, draftLoaded]);
+
+  useEffect(() => {
+    if (!keepDraft || !draftLoaded || !open || result) return;
+    const t = window.setTimeout(() => {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({
+          savedAt: Date.now(), planType, rentText, duration, repaymentPeriod, tenantPhone, tenantNameParts, nationalId,
+          language, noSmartphone, familySize, work, workLocation, landlord, houses, house, houseChoiceMade, location,
+          address, district, category, gps, lc1Phone, lc1Match, lc1Mode, lc1NameParts, lc1Village, city, noLc1Letter,
+          noLc1Reason, payoutDay, current, furthest,
+        }));
+      } catch { /* quota or private mode: nothing kept */ }
+      void saveFormPhotos(draftKey, {
+        house: housePhotos.map((h) => h?.file ?? null), tenant: tenantPhoto?.file ?? null,
+        idFront: idFront?.file ?? null, idBack: idBack?.file ?? null, lcLetter: lcLetter?.file ?? null,
+      });
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [keepDraft, draftLoaded, open, result, draftKey, planType, rentText, duration, repaymentPeriod, tenantPhone, tenantNameParts,
+      nationalId, language, noSmartphone, familySize, work, workLocation, landlord, houses, house, houseChoiceMade, location,
+      address, district, category, gps, lc1Phone, lc1Match, lc1Mode, lc1NameParts, lc1Village, city, noLc1Letter, noLc1Reason,
+      payoutDay, current, furthest, housePhotos, tenantPhoto, idFront, idBack, lcLetter]);
+
+  // Sent: the draft is done with. Open: reopen after a reload; closed on purpose: don't.
+  useEffect(() => {
+    if (result && draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } void clearFormPhotos(draftKey); }
+  }, [result, draftKey]);
+  // The host closes the form by unmounting it, so the flag is cleared in the cleanup.
+  useEffect(() => {
+    if (!open || !keepDraft || result || !user?.id) return;
+    try { localStorage.setItem(REOPEN_FLAG, user.id); } catch { /* ignore */ }
+    return () => { try { localStorage.removeItem(REOPEN_FLAG); } catch { /* ignore */ } };
+  }, [open, keepDraft, result, user?.id]);
 
   // Fill the form from what opened it. The host mounts a fresh form for each request.
   useEffect(() => {
@@ -611,11 +729,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         if (cancelled) return;
         setHousePhotos(house4);
         setTenantPhoto(tp);
-        // Re-run the passport face check on the photo that came back, before choosing where to
+        // Re-run the face check on the photo that came back, before choosing where to
         // open: a photo that fails now is caught here, whatever was true when it was saved.
+        setFunnelStarted(true);
         if (tp?.file) {
           setFaceCheck({ status: 'checking' });
-          const check = await runPassportFaceCheck(tp.file, { source: 'agent_rent_request' });
+          const check = await checkFace(tp.file);
           if (cancelled) return;
           setFaceCheck(check);
           // A photo that fails now opens first; its step says "No face found. Tap the photo to retake it."
@@ -700,11 +819,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     }
     setTenantNameParts(splitPersonName(r.tenant_name ?? ''));
     setTenantPhone(r.tenant_phone ? formatPhone(r.tenant_phone) : '');
+    // The face photo already on the request: shown on the summary, retaken only when the agent taps it.
+    if (r.tenant_photo_url?.trim()) setTenantPhoto({ file: null, preview: r.tenant_photo_url });
     checkOpen(r.tenant_id, r.id);
     (async () => {
       // The tenant's record (name, ID, occupation) and the intake already saved for this request.
       // E90: what the server still needs from the agent, read first.
-      void fetchAgentSideMissing(r.id).then((lines) => { if (!cancelled) setSideMissing(lines); });
+      void fetchAgentSideMissing(r.id).then((lines) => { if (!cancelled) { setSideMissing(lines); setSideLoaded(true); } });
       const [t, onFile] = await Promise.all([loadTenantRecord(r.tenant_id), loadRequestOnFile(r.id)]);
       if (cancelled) return;
       if (t) setTenantOnFile(t);
@@ -743,7 +864,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       days: resubmitDays, note,
     };
     setDraft(seed[current] ?? '');
-    setError(null);
+    setError(pendingError.current);
+    pendingError.current = null;
     setFixOffer(null);
     // Keep a notice raised for this very step (the pre-post re-check sends the agent back with one).
     setRecordBlock((b) => (b && b.step === current ? b : null));
@@ -851,11 +973,23 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   };
 
   // ----- photos -----
-  const readPhoto = async (file: File): Promise<(Photo & { file: File }) | null> => {
+  /* Every photo is taken in this page: the phone's camera app can make Android reload the
+     form (doc 276). One camera, opened for whichever photo was tapped; the label's own file
+     input stays as the fallback when the camera cannot open. */
+  const [camera, setCamera] = useState<{
+    title: string; hint: string; facing: 'user' | 'environment'; oval: boolean;
+    onPick: (f: File) => void; input: HTMLInputElement | null;
+  } | null>(null);
+  const openCamera = (e: import('react').MouseEvent<HTMLLabelElement>, opts: Omit<NonNullable<typeof camera>, 'input'>) => {
+    if ((e.target as HTMLElement).tagName === 'INPUT') return;
+    e.preventDefault();
+    setCamera({ ...opts, input: e.currentTarget.querySelector('input[type=file]') });
+  };
+  const readPhoto = async (file: File, encoding?: Parameters<typeof optimizeImage>[1]): Promise<(Photo & { file: File }) | null> => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) { toast.error('Use a JPG, PNG, WebP or HEIC photo'); return null; }
     if (file.size > 10 * 1024 * 1024) { toast.error('That photo is over 10 MB'); return null; }
     try {
-      const optimized = await optimizeImage(file);
+      const optimized = await optimizeImage(file, encoding);
       return { file: optimized.file, preview: optimized.previewUrl };
     } catch {
       return { file, preview: URL.createObjectURL(file) };
@@ -869,11 +1003,16 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   };
   const onTenantPhoto = async (file: File | undefined) => {
     if (!file) return;
-    const p = await readPhoto(file);
+    // Encoded once, as JPEG (FACE_PHOTO_ENCODING), because the face checker reads
+    // JPEG and PNG only: the same bytes then serve the check, the preview and
+    // storage. As WebP the phone had to decode and re-encode this picture again
+    // before it could be graded, which is most of the wait on a cheap handset.
+    const p = await readPhoto(file, FACE_PHOTO_ENCODING);
     if (!p) return;
     setTenantPhoto((prev) => { if (prev) URL.revokeObjectURL(prev.preview); return p; });
     setFaceCheck({ status: 'checking' });
-    const res = await runPassportFaceCheck(p.file, { source: 'agent_rent_request' });
+    setError(null);
+    const res = await checkFace(p.file);
     setFaceCheck(res);
   };
   const onLcLetter = (file: File | undefined) => {
@@ -977,7 +1116,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         return missing ? `${missing === 4 ? 'I need' : 'Just'} ${missing} more photo${missing === 1 ? '' : 's'} 📸 Front, back, left and right.` : null;
       }
       case 'tenantPhoto':
-        if (!tenantPhoto) return `Take ${tenantNameParts.firstName.trim() || 'the tenant'}’s passport photo first 📸`;
+        if (!tenantPhoto) return `Take the tenant’s face photo (head and shoulders) of ${tenantNameParts.firstName.trim() || 'the tenant'} first 📸`;
         return faceCheckBlocker(faceCheck);
       case 'idFront':
         return idFront ? null : 'Take a photo of the FRONT of the National ID first 🪪';
@@ -1107,11 +1246,25 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     goTo('lc1Phone');
   };
 
+  /** Opens a question with an error already on it. */
+  function showErrorAt(step: StepId, message: string) {
+    if (step === current) { setError(message); return; }
+    pendingError.current = message;
+    setCurrent(step);
+  }
+
   function advance(from: StepId) {
+    if (mode === 'resubmit' && redoQueue.current.length) {
+      setCurrent(redoQueue.current.shift()!);
+      return;
+    }
     const i = steps.indexOf(from);
     // When an earlier answer was edited, go back to where the agent had reached —
     // except for answers the next step depends on, which walk forward one step.
-    const dependsOnNext = from === 'type' || from === 'rent' || from === 'landlord' || from === 'lc1';
+    // A resubmit goes back to the summary after each redo; only a new rent asks the days again.
+    const dependsOnNext = mode === 'resubmit'
+      ? from === 'rent'
+      : from === 'type' || from === 'rent' || from === 'landlord' || from === 'lc1';
     const target = !dependsOnNext && i < furthestIdx && steps[furthestIdx] !== from
       ? steps[furthestIdx]
       : steps[Math.min(i + 1, steps.length - 1)];
@@ -1133,6 +1286,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         const kept = mode === 'resubmit' && !!original && clean(value) === clean(formatPhone(original.tenantPhone));
         if (!kept && !(await recordIsNew('tenantPhone', value))) return;
         setTenantPhone(value);
+        if (tracking && !funnelStarted) { funnel.step('start'); setFunnelStarted(true); }
         break;
       }
       case 'nationalId': {
@@ -1231,6 +1385,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         ? { familySize: parseFamilySize(familySize), workBusiness: work, workLocation }
         : null,
       docs: { id_front: idFront?.file ?? null, id_back: idBack?.file ?? null, lc1_letter: lcLetter?.file ?? null },
+      tenantPhoto: tenantPhoto?.file
+        ? { file: tenantPhoto.file, sha256: faceCheck?.sha256 ?? null, faceCheck: faceCheck?.status === 'skipped_timeout' ? 'skipped_timeout' : null }
+        : null,
       onProgress: setSendProgress,
     });
     // Server errors are shown as they come. RESUBMIT_INCOMPLETE: read the list again so the
@@ -1238,6 +1395,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     if ('message' in res) {
       setPosting(false);
       setSendProgress(null);
+      const photoProblem = facePhotoRefusal(res.message);
+      if (photoProblem) {
+        redoQueue.current = [];
+        setExtraSteps((x) => (x.includes('tenantPhoto') ? x : [...x, 'tenantPhoto']));
+        showErrorAt('tenantPhoto', photoProblem);
+        return;
+      }
       setError(res.message);
       if (res.message.includes('RESUBMIT_INCOMPLETE')) {
         void fetchAgentSideMissing(rejected.id).then((lines) => { if (lines) setSideMissing(lines); });
@@ -1340,7 +1504,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setSendProgress(null);
     setError(null);
     // DOCS-1: the three document photos start uploading now, side by side with the re-check below
-    // and then with the house and passport photos and the checks in the submit; their paths go in
+    // and then with the house and face photos and the checks in the submit; their paths go in
     // the insert itself. A failed photo comes back as the submit's error. If the re-check stops the
     // send, the stored photos are simply never used.
     const counter = createUploadCounter(setSendProgress);
@@ -1389,6 +1553,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       housePhotos: housePhotos.map((p) => p?.file).filter((f): f is File => !!f),
       tenantPhoto: tenantPhoto.file as File,
       faceCheckSha256: faceCheck?.sha256 ?? null,
+      faceCheck: faceCheck?.status === 'skipped_timeout' ? 'skipped_timeout' : null,
       lc1Name,
       lc1Phone,
       lc1Village,
@@ -1438,10 +1603,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       setError(agentNotVettedReason(fail.raw) ?? agentNotVettedReason(fail.message) ?? fail.message);
       return;
     }
-    setError(fail.message);
+    const photoProblem = facePhotoRefusal(fail.message);
+    if (photoProblem) { showErrorAt('tenantPhoto', photoProblem); return; }
     if (fail.backTo) {
       if (fail.backTo === 'house') { setHouse(null); setHouseChoiceMade(false); }
-      setCurrent(fail.backTo);
+      showErrorAt(fail.backTo, fail.message);
+    } else {
+      setError(fail.message);
     }
   };
 
@@ -1465,7 +1633,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     plan: !!planType && !!fees,
     tenantPhone: isUgPhone(tenantPhone),
     house: !!category && !!address.trim(),
-    tenantPhoto: !!tenantPhoto && faceCheckBlocker(faceCheck) === null,
+    tenantPhoto: mode === 'resubmit'
+      ? !tenantPhoto?.file || faceCheckBlocker(faceCheck) === null
+      : !!tenantPhoto && faceCheckBlocker(faceCheck) === null,
     lc1: !!lc1Mode && !!clean(lc1Phone) && !!lc1Name.trim() && !!lc1Village.trim(),
     payoutDay: !!payoutDay,
     consent,
@@ -1480,6 +1650,17 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       if (item) funnel.itemDone(item);
     }
   }, [doneKey, open, tracking, funnel]);
+  // Resubmit: what the return reason or the desk's checks name opens first, even when on file.
+  useEffect(() => {
+    if (mode !== 'resubmit' || !sideLoaded || !original || flaggedOpened.current) return;
+    flaggedOpened.current = true;
+    const flagged = itemsMentioned([rejected?.rejected_reason, ...(sideMissing ?? [])]).map((k) => REASON_STEP[k]);
+    if (!flagged.length) return;
+    setExtraSteps((x) => Array.from(new Set([...x, ...flagged])));
+    redoQueue.current = flagged.slice(1);
+    setCurrent(flagged[0]);
+  }, [mode, sideLoaded, original, rejected?.rejected_reason, sideMissing]);
+
   useEffect(() => {
     if (!jumpToMissing) return;
     setJumpToMissing(false);
@@ -1562,6 +1743,14 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     </div>
   );
 
+  /** Resubmit summary: any line opens its question to redo it. */
+  const redo = (s: StepId) => {
+    if (result || posting) return;
+    hapticTap();
+    redoQueue.current = [];
+    setExtraSteps((x) => (steps.includes(s) || x.includes(s) ? x : [...x, s]));
+    setCurrent(s);
+  };
   const fixItem = (k: T4ItemKey) => {
     const s = ITEM_STEP[k];
     if (!s) return;
@@ -1593,13 +1782,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     const first = tenantNameParts.firstName.trim() || 'the tenant';
     const landlordFirst = landlord?.name?.split(' ')[0] || 'the landlord';
     switch (s) {
-      case 'type': return 'Let’s get started! 💼 How does the tenant earn their money? It decides how they’ll pay back.';
+      case 'type': return 'How does the tenant earn their money? 💼 It decides how they’ll pay back.';
       case 'rent': return 'Monthly rent (one month only) 🏠';
       case 'plan': return planType === 'daily'
         ? `For ${formatUGX(amount)} rent, how long does the tenant need to pay it back? ⏳`
         : planType === 'weekly' ? 'How many weeks should Welile cover? 📅' : 'When will the tenant pay it back? 📅';
-      case 'tenantPhone': return 'Lovely, the plan is set 👌 Now let’s meet the tenant. What’s their phone number? 📱';
-      case 'tenantName': return 'Got it. What’s their full name, exactly as it’s written on their National ID? 🪪';
+      case 'tenantPhone': return 'What’s the tenant’s phone number? 📱';
+      case 'tenantName': return `${mode === 'new' ? 'Lovely, the plan is set 👌 ' : ''}What’s the tenant’s full name, exactly as it’s written on their National ID? 🪪`;
       case 'nationalId': return `Thanks! Now the NIN from ${first}’s National ID card. It usually starts with CM or CF. 🔢`;
       case 'language': return `Which language does ${first} understand best? 🗣️ I’ll send their SMS messages in it.`;
       case 'smartphone': return `Does ${first} have a smartphone? 📲`;
@@ -1614,7 +1803,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'address': return 'What’s the address? A plot number, road or landmark is fine. 🛣️';
       case 'category': return 'What kind of place is it? 🏠';
       case 'photos': return 'Photo time! 📸 Stand outside the house and take 4 photos: front, back, left and right.';
-      case 'tenantPhoto': return `Now a passport photo of ${first}, please 🙂 I’ll check the face is clear.`;
+      case 'tenantPhoto': return `Now the tenant’s face photo (head and shoulders) of ${first}, please 🙂 I’ll check the face is clear.`;
       case 'idFront': return `Now a clear photo of the FRONT of ${first}’s National ID 🪪 All the writing must be readable.`;
       case 'idBack': return `And the BACK of ${first}’s National ID 🪪`;
       case 'gps': return 'While you’re standing at the house, capture its GPS location 🛰️';
@@ -1658,7 +1847,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'photos': return housePhotos.every(Boolean)
         ? (housePhotos.some((p) => p?.file) ? '4 house photos taken' : 'House photos on file')
         : housePhotos.some(Boolean) ? `${housePhotos.filter(Boolean).length} of 4 house photos` : '';
-      case 'tenantPhoto': return 'Passport photo taken';
+      case 'tenantPhoto': return tenantPhoto?.file ? 'Face photo taken' : tenantPhoto ? 'Face photo on file' : '';
       case 'idFront': return idFront ? (idFront.file ? 'ID front photo taken' : 'On file ✓') : '';
       case 'idBack': return idBack ? (idBack.file ? 'ID back photo taken' : 'On file ✓') : '';
       case 'gps': return gps ? (gps.accuracy ? `GPS captured, accurate to ${Math.round(gps.accuracy)} m` : gpsOnFile ? 'GPS on file' : 'GPS from the house listing') : '';
@@ -1694,6 +1883,18 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   // z-[115]: full-screen, so it must cover the bottom role bar (100), the assistant launcher/bubble (105/106) and the WhatsApp button (60).
   return (
     <div className={cn('rent-request-assistant fixed inset-0 z-[115] flex flex-col bg-background text-foreground', renewing && 'invisible')} role="dialog" aria-modal="true" aria-label="Rent request assistant" data-t4-mode={mode}>
+      {camera && (
+        <SelfieCameraCapture
+          open
+          onOpenChange={(o) => { if (!o) setCamera(null); }}
+          onCapture={camera.onPick}
+          onFallback={() => camera.input?.click()}
+          facing={camera.facing}
+          oval={camera.oval}
+          title={camera.title}
+          hint={camera.hint}
+        />
+      )}
       <header className="flex items-center gap-2.5 border-b border-border bg-card px-3 py-2.5 pt-safe">
         <button type="button" aria-label="Close" onClick={() => onOpenChange(false)} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
@@ -1730,14 +1931,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
       <div ref={scrollRef} className="rent-request-canvas flex-1 overflow-y-auto px-4 py-4">
         <div className="mx-auto flex max-w-xl flex-col gap-3.5">
-          <div className="px-1 pb-1 pt-2">
-            <h1 className="font-display text-[26px] font-extrabold leading-8 tracking-tight">
-              {greeting.text}, <span className="text-foreground/65">{metaOf(user).full_name?.split(' ')[0] || 'Agent'}</span> {greeting.emoji}
-            </h1>
-            <p className="mt-1 text-base text-muted-foreground">
-              {mode === 'resubmit' ? 'Let’s fix this request and send it back.' : mode === 'renewal' ? 'Let’s renew this Rent Plan.' : 'I’ll help you add a new tenant whenever you’re ready!'}
-            </p>
-          </div>
+          {/* The greeting is one small line above the first question. */}
+          <p className="px-1 pt-1 text-sm text-muted-foreground" data-testid="greeting">
+            {greeting.text}, {metaOf(user).full_name?.split(' ')[0] || 'Agent'} {greeting.emoji}
+            {mode === 'resubmit' ? ' · Let’s fix this request and send it back.' : mode === 'renewal' ? ' · Let’s renew this Rent Plan.' : ''}
+          </p>
 
           {mode === 'resubmit' && !result && (!!rejected?.rejected_reason || (sideMissing?.length ?? 0) > 0) && (
             <div className="rounded-2xl border border-warning/40 bg-warning/5 p-3 text-sm" data-testid="resubmit-reason">
@@ -1785,11 +1983,42 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                   <span>{vettingNotice} <a href={AGENT_VERIFICATION_PATH} className="font-semibold text-primary underline underline-offset-4">Complete verification</a></span>
                 </div>
               )}
-              {typeof collectionPct === 'number' && (
-                <Bot><Bubble><span data-testid="collection-info">{collectionInfoLine(collectionPct)}</span></Bubble></Bot>
+              {collection && (
+                <Bot><Bubble>
+                  {typeof collection.pct === 'number' && <span data-testid="collection-info">{collectionInfoLine(collection.pct)}</span>}
+                  {collection.reason && <span className="mt-1 block" data-testid="collection-reason">{collection.reason}</span>}
+                </Bubble></Bot>
               )}
 
-              {steps.slice(0, idx).map((s) => (
+              {mode === 'resubmit' && !result && (
+                <ResubmitSummary
+                  rows={[
+                    { label: 'Monthly rent', value: formatUGX(amount), step: 'rent' },
+                    { label: 'Days', value: answerOf('days') || 'Missing', step: 'days' },
+                    { label: 'Tenant’s name', value: tenantName || 'Missing', step: 'tenantName' },
+                    { label: 'Tenant’s phone', value: tenantPhone || 'Missing', step: 'tenantPhone' },
+                    { label: 'NIN', value: answerOf('nationalId') || 'Missing', step: 'nationalId' },
+                    { label: 'Language', value: language || 'Missing', step: 'language' },
+                    { label: 'Smartphone', value: noSmartphone === null ? 'Missing' : answerOf('smartphone'), step: 'smartphone' },
+                    { label: TENANT_FACE_PHOTO, value: tenantPhoto ? (tenantPhoto.file ? 'New photo taken' : 'On file ✓') : 'Missing', step: 'tenantPhoto', preview: tenantPhoto?.preview ?? null },
+                    { label: 'Landlord', value: landlord?.name || 'Missing', step: 'landlord' },
+                    { label: 'House', value: answerOf('category') || 'Missing', step: 'category' },
+                    { label: 'House photos', value: answerOf('photos') || 'Missing', step: 'photos' },
+                    { label: 'House GPS', value: gps ? (gps.accuracy ? 'Captured' : 'On file') : 'Missing', step: 'gps' },
+                    { label: 'ID front photo', ...docRowValue(docRow('id_front')), step: 'idFront' },
+                    { label: 'ID back photo', ...docRowValue(docRow('id_back')), step: 'idBack' },
+                    { label: 'LC1 letter', ...docRowValue(docRow('lc1_letter')), step: 'lcLetter' },
+                    ...(rejected?.registration_type !== 'renewal' ? [
+                      { label: 'Household', value: answerOf('familySize') || 'Missing', step: 'familySize' as StepId },
+                      { label: 'Work', value: work ? `${work}${workLocation ? ` · ${workLocation}` : ''}` : 'Missing', step: 'work' as StepId },
+                    ] : []),
+                    { label: 'Note for the reviewer', value: note || 'Missing', step: 'note' },
+                  ]}
+                  current={current}
+                  onRedo={redo}
+                />
+              )}
+              {mode !== 'resubmit' && steps.slice(0, idx).map((s) => (
                 <div key={s} className="flex flex-col gap-3.5">
                   <Bot><Bubble>{questionOf(s)}</Bubble></Bot>
                   {answerOf(s) && (
@@ -2086,7 +2315,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         return (
           <div className="grid max-w-xs grid-cols-2 gap-2">
             {PHOTO_SLOTS.map((label, i) => (
-              <label key={label} className={cn('relative flex h-24 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-xl text-xs font-semibold', housePhotos[i] ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}>
+              <label key={label} className={cn('relative flex h-24 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-xl text-xs font-semibold', housePhotos[i] ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}
+                onClick={(e) => openCamera(e, { title: `House: ${label}`, hint: 'Show the house clearly in good light.', facing: 'environment', oval: false, onPick: (f) => { void onHousePhoto(i, f); } })}>
                 {housePhotos[i] ? (
                   <>
                     <img src={housePhotos[i]!.preview} alt={`${label} of the house`} className="absolute inset-0 h-full w-full object-cover" />
@@ -2101,14 +2331,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'tenantPhoto':
         return (
           <div className="flex items-center gap-3">
-            <label className={cn('relative flex h-24 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-xl', tenantPhoto ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}>
-              {tenantPhoto ? <img src={tenantPhoto.preview} alt="Tenant passport photo" className="h-full w-full object-cover" /> : <ImagePlus className="h-6 w-6" />}
-              <input type="file" accept="image/*" capture="user" className="sr-only" onChange={(e) => { void onTenantPhoto(e.target.files?.[0]); e.target.value = ''; }} />
+            <label
+              className={cn('relative flex h-24 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-xl', tenantPhoto ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}
+              onClick={(e) => openCamera(e, { title: TENANT_FACE_PHOTO, hint: "Head and shoulders: point the camera at the tenant's face in good light, no hat.", facing: 'environment', oval: true, onPick: (f) => { void onTenantPhoto(f); } })}
+            >
+              {tenantPhoto ? <img src={tenantPhoto.preview} alt={TENANT_FACE_PHOTO} className="h-full w-full object-cover" /> : <ImagePlus className="h-6 w-6" />}
+              <input type="file" accept="image/*" capture="environment" aria-label={TENANT_FACE_PHOTO} className="sr-only" onChange={(e) => { void onTenantPhoto(e.target.files?.[0]); e.target.value = ''; }} />
             </label>
-            <p className="text-sm text-muted-foreground">
-              {!tenantPhoto ? 'Tap to take the photo.'
+            <p className="text-sm text-muted-foreground" data-testid="face-check-status">
+              {!tenantPhoto ? 'Tap to take the photo: head and shoulders.'
+                : !tenantPhoto.file ? 'On file ✓ Tap the photo to retake it.'
                 : faceCheck?.status === 'checking' ? 'Checking the face…'
                 : faceCheck?.status === 'no_face' ? 'No face found. Tap the photo to retake it.'
+                : faceCheck?.status === 'skipped_timeout' ? FACE_CHECK_SLOW_MESSAGE
+                : faceCheck?.status === 'unavailable' ? 'Couldn’t check the face just now. You can continue; the office will check it.'
                 : 'Face found. Looks good.'}
             </p>
           </div>
@@ -2120,7 +2356,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         const set = current === 'idFront' ? setIdFront : setIdBack;
         return (
           <div className="flex items-center gap-3">
-            <label className={cn('relative flex h-20 w-32 cursor-pointer items-center justify-center overflow-hidden rounded-xl', slot?.file ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}>
+            <label className={cn('relative flex h-20 w-32 cursor-pointer items-center justify-center overflow-hidden rounded-xl', slot?.file ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}
+              onClick={(e) => openCamera(e, { title: `National ID ${side}`, hint: 'Fill the frame with the card; all text readable.', facing: 'environment', oval: false, onPick: (f) => { void readPhoto(f).then((p) => { if (p) { set(p); setError(null); } }); } })}>
               {slot?.file ? <img src={slot.preview} alt={`National ID ${side}`} className="h-full w-full object-cover" /> : <ImagePlus className="h-6 w-6" />}
               <input type="file" accept="image/*" capture="environment" aria-label={`National ID ${side} photo`} className="sr-only"
                 onChange={(e) => {
@@ -2201,23 +2438,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'review':
         return (
           <div className="flex flex-col gap-3">
+            {mode !== 'resubmit' && (
             <div className="rounded-2xl border border-border bg-card p-3 text-sm">
-              {mode === 'resubmit' ? (
-                <>
-                  <Row k="Rent Plan" v={`${formatUGX(amount)} · ${answerOf('days')}`} />
-                  <Row k="Tenant" v={`${tenantName} · ${tenantPhone}`} />
-                  <Row k="Landlord" v={landlord?.name ?? ''} />
-                  <Row k="House" v={answerOf('category')} />
-                  <Row k="House photos" v={answerOf('photos') || 'Missing'} />
-                  <Row k="House GPS" v={gps ? 'On file' : 'Missing'} />
-                  <DocRow k="ID front photo" {...docRow('id_front')} />
-                  <DocRow k="ID back photo" {...docRow('id_back')} />
-                  <DocRow k="LC1 letter" {...docRow('lc1_letter')} />
-                  {rejected?.registration_type !== 'renewal' && <Row k="Household" v={answerOf('familySize') || 'Missing'} />}
-                  {rejected?.registration_type !== 'renewal' && <Row k="Work" v={work ? `${work}${workLocation ? ` · ${workLocation}` : ''}` : 'Missing'} />}
-                  <Row k="Note" v={note || 'Missing'} />
-                </>
-              ) : mode === 'renewal' ? (
+              {mode === 'renewal' ? (
                 <>
                   <Row k="Rent Plan now" v={`${formatUGX(renewal?.currentRent ?? 0)} · ${renewal?.currentDays ?? ''} days`} />
                   <Row k="Tenant" v={`${tenantName}${tenantPhone ? ` · ${tenantPhone}` : ''}`} />
@@ -2240,11 +2463,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
               <Row k="LC1 letter" v={answerOf('lcLetter') || 'Missing'} />
               <Row k="Household" v={answerOf('familySize')} />
               <Row k="Work" v={`${work}${workLocation ? ` · ${workLocation}` : ''}`} />
+              <Row k={TENANT_FACE_PHOTO} v={tenantPhoto ? 'Taken' : 'Missing'} />
               <Row k="Landlord paid on" v={`The ${ordinal(payoutDay)}`} />
               {landlordCode && <Row k="Landlord referral code" v={landlordCode} />}
               </>
               )}
             </div>
+            )}
             {mode === 'renewal' && <p className="text-sm text-muted-foreground">Next you set the new rent and days, then {tenantNameParts.firstName || 'the tenant'} confirms with the code we text them.</p>}
             {mode === 'new' && (
               <label className="flex flex-col gap-1 text-sm">
@@ -2471,6 +2696,43 @@ function DocRow({ k, v, preview }: { k: string; v: string; preview: string | nul
         {preview && <img src={preview} alt={`${k} on file`} className="h-8 w-8 rounded object-cover" />}
         {v}
       </span>
+    </div>
+  );
+}
+
+/** A document line's value and preview, for the resubmit summary. */
+function docRowValue(d: { v: string; preview: string | null }): { value: string; preview: string | null } {
+  return { value: d.v, preview: d.preview };
+}
+
+/** Resubmit: the whole request at once; every line opens its question to redo it. */
+function ResubmitSummary({ rows, current, onRedo }: {
+  rows: { label: string; value: string; step: StepId; preview?: string | null }[];
+  current: StepId;
+  onRedo: (s: StepId) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-2 text-sm" data-testid="resubmit-summary">
+      <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">The request · tap a line to redo it</p>
+      {rows.map((r) => (
+        <button
+          key={r.step + r.label}
+          type="button"
+          onClick={() => onRedo(r.step)}
+          aria-label={`Redo: ${r.label}`}
+          aria-current={current === r.step ? 'step' : undefined}
+          className={cn(
+            'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border-b border-border px-1 py-1.5 text-left last:border-0',
+            current === r.step && 'bg-primary/5',
+          )}
+        >
+          <span className="text-muted-foreground">{r.label}</span>
+          <span className={cn('flex items-center gap-2 text-right font-medium', r.value === 'Missing' && 'text-destructive')}>
+            {r.preview && <img src={r.preview} alt={r.value.startsWith('On file') ? `${r.label} on file` : r.label} className="h-8 w-8 rounded object-cover" />}
+            {r.value}
+          </span>
+        </button>
+      ))}
     </div>
   );
 }

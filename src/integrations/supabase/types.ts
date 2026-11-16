@@ -23586,6 +23586,7 @@ export type Database = {
           hold_expires_at: string | null
           hold_started_at: string | null
           id: string
+          landlord_confirmation_photo_path: string | null
           landlord_id: string | null
           landlord_otp_challenge_id: string | null
           landlord_otp_verified_at: string | null
@@ -23635,6 +23636,7 @@ export type Database = {
           hold_expires_at?: string | null
           hold_started_at?: string | null
           id?: string
+          landlord_confirmation_photo_path?: string | null
           landlord_id?: string | null
           landlord_otp_challenge_id?: string | null
           landlord_otp_verified_at?: string | null
@@ -23684,6 +23686,7 @@ export type Database = {
           hold_expires_at?: string | null
           hold_started_at?: string | null
           id?: string
+          landlord_confirmation_photo_path?: string | null
           landlord_id?: string | null
           landlord_otp_challenge_id?: string | null
           landlord_otp_verified_at?: string | null
@@ -39743,6 +39746,36 @@ export type Database = {
         }
         Relationships: []
       }
+      nin_unlink_backups: {
+        Row: {
+          created_at: string
+          id: string
+          old_values: Json
+          reason: string | null
+          source_id: string
+          source_table: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          old_values: Json
+          reason?: string | null
+          source_id: string
+          source_table: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          old_values?: Json
+          reason?: string | null
+          source_id?: string
+          source_table?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -53702,6 +53735,51 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_request_face_checks: {
+        Row: {
+          rent_request_id: string
+          set_at: string
+          set_by: string | null
+          status: string
+        }
+        Insert: {
+          rent_request_id: string
+          set_at?: string
+          set_by?: string | null
+          status: string
+        }
+        Update: {
+          rent_request_id?: string
+          set_at?: string
+          set_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      rent_request_photo_flags: {
+        Row: {
+          created_at: string
+          detail: string | null
+          flag: string
+          id: number
+          rent_request_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          flag: string
+          id?: number
+          rent_request_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          flag?: string
+          id?: number
+          rent_request_id?: string
+        }
+        Relationships: []
+      }
       rent_request_reconfirmations: {
         Row: {
           asked_at: string
@@ -53812,6 +53890,33 @@ export type Database = {
             referencedColumns: ["plan_id"]
           },
         ]
+      }
+      rent_request_return_items: {
+        Row: {
+          items: string[]
+          note: string | null
+          rent_request_id: string
+          set_at: string
+          set_by: string
+          staff_ref: string | null
+        }
+        Insert: {
+          items: string[]
+          note?: string | null
+          rent_request_id: string
+          set_at?: string
+          set_by: string
+          staff_ref?: string | null
+        }
+        Update: {
+          items?: string[]
+          note?: string | null
+          rent_request_id?: string
+          set_at?: string
+          set_by?: string
+          staff_ref?: string | null
+        }
+        Relationships: []
       }
       rent_request_review_notes: {
         Row: {
@@ -84068,6 +84173,7 @@ export type Database = {
         }[]
       }
       bank_sending_charge: { Args: { p_amount: number }; Returns: number }
+      become_agent: { Args: never; Returns: Json }
       begin_ledger_maintenance: {
         Args: { p_minutes?: number; p_reason?: string }
         Returns: string
@@ -87710,6 +87816,14 @@ export type Database = {
         Returns: Json
       }
       extract_tid_normalized: { Args: { p_text: string }; Returns: string }
+      face_check_record: {
+        Args: { p_request_id: string; p_status: string }
+        Returns: Json
+      }
+      fake_request_flags: {
+        Args: { p_days?: number; p_min?: number }
+        Returns: Json
+      }
       feature_preview_on: { Args: { p_feature: string }; Returns: boolean }
       fin_balance_sheet: { Args: { p_as_at?: string }; Returns: Json }
       fin_bank_anchor: { Args: { p_account_key?: string }; Returns: Json }
@@ -88587,6 +88701,7 @@ export type Database = {
       funder_record_offplatform_rent_payment: {
         Args: {
           p_amount: number
+          p_landlord_photo_path?: string
           p_method: string
           p_paid_at?: string
           p_provider?: string
@@ -94379,6 +94494,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      intake_tenant_check: { Args: { p_tenant_phone: string }; Returns: Json }
       invoke_engrep_harvest_commits: { Args: never; Returns: undefined }
       invoke_hr_careers_acknowledge: { Args: never; Returns: undefined }
       invoke_reconcile_bulk_bank_payout_stuck: {
@@ -101065,6 +101181,7 @@ export type Database = {
           portfolio_id: string
         }[]
       }
+      return_items_for: { Args: { p_request_id: string }; Returns: Json }
       return_rent_request_for_correction: {
         Args: { p_reason: string; p_request_id: string; p_stage: string }
         Returns: string
@@ -101197,6 +101314,15 @@ export type Database = {
         Returns: Json
       }
       sc_assignment_admin: { Args: { _user_id: string }; Returns: boolean }
+      sc_bulk_decide: {
+        Args: {
+          p_decision: string
+          p_note: string
+          p_reason_code: string
+          p_request_ids: string[]
+        }
+        Returns: Json
+      }
       sc_duration_to_days: {
         Args: { p_unit: string; p_value: number }
         Returns: number
@@ -101506,6 +101632,10 @@ export type Database = {
         Returns: Json
       }
       self_support_topups_closed: { Args: never; Returns: boolean }
+      send_back_items_set: {
+        Args: { p_items: string[]; p_note?: string; p_request_id: string }
+        Returns: Json
+      }
       send_daily_advance_deduction_summary: { Args: never; Returns: Json }
       service_center_review_house_listing: {
         Args: { p_comment?: string; p_decision: string; p_listing_id: string }

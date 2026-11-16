@@ -8,6 +8,12 @@ interface Props {
   onCapture: (file: File) => void;
   /** Used when the camera can't be opened at all (permission denied, no camera, unsupported browser). */
   onFallback: () => void;
+  /** Defaults suit a selfie. An agent photographing a tenant passes 'environment' (back camera). */
+  facing?: 'user' | 'environment';
+  title?: string;
+  hint?: string;
+  /** The face oval; off for a house, ID card or letter. */
+  oval?: boolean;
 }
 
 /**
@@ -22,7 +28,13 @@ interface Props {
  * No card-style edge detection here — there's nothing to auto-detect for a
  * face, so capture is a manual tap. The oval guide is a framing aid only.
  */
-export default function SelfieCameraCapture({ open, onOpenChange, onCapture, onFallback }: Props) {
+export default function SelfieCameraCapture({
+  open, onOpenChange, onCapture, onFallback,
+  facing = 'user',
+  title = 'Selfie',
+  hint = 'Face the camera in good light and line your face up with the oval.',
+  oval = true,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const capturedRef = useRef(false);
@@ -72,7 +84,7 @@ export default function SelfieCameraCapture({ open, onOpenChange, onCapture, onF
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: { ideal: 'user' },
+            facingMode: { ideal: facing },
             width: { ideal: 960 },
             height: { ideal: 1280 },
           },
@@ -98,7 +110,7 @@ export default function SelfieCameraCapture({ open, onOpenChange, onCapture, onF
           err?.name === 'NotAllowedError'
             ? 'Camera access was not allowed. Allow camera access, or use the file picker instead.'
             : err?.name === 'NotFoundError'
-              ? 'No front camera was found on this device.'
+              ? 'No camera was found on this device.'
               : 'Could not open the camera. You can still pick a photo instead.',
         );
       }
@@ -108,16 +120,16 @@ export default function SelfieCameraCapture({ open, onOpenChange, onCapture, onF
       cancelled = true;
       stopCamera();
     };
-  }, [open, stopCamera]);
+  }, [open, stopCamera, facing]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
+    <div className="fixed inset-0 z-[200] flex flex-col bg-black">
       <div className="flex items-center justify-between gap-2 p-3 text-white">
         <div>
-          <p className="text-sm font-semibold">Selfie</p>
-          <p className="text-xs text-white/70">Face the camera in good light and line your face up with the oval.</p>
+          <p className="text-sm font-semibold">{title}</p>
+          <p className="text-xs text-white/70">{hint}</p>
         </div>
         <Button
           variant="ghost"
@@ -136,10 +148,10 @@ export default function SelfieCameraCapture({ open, onOpenChange, onCapture, onF
           playsInline
           muted
           className="absolute inset-0 h-full w-full object-cover"
-          style={{ transform: 'scaleX(-1)' }}
+          style={facing === 'user' ? { transform: 'scaleX(-1)' } : undefined}
         />
 
-        {status === 'live' && (
+        {status === 'live' && oval && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="h-[62%] w-[46%] rounded-[50%] border-2 border-dashed border-white/70" />
           </div>
@@ -174,14 +186,14 @@ export default function SelfieCameraCapture({ open, onOpenChange, onCapture, onF
 
       <div className="flex flex-col items-center gap-3 p-4">
         <p className="text-center text-xs text-white/70">
-          Hold the phone upright and keep your face inside the oval, then tap to take the photo.
+          {oval ? 'Hold the phone upright and keep the face inside the oval, then tap to take the photo.' : 'Hold the phone steady, then tap to take the photo.'}
         </p>
         <Button
           size="lg"
           className="h-14 w-14 rounded-full p-0"
           disabled={status !== 'live'}
           onClick={capture}
-          aria-label="Capture selfie"
+          aria-label={`Take ${title.toLowerCase()}`}
         >
           <Camera className="h-6 w-6" />
         </Button>

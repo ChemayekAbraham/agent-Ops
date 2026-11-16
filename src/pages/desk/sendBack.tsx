@@ -8,6 +8,7 @@ import { Skeleton } from './Skeleton';
 import type { Stage } from './reviewTypes';
 import { toast } from 'sonner';
 import { sendBackTo, serverMessage, type SendBackStart } from './sendBackApi';
+import { FixItemsPicker, itemsBlocked, itemsNote, type FixItem } from './sendBackItems';
 
 export { SEND_BACK_STAGES, SUGGESTED_OFFICE, isSendBackRow, sendBackTo, type SendBackResult, type SendBackStart } from './sendBackApi';
 
@@ -138,17 +139,19 @@ export function SendBackForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  // What the agent must fix: required, and named at the start of the note.
+  const [items, setItems] = useState<FixItem[]>([]);
 
   const office = (options.data ?? []).find((o) => o.code === to) ?? null;
   const reason = reasons.data.find((r) => r.code === reasonCode) ?? null;
-  const blocked = sendBackBlocked({ to, reason, note });
+  const blocked = sendBackBlocked({ to, reason, note }) ?? itemsBlocked(items, note);
   const needsNote = noteNeeded(reason);
 
   const send = async () => {
     if (blocked || busy) return;
     setBusy(true);
     setError(null);
-    const out = await sendBackTo({ requestId, stage, to, reasonCode, note });
+    const out = await sendBackTo({ requestId, stage, to, reasonCode, note: itemsNote(items, note) });
     setBusy(false);
     if (!out.ok) {
       setError(out.message);
@@ -192,6 +195,8 @@ export function SendBackForm({
           })
         )}
       </fieldset>
+
+      <FixItemsPicker value={items} onChange={setItems} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <span className={LABEL}>Reason</span>
@@ -238,7 +243,7 @@ export function SendBackForm({
         />
       </label>
 
-      {blocked && (to || reasonCode) && !done && <p className={`text-sm ${statusText.warn}`} style={{ margin: 0 }}>{blocked}</p>}
+      {blocked && (to || reasonCode || items.length > 0) && !done && <p className={`text-sm ${statusText.warn}`} style={{ margin: 0 }} data-send-back-blocked>{blocked}</p>}
       {error && <ErrorLine>{error}</ErrorLine>}
       {done && (
         <p className={`text-sm ${statusText.ok}`} role="status" style={{ margin: 0 }}>

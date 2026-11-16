@@ -1,4 +1,5 @@
 import "../_shared/smsFooterInterceptor.ts";
+import { isStrictUgandanMobile, resolveWithdrawalSmsRecipient } from "./smsRecipient.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { resolveTrustedClientIp, getClientUserAgent } from "../_shared/resolveClientIp.ts";
@@ -4161,7 +4162,13 @@ Deno.serve(async (req) => {
           .catch((e) => console.error("[approve-withdrawal] WhatsApp receipt threw:", e));
       }
 
-      if (profile?.phone) {
+      // Recipient choice only (non-blocking): profile phone if valid, else the
+      // withdrawal's own mobile_money number. Never affects money movement.
+      let payoutSmsPhone: string = profile?.phone ?? "";
+      try {
+        payoutSmsPhone = resolveWithdrawalSmsRecipient(profile?.phone, wr as any, isStrictUgandanMobile).phone;
+      } catch { /* keep profile phone */ }
+      if (payoutSmsPhone) {
         // 1) Record the SMS as "queued" up front so Financial Ops can see the
         //    delivery is in flight, then 2) flip it to "sent"/"failed" once the
         //    provider responds. This gives a full queued → sent/failed lifecycle.
@@ -4170,7 +4177,7 @@ Deno.serve(async (req) => {
           .insert({
             withdrawal_id,
             recipient_id: beneficiaryUserId,
-            recipient_email: recipientEmailForLog ?? profile.phone ?? null,
+            recipient_email: recipientEmailForLog ?? payoutSmsPhone ?? null,
             amount,
             status: "queued",
             error_message: null,
@@ -4179,7 +4186,7 @@ Deno.serve(async (req) => {
           .single()
           .then(({ data: logRow }) => {
             const logId = (logRow as any)?.id ?? null;
-            sendSMS(profile.phone, smsMsg, {
+            sendSMS(payoutSmsPhone, smsMsg, {
               admin,
               source: "withdrawal_payout",
               reference_id: withdrawal_id,
@@ -4215,7 +4222,7 @@ Deno.serve(async (req) => {
           }, (e) => {
             console.error("[approve-withdrawal] notification log insert failed:", e);
             // Still attempt the SMS even if logging failed.
-            sendSMS(profile.phone, smsMsg, {
+            sendSMS(payoutSmsPhone, smsMsg, {
               admin,
               source: "withdrawal_payout",
               reference_id: withdrawal_id,
@@ -4285,7 +4292,11 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       // ── Proxy Partner SMS alert (paid on behalf) ─────────────────────────
-      if (isProxyPayout && fundingUserId !== partnerId && partnerProfile?.phone) {
+      let proxySmsPhone: string = partnerProfile?.phone ?? "";
+      try {
+        proxySmsPhone = resolveWithdrawalSmsRecipient(partnerProfile?.phone, wr as any, isStrictUgandanMobile).phone;
+      } catch { /* keep profile phone */ }
+      if (isProxyPayout && fundingUserId !== partnerId && proxySmsPhone) {
         const refUpper = reference.trim().toUpperCase();
         // ── Detect what was actually withdrawn ──────────────────────────────
         // NOT every payout a merchant/proxy agent settles is a partnership
@@ -4327,7 +4338,7 @@ Deno.serve(async (req) => {
             `Log in to your Welile dashboard to view your wallet, transactions and account: ${_dash}\n\n` +
             `Thank you for partnering with Welile Technologies Limited.`;
         }
-        sendSMS(partnerProfile.phone, proxySmsMsg, {
+        sendSMS(proxySmsPhone, proxySmsMsg, {
           admin,
           source: "proxy_payout",
           reference_id: withdrawal_id,

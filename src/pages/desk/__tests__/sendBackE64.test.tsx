@@ -94,6 +94,8 @@ describe('E64: Service Centre sends back through pipeline_send_back_to', () => {
     const reasons = await screen.findAllByRole('radio', { name: /Items missing at intake|Reviewed weekly/ });
     expect(reasons.map((r) => r.getAttribute('data-reason'))).toEqual(['ITEMS_MISSING', 'OTHER']); // the Service Centre's own plus the shared ones
     fireEvent.click(within(document.body).getByRole('radio', { name: 'Items missing at intake' }));
+    expect(send).toHaveProperty('disabled', true); // and what the agent must fix
+    fireEvent.click(document.querySelector('[data-fix-item="LC1 letter"]') as HTMLElement);
     expect(send).toHaveProperty('disabled', false);
     await act(async () => {
       fireEvent.click(send);
@@ -103,7 +105,7 @@ describe('E64: Service Centre sends back through pipeline_send_back_to', () => {
       p_from_stage: 'service_centre',
       p_to: 'agent',
       p_reason_code: 'ITEMS_MISSING',
-      p_note: null,
+      p_note: '[LC1 letter]',
     });
     expect(onDone).toHaveBeenCalledWith('Sent back to the agent');
   });

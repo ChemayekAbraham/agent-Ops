@@ -1,5 +1,5 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn(), from: vi.fn() } }));
 // One stable user object, as the real hook gives: a fresh object per render re-runs the assistant's [open, user] effect forever.
@@ -31,6 +31,8 @@ import RentRequestAssistant from '@/components/agent/rentRequestAssistant/RentRe
 beforeAll(() => {
   Element.prototype.scrollTo = vi.fn() as unknown as typeof Element.prototype.scrollTo;
 });
+// The form keeps a draft of a new request on the device (doc 276); each test starts fresh.
+beforeEach(() => localStorage.clear());
 
 const answer = (text: string) => {
   fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: text } });
@@ -58,6 +60,14 @@ async function reachFamilySize() {
 }
 
 describe('Rent request assistant: required intake', () => {
+  it('picks up at the same question after the page reloads (doc 276)', async () => {
+    await reachFamilySize();
+    await waitFor(() => expect(localStorage.getItem('welile_agent_rent_request_draft_agent-1')).toContain('"current":"familySize"'));
+    cleanup();
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    await asked(/How many people live in John’s household/);
+  });
+
   it('will not move past family size until it is a number from 1 to 30', async () => {
     await reachFamilySize();
     answer('');

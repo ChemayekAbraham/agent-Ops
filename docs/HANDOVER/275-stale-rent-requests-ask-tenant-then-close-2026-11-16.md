@@ -1,6 +1,6 @@
 # 275 — Stale rent requests: ask the tenant, then close
 
-**Date:** 2026-11-16 · **Asked by:** Josh (CTO) · **Status:** migration, rollback, edge function change and tenant UI on `dev/financial-ops`, tested in a rolled-back transaction on production. **NOT APPLIED, NOT DEPLOYED, NOT PUSHED, NO SMS SENT.**
+**Date:** 2026-11-16 · **Asked by:** Josh (CTO) · **Status:** migration, rollback, edge function change and tenant UI on `dev/financial-ops`, tested in a rolled-back transaction on production. **Migration applied to production 16 Nov (recorded as version `20261116092731`) and pushed to `lovable`. `broadcast-audience-sms` NOT DEPLOYED, nobody asked yet, NO SMS SENT.**
 **Migration:** `supabase/migrations/20261126090000_rent_request_reconfirm_stale_queue.sql` · **Rollback:** `supabase/rollbacks/20261126090000_rent_request_reconfirm_stale_queue.rollback.sql`
 
 ## What was found
