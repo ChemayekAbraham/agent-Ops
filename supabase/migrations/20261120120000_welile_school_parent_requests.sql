@@ -29,7 +29,10 @@ create index if not exists welile_school_parent_requests_school_idx  on public.w
 
 alter table public.welile_school_parent_requests enable row level security;
 
--- Reads only; every write goes through the functions below.
+-- Reads only; every write goes through the functions below. Default privileges still hand out
+-- broader grants, so take those back explicitly.
+revoke all on public.welile_school_parent_requests from anon;
+revoke insert, update, delete, truncate, references, trigger on public.welile_school_parent_requests from authenticated;
 grant select on public.welile_school_parent_requests to authenticated;
 grant select, insert, update, delete on public.welile_school_parent_requests to service_role;
 
