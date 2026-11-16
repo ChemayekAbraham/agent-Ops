@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { SchoolRow } from '@/lib/welileSchools';
 import {
-  STATUS_LABEL, agreementUrl, partnershipErrorMessage, reviewPartnership,
+  STATUS_LABEL, agreementUrl, boardingLabel, partnershipErrorMessage, reviewPartnership,
   type FeeRow, type PartnershipRow, type PartnershipStatus, type ReviewDecision, type TermRow,
 } from '@/lib/welileSchoolsPartnership';
 
@@ -160,7 +160,7 @@ function PartnershipCard({ p, school, agent, terms, fees }: {
             <ul className="mt-1.5 space-y-0.5">
               {fees.filter((f) => f.term_id === t.id).map((f) => (
                 <li key={f.id} className="flex justify-between gap-2 text-sm">
-                  <span>{f.class_name} <span className="text-muted-foreground">· {f.boarding_status === 'boarding' ? 'Boarding' : 'Day'}</span></span>
+                  <span>{f.class_name} <span className="text-muted-foreground">· {boardingLabel(f.boarding_status)}</span></span>
                   <span className="tabular-nums">{ugx(Number(f.amount))}</span>
                 </li>
               ))}

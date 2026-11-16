@@ -103,7 +103,7 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
   const suggestFee = (s: StudentOption | null, tId: string) => {
     if (!s || !tId) return;
     const board = (s.boarding_status || 'day').toLowerCase().startsWith('board') ? 'boarding' : 'day';
-    const row = (setup.data?.fees ?? []).find((f) => f.term_id === tId && f.boarding_status === board
+    const row = (setup.data?.fees ?? []).find((f) => f.term_id === tId && feeAppliesTo(f.boarding_status, board)
       && f.class_name.trim().toLowerCase() === (s.class_grade ?? '').trim().toLowerCase());
     if (row) setFee(Number(row.amount));
   };

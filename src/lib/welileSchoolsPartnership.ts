@@ -16,7 +16,23 @@ export const PARTNERSHIP_DOCS_BUCKET = 'school-partnership-docs';
 
 export type PartnershipStatus = 'draft' | 'submitted' | 'changes_requested' | 'approved' | 'rejected' | 'suspended';
 export type PayoutMethod = 'bank' | 'mobile_money';
-export type BoardingStatus = 'day' | 'boarding';
+/** 'day_and_boarding' is one fee that applies to both day and boarding students in that class. */
+export type BoardingStatus = 'day' | 'boarding' | 'day_and_boarding';
+
+export const BOARDING_OPTIONS: { value: BoardingStatus; label: string }[] = [
+  { value: 'day', label: 'Day' },
+  { value: 'boarding', label: 'Boarding' },
+  { value: 'day_and_boarding', label: 'Day and boarding' },
+];
+
+export function boardingLabel(v: string | null | undefined): string {
+  return BOARDING_OPTIONS.find((o) => o.value === v)?.label ?? 'Day';
+}
+
+/** Whether a class fee set up as `feeStatus` applies to a student who is `studentStatus` ('day' or 'boarding'). */
+export function feeAppliesTo(feeStatus: string, studentStatus: 'day' | 'boarding'): boolean {
+  return feeStatus === 'day_and_boarding' || feeStatus === studentStatus;
+}
 export type ReviewDecision = 'approve' | 'request_changes' | 'reject';
 
 export interface PartnershipRow {
@@ -156,8 +172,14 @@ export function termDraftErrors(t: TermDraft): string[] {
     const label = f.class_name.trim() || `Fee ${i + 1}`;
     if (!f.class_name.trim()) errors.push(`Fee ${i + 1}: enter the class`);
     if (parseAmount(f.amount) == null) errors.push(`${label}: enter an amount above 0`);
-    const key = `${f.class_name.trim().toLowerCase()}|${f.boarding_status}`;
-    if (f.class_name.trim() && seen.has(key)) errors.push(`${label} (${f.boarding_status}) is listed twice`);
+    const cls = f.class_name.trim().toLowerCase();
+    const key = `${cls}|${f.boarding_status}`;
+    if (cls && seen.has(key)) errors.push(`${label} (${boardingLabel(f.boarding_status).toLowerCase()}) is listed twice`);
+    // A combined "day and boarding" fee cannot sit beside a separate day or boarding fee for the same class.
+    const clash = f.boarding_status === 'day_and_boarding'
+      ? seen.has(`${cls}|day`) || seen.has(`${cls}|boarding`)
+      : seen.has(`${cls}|day_and_boarding`);
+    if (cls && clash) errors.push(`${label} has a "Day and boarding" fee and a separate day or boarding fee; keep one`);
     seen.add(key);
   });
   return errors;
