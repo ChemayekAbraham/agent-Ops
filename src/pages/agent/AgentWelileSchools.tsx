@@ -489,21 +489,21 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
   const num = (v: unknown) => (v === '' || v == null ? null : Number(String(v).replace(/\D/g, '')) || null);
 
   // The first required answer still missing; shown in red and scrolled into view on Save.
-  const [missing, setMissing] = useState<null | 'photo' | 'name' | 'facility' | 'phone'>(null);
-  const firstMissing = (): typeof missing => {
+  const [flagged, setFlagged] = useState<null | 'photo' | 'name' | 'facility' | 'phone'>(null);
+  const firstMissing = (): typeof flagged => {
     if (group === 'pupil' && !photo && !cameraProblem) return 'photo';
     if (group !== 'asset' && !f.full_name?.trim()) return 'name';
     if (group === 'asset' && !f.facility_type) return 'facility';
     if (group !== 'asset' && hasPhone === null) return 'phone';
     return null;
   };
-  // Clear the red mark as soon as the answer is given.
-  useEffect(() => { if (missing && firstMissing() !== missing) setMissing(null); });
+  // The red mark clears by itself once that answer is given.
+  const missing = flagged && firstMissing() === flagged ? flagged : null;
 
   const submit = async () => {
     const gap = firstMissing();
     if (gap) {
-      setMissing(gap);
+      setFlagged(gap);
       toast.error(MISSING_TEXT[gap]);
       document.getElementById(`wsr-${gap}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
