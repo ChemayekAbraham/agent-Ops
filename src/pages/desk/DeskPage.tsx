@@ -13,6 +13,7 @@ import { TenantArrearsTab } from './arrears/TenantArrearsTab';
 import { ReferralLandlords } from './ReferralLandlords';
 import { PostingFunnelCard } from './coo/PostingFunnel';
 import { DeskBell } from './DeskBell';
+import { FakeRequestFlagsCard } from './fakeFlags';
 import { DeskPushBanner } from './DeskPushBanner';
 import { TileGrid } from './Tiles';
 import { SkeletonLead, SkeletonTiles } from './Skeleton';
@@ -718,6 +719,8 @@ function DeskView({
           )}
         </section>
 
+        {/* E124: agents with 3+ requests discarded as fake in 30 days; hidden when none. */}
+        {desk.id === 'agent-ops' && <FakeRequestFlagsCard board={board} />}
         {desk.id === 'agent-ops' && <AgentRankingFold board={board} />}
         {/* E108: where rent requests get stuck before they are posted. */}
         {(desk.id === 'agent-ops' || desk.id === 'service-centre') && <PostingFunnelCard board={board} />}
