@@ -95,7 +95,7 @@ describe('Where rent requests get stuck', () => {
     h.rpc.mockResolvedValue({ data: FUNNEL, error: null });
     wrap(<PostingFunnelCard board={false} />);
     expect((await findEl('[data-funnel-headline]')).textContent).toBe('120 agents opened → 45 posted (37.5%) · 61 requests');
-    expect(h.rpc).toHaveBeenCalledWith('posting_funnel', { p_days: 14, p_form: 'agent_post' });
+    expect(h.rpc).toHaveBeenCalledWith('posting_funnel', { p_days: 7, p_form: 'agent_post' });
 
     // Two charts (counts; conversion), and the same days as a table.
     expect(screen.getByRole('img', { name: 'Agents who opened and posted, by day' })).toBeTruthy();

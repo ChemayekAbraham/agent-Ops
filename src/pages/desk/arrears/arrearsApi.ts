@@ -37,6 +37,8 @@ export type ArrearsRow = {
   window_due: number | null;
   collected: number | null;
   pct: number | null;
+  /** Week mode (E113): days in the week under half the daily due; null for weekly plans. */
+  days_short?: number | null;
   arrears_to_date: number | null;
   last_paid_on: string | null;
   days_since_paid: number | null;
@@ -64,6 +66,10 @@ export type ArrearsTotals = {
 };
 export type ArrearsWatch = {
   day: string;
+  /** Week mode: Monday … Sunday of the week read. */
+  from?: string | null;
+  to?: string | null;
+  mode?: WatchMode;
   rule: string | null;
   tiers: Partial<Record<Tier, string>>;
   totals: ArrearsTotals | null;
@@ -86,7 +92,11 @@ export type ArrearsAgent = {
   eligible: boolean | null;
   agent_ops_call: CallRecord;
 };
-export type ArrearsAgents = { day: string; agents: ArrearsAgent[] };
+export type ArrearsAgents = { day: string; from?: string | null; to?: string | null; mode?: WatchMode; agents: ArrearsAgent[] };
+
+/** "Yesterday" reads one day; "Last week" (E113) reads Monday to Sunday. */
+export type WatchMode = 'day' | 'week';
+export const MODE_WORDS: Record<WatchMode, string> = { day: 'Yesterday', week: 'Last week' };
 
 /** Yesterday in Kampala, "YYYY-MM-DD": the server's own default watch day. */
 export function yesterdayKampala(now: Date = new Date()): string {
@@ -96,24 +106,58 @@ export function yesterdayKampala(now: Date = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
+const kampalaToday = (now: Date) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+/** ISO weekday in Kampala: Monday 1 … Sunday 7. */
+export function kampalaIsoDow(now: Date = new Date()): number {
+  const d = new Date(`${kampalaToday(now)}T00:00:00Z`).getUTCDay();
+  return d === 0 ? 7 : d;
+}
+/** The most recent Sunday before today in Kampala, the server's own default week end (today − ISO weekday). */
+export function lastSundayKampala(now: Date = new Date()): string {
+  const d = new Date(`${kampalaToday(now)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - kampalaIsoDow(now));
+  return d.toISOString().slice(0, 10);
+}
+/** Mondays open on last week; other days on yesterday. */
+export const defaultWatchMode = (now: Date = new Date()): WatchMode => (kampalaIsoDow(now) === 1 ? 'week' : 'day');
+
+/** "missed 3 of 7 days", for daily plans in week mode; nothing for weekly plans or without the figure. */
+export function daysShortText(row: Pick<ArrearsRow, 'days_short' | 'frequency'>): string | null {
+  if (row.days_short === null || row.days_short === undefined) return null;
+  if (String(row.frequency ?? '').toLowerCase() === 'weekly') return null;
+  return `missed ${row.days_short} of 7 days`;
+}
+
+/** The day a call belongs to: the watch day, or in week mode the week's `to`. */
+export const callDay = (mode: WatchMode, day: string, data?: { to?: string | null } | null) => (mode === 'week' ? (data?.to ?? day) : day);
+
 export const ARREARS_KEY = ['desk-feed', 'arrears'] as const;
 
-export function useArrearsWatch(p: { day: string; tier?: Tier | null; search?: string; limit: number; offset?: number; enabled?: boolean }) {
+/**
+ * `day` is the watch day in day mode, the week's Sunday (p_week_end) in week
+ * mode. Week mode reads arrears_watch_week; the payload carries from / to.
+ */
+export function useArrearsWatch(p: { day: string; mode?: WatchMode; tier?: Tier | null; search?: string; limit: number; offset?: number; enabled?: boolean }) {
+  const mode = p.mode ?? 'day';
   return useQuery({
-    queryKey: [...ARREARS_KEY, 'watch', p.day, p.tier ?? null, p.search ?? '', p.limit, p.offset ?? 0],
+    queryKey: [...ARREARS_KEY, 'watch', mode, p.day, p.tier ?? null, p.search ?? '', p.limit, p.offset ?? 0],
     enabled: p.enabled ?? true,
     queryFn: async (): Promise<ArrearsWatch> => {
-      const { data, error } = await rpc('arrears_watch', {
-        p_day: p.day,
+      const common = {
         p_tier: p.tier ?? null,
         p_search: p.search?.trim() ? p.search.trim() : null,
         p_limit: p.limit,
         p_offset: p.offset ?? 0,
-      });
+      };
+      const { data, error } = mode === 'week' ? await rpc('arrears_watch_week', { p_week_end: p.day, ...common }) : await rpc('arrears_watch', { p_day: p.day, ...common });
       if (error) throw error;
       const d = (data ?? {}) as Partial<ArrearsWatch>;
       return {
         day: String(d.day ?? p.day),
+        from: d.from ?? null,
+        to: d.to ?? null,
+        mode,
         rule: d.rule ?? null,
         tiers: d.tiers ?? {},
         totals: d.totals ?? null,
@@ -141,14 +185,14 @@ export function useArrearsTotals() {
   });
 }
 
-export function useArrearsAgents(day: string) {
+export function useArrearsAgents(day: string, mode: WatchMode = 'day') {
   return useQuery({
-    queryKey: [...ARREARS_KEY, 'agents', day],
+    queryKey: [...ARREARS_KEY, 'agents', mode, day],
     queryFn: async (): Promise<ArrearsAgents> => {
-      const { data, error } = await rpc('arrears_watch_agents', { p_day: day });
+      const { data, error } = mode === 'week' ? await rpc('arrears_watch_week_agents', { p_week_end: day }) : await rpc('arrears_watch_agents', { p_day: day });
       if (error) throw error;
       const d = (data ?? {}) as Partial<ArrearsAgents>;
-      return { day: String(d.day ?? day), agents: Array.isArray(d.agents) ? d.agents : [] };
+      return { day: String(d.day ?? day), from: d.from ?? null, to: d.to ?? null, mode, agents: Array.isArray(d.agents) ? d.agents : [] };
     },
     staleTime: 30_000,
     retry: 1,

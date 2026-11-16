@@ -18,6 +18,7 @@ const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8')
 const MIGRATION = read('supabase/migrations/20261124090000_approval_reminders_every_4_hours.sql');
 const ROLLBACK = read('supabase/rollbacks/20261124090000_approval_reminders_every_4_hours.rollback.sql');
 const PROD = read('scripts/fixtures/prompt-snooze-prod-2026-11-15.sql');
+const REVERT = read('supabase/migrations/20261124100000_revert_approval_reminders.sql');
 
 const STANDINS = `
 create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
@@ -203,5 +204,22 @@ describe('salary advance reminder', () => {
     expect((await as(hr, `update public.hr_pay_advance_prompt_snoozes set snooze_until = now() + interval '1 year'`)).err?.message).toMatch(/permission denied/);
     const acl = await q<{ t: string }>(`select string_agg(policyname, ',' order by policyname) t from pg_policies where tablename = 'hr_pay_advance_prompt_snoozes'`);
     expect(acl[0].t).toBe('hr_pay_advance_prompt_snoozes_own_read,mfa_required_for_staff');
+  });
+});
+
+describe('migration 20261124100000: revert (CFO 16 Nov 2026)', () => {
+  it('pins the installed versions, restores the production 2-hour snooze functions exactly and removes the salary advance reminder', async () => {
+    expect(await md5('public.staff_loan_prompt_snooze(uuid)')).toBe('e177a854c15aa80e97409a9b57ba4feb');
+    expect(await md5('public.pso_facilitation_prompt_snooze(uuid)')).toBe('0fff613a53fe9341fa330a99b9763eaa');
+    expect(await run(REVERT)).toBeUndefined();
+    expect(await md5('public.staff_loan_prompt_snooze(uuid)')).toBe('e664e3bfb403e1486fc4ee38fafc9c8f');
+    expect(await md5('public.pso_facilitation_prompt_snooze(uuid)')).toBe('af7e1e967c546888c5f96fab2bac9b49');
+    expect((await q(`select to_regclass('public.hr_pay_advance_prompt_snoozes') t`))[0].t).toBeNull();
+    expect((await q(`select to_regprocedure('public.hr_pay_advance_pending_prompt()') a, to_regprocedure('public.hr_pay_advance_prompt_snooze(uuid)') b`))[0])
+      .toEqual({ a: null, b: null });
+    const [{ id }] = await q<{ id: string }>(`insert into public.staff_loan_prompts (approver_id, kind) values ($1, 'cfo') returning id`, [cfo]);
+    const r = await as<{ h: string }>(cfo, `select round(extract(epoch from (s.snooze_until - now())) / 3600) h from public.staff_loan_prompt_snooze($1) s`, [id]);
+    expect(Number(r.rows![0].h)).toBe(2);
+    expect((await run(REVERT))?.message).toMatch(/precondition failed/);
   });
 });

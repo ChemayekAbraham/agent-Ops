@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { collectionInfoLine, fetchMyCollectionPct } from '@/lib/agentCollectionInfo';
+import { canViewDeskReads } from '@/lib/deskViewerRoles';
 import { listingHasRealPhoto } from '@/hooks/useHouseListings';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
@@ -276,7 +277,8 @@ function greetingNow(): { text: string; emoji: string } {
 }
 
 export default function RentRequestAssistant({ open, onOpenChange, onSuccess, request }: Props) {
-  const { user } = useAuth();
+  const { user, enabledRoles } = useAuth();
+  const canReadEligibility = canViewDeskReads(enabledRoles);
   const mode = request?.mode ?? 'new';
   const rejected = request?.mode === 'resubmit' ? request.rejected : null;
   const renewal = request?.mode === 'renewal' ? request.renewal : null;
@@ -300,11 +302,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     }));
   }, [gateBlocked, gate?.reason]);
   useEffect(() => {
-    if (!open || !user?.id) return;
+    if (!open || !user?.id || !canReadEligibility) return;
     let cancelled = false;
     void fetchMyCollectionPct(user.id).then((p) => { if (!cancelled) setCollectionPct(p); });
     return () => { cancelled = true; };
-  }, [open, user?.id]);
+  }, [open, user?.id, canReadEligibility]);
 
   // ----- answers -----
   const [planType, setPlanType] = useState<PlanType | null>(null);

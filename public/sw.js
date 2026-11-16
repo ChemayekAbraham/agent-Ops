@@ -51,6 +51,11 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || WELILE_BRAND;
+  // E114: the desk morning brief (/desk/agent-ops, /desk/tenant-ops) opens the desk's Arrears calls tab.
+  let target = data.url || (data.data && data.data.url);
+  if (data.type === 'desk_morning_brief' && typeof target === 'string' && /^\/desk\/(agent-ops|tenant-ops)\/?$/.test(target)) {
+    target = target.replace(/\/$/, '') + '?tab=arrears';
+  }
   const options = {
     body: data.body || '',
     icon: data.icon || '/icon-192.png',
@@ -65,7 +70,7 @@ self.addEventListener('push', (event) => {
       origin: WELILE_ORIGIN,
       ...(data.data || {}),
       // Last so a nested `data.data.url` can never override the branded target.
-      url: brandedUrl(data.url || (data.data && data.data.url)),
+      url: brandedUrl(target),
     },
   };
 
