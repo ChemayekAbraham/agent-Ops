@@ -137,9 +137,12 @@ function ChooserBody({
     queryKey: ['funder-payout-contact', target.rentRequestId],
     queryFn: () => fetchLandlordPayoutContact(target.rentRequestId),
     staleTime: 60_000,
-    retry: false,
+    retry: 1,
+    // A failed lookup must not stick: check again next time the chooser opens.
+    refetchOnMount: (q) => q.state.data?.state === 'error',
   });
   const contact = contactQuery.data?.state === 'ready' ? contactQuery.data.contact : null;
+  const contactFailed = contactQuery.isError || contactQuery.data?.state === 'error';
   const showDirect = Boolean(contact?.payoutMomoNumber || contact?.landlordPhone);
   const [step, setStep] = useState<Step>('choose');
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -303,7 +306,18 @@ function ChooserBody({
           onClick={() => setChoice('cash')}
         />
       )}
-      {!contactQuery.isLoading && !showDirect && (
+      {!contactQuery.isFetching && contactFailed && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-border/70 px-3 py-2">
+          <p className="text-xs text-muted-foreground">Could not load the landlord's payment details.</p>
+          <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 rounded-lg" onClick={() => void contactQuery.refetch()}>
+            Try again
+          </Button>
+        </div>
+      )}
+      {contactQuery.isFetching && !contactQuery.isLoading && (
+        <p className="flex items-center gap-2 px-1 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking verification</p>
+      )}
+      {!contactQuery.isFetching && !contactFailed && !showDirect && (
         <p className="px-1 text-xs text-muted-foreground">
           Direct mobile money and cash show here after this Rent Plan is verified.
         </p>
