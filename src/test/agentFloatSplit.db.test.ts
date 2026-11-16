@@ -138,7 +138,7 @@ describe('agent float four-line split', () => {
     await db.exec(`BEGIN;\n${MIG}\nCOMMIT;`);
     const batch = BATCH
       .replace(/\('apr_jul',\s+140596097,/, "('apr_jul', 60,").replace(/\('corrections', 178061884,/, "('corrections', 30,")
-      .replace(/\('other',\s+26022600,/, "('other', 10,").replaceAll('344680581', '100');
+      .replace(/\('other',\s+26022600,/, "('other', 10,").replace(/344680581/g, '100');
     await db.exec(batch);
     const a = await accts(db);
     expect(a.A2).toBe(200);
