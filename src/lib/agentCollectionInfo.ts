@@ -22,6 +22,32 @@ export async function fetchMyEligibilityRaw(agentId: string): Promise<unknown> {
   }
 }
 
+export type MyCollectionInfo = { pct: number | null; reason: string | null };
+
+/**
+ * The percentage and the server's reason text from the agent_eligibility_of JSON. The reason
+ * also says when the agent is not yet verified (E119). null when there is neither.
+ */
+export function parseCollectionInfo(raw: unknown): MyCollectionInfo | null {
+  let r: unknown = raw;
+  if (typeof r === 'string') { try { r = JSON.parse(r); } catch { return null; } }
+  if (Array.isArray(r)) r = r[0];
+  if (!r || typeof r !== 'object') return null;
+  const o = r as Record<string, unknown>;
+  const pct = parseCollectionPct(o);
+  const reason = typeof o.reason === 'string' && o.reason.trim() ? o.reason.trim() : null;
+  return pct === null && reason === null ? null : { pct, reason };
+}
+
+/**
+ * E119: agent_eligibility_of lets an agent read their own figure (p_agent = auth.uid());
+ * anyone else's still needs a desk role. Pass the signed-in agent's own id. null when the
+ * server refuses or there is nothing to show. Never throws.
+ */
+export async function fetchMyCollectionInfo(agentId: string): Promise<MyCollectionInfo | null> {
+  return parseCollectionInfo(await fetchMyEligibilityRaw(agentId));
+}
+
 /** The agent's own collection percentage, or null when it can't be read. Never throws. */
 export async function fetchMyCollectionPct(agentId: string): Promise<number | null> {
   try {

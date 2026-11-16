@@ -90,8 +90,8 @@ export const agentRequestStatusLabel = (status: string | null | undefined): stri
 
 /**
  * Why the agent's requests wait at the COO, from the two things the agent app can read:
- * the vetting gate (`agent_vetting_gate_status`: verified or not) and, for users allowed
- * to read it, `agent_eligibility_of` (the 50% collection rule). null when neither said anything.
+ * the vetting gate (`agent_vetting_gate_status`: verified or not) and the agent's own
+ * `agent_eligibility_of` (the 50% collection rule). null when neither said anything.
  */
 export function agentEligibilityFrom(
   gate: { vetted: boolean | null; funding_frozen?: boolean } | null | undefined,

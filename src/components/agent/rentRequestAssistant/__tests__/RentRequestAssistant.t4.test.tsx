@@ -282,9 +282,8 @@ describe('E90: ask only for what _agent_side_missing lists', () => {
 });
 
 describe('E100: no posting gate', () => {
-  // The collection line reads agent_eligibility_of, which only desk roles may read (b961148257);
-  // plain agents are not asked. These tests run as a user who also holds a desk role.
-  beforeEach(() => { auth.enabledRoles = ['agent', 'coo']; });
+  // E119: an ordinary agent reads their own figure (agent_eligibility_of with their own id).
+  beforeEach(() => { auth.enabledRoles = ['agent']; });
   afterEach(() => { auth.enabledRoles = []; });
   // VERON OWARUHANGA: 52.8% collected across all plans, 0 tenants paid today. Even a capacity
   // record from before E100 that still says "can't post" must not stop her.
@@ -304,6 +303,34 @@ describe('E100: no posting gate', () => {
     expect(mocks.rpc).toHaveBeenCalledWith('agent_eligibility_of', { p_agent: 'agent-1' });
     expect(screen.queryByText(/can’t post|cannot post|Collect from|Checking whether you can post|Good news/)).toBeNull();
     // The conversation is open: the composer is there for the first answer.
+    expect(container.querySelector('footer')).not.toBeNull();
+  });
+
+  it('E119: a plain agent sees their own % and the reason text the server gives', async () => {
+    cap.data = new Map([['agent-1', veron]]);
+    const reason = 'Collected 31% across all 4 rent plans (needs 50%). You are not verified yet.';
+    mocks.rpc.mockImplementation(async (fn: string, args?: { p_agent?: string }) => (fn === 'agent_eligibility_of'
+      ? (args?.p_agent === 'agent-1' ? { data: { eligible: false, pct: 31, reason }, error: null } : { data: null, error: { message: 'NOT_ALLOWED' } })
+      : { data: { ok: true }, error: null }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    expect(await screen.findByTestId('collection-info')).toHaveTextContent('Your collection: 31% of what is due across all your plans.');
+    expect(screen.getByTestId('collection-reason')).toHaveTextContent(reason);
+    // Only the signed-in agent's own id is ever asked for.
+    const asked = mocks.rpc.mock.calls.filter(([fn]) => fn === 'agent_eligibility_of').map(([, a]) => (a as { p_agent: string }).p_agent);
+    expect(asked.length).toBeGreaterThan(0);
+    expect(new Set(asked)).toEqual(new Set(['agent-1']));
+  });
+
+  it('E119: when the server refuses the figure (another agent\'s id), nothing renders', async () => {
+    cap.data = new Map([['agent-1', veron]]);
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'agent_eligibility_of'
+      ? { data: null, error: { message: 'NOT_ALLOWED: you can only read your own figure' } }
+      : { data: { ok: true }, error: null }));
+    const { container } = render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('agent_eligibility_of', { p_agent: 'agent-1' }));
+    expect(screen.queryByTestId('collection-info')).toBeNull();
+    expect(screen.queryByTestId('collection-reason')).toBeNull();
+    expect(screen.queryByText(/NOT_ALLOWED/)).toBeNull();
     expect(container.querySelector('footer')).not.toBeNull();
   });
 

@@ -28,8 +28,7 @@ import { AGENT_RENT_REQUEST_REOPEN_FLAG as REOPEN_FLAG, clearFormPhotos, loadFor
 import SelfieCameraCapture from '@/components/wallet/SelfieCameraCapture';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { collectionInfoLine, fetchMyCollectionPct } from '@/lib/agentCollectionInfo';
-import { canViewDeskReads } from '@/lib/deskViewerRoles';
+import { collectionInfoLine, fetchMyCollectionInfo, type MyCollectionInfo } from '@/lib/agentCollectionInfo';
 import { listingHasRealPhoto } from '@/hooks/useHouseListings';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
@@ -281,8 +280,7 @@ function greetingNow(): { text: string; emoji: string } {
 }
 
 export default function RentRequestAssistant({ open, onOpenChange, onSuccess, request }: Props) {
-  const { user, enabledRoles } = useAuth();
-  const canReadEligibility = canViewDeskReads(enabledRoles);
+  const { user } = useAuth();
   const mode = request?.mode ?? 'new';
   const draftKey = user?.id ? `welile_agent_rent_request_draft_${user.id}` : '';
   const rejected = request?.mode === 'resubmit' ? request.rejected : null;
@@ -291,7 +289,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   // (tenant arrears) refuses what it should, and its message is shown as it is.
   // E100 (COO decision): no daily or weekly posting gate. The agent's collection against the
   // 50% rule is shown as information only; it never blocks a post.
-  const [collectionPct, setCollectionPct] = useState<number | null>(null);
+  // E119: the agent reads their own figure (agent_eligibility_of with their own id) and its reason.
+  const [collection, setCollection] = useState<MyCollectionInfo | null>(null);
   /*
    * E111: agents always post. An unverified agent's request passes every desk and waits at
    * the COO / funders' board until Agent Ops verifies them; `notice` says so. Only
@@ -307,11 +306,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     }));
   }, [gateBlocked, gate?.reason]);
   useEffect(() => {
-    if (!open || !user?.id || !canReadEligibility) return;
+    if (!open || !user?.id) return;
     let cancelled = false;
-    void fetchMyCollectionPct(user.id).then((p) => { if (!cancelled) setCollectionPct(p); });
+    void fetchMyCollectionInfo(user.id).then((c) => { if (!cancelled) setCollection(c); });
     return () => { cancelled = true; };
-  }, [open, user?.id, canReadEligibility]);
+  }, [open, user?.id]);
 
   // ----- answers -----
   const [planType, setPlanType] = useState<PlanType | null>(null);
@@ -1900,8 +1899,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                   <span>{vettingNotice} <a href={AGENT_VERIFICATION_PATH} className="font-semibold text-primary underline underline-offset-4">Complete verification</a></span>
                 </div>
               )}
-              {typeof collectionPct === 'number' && (
-                <Bot><Bubble><span data-testid="collection-info">{collectionInfoLine(collectionPct)}</span></Bubble></Bot>
+              {collection && (
+                <Bot><Bubble>
+                  {typeof collection.pct === 'number' && <span data-testid="collection-info">{collectionInfoLine(collection.pct)}</span>}
+                  {collection.reason && <span className="mt-1 block" data-testid="collection-reason">{collection.reason}</span>}
+                </Bubble></Bot>
               )}
 
               {steps.slice(0, idx).map((s) => (
