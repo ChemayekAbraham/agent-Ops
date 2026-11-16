@@ -101,10 +101,10 @@ describe('Agent Ops ID review', () => {
 import { within } from '@testing-library/react';
 
 describe('Agent Ops verification review (E78)', () => {
-  it('shows the passport selfie beside the ID front for the face check, and confirms it', () => {
+  it('shows the face photo beside the ID front for the face check, and confirms it', () => {
     openPanel();
     const face = document.querySelector('[data-face-check]') as HTMLElement;
-    expect(within(face).getByRole('img', { name: 'Passport photo' })).toHaveAttribute('src', '/selfie.png');
+    expect(within(face).getByRole('img', { name: "Agent's face photo" })).toHaveAttribute('src', '/selfie.png');
     expect(within(face).getByRole('img', { name: 'ID front for the face check' })).toHaveAttribute('src', '/front.png');
     fireEvent.click(screen.getByRole('button', { name: 'Selfie matches the ID' }));
     expect(state.confirm).toHaveBeenCalledWith({ agentId: 'fixture', item: 'face_match', note: undefined }, expect.anything());

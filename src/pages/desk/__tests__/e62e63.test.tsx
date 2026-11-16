@@ -153,6 +153,9 @@ describe('COO "Send back…" sheet', () => {
     expect(within(sheet).getByText(/required, at least 10 characters/)).toBeTruthy();
     expect((send() as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(within(sheet).getByRole('textbox'), { target: { value: 'Landlord number changed last week' } });
+    // What the agent must fix is required too.
+    expect((send() as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(sheet.querySelector('[data-fix-item="Landlord"]') as HTMLElement);
     expect((send() as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(send());
     await within(sheet).findByText('Sent back to Landlord Ops.');
@@ -161,7 +164,7 @@ describe('COO "Send back…" sheet', () => {
       p_from_stage: 'coo',
       p_to: 'landlord_ops',
       p_reason_code: 'OTHER',
-      p_note: 'Landlord number changed last week',
+      p_note: '[Landlord] Landlord number changed last week',
     });
     expect(rpcMock).not.toHaveBeenCalledWith('pipeline_record_review', expect.anything());
     expect(rpcMock).not.toHaveBeenCalledWith('return_rent_request_for_correction', expect.anything());
@@ -172,6 +175,7 @@ describe('COO "Send back…" sheet', () => {
     const sheet = await openSheet();
     fireEvent.click(sheet.querySelector('[data-office="agent"]') as HTMLElement);
     fireEvent.click(sheet.querySelector('[data-reason="LANDLORD_UNVERIFIED"]') as HTMLElement);
+    fireEvent.click(sheet.querySelector('[data-fix-item="Landlord"]') as HTMLElement);
     fireEvent.click(within(sheet).getByRole('button', { name: 'Send back to Field agent (to correct)' }));
     expect((await within(sheet).findByRole('alert')).textContent).toBe('Only the COO can send back from the COO desk');
   });
@@ -324,10 +328,11 @@ describe('board push: send-back goes through pipeline_send_back_to', () => {
     expect(sheet.querySelector('[data-reason="TENANT_ID_MISSING"]')?.getAttribute('aria-checked')).toBe('true');
     expect((within(sheet).getByRole('textbox') as HTMLTextAreaElement).value).toBe('Tenant ID photo is missing from the request');
     expect(rpcMock).not.toHaveBeenCalledWith('pipeline_send_back_to', expect.anything());
+    fireEvent.click(sheet.querySelector('[data-fix-item="ID front"]') as HTMLElement);
     fireEvent.click(within(sheet).getByRole('button', { name: 'Send back to Field agent (to correct)' }));
     await within(sheet).findByText('Sent back to the agent');
     expect(rpcMock).toHaveBeenCalledWith('pipeline_send_back_to', {
-      p_request_id: 'r1', p_from_stage: 'agent_ops', p_to: 'agent', p_reason_code: 'TENANT_ID_MISSING', p_note: 'Tenant ID photo is missing from the request',
+      p_request_id: 'r1', p_from_stage: 'agent_ops', p_to: 'agent', p_reason_code: 'TENANT_ID_MISSING', p_note: '[ID front] Tenant ID photo is missing from the request',
     });
     expect(rpcMock).not.toHaveBeenCalledWith('pipeline_record_review', expect.anything());
     expect(rpcMock).not.toHaveBeenCalledWith('return_rent_request_for_correction', expect.anything());
