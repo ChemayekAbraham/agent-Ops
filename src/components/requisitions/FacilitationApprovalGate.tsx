@@ -1,17 +1,32 @@
-import { useNavigate } from 'react-router-dom';
-import { ShieldAlert } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { hasUsableUserSession, useAuthenticatedAudience, useAuthenticatedPoll } from '@/hooks/useAuthenticatedPoll';
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2, ShieldAlert } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/creditFeeCalculations';
-import { ApprovalReminderDialog } from './ApprovalReminderDialog';
-import { STAFF_APPROVALS_PATH } from './reminderTiming';
-import { useApprovalReminder } from './useApprovalReminder';
+import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
+import {
+  APPROVAL_TOAST_OPTIONS, REQUISITION_APPROVED_MESSAGE,
+} from './approvalToast';
 
 /**
- * Facilitation reminder — for the named approver only (`pso_facilitation_pending_prompt()` decides who).
+ * Blocking facilitation approval prompt — for the named approver only.
  *
- * A reminder, not a decision screen (CFO 15 Nov 2026): "Open requisitions" (the approvals queue, where it is
- * approved, declined or paid) and "Later", both putting it off for 4 hours on the server. FAIL OPEN.
+ * FAIL OPEN: the modal renders only when `pso_facilitation_pending_prompt()`
+ * succeeds AND returns a row. Any error, timeout or offline state leaves the
+ * app fully usable. No role check is performed; the rpc alone decides who is
+ * prompted. The poll waits for a signed-in session — a missing or expired
+ * user JWT is not sent.
  */
+
+const POLL_MS = 5 * 60 * 1000;
+const SNOOZE_MS = 2 * 60 * 60 * 1000;
 
 interface Prompt {
   prompt_id: string;
@@ -21,9 +36,18 @@ interface Prompt {
   title: string;
   reason: string;
   amount: number;
+  currency: string;
   snooze_count: number;
   submitted_at: string;
   kind?: 'approval' | 'disbursement' | null;
+}
+
+interface PlanLine {
+  id: string;
+  seq: number;
+  purpose: string;
+  location: string;
+  amount: number;
 }
 
 function fmtDate(iso: string | null) {
@@ -31,40 +55,204 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-async function fetchPrompt(): Promise<Prompt | null> {
-  const { data, error } = await supabase.rpc('pso_facilitation_pending_prompt');
-  if (error) return null;
-  return ((Array.isArray(data) ? data[0] : data) as unknown as Prompt | undefined) ?? null;
-}
-
-async function snooze(p: Prompt): Promise<unknown> {
-  const { data, error } = await supabase.rpc('pso_facilitation_prompt_snooze', { _prompt_id: p.prompt_id });
-  if (error) throw error;
-  return (data as unknown as { snooze_until?: string } | null)?.snooze_until;
-}
-
 export function FacilitationApprovalGate() {
-  const navigate = useNavigate();
-  const { prompt, working, later } = useApprovalReminder({ fetchPrompt, snooze });
+  const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const [lines, setLines] = useState<PlanLine[]>([]);
+  const [declining, setDeclining] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [working, setWorking] = useState(false);
+  const suppressedUntilRef = useRef(0);
+  const ready = useAuthenticatedAudience();
+
+  const load = useCallback(async () => {
+    if (Date.now() < suppressedUntilRef.current) return;
+    if (!(await hasUsableUserSession())) { setPrompt(null); return; }
+    try {
+      const { data, error } = await supabase.rpc('pso_facilitation_pending_prompt');
+      if (error) { setPrompt(null); return; }
+      const row = (Array.isArray(data) ? data[0] : data) as unknown as Prompt | undefined;
+      if (!row) { setPrompt(null); return; }
+      setPrompt(row);
+      const { data: planData } = await supabase
+        .from('staff_facilitation_plan_lines')
+        .select('id, seq, purpose, location, amount')
+        .eq('requisition_id', row.requisition_id)
+        .order('seq', { ascending: true });
+      setLines((planData || []) as unknown as PlanLine[]);
+    } catch {
+      // Fail open — never block the product on a gate that cannot read itself.
+      setPrompt(null);
+    }
+  }, []);
+
+  useAuthenticatedPoll(load, POLL_MS);
+  useEffect(() => { if (!ready) setPrompt(null); }, [ready]);
+
+  useEffect(() => {
+    setDeclining(false);
+    setRejectReason('');
+  }, [prompt?.prompt_id]);
+
+  const approve = async () => {
+    if (!prompt) return;
+    setWorking(true);
+    const { error } = await supabase
+      .from('staff_requisitions')
+      .update({ stage: 'approved' })
+      .eq('id', prompt.requisition_id);
+    setWorking(false);
+    if (error) { toast.error(requisitionApprovalError(error.message)); return; }
+    toast.success(REQUISITION_APPROVED_MESSAGE, {
+      ...APPROVAL_TOAST_OPTIONS,
+      description: 'Facilitation request approved.',
+    });
+    setPrompt(null);
+    void load();
+  };
+
+  const decline = async () => {
+    if (!prompt) return;
+    if (rejectReason.trim().length < 10) {
+      toast.error('Give the officer a reason (at least 10 characters)');
+      return;
+    }
+    setWorking(true);
+    const { error } = await supabase
+      .from('staff_requisitions')
+      .update({ stage: 'rejected', rejection_reason: rejectReason.trim() })
+      .eq('id', prompt.requisition_id);
+    setWorking(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Facilitation declined');
+    setPrompt(null);
+    void load();
+  };
+
+  const disburse = async () => {
+    if (!prompt) return;
+    setWorking(true);
+    const { error } = await supabase.rpc('pso_facilitation_disburse' as never, {
+      _requisition_id: prompt.requisition_id,
+    } as never);
+    setWorking(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Facilitation disbursed');
+    setPrompt(null);
+    void load();
+  };
+
+  const later = async () => {
+    if (!prompt) return;
+    setWorking(true);
+    const { error } = await supabase.rpc('pso_facilitation_prompt_snooze', { _prompt_id: prompt.prompt_id });
+    setWorking(false);
+    if (error) { toast.error(error.message); return; }
+    suppressedUntilRef.current = Date.now() + SNOOZE_MS;
+    setPrompt(null);
+  };
+
   if (!prompt) return null;
 
+  const isDisbursement = prompt.kind === 'disbursement';
+
   return (
-    <ApprovalReminderDialog
-      icon={<ShieldAlert className="h-5 w-5 text-primary" />}
-      title={prompt.kind === 'disbursement' ? 'Facilitation approved — waiting to be paid' : 'Facilitation needs your decision'}
-      description={<>{prompt.officer_name} • {prompt.requisition_code} • submitted {fmtDate(prompt.submitted_at)}</>}
-      snoozeCount={Number(prompt.snooze_count) || 0}
-      openLabel="Open requisitions"
-      working={working}
-      onOpen={() => { void later().then((ok) => { if (ok) navigate(STAFF_APPROVALS_PATH); }); }}
-      onLater={() => { void later(); }}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-semibold">{prompt.title}</p>
-        <p className="text-lg font-bold text-primary">{formatUGX(Number(prompt.amount))}</p>
-      </div>
-      <p className="whitespace-pre-wrap text-sm text-muted-foreground">{prompt.reason}</p>
-    </ApprovalReminderDialog>
+    <Dialog open onOpenChange={() => { /* cannot be dismissed */ }}>
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-lg [&>button]:hidden"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-primary" />{' '}
+            {isDisbursement ? 'Facilitation ready for disbursement' : 'Facilitation needs your decision'}
+          </DialogTitle>
+          <DialogDescription>
+            {prompt.officer_name} • {prompt.requisition_code} • submitted {fmtDate(prompt.submitted_at)}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-semibold">{prompt.title}</p>
+            <p className="text-lg font-bold text-primary">{formatUGX(Number(prompt.amount))}</p>
+          </div>
+
+          {prompt.snooze_count > 0 && (
+            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-700">
+              Deferred {prompt.snooze_count} {prompt.snooze_count === 1 ? 'time' : 'times'} already
+            </Badge>
+          )}
+
+          <p className="whitespace-pre-wrap text-sm text-muted-foreground">{prompt.reason}</p>
+
+          <div className="overflow-hidden rounded-xl border">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/50 text-muted-foreground">
+                <tr>
+                  <th className="px-2 py-1.5 text-left">Purpose / activity</th>
+                  <th className="px-2 py-1.5 text-left">Location</th>
+                  <th className="px-2 py-1.5 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((l) => (
+                  <tr key={l.id} className="border-t">
+                    <td className="px-2 py-1.5">{l.purpose}</td>
+                    <td className="px-2 py-1.5">{l.location}</td>
+                    <td className="px-2 py-1.5 text-right font-medium">{formatUGX(Number(l.amount))}</td>
+                  </tr>
+                ))}
+                {lines.length === 0 && (
+                  <tr><td colSpan={3} className="px-2 py-3 text-center text-muted-foreground">No plan rows.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {declining && (
+            <div className="space-y-2">
+              <Textarea
+                rows={3}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Tell the officer why this is declined (at least 10 characters)"
+              />
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            {declining ? (
+              <>
+                <Button variant="outline" onClick={() => setDeclining(false)} disabled={working}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={() => void decline()} disabled={working}>
+                  {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Confirm decline
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button onClick={() => void (isDisbursement ? disburse() : approve())} disabled={working}>
+                  {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isDisbursement ? 'Disburse' : 'Approve'}
+                </Button>
+                {!isDisbursement && (
+                  <Button variant="destructive" onClick={() => setDeclining(true)} disabled={working}>
+                    Decline
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => void later()} disabled={working}>
+                  Later
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
