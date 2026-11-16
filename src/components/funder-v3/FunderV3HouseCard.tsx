@@ -21,6 +21,8 @@ import { FundersBoardTag, tagKindFor } from '@/components/funder-new/FundersBoar
 import { FundersIncompleteChip } from '@/components/funder-new/FundersIncompleteChip';
 import type { BoardTag } from '@/lib/fundersBoard';
 import { DirectPayStartButton } from '@/components/direct-pay/DirectPayPartner';
+import { BookedNotice } from '@/components/funder-new/BookedNotice';
+import { isFundedOrClaimed, useBookedByMe } from '@/components/funder-new/funderListRefresh';
 
 /** Rendered photo box is 16:10; these are the intrinsic hints for the browser. */
 const PHOTO_W = 640;
@@ -92,6 +94,11 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   const photo = firstPhoto(category, item);
   const coords = itemCoordinates(item, category);
   const unchecked = isUncheckedEmptyHouse(category, item);
+  // Funded or claimed (a stale list, or this funder just funded it): never fundable, never "Verified".
+  const bookedByMe = useBookedByMe();
+  const planId = isEmpty ? null : (item as FunderNewReadyPlan).rent_request_id;
+  const mine = !!planId && bookedByMe.has(planId);
+  const taken = !isEmpty && (mine || isFundedOrClaimed(item));
   const ref = category === 'ready' ? requestRef((item as FunderNewReadyPlan).rent_request_id) : null;
 
   return (
@@ -138,7 +145,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
         </button>
 
         {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
-        {boardTagsOn || unchecked ? null : (
+        {boardTagsOn || unchecked || taken ? null : (
         <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 fv3-t-2xs font-semibold text-foreground shadow-sm ring-1 ring-border">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#8024D1" stroke="#8024D1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden>
             <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
@@ -189,7 +196,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
             {demoteChecked ? 'Selected to demote' : 'Select to demote'}
           </label>
         ) : null}
-        {boardTagsOn ? <FundersBoardTag kind={tagKindFor(boardTag, category)} /> : null}
+        {boardTagsOn ? <FundersBoardTag kind={taken ? 'booked' : tagKindFor(boardTag, category)} /> : null}
         <button
           type="button"
           onClick={onDetail}
@@ -240,8 +247,8 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
               <span className="sr-only">Open in Google Maps</span>
             </a>
           ) : null}
-          {/* Not checked by Welile yet: no Fund button and no action line. */}
-          {unchecked ? null : (
+          {/* Not checked by Welile yet: no Fund button and no action line. Funded/claimed: the notice instead. */}
+          {taken ? <BookedNotice mine={mine} /> : unchecked ? null : (
           <button
             type="button"
             data-testid="fv3-fund-button"
@@ -259,7 +266,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
           </button>
           )}
         </div>
-        {!isEmpty && !unchecked && !demoteMode && <DirectPayStartButton rentRequestId={(item as FunderNewReadyPlan).rent_request_id} />}
+        {!isEmpty && !unchecked && !taken && !demoteMode && <DirectPayStartButton rentRequestId={(item as FunderNewReadyPlan).rent_request_id} />}
       </div>
     </article>
   );

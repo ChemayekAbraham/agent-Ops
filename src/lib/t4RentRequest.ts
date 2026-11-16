@@ -140,7 +140,7 @@ export const GATE_ITEMS = [
 ] as const;
 /** What the form itself needs before it can send. */
 export const FORM_ITEMS = [
-  'plan', 'tenantPhone', 'house', 'tenantPhoto', 'lc1', 'payoutDay', 'consent', 'note', 'resubmitsLeft',
+  'plan', 'tenantPhone', 'house', 'tenantPhoto', 'lc1', 'payoutDay', 'consent', 'note',
 ] as const;
 
 export type T4GateItem = typeof GATE_ITEMS[number];
@@ -167,12 +167,12 @@ export const T4_ITEM_LABELS: Record<T4ItemKey, string> = {
   payoutDay: 'Landlord payout day',
   consent: 'Guarantor consent',
   note: 'What you changed (at least 10 characters)',
-  resubmitsLeft: 'Resubmits left (a manager must reopen it)',
 };
 
 const FORM_BY_MODE: Record<T4Mode, T4FormItem[]> = {
   new: ['plan', 'tenantPhone', 'house', 'tenantPhoto', 'lc1', 'payoutDay', 'consent'],
-  resubmit: ['note', 'resubmitsLeft'],
+  // E118: no resubmit limit; a returned request goes back once every required item is in.
+  resubmit: ['note'],
   renewal: [],
 };
 

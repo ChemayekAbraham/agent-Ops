@@ -28,7 +28,14 @@ export function useMyRentRequest() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return (data as unknown as TenantRentRequestRow) ?? null;
+      if (!data) return null;
+      const row = data as unknown as TenantRentRequestRow;
+      // Not in the generated types yet (doc 275); tenants may read their own row.
+      const { data: ask } = await (supabase.from as any)('rent_request_reconfirmations')
+        .select('outcome, respond_by')
+        .eq('rent_request_id', row.id)
+        .maybeSingle();
+      return { ...row, reconfirm: ask ?? null };
     },
   });
 }

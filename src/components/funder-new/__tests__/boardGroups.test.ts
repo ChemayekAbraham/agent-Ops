@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } }));
 
-import { buildBoardGroups, boardHeadline, boardItemMatches, boardItemToReadyPlan, boardSubline } from '../boardGroups';
+import { buildBoardGroups, boardHeadline, boardItemMatches, boardSubline } from '../boardGroups';
 import { tagKindFor } from '../FundersBoardTag';
 import { BOARD_TAG_COLOR, parseBoardItems, type BoardItem } from '@/lib/fundersBoard';
 import type { FunderNewEmptyHouse, FunderNewReadyPlan } from '../types';
@@ -61,16 +61,37 @@ describe('E72b grouped funders list', () => {
     ]);
   });
 
-  it("a Verified card follows the server's selectable: a selectable item whose plan has not loaded is still fundable", () => {
-    const verified = buildBoardGroups({ ...base, board: [item('late', 'verified', { mainPhoto: 'a.jpg', lat: 0.3, lng: 32.6 })], ready: [] })[0];
-    expect(verified.rows.map((r) => [r.kind, r.cardId])).toEqual([['feed', 'ready:late']]);
-    const row = verified.rows[0];
-    if (row.kind !== 'feed') throw new Error('expected a fundable row');
-    const built = row.entry.item as FunderNewReadyPlan;
-    expect(built.rent_request_id).toBe('late');
-    expect(built.funding_amount).toBe(400000);
-    expect(built.house_image_urls).toEqual(['a.jpg']);
-    expect([built.request_latitude, built.request_longitude]).toEqual([0.3, 32.6]);
+  it('every fundable card comes from the fundable plans read: a Verified item whose plan has not loaded is never fundable', () => {
+    // Its page of fundable plans is still loading: no Fund button, "checking".
+    const loading = buildBoardGroups({ ...base, board: [item('late', 'verified')], ready: [], feedComplete: false });
+    expect(loading[0].rows.map((r) => [r.kind, r.cardId, r.kind === 'board' ? !!r.checking : null])).toEqual([['board', 'board:late', true]]);
+    // Every page loaded and the read does not have it: a funder took it, so it is Booked, not Verified.
+    const done = buildBoardGroups({ ...base, board: [item('late', 'verified')], ready: [], feedComplete: true });
+    expect(done.find((g) => g.tag === 'verified')).toBeUndefined();
+    const booked = done.find((g) => g.tag === 'booked')!;
+    expect(booked.rows.map((r) => [r.kind, r.cardId, r.kind === 'board' ? r.item.tag : null])).toEqual([['board', 'board:late', 'booked']]);
+  });
+
+  it('a stale fundable list never makes a funded or claimed request fundable', () => {
+    // The board already says Booked / Funded, but a stale fundable list still has the plan.
+    const groups = buildBoardGroups({ ...base, board: [item('b', 'booked'), item('f', 'funded')], ready: [plan('b'), plan('f')] });
+    expect(groups.find((g) => g.tag === 'verified')).toBeUndefined();
+    expect(groups.flatMap((g) => g.rows).filter((r) => r.kind === 'feed' && r.tag !== 'empty_house')).toEqual([]);
+    // The plan itself says funded / confirmed claim (any source): never fundable.
+    const funded = plan('s');
+    (funded.item as unknown as Record<string, unknown>).status = 'funded';
+    const claimed = plan('c');
+    (claimed.item as unknown as Record<string, unknown>).claim_status = 'confirmed';
+    const g2 = buildBoardGroups({ ...base, board: [item('s', 'verified')], ready: [funded, claimed] });
+    expect(g2.find((g) => g.tag === 'verified')).toBeUndefined();
+    expect(g2.find((g) => g.tag === 'booked')!.rows.map((r) => r.cardId)).toEqual(['board:s']);
+  });
+
+  it("what this funder just funded is theirs: Booked (mine), never fundable, even before the board catches up", () => {
+    const groups = buildBoardGroups({ ...base, board: [item('p1', 'verified')], ready: [plan('p1'), plan('p-extra')], bookedByMe: new Set(['p1', 'p-extra']) });
+    expect(groups.find((g) => g.tag === 'verified')).toBeUndefined();
+    const booked = groups.find((g) => g.tag === 'booked')!;
+    expect(booked.rows.map((r) => [r.cardId, r.kind === 'board' ? r.mine : null])).toEqual([['board:p1', true]]);
   });
 
   it('a Verified item the server marks not selectable is view only even if its plan loaded, unless this viewer holds it', () => {
@@ -83,21 +104,16 @@ describe('E72b grouped funders list', () => {
     expect(own.rows.map((r) => [r.kind, r.cardId])).toEqual([['feed', 'ready:x']]);
   });
 
-  it('a Verified row carries the COO-only incomplete list, loaded or not', () => {
+  it('a Verified row carries the COO-only incomplete list', () => {
     const verified = buildBoardGroups({
       ...base,
-      board: [item('p1', 'verified', { incomplete: ['family size'] }), item('late', 'verified', { incomplete: ['LC1 (letter or phone confirmation)'] })],
-      ready: [plan('p1')],
+      board: [item('p1', 'verified', { incomplete: ['family size'] }), item('p2', 'verified', { incomplete: ['LC1 (letter or phone confirmation)'] })],
+      ready: [plan('p1'), plan('p2')],
     })[0];
     expect(verified.rows.map((r) => (r.kind === 'feed' ? [r.cardId, r.incomplete] : [r.cardId]))).toEqual([
       ['ready:p1', ['family size']],
-      ['ready:late', ['LC1 (letter or phone confirmation)']],
+      ['ready:p2', ['LC1 (letter or phone confirmation)']],
     ]);
-  });
-
-  it('boardItemToReadyPlan keeps every photo the server sent', () => {
-    expect(boardItemToReadyPlan(item('y', 'verified', { mainPhoto: 'a.jpg', photos: ['a.jpg', 'b.jpg'] })).house_image_urls).toEqual(['a.jpg', 'b.jpg']);
-    expect(boardItemToReadyPlan(item('z', 'verified')).house_image_urls).toBeNull();
   });
 
   it('Empty houses: header counts every matching house, cards are the loaded ones', () => {

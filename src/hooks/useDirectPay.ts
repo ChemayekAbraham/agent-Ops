@@ -13,8 +13,10 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadCashReceiptPhoto } from '@/lib/funderFundChoice';
+import { afterFunded, refreshFunderLists, unmarkBookedByMe } from '@/components/funder-new/funderListRefresh';
 import {
   DIRECT_PAY_PROOF_BUCKET,
+  isDirectPayView,
   directPayQueueCursor,
   type DirectPayAgentItem,
   type DirectPayClaimResult,
@@ -65,6 +67,8 @@ function invalidatePool(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: directPayKeys.mine });
   qc.invalidateQueries({ queryKey: ['psm-fundable-plans'] });
   qc.invalidateQueries({ queryKey: ['funder-new', 'ready-plans'] });
+  // The funders' board, map clusters and counts too, so the card leaves or returns everywhere.
+  void refreshFunderLists(qc);
 }
 
 // ------------------------------------------------------------------ partner
@@ -92,7 +96,11 @@ export function useDirectPayClaim() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (rentRequestId: string) => call<DirectPayClaimResult>('direct_pay_claim', { p_rent_request_id: rentRequestId }),
-    onSuccess: () => invalidatePool(qc),
+    onSuccess: (result, rentRequestId) => {
+      // Held for this funder: the card leaves the funders' list at once.
+      if (isDirectPayView(result)) void afterFunded(qc, 'ready', [rentRequestId]);
+      invalidatePool(qc);
+    },
   });
 }
 
@@ -101,7 +109,11 @@ export function useDirectPayRelease() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (paymentId: string) => call<DirectPayView>('direct_pay_release', { p_payment_id: paymentId }),
-    onSuccess: () => invalidatePool(qc),
+    onSuccess: (released) => {
+      // Let go: the plan can be funded again, so stop treating it as this funder's booking.
+      if (released?.rent_request_id) unmarkBookedByMe([released.rent_request_id]);
+      invalidatePool(qc);
+    },
   });
 }
 

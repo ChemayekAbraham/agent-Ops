@@ -23,6 +23,8 @@ export interface TenantRentRequestRow {
   funded_at: string | null;
   disbursed_at: string | null;
   rejected_at: string | null;
+  /** Open "do you still need rent?" question on a stale request (doc 275), if any. */
+  reconfirm?: { outcome: string; respond_by: string } | null;
 }
 
 export type StepState = 'done' | 'current' | 'upcoming' | 'stopped';
@@ -94,7 +96,9 @@ export function describeRentRequestProgress(row: TenantRentRequestRow): RentRequ
       headline: status === 'rejected' ? 'Your request was not approved' : 'This request was closed',
       detail: status === 'rejected'
         ? 'Talk to your agent or call Welile to find out why and what to fix before you ask again.'
-        : 'It was withdrawn before approval. You can send a new request when you are ready.',
+        : status === 'deleted_by_agent'
+          ? 'Your agent withdrew it before approval. You can send a new request when you are ready.'
+          : 'It was closed before approval. You can send a new request when you are ready.',
       steps,
     };
   }

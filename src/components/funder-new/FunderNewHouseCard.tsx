@@ -22,6 +22,8 @@ import { FundersIncompleteChip } from './FundersIncompleteChip';
 import type { BoardTag } from '@/lib/fundersBoard';
 import { CoSupportStartButton } from '@/components/co-support/CoSupportStartButton';
 import { DirectPayStartButton } from '@/components/direct-pay/DirectPayPartner';
+import { BookedNotice } from './BookedNotice';
+import { isFundedOrClaimed, useBookedByMe } from './funderListRefresh';
 
 /** Photo-led listing for /dashboard/funder-new. */
 export function FunderNewHouseCard({
@@ -61,6 +63,11 @@ export function FunderNewHouseCard({
   const photo = firstPhoto(category, item);
   const coords = itemCoordinates(item, category);
   const unchecked = isUncheckedEmptyHouse(category, item);
+  // Funded or claimed (a stale list, or this funder just funded it): never fundable, never "Verified".
+  const bookedByMe = useBookedByMe();
+  const planId = isEmpty ? null : (item as FunderNewReadyPlan).rent_request_id;
+  const mine = !!planId && bookedByMe.has(planId);
+  const taken = !isEmpty && (mine || isFundedOrClaimed(item));
   const ref = isEmpty ? null : requestRef((item as FunderNewReadyPlan).rent_request_id);
 
   return (
@@ -74,7 +81,7 @@ export function FunderNewHouseCard({
     >
       <div className="relative aspect-[16/10] w-full bg-muted">
         {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
-        {boardTagsOn || unchecked ? null : (
+        {boardTagsOn || unchecked || taken ? null : (
           <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -121,7 +128,7 @@ export function FunderNewHouseCard({
 
         <div className="space-y-3 p-4">
         {isEmpty ? null : <FundersIncompleteChip items={incomplete} />}
-        {boardTagsOn ? <FundersBoardTag kind={tagKindFor(boardTag, category)} /> : null}
+        {boardTagsOn ? <FundersBoardTag kind={taken ? 'booked' : tagKindFor(boardTag, category)} /> : null}
         {/* Tapping the text block opens the full house details, like the photo does. */}
         <div
           role="button"
@@ -189,8 +196,8 @@ export function FunderNewHouseCard({
               <span className="text-[10px] font-semibold leading-none">Location</span>
             </Button>
           ) : null}
-          {/* Not checked by Welile yet: no Fund button and no action line. */}
-          {unchecked ? null : (
+          {/* Not checked by Welile yet: no Fund button and no action line. Funded/claimed: the notice instead. */}
+          {taken ? <BookedNotice mine={mine} /> : unchecked ? null : (
           <Button
             variant="default"
             className={cn(
@@ -210,13 +217,15 @@ export function FunderNewHouseCard({
 
         </div>
         {/* Co-support: Rent Plans and verified empty houses (house hook). */}
-        {!isEmpty && !unchecked && <DirectPayStartButton rentRequestId={(item as FunderNewReadyPlan).rent_request_id} />}
+        {!isEmpty && !unchecked && !taken && <DirectPayStartButton rentRequestId={(item as FunderNewReadyPlan).rent_request_id} />}
+        {taken ? null : (
         <CoSupportStartButton
           rentRequestId={isEmpty ? null : (item as FunderNewReadyPlan).rent_request_id}
           houseId={isEmpty ? (item as FunderNewEmptyHouse).house_id : null}
           planAmount={amount}
           showExplanation={false}
         />
+        )}
       </div>
     </article>
   );

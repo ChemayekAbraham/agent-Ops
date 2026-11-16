@@ -322,7 +322,7 @@ export async function saveGateLog(row: SchoolGateLogRow): Promise<{ saved: boole
 }
 
 /** Correct an accidental IN/OUT tap: flips direction locally, in the queue, and in Supabase. */
-export async function flipGateLogDirection(log: SchoolGateLogRow): Promise<{ saved: boolean; row: SchoolGateLogRow }> {
+export async function flipGateLogDirection(log: SchoolGateLogRow): Promise<{ saved: boolean; row: SchoolGateLogRow; error?: string }> {
   const row: SchoolGateLogRow = { ...log, direction: log.direction === 'in' ? 'out' : 'in' };
   upsertLocalGateLog(row);
   writePendingGateLogs(readPendingGateLogs().map((l) => (l.id === row.id || (row.client_ref && l.client_ref === row.client_ref) ? row : l)));

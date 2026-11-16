@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
 
@@ -50,7 +50,7 @@ vi.mock('@/integrations/supabase/client', () => {
   };
 });
 // One stable user object, as the real hook gives.
-const auth = vi.hoisted(() => ({ user: { id: 'agent-1', user_metadata: { full_name: 'Agent One' } } }));
+const auth = vi.hoisted(() => ({ user: { id: 'agent-1', user_metadata: { full_name: 'Agent One' } }, enabledRoles: [] as string[] }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => auth }));
 const cap = vi.hoisted(() => ({ data: undefined as undefined | Map<string, unknown> }));
 vi.mock('@/hooks/useAgentCapacityMap', () => ({ useAgentCapacityMap: () => ({ data: cap.data, isLoading: false }), DAILY_ELIGIBILITY_THRESHOLD: 0.5 }));
@@ -183,7 +183,7 @@ describe('T4 resubmit', () => {
   it('shows the server error as-is and stays on the review', async () => {
     mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
     mocks.rpc.mockImplementation(async (fn: string) => (fn === 'agent_resubmit_rent_request'
-      ? { data: null, error: { message: 'RESUBMIT_CAP_REACHED: 5/5' } }
+      ? { data: null, error: { message: 'NOT_YOUR_REQUEST: this tenant is handled by another agent' } }
       : { data: { ok: true }, error: null }));
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest() }} />);
     await waitFor(() => expect(group('gate')).toBeNull());
@@ -191,8 +191,28 @@ describe('T4 resubmit', () => {
     answer('Fixed the landlord details');
     await waitFor(() => expect(sendButton()).toBeEnabled());
     fireEvent.click(sendButton());
-    expect(await screen.findByText('RESUBMIT_CAP_REACHED: 5/5')).toBeInTheDocument();
+    expect(await screen.findByText('NOT_YOUR_REQUEST: this tenant is handled by another agent')).toBeInTheDocument();
     expect(screen.queryByText('Sent to the Service Centre')).toBeNull();
+  });
+});
+
+describe('E118: no resubmit limit', () => {
+  it('a returned request with reopen_count = 6 and every item in can be resubmitted, and the server takes it', async () => {
+    mocks.tables.pipeline_intake_details = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ reopen_count: 6, rejected_reason: 'Wrong landlord phone' }) }} />);
+    await waitFor(() => expect(group('gate')).toBeNull());
+    // Only the note is left: no "Resubmits left" item, no manager reopen.
+    expect(listed('form')).toEqual(['What you changed (at least 10 characters)']);
+    expect(screen.queryByText(/Resubmits left|manager must reopen/i)).toBeNull();
+    expect(sendButton()).toBeDisabled();
+    fix(/What you changed/);
+    answer('Fixed the landlord phone number');
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    expect(mocks.rpc).toHaveBeenCalledWith('agent_resubmit_rent_request', expect.objectContaining({
+      p_request_id: 'req-9', p_agent_note: 'Fixed the landlord phone number',
+    }));
   });
 });
 
@@ -262,6 +282,10 @@ describe('E90: ask only for what _agent_side_missing lists', () => {
 });
 
 describe('E100: no posting gate', () => {
+  // The collection line reads agent_eligibility_of, which only desk roles may read (b961148257);
+  // plain agents are not asked. These tests run as a user who also holds a desk role.
+  beforeEach(() => { auth.enabledRoles = ['agent', 'coo']; });
+  afterEach(() => { auth.enabledRoles = []; });
   // VERON OWARUHANGA: 52.8% collected across all plans, 0 tenants paid today. Even a capacity
   // record from before E100 that still says "can't post" must not stop her.
   const veron = {
