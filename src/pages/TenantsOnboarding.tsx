@@ -1705,9 +1705,9 @@ export default function TenantsOnboarding() {
                       </>
                     )}
                   </div>
-                  <PhotoBox label="National ID — front" required hint="Front of the card, all text readable."
+                  <PhotoBox label="National ID — front" required hint="Front of the card, all text readable." camera="environment"
                     slot={idPhoto} onPick={(f) => addPhoto(f, 'id')} onClear={() => setIdPhoto(null)} />
-                  <PhotoBox label="National ID — back" required hint="Back of the card, all text readable."
+                  <PhotoBox label="National ID — back" required hint="Back of the card, all text readable." camera="environment"
                     slot={idPhotoBack} onPick={(f) => addPhoto(f, 'id_back')} onClear={() => setIdPhotoBack(null)} />
                 </div>
 
@@ -1879,6 +1879,7 @@ export default function TenantsOnboarding() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <PhotoBox
+                    camera="environment"
                     label="LC1 introduction letter"
                     required
                     hint="A photo of the letter stamped by your LC1."
@@ -2348,15 +2349,37 @@ function Hint({ icon: Icon, children, tone, spin }: {
   );
 }
 
+/** House photo: taken in this page, not the phone camera app, which can make Android reload the form (doc 276). */
 function PhotoPicker({ onPick }: { onPick: (f: File) => void }) {
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   return (
-    <label className="grid h-24 cursor-pointer place-items-center rounded-lg border border-dashed text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
-      <span className="flex flex-col items-center gap-1">
-        <Camera className="h-5 w-5" /> Add photo
-      </span>
-      <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture="environment" className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.currentTarget.value = ''; }} />
-    </label>
+    <>
+      <label
+        className="grid h-24 cursor-pointer place-items-center rounded-lg border border-dashed text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary"
+        onClick={(e) => {
+          if ((e.target as HTMLElement).tagName === 'INPUT') return;
+          e.preventDefault();
+          setCameraOpen(true);
+        }}
+      >
+        <span className="flex flex-col items-center gap-1">
+          <Camera className="h-5 w-5" /> Add photo
+        </span>
+        <input ref={fileRef} type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture="environment" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.currentTarget.value = ''; }} />
+      </label>
+      <SelfieCameraCapture
+        open={cameraOpen}
+        onOpenChange={setCameraOpen}
+        onCapture={onPick}
+        onFallback={() => fileRef.current?.click()}
+        facing="environment"
+        oval={false}
+        title="House photo"
+        hint="Show the house clearly in good light."
+      />
+    </>
   );
 }
 
@@ -2402,6 +2425,7 @@ function PhotoBox({ label, required, hint, slot, onPick, onClear, camera }: {
           onCapture={onPick}
           onFallback={() => fileRef.current?.click()}
           facing={camera}
+          oval={camera === 'user'}
           title={label}
           hint={hint ?? 'Line the face up with the oval.'}
         />

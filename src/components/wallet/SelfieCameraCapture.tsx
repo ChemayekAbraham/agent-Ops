@@ -12,6 +12,8 @@ interface Props {
   facing?: 'user' | 'environment';
   title?: string;
   hint?: string;
+  /** The face oval; off for a house, ID card or letter. */
+  oval?: boolean;
 }
 
 /**
@@ -31,6 +33,7 @@ export default function SelfieCameraCapture({
   facing = 'user',
   title = 'Selfie',
   hint = 'Face the camera in good light and line your face up with the oval.',
+  oval = true,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -122,7 +125,7 @@ export default function SelfieCameraCapture({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
+    <div className="fixed inset-0 z-[200] flex flex-col bg-black">
       <div className="flex items-center justify-between gap-2 p-3 text-white">
         <div>
           <p className="text-sm font-semibold">{title}</p>
@@ -148,7 +151,7 @@ export default function SelfieCameraCapture({
           style={facing === 'user' ? { transform: 'scaleX(-1)' } : undefined}
         />
 
-        {status === 'live' && (
+        {status === 'live' && oval && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="h-[62%] w-[46%] rounded-[50%] border-2 border-dashed border-white/70" />
           </div>
@@ -183,7 +186,7 @@ export default function SelfieCameraCapture({
 
       <div className="flex flex-col items-center gap-3 p-4">
         <p className="text-center text-xs text-white/70">
-          Hold the phone upright and keep the face inside the oval, then tap to take the photo.
+          {oval ? 'Hold the phone upright and keep the face inside the oval, then tap to take the photo.' : 'Hold the phone steady, then tap to take the photo.'}
         </p>
         <Button
           size="lg"

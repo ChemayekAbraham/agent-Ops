@@ -942,8 +942,18 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   };
 
   // ----- photos -----
-  const [faceCameraOpen, setFaceCameraOpen] = useState(false);
-  const faceInputRef = useRef<HTMLInputElement>(null);
+  /* Every photo is taken in this page: the phone's camera app can make Android reload the
+     form (doc 276). One camera, opened for whichever photo was tapped; the label's own file
+     input stays as the fallback when the camera cannot open. */
+  const [camera, setCamera] = useState<{
+    title: string; hint: string; facing: 'user' | 'environment'; oval: boolean;
+    onPick: (f: File) => void; input: HTMLInputElement | null;
+  } | null>(null);
+  const openCamera = (e: import('react').MouseEvent<HTMLLabelElement>, opts: Omit<NonNullable<typeof camera>, 'input'>) => {
+    if ((e.target as HTMLElement).tagName === 'INPUT') return;
+    e.preventDefault();
+    setCamera({ ...opts, input: e.currentTarget.querySelector('input[type=file]') });
+  };
   const readPhoto = async (file: File): Promise<(Photo & { file: File }) | null> => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) { toast.error('Use a JPG, PNG, WebP or HEIC photo'); return null; }
     if (file.size > 10 * 1024 * 1024) { toast.error('That photo is over 10 MB'); return null; }
@@ -1787,6 +1797,18 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   // z-[115]: full-screen, so it must cover the bottom role bar (100), the assistant launcher/bubble (105/106) and the WhatsApp button (60).
   return (
     <div className={cn('rent-request-assistant fixed inset-0 z-[115] flex flex-col bg-background text-foreground', renewing && 'invisible')} role="dialog" aria-modal="true" aria-label="Rent request assistant" data-t4-mode={mode}>
+      {camera && (
+        <SelfieCameraCapture
+          open
+          onOpenChange={(o) => { if (!o) setCamera(null); }}
+          onCapture={camera.onPick}
+          onFallback={() => camera.input?.click()}
+          facing={camera.facing}
+          oval={camera.oval}
+          title={camera.title}
+          hint={camera.hint}
+        />
+      )}
       <header className="flex items-center gap-2.5 border-b border-border bg-card px-3 py-2.5 pt-safe">
         <button type="button" aria-label="Close" onClick={() => onOpenChange(false)} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
@@ -2179,7 +2201,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         return (
           <div className="grid max-w-xs grid-cols-2 gap-2">
             {PHOTO_SLOTS.map((label, i) => (
-              <label key={label} className={cn('relative flex h-24 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-xl text-xs font-semibold', housePhotos[i] ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}>
+              <label key={label} className={cn('relative flex h-24 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-xl text-xs font-semibold', housePhotos[i] ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}
+                onClick={(e) => openCamera(e, { title: `House: ${label}`, hint: 'Show the house clearly in good light.', facing: 'environment', oval: false, onPick: (f) => { void onHousePhoto(i, f); } })}>
                 {housePhotos[i] ? (
                   <>
                     <img src={housePhotos[i]!.preview} alt={`${label} of the house`} className="absolute inset-0 h-full w-full object-cover" />
@@ -2196,25 +2219,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
           <div className="flex items-center gap-3">
             <label
               className={cn('relative flex h-24 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-xl', tenantPhoto ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}
-              onClick={(e) => {
-                // Take it inside this page: the phone's camera app can make Android reload the form (doc 276).
-                if ((e.target as HTMLElement).tagName === 'INPUT') return;
-                e.preventDefault();
-                setFaceCameraOpen(true);
-              }}
+              onClick={(e) => openCamera(e, { title: "Tenant's face", hint: "Point the camera at the tenant's face in good light, no hat.", facing: 'environment', oval: true, onPick: (f) => { void onTenantPhoto(f); } })}
             >
               {tenantPhoto ? <img src={tenantPhoto.preview} alt="Tenant passport photo" className="h-full w-full object-cover" /> : <ImagePlus className="h-6 w-6" />}
-              <input ref={faceInputRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { void onTenantPhoto(e.target.files?.[0]); e.target.value = ''; }} />
+              <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { void onTenantPhoto(e.target.files?.[0]); e.target.value = ''; }} />
             </label>
-            <SelfieCameraCapture
-              open={faceCameraOpen}
-              onOpenChange={setFaceCameraOpen}
-              onCapture={(f) => { void onTenantPhoto(f); }}
-              onFallback={() => faceInputRef.current?.click()}
-              facing="environment"
-              title="Tenant's face"
-              hint="Point the camera at the tenant's face in good light, no hat."
-            />
             <p className="text-sm text-muted-foreground">
               {!tenantPhoto ? 'Tap to take the photo.'
                 : faceCheck?.status === 'checking' ? 'Checking the face…'
@@ -2230,7 +2239,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         const set = current === 'idFront' ? setIdFront : setIdBack;
         return (
           <div className="flex items-center gap-3">
-            <label className={cn('relative flex h-20 w-32 cursor-pointer items-center justify-center overflow-hidden rounded-xl', slot?.file ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}>
+            <label className={cn('relative flex h-20 w-32 cursor-pointer items-center justify-center overflow-hidden rounded-xl', slot?.file ? '' : 'border-2 border-dashed border-primary/40 bg-primary/5 text-primary')}
+              onClick={(e) => openCamera(e, { title: `National ID ${side}`, hint: 'Fill the frame with the card; all text readable.', facing: 'environment', oval: false, onPick: (f) => { void readPhoto(f).then((p) => { if (p) { set(p); setError(null); } }); } })}>
               {slot?.file ? <img src={slot.preview} alt={`National ID ${side}`} className="h-full w-full object-cover" /> : <ImagePlus className="h-6 w-6" />}
               <input type="file" accept="image/*" capture="environment" aria-label={`National ID ${side} photo`} className="sr-only"
                 onChange={(e) => {
