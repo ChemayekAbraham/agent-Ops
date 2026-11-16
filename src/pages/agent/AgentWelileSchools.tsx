@@ -457,6 +457,17 @@ export function SchoolRegistration({ draft, setDraft, captureGps, gpsBusy, savin
   );
 }
 
+const MISSING_TEXT = {
+  photo: "Take the student's photo first",
+  name: 'Enter the full name',
+  facility: 'Choose the facility type',
+  phone: 'Answer: has a smartphone?',
+} as const;
+
+function MissingNote({ show, text }: { show: boolean; text: string }) {
+  return show ? <p role="alert" className="text-xs font-medium text-destructive">{text}</p> : null;
+}
+
 function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; agentId: string; onQueued: () => void }) {
   // Only students are registered for now; the other roles stay in PROFILE_ROLES for later.
   const role = 'pupil';
@@ -569,14 +580,17 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
       <FormSection title={group === 'asset' ? 'Facility' : 'Student'}>
         {group === 'asset' ? (
           <>
-            <Field label="Facility type"><Chips options={FACILITY_TYPES} value={f.facility_type ?? ''} onChange={(v) => setF((d) => ({ ...d, facility_type: v }))} /></Field>
+            <div id="wsr-facility" className="scroll-mt-40 space-y-1">
+              <Field label="Facility type"><Chips options={FACILITY_TYPES} value={f.facility_type ?? ''} onChange={(v) => setF((d) => ({ ...d, facility_type: v }))} /></Field>
+              <MissingNote show={missing === 'facility'} text={MISSING_TEXT.facility} />
+            </div>
             <Field label="Condition"><Chips options={['Good', 'Fair', 'Poor']} value={f.facility_condition ?? ''} onChange={(v) => setF((d) => ({ ...d, facility_condition: v }))} /></Field>
             <Field label="Capacity"><Input inputMode="numeric" value={(f.facility_capacity as any) ?? ''} onChange={set('facility_capacity')} /></Field>
           </>
         ) : (
           <>
             {group === 'pupil' && (
-              <div className="space-y-2">
+              <div id="wsr-photo" className="scroll-mt-40 space-y-2">
                 {photo ? (
                   <div className="flex items-center gap-3 rounded-2xl bg-muted/50 p-3">
                     <img src={photo.url} alt="Student photo" className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
@@ -588,7 +602,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
                   </div>
                 ) : (
                   <button type="button" onClick={() => setCameraOpen(true)}
-                    className="flex min-h-[80px] w-full items-center gap-3 rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 p-3 text-left hover:bg-primary/10">
+                    className={cn('flex min-h-[80px] w-full items-center gap-3 rounded-2xl border-2 border-dashed bg-primary/5 p-3 text-left hover:bg-primary/10', missing === 'photo' ? 'border-destructive' : 'border-primary/50')}>
                     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Camera className="h-5 w-5" /></span>
                     <span>
                       <span className="block font-semibold">Take the student's photo</span>
@@ -596,13 +610,17 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
                     </span>
                   </button>
                 )}
+                <MissingNote show={missing === 'photo'} text={MISSING_TEXT.photo} />
                 {cameraProblem && !photo && <p className="text-xs text-amber-700 dark:text-amber-400">{cameraProblem} You can save without a photo for now.</p>}
                 <StudentPhotoCapture open={cameraOpen} studentName={f.full_name} onClose={() => setCameraOpen(false)}
                   onUnavailable={(reason) => { setCameraOpen(false); setCameraProblem(reason); }}
                   onCapture={(blob) => setPhoto((old) => { if (old) URL.revokeObjectURL(old.url); return { blob, url: URL.createObjectURL(blob) }; })} />
               </div>
             )}
-            <Field label="Full name"><Input value={f.full_name ?? ''} onChange={set('full_name')} /></Field>
+            <div id="wsr-name" className="scroll-mt-40 space-y-1">
+              <Field label="Full name"><Input aria-label="Student full name" aria-invalid={missing === 'name'} className={cn(missing === 'name' && 'border-destructive')} value={f.full_name ?? ''} onChange={set('full_name')} /></Field>
+              <MissingNote show={missing === 'name'} text={MISSING_TEXT.name} />
+            </div>
             <Field label="Gender"><Chips options={['Female', 'Male']} value={f.gender ?? ''} onChange={(v) => setF((d) => ({ ...d, gender: v }))} /></Field>
             {group === 'pupil' && (
               <div className="grid grid-cols-2 gap-2">
@@ -662,16 +680,17 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
 
       {group !== 'asset' && (
         <FormSection title="Phone and gate">
-          <div className="space-y-2">
+          <div id="wsr-phone" className="scroll-mt-40 space-y-2">
             <Label className="text-sm">Has a smartphone?</Label>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setHasPhone(true)} className={cn('flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 text-center text-sm font-medium', hasPhone === true ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background')}>
+              <button type="button" aria-pressed={hasPhone === true} onClick={() => setHasPhone(true)} className={cn('flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 text-center text-sm font-medium', hasPhone === true ? 'border-primary bg-primary text-primary-foreground' : missing === 'phone' ? 'border-destructive bg-background' : 'border-border bg-background')}>
                 <Smartphone className="h-5 w-5" />Yes, has one
               </button>
-              <button type="button" onClick={() => setHasPhone(false)} className={cn('flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 text-center text-sm font-medium', hasPhone === false ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background')}>
+              <button type="button" aria-pressed={hasPhone === false} onClick={() => setHasPhone(false)} className={cn('flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 text-center text-sm font-medium', hasPhone === false ? 'border-primary bg-primary text-primary-foreground' : missing === 'phone' ? 'border-destructive bg-background' : 'border-border bg-background')}>
                 <Gift className="h-5 w-5" />No, needs a free one
               </button>
             </div>
+            <MissingNote show={missing === 'phone'} text={MISSING_TEXT.phone} />
           </div>
           {hasPhone === false && (
             <div className="space-y-2 rounded-2xl bg-primary/5 p-3">
