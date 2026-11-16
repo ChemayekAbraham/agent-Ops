@@ -57,8 +57,8 @@ export default function ParentFeesRequest() {
 
 function SignedInParentRequest({ userId }: { userId: string }) {
   const qc = useQueryClient();
-  const schools = useQuery({ queryKey: ['welile-partner-schools'], queryFn: fetchPartnerSchools, staleTime: 5 * 60_000 });
-  const mine = useQuery({ queryKey: ['welile-parent-requests', userId], queryFn: () => fetchMyParentRequests(userId) });
+  const schools = useQuery({ queryKey: ['welile-partner-schools'], queryFn: fetchPartnerSchools, staleTime: 5 * 60_000, retry: 1 });
+  const mine = useQuery({ queryKey: ['welile-parent-requests', userId], queryFn: () => fetchMyParentRequests(userId), retry: 1 });
   const [d, setD] = useState<ParentRequestDraft>(emptyParentRequest);
   const [tried, setTried] = useState(false);
   const [sending, setSending] = useState(false);

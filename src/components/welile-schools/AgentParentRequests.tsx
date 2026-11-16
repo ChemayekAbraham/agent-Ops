@@ -42,6 +42,7 @@ export default function AgentParentRequests({ agentId }: { agentId: string }) {
       return { rows, schools: (schools ?? []) as SchoolRow[] };
     },
     staleTime: 30_000,
+    retry: 1,
   });
   const [showClosed, setShowClosed] = useState(false);
   const [declining, setDeclining] = useState<string | null>(null);
