@@ -126,6 +126,34 @@ describe('TwinView', { timeout: 20_000 }, () => {
     expect(panel.getByRole('heading', { name: 'Service Centre manager' })).toBeTruthy();
   });
 
+  it('shows rulings in force, the map key, and decisions and rulings in the node panel', async () => {
+    render(<TwinView source={source(async () => readTwin(LIVE))} board={false} />);
+    await screen.findByText(/^Live, updated/);
+
+    const rulings = screen.getByRole('list', { name: 'Rulings in force' });
+    expect(within(rulings).getAllByRole('listitem').map((li) => li.textContent?.slice(0, 40))).toEqual([
+      expect.stringContaining('Service Centre review'),
+      expect.stringContaining('Arrears calls'),
+      expect.stringContaining('Undated'),
+    ]);
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+    expect(headings.indexOf('Rulings in force')).toBe(headings.indexOf('Decisions waiting') + 1);
+
+    const key = screen.getByText('How to read the map').closest('details')!;
+    expect(key.open).toBe(false);
+    expect(key.textContent).toMatch(/Diamond: an action/);
+    expect(key.textContent).toMatch(/above each desk is how many are waiting there now; the number below is how many moved on/);
+
+    // "Applies to" opens that node on the map, with its decisions and rulings.
+    fireEvent.click(within(rulings).getByRole('button', { name: 'Service Centre manager' }));
+    const panel = within(document.querySelector('#twin-map aside') as HTMLElement);
+    expect(panel.getByRole('heading', { name: 'Service Centre manager' })).toBeTruthy();
+    expect(panel.getByRole('heading', { name: 'Decisions waiting that affect it' })).toBeTruthy();
+    expect(panel.getByText(/Later question/)).toBeTruthy();
+    expect(panel.getByRole('heading', { name: 'Rulings that apply' })).toBeTruthy();
+    expect(panel.getByText(/Every review carries a staff ID/)).toBeTruthy();
+  });
+
   it('says plainly when the database refuses this viewer', async () => {
     render(<TwinView source={source(async () => Promise.reject(new TwinError('OPS_TWIN_NOT_ALLOWED')))} board={false} />);
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/The twin is open to the COO, CEO, CFO, CTO, super admins/));

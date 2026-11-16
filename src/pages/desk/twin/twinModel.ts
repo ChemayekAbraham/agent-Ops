@@ -69,6 +69,20 @@ export type TwinNeed = {
   /** 1 = answer first. Missing sorts last. */
   priority: number | null;
   evidence: string;
+  /** Node ids this decision affects. */
+  nodes: string[];
+};
+/** A decision already made and in force. */
+export type TwinRuling = {
+  id: string;
+  question: string;
+  ruling: string;
+  lane: string;
+  kind: 'decision' | 'rule';
+  /** Node ids the ruling applies to. */
+  nodes: string[];
+  source: string;
+  decidedAt: string | null;
 };
 export type TwinMetric = { label: string; value: number | null; unit: string };
 export type TwinLane = {
@@ -131,6 +145,7 @@ export type TwinPayload = {
   links: TwinLink[];
   checks: TwinCheck[];
   needs: TwinNeed[];
+  rulings: TwinRuling[];
   lanes: TwinLane[];
   /** Lanes whose detail the server withheld from this viewer (today only 'partner'). */
   redacted: string[];
@@ -291,6 +306,20 @@ function readPayload(value: unknown, reconstructedHint: boolean): TwinPayload {
         kind: n.kind === 'rule' ? 'rule' : 'decision',
         priority: num(n.priority),
         evidence: txt(n.evidence),
+        nodes: strs(n.nodes),
+      };
+    }),
+    rulings: arr(p.rulings).map((x, i): TwinRuling => {
+      const r = obj(x);
+      return {
+        id: str(r.id) || String(i + 1),
+        question: txt(r.question),
+        ruling: txt(r.ruling),
+        lane: str(r.lane),
+        kind: r.kind === 'rule' ? 'rule' : 'decision',
+        nodes: strs(r.nodes),
+        source: txt(r.source),
+        decidedAt: str(r.decided_at) || null,
       };
     }),
     lanes: arr(p.lanes).map((x): TwinLane => {
@@ -372,12 +401,12 @@ export const isRedacted = (p: TwinPayload, lane: string) => p.redacted.includes(
 export const PARTNER_LIMITED = 'Partner detail is limited to the COO, CEO and CFO';
 
 /** The sections a view shows, in order. Reconstructed days keep only what was recorded. */
-export type Section = 'ribbon' | 'tiles' | 'map' | 'checks' | 'health' | 'needs' | 'nodes' | 'links' | 'lanehead' | 'tables' | 'money' | 'partner';
+export type Section = 'ribbon' | 'tiles' | 'map' | 'checks' | 'health' | 'needs' | 'rulings' | 'nodes' | 'links' | 'lanehead' | 'tables' | 'money' | 'partner';
 /** Reconstructed days have no lanes to open: the river, money, partner flows and checks, whatever view was asked for. */
 export function sectionsFor(view: 'company' | LaneKey, reconstructed: boolean): Section[] {
   if (reconstructed) return ['money', 'partner', 'checks'];
   return view === 'company'
-    ? ['ribbon', 'tiles', 'map', 'checks', 'health', 'needs', 'nodes', 'links']
+    ? ['ribbon', 'tiles', 'map', 'checks', 'health', 'needs', 'rulings', 'nodes', 'links']
     : ['lanehead', 'checks', 'map', 'tables', 'nodes', 'links'];
 }
 
@@ -659,6 +688,23 @@ export function orderNeeds(needs: TwinNeed[]): TwinNeed[] {
     .map((n, i) => ({ n, i }))
     .sort((a, b) => (a.n.priority ?? 99) - (b.n.priority ?? 99) || a.i - b.i)
     .map((x) => x.n);
+}
+
+/** Newest ruling first; undated last; stable otherwise. */
+export function orderRulings(rulings: TwinRuling[]): TwinRuling[] {
+  const t = (r: TwinRuling) => (r.decidedAt ? Date.parse(r.decidedAt) || 0 : 0);
+  return rulings
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => t(b.r) - t(a.r) || a.i - b.i)
+    .map((x) => x.r);
+}
+
+/** Decisions waiting that affect a node, and rulings that apply to it, matched by node id. */
+export function decisionsForNode(p: Pick<TwinPayload, 'needs' | 'rulings'>, nodeId: string): { waiting: TwinNeed[]; rulings: TwinRuling[] } {
+  return {
+    waiting: orderNeeds(p.needs.filter((n) => n.nodes.includes(nodeId))),
+    rulings: orderRulings(p.rulings.filter((r) => r.nodes.includes(nodeId))),
+  };
 }
 
 /** Which nodes each check guards. */

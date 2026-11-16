@@ -1,4 +1,4 @@
-import { STATUS_LABEL, copy, copyDeep, eat, int, orderChecks, orderNeeds, screenLabel, ugx, type HistoryDay, type Twin } from './twinModel';
+import { STATUS_LABEL, copy, copyDeep, eat, int, orderChecks, orderNeeds, orderRulings, screenLabel, ugx, type HistoryDay, type Twin } from './twinModel';
 
 /**
  * Keep and share: a Markdown report of what is on screen, and a self-contained
@@ -76,6 +76,15 @@ export function toMarkdown(t: Twin, loadedAt: number | null): string {
       L.push(`${n.id}. ${copy(n.question)} (${tags})`);
       if (n.lean) L.push(`   - Recommendation: ${copy(n.lean)}`);
       if (n.evidence) L.push(`   - Evidence: ${copy(n.evidence)}`);
+    });
+  }
+  if (p.rulings.length) {
+    L.push('', '## Rulings in force', '');
+    orderRulings(p.rulings).forEach((r) => {
+      const tags = [lanesByKey.get(r.lane) ?? r.lane, r.kind === 'rule' ? 'a rule' : 'a decision', r.source || null, r.decidedAt ? `decided ${eat(r.decidedAt)}` : null]
+        .filter(Boolean)
+        .join(', ');
+      L.push(`- **${copy(r.question)}**: ${copy(r.ruling)} (${tags})${r.nodes.length ? ` Applies to ${r.nodes.map((id) => names.get(id) ?? id).join(', ')}.` : ''}`);
     });
   }
   if (p.nodes.length) {
