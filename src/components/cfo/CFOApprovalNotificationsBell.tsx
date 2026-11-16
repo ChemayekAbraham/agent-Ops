@@ -29,6 +29,7 @@ import {
   useCfoApprovalNotifications,
   type CfoApprovalNotificationKey,
 } from '@/hooks/useCfoApprovalNotifications';
+import { useCfoPlanReviewNotices, type CfoPlanReviewNotice } from '@/hooks/useCfoPlanReviewNotices';
 
 /**
  * Notification bell for the CFO dashboard header. Purely an alert layer over
@@ -51,7 +52,15 @@ export function CFOApprovalNotificationsBell({
     markAll: markAllBudgetRead,
   } = useBudgetDepartmentNotifications('cfo', undefined, open);
 
-  const badgeTotal = total + budgetUnread;
+  // E126: rent plans the COO pushed for a decision (type 'cfo_plan_review').
+  const planReviews = useCfoPlanReviewNotices();
+  const badgeTotal = total + budgetUnread + planReviews.unread;
+
+  const openPlanReview = async (n: CfoPlanReviewNotice) => {
+    setOpen(false);
+    if (!n.is_read) await planReviews.markRead(n.id);
+    navigate(n.link_path || '/cfo');
+  };
 
   const openBudgetItem = async (n: DeptNotification) => {
     setOpen(false);
@@ -154,6 +163,43 @@ export function CFOApprovalNotificationsBell({
             );
           })}
         </div>
+
+        {/* E126: plan set-up issues the COO pushed to the CFO */}
+        {planReviews.items.length > 0 && (
+          <>
+            <div className="px-4 py-2.5 border-t border-border">
+              <p className="text-sm font-semibold">Plan reviews from the COO</p>
+            </div>
+            <div className="px-2 pb-2 space-y-1" data-cfo-plan-reviews>
+              {planReviews.items.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => void openPlanReview(n)}
+                  data-cfo-plan-review={n.id}
+                  className={cn(
+                    'w-full text-left px-3 py-2.5 rounded-xl transition-colors flex gap-3',
+                    n.is_read ? 'opacity-60 hover:bg-accent/30' : 'bg-accent/40 hover:bg-accent/60',
+                  )}
+                >
+                  <span className="h-8 w-8 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+                    <AlertCircle className="h-4 w-4" />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-semibold leading-tight">{n.title}</span>
+                      {!n.is_read && <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1" />}
+                    </span>
+                    <span className="block text-[11px] text-muted-foreground mt-0.5 line-clamp-3">{n.message}</span>
+                    <span className="block text-[10px] text-muted-foreground/70 mt-1">
+                      {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Department budgets (finance-scoped) — merged into this single bell */}
         <div className="px-4 py-2.5 border-t border-border flex items-center justify-between">
