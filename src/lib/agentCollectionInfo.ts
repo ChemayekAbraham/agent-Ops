@@ -9,31 +9,17 @@ import { supabase } from '@/integrations/supabase/client';
 type UntypedRpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
 const rpc: UntypedRpc = (fn, args) => (supabase.rpc as unknown as UntypedRpc).call(supabase, fn, args);
 
-export const COLLECTION_RULE_PCT = 50;
+export { COLLECTION_RULE_PCT, parseCollectionPct } from '@/lib/collectionPct';
+import { COLLECTION_RULE_PCT, formatPct, parseCollectionPct } from '@/lib/collectionPct';
 
-const num = (v: unknown): number | null => {
-  if (v === null || v === undefined || v === '') return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-};
-
-/**
- * The collection percentage (0–100) from the agent eligibility JSON: `pct` (a whole or
- * one-decimal percentage, as on the ranking board), else collected ÷ due. null when neither
- * is there.
- */
-export function parseCollectionPct(raw: unknown): number | null {
-  let r: unknown = raw;
-  if (typeof r === 'string') { try { r = JSON.parse(r); } catch { return null; } }
-  if (Array.isArray(r)) r = r[0];
-  if (!r || typeof r !== 'object') return null;
-  const o = r as Record<string, unknown>;
-  const pct = num(o.pct) ?? num(o.collection_pct) ?? num(o.pct_collected);
-  if (pct !== null) return Math.round(pct * 10) / 10;
-  const due = num(o.due);
-  const collected = num(o.collected);
-  if (due && due > 0 && collected !== null) return Math.round((collected / due) * 1000) / 10;
-  return null;
+/** The raw agent_eligibility_of JSON ({ eligible, pct, reason, … }), or null when it can't be read. Never throws. */
+export async function fetchMyEligibilityRaw(agentId: string): Promise<unknown> {
+  try {
+    const { data, error } = await rpc('agent_eligibility_of', { p_agent: agentId });
+    return error ? null : data ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** The agent's own collection percentage, or null when it can't be read. Never throws. */
@@ -47,8 +33,7 @@ export async function fetchMyCollectionPct(agentId: string): Promise<number | nu
   }
 }
 
-/** "52.8" or "53": one decimal only when there is one. */
-export const formatPct = (p: number): string => (Number.isInteger(p) ? String(p) : p.toFixed(1));
+export { formatPct } from '@/lib/collectionPct';
 
 /** The opening line in the rent request chat. Information only. */
 export function collectionInfoLine(pct: number): string {

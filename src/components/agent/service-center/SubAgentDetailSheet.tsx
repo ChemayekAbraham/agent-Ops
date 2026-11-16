@@ -103,7 +103,7 @@ export function SubAgentDetailSheet({
       { label: 'Location', value: t.location || '—' },
       { label: 'Landlord', value: t.landlord_name || '—' },
       { label: 'Landlord phone', value: t.landlord_phone || '—' },
-      { label: 'Rent plan status', value: t.status.replace(/_/g, ' ') },
+      { label: 'Rent plan status', value: pipelineStageLabel(t.status) },
       { label: 'Monthly rent', value: t.monthly_rent ? formatUGX(t.monthly_rent) : '—' },
       { label: 'Daily amount', value: t.daily_repayment ? formatUGX(Number(t.daily_repayment)) : '—' },
       { label: 'Repaid so far', value: formatUGX(t.amount_repaid ?? 0) },

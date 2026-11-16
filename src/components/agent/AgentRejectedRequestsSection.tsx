@@ -18,6 +18,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, RefreshCw, Trash2, Loader2, User, Building, Calendar, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
+import { agentRequestStatus } from '@/lib/agentRequestStatus';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAgentRejectedRequests, type AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
@@ -75,6 +76,9 @@ export function AgentRejectedRequestsSection() {
       </div>
 
       {requests.map((req) => {
+        // "Sent back to you — fix and resubmit" when a desk returned it, else "Rejected".
+        const status = agentRequestStatus(req);
+        const returned = status.tone === 'returned';
         return (
           <Card key={req.id} className="border-2 border-destructive/40 bg-destructive/5 overflow-hidden">
             <CardContent className="p-4 space-y-3">
@@ -87,7 +91,7 @@ export function AgentRejectedRequestsSection() {
                       variant={req.returned_by_recall ? 'warning' : 'destructive'}
                       className="text-[10px] gap-1"
                     >
-                      {req.returned_by_recall ? req.stage_label : `Rejected at ${req.stage_label}`}
+                      {req.returned_by_recall ? req.stage_label : status.label}
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-0.5">
@@ -127,7 +131,7 @@ export function AgentRejectedRequestsSection() {
                   >
                     {req.returned_by_recall
                       ? 'Why it came back — automatic recall'
-                      : `Reviewer comment — ${req.reviewer_name}`}
+                      : `${returned ? 'Note from' : 'Rejected by'} ${req.stage_label} — ${req.reviewer_name}`}
                   </p>
                 </div>
                 <p className="text-sm text-foreground/90 whitespace-pre-wrap">
