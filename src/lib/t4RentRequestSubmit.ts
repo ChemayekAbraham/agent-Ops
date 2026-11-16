@@ -164,7 +164,8 @@ async function resubmitTimed(input: ResubmitInput, timer: ReturnType<typeof crea
     const { error: photoError } = await untypedFrom('rent_requests').update({ tenant_photo_url: faceUrl }).eq('id', input.requestId);
     if (photoError) return { ok: false, message: errorText(photoError) || "The tenant's face photo was not saved on the request." };
     if (face.sha256) {
-      void rpc('link_identity_photo_fingerprint', { p_sha256: face.sha256, p_rent_request_id: input.requestId, p_photo_url: faceUrl })
+      // supabase.rpc returns a thenable without .catch — wrap it before chaining.
+      void Promise.resolve(rpc('link_identity_photo_fingerprint', { p_sha256: face.sha256, p_rent_request_id: input.requestId, p_photo_url: faceUrl }))
         .catch((e: unknown) => console.warn('[T4] face fingerprint link failed', e));
     }
   }
