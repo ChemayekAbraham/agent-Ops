@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, CheckCircle2, Download, FileText, Handshake, Loader2, Pencil, Plus, Send, Trash2, Upload, Wallet, X } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ChevronDown, Download, FileText, Handshake, Loader2, Pencil, Plus, Send, Trash2, Upload, Wallet, X } from 'lucide-react';
 import { PARTNERSHIP_AGREEMENT_URL } from '@/lib/welileSchoolsAgreements';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

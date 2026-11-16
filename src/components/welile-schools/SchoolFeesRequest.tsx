@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { fetchSchoolSetup } from '@/lib/welileSchoolsPartnership';
+import { feeAppliesTo, fetchSchoolSetup } from '@/lib/welileSchoolsPartnership';
 import { planDaysUntil, planSummary } from '@/lib/welileSchoolsFeePlan';
 import {
   FEE_REQUEST_STATUS_LABEL, fetchFeeRequests, feeRequestErrorMessage, submitFeeRequest,

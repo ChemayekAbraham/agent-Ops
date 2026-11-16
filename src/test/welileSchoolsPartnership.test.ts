@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 // The test environment has no Supabase URL; these helpers never touch the client.
 vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 import {
-  emptyTermDraft, isAgentEditable, missingForSubmit, parseAmount, partnershipDraftErrors, partnershipErrorMessage,
+  emptyTermDraft, feeAppliesTo, isAgentEditable, missingForSubmit, parseAmount, partnershipDraftErrors, partnershipErrorMessage,
   planDueDate, termDraftErrors, termLengthDays, termToDraft,
   type FeeRow, type TermRow,
 } from '@/lib/welileSchoolsPartnership';
@@ -75,6 +75,24 @@ describe('termDraftErrors', () => {
       id: null, name: 'Term 1', start_date: '2027-02-02', end_date: '2027-04-30',
       fees: [{ class_name: 'S1', boarding_status: 'day', amount: '850000' }, { class_name: 'S1', boarding_status: 'boarding', amount: '1450000' }],
     })).toEqual([]);
+  });
+  it('allows one "day and boarding" fee per class, but not beside a separate day or boarding fee', () => {
+    const base = { id: null, name: 'Term 1', start_date: '2027-02-02', end_date: '2027-04-30' };
+    expect(termDraftErrors({ ...base, fees: [{ class_name: 'S1', boarding_status: 'day_and_boarding', amount: '900000' }] })).toEqual([]);
+    const clash = termDraftErrors({ ...base, fees: [
+      { class_name: 'S1', boarding_status: 'day', amount: '850000' },
+      { class_name: 's1', boarding_status: 'day_and_boarding', amount: '900000' },
+    ] });
+    expect(clash.some((e) => e.includes('Day and boarding'))).toBe(true);
+  });
+});
+
+describe('feeAppliesTo', () => {
+  it('matches a "day and boarding" fee for both kinds of student', () => {
+    expect(feeAppliesTo('day_and_boarding', 'day')).toBe(true);
+    expect(feeAppliesTo('day_and_boarding', 'boarding')).toBe(true);
+    expect(feeAppliesTo('day', 'boarding')).toBe(false);
+    expect(feeAppliesTo('boarding', 'boarding')).toBe(true);
   });
 });
 
