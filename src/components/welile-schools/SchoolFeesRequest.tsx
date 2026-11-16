@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Check, CheckCircle2, ChevronDown, Download, Loader2, Search, UserRound } from 'lucide-react';
+import { CalendarDays, Check, CheckCircle2, ChevronDown, Download, Home, Loader2, Search, UserRound } from 'lucide-react';
 import { PARENT_AGREEMENT_SIGNED_NOTE, PARENT_AGREEMENT_URL } from '@/lib/welileSchoolsAgreements';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,6 +56,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
  */
 export default function SchoolFeesRequest({ school, onRegisterStudent }: { school: SchoolRow; onRegisterStudent: () => void }) {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [student, setStudent] = useState<StudentOption | null>(null);
   const [termId, setTermId] = useState<string>('');
@@ -154,6 +156,9 @@ export default function SchoolFeesRequest({ school, onRegisterStudent }: { schoo
           </dl>
         </section>
         <Button className="min-h-[52px] w-full rounded-2xl text-base" onClick={reset}>Request for another student</Button>
+        <Button variant="outline" className="min-h-[52px] w-full gap-2 rounded-2xl text-base" onClick={() => navigate('/schools')}>
+          <Home className="h-4 w-4" aria-hidden />Back to home
+        </Button>
       </div>
     );
   }
