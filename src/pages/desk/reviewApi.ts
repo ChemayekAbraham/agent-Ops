@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { deskWords } from './sendBackItems';
+import { OWN_REQUEST_NOTE, isOwnRequestRefusal } from './ownRequest';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -33,6 +34,8 @@ export function readableError(error: unknown): string {
   if (/^E\d+_[A-Z_]+:/.test(String(e.message ?? ''))) return String(e.message);
   // Desk access refusals are also 42501; they say so in their own words.
   if (/not assigned to you/i.test(String(e.message ?? ''))) return 'This desk is not assigned to you';
+  // Also 42501: a decision on one's own request.
+  if (isOwnRequestRefusal(e.message)) return OWN_REQUEST_NOTE;
   if (e.code === '42501') return NO_STAFF_ID;
   const msg = String(e.message ?? '');
   if (/42501/.test(msg) || /not authori[sz]ed/i.test(msg)) return NO_STAFF_ID;

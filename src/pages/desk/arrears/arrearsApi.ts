@@ -1,3 +1,4 @@
+import { ownRequestWords } from '../ownRequest';
 import { useQuery } from '@tanstack/react-query';
 import { rpc } from '../reviewApi';
 import type { Status } from '../deskTheme';
@@ -237,7 +238,7 @@ export const CALL_ERROR_WORDS: Record<string, string> = {
  * "CODE: words" gets the server's words; anything else is shown as it came.
  */
 export function plainError(e: unknown, words: Record<string, string> = CALL_ERROR_WORDS): string {
-  const msg = String((e as { message?: string } | null)?.message ?? e ?? 'Something went wrong.');
+  const msg = ownRequestWords(String((e as { message?: string } | null)?.message ?? e ?? 'Something went wrong.'));
   const m = /^([A-Z][A-Z0-9_]+)(?::\s*(.*))?$/s.exec(msg.trim());
   if (!m) return msg;
   if (words[m[1]]) return words[m[1]];
