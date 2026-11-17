@@ -37,7 +37,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useGpsCapture } from '@/hooks/useGpsCapture';
 import { GpsCapturePanel } from '@/components/intake/GpsCapturePanel';
-import type { GpsFailCode } from '@/lib/gpsCapture';
 import { optimizeImage } from '@/lib/imageOptimizer';
 import { clearFormPhotos, loadFormPhotos, previewOf, saveFormPhotos } from '@/lib/formPhotoDraft';
 import SelfieCameraCapture from '@/components/wallet/SelfieCameraCapture';
@@ -293,13 +292,11 @@ export default function TenantsOnboarding() {
    * The house GPS: watched for up to 30 s, the best reading kept (gpsCapture.ts). A refusal
    * says why and logs the reason in request_form_log; a reading over 50 m carries a note.
    */
-  const lastGpsFail = useRef<GpsFailCode | null>(null);
   const gpsWatch = useGpsCapture({
     onFix: (fix, first) => {
-      lastGpsFail.current = null;
       if (first) funnel.itemDone('gps', { accuracy_m: fix.accuracy === null ? null : Math.round(fix.accuracy), gps_source: 'gps' });
     },
-    onFail: (code) => { lastGpsFail.current = code; funnel.blocked(['gps'], code); },
+    onFail: (code) => { funnel.blocked(['gps'], code); },
     onInAppBrowser: () => funnel.blocked(['gps'], 'gps_in_app_browser'),
   });
   const gps = gpsWatch.location
@@ -707,7 +704,8 @@ export default function TenantsOnboarding() {
   /** A blocked press on a step, for the funnel; a missing GPS carries the reason it is missing. */
   const blockStep = (s: number) => {
     const items = stepBlockItems(s);
-    funnel.blocked(items, items.includes('gps') ? (lastGpsFail.current ?? 'gps_not_captured') : null);
+    // The Capture attempt logs its own reason once; a step press without a GPS is gps_not_captured.
+    funnel.blocked(items, items.includes('gps') ? 'gps_not_captured' : null);
   };
 
   /** The items a step is blocked on, for the funnel. */

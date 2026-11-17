@@ -46,7 +46,7 @@ import { notifyVerificationCreated } from '@/lib/landlordVerificationNotify';
 import { IntakeStepHeader } from '@/components/intake/IntakeStepHeader';
 import { GpsCapturePanel } from '@/components/intake/GpsCapturePanel';
 import { useGpsCapture } from '@/hooks/useGpsCapture';
-import type { GpsFailCode, GpsSource } from '@/lib/gpsCapture';
+import type { GpsSource } from '@/lib/gpsCapture';
 import { WhoIsPosting } from '@/components/intake/WhoIsPosting';
 import { RENEWAL_STEP_DEFS, firstIncompleteStep, intakeLeftLabel, type IntakeState, type IntakeStepKey, type RenewalStepKey, type StepState } from '@/lib/intakeSteps';
 import { useRenewalAdvice } from '@/hooks/useRenewalAdvice';
@@ -1140,20 +1140,18 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
   /*
    * The house GPS (gpsCapture.ts): "Capture location" just captures and stores the coordinates.
-   * The first reading is taken at once and improved silently for up to 15 s. No map.
+   * The network and the GPS are asked at once; the first reading is taken and improved silently
+   * for up to 60 s (old phones' GPS chips are slow). No map.
    * request_form_log: item_done gps { accuracy_m }, or why there was no reading
    * (gps_permission_denied / gps_timeout / gps_unavailable), and gps_in_app_browser.
    */
-  const lastGpsFail = useRef<GpsFailCode | null>(null);
   const gpsWatch = useGpsCapture({
     onFix: (fix, first) => {
-      lastGpsFail.current = null;
       setGps({ lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy, source: 'gps' });
       setError(null);
       if (first && tracking) funnel.itemDone('gps', { accuracy_m: fix.accuracy === null ? null : Math.round(fix.accuracy), gps_source: 'gps' });
     },
     onFail: (code) => {
-      lastGpsFail.current = code;
       if (tracking) blockedNow(['gps'], code);
     },
     onInAppBrowser: () => { if (tracking) blockedNow(['gps'], 'gps_in_app_browser'); },
@@ -1305,7 +1303,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
 
   /** Rejects a wrong answer: says what is wrong, offers a fix if there is one, adds a tip on the third try. */
   const reject = (s: StepId, problem: string, text = draft) => {
-    if (tracking) blockedNow([STEP_FUNNEL_ITEM[s] ?? 'other'], s === 'gps' ? (lastGpsFail.current ?? 'gps_not_captured') : undefined);
+    // The Capture attempt logs its own reason (gps_timeout …) once; a Continue tap without a GPS is gps_not_captured.
+    if (tracking) blockedNow([STEP_FUNNEL_ITEM[s] ?? 'other'], s === 'gps' ? 'gps_not_captured' : undefined);
     else if (logResubmit) funnel.blocked([STEP_FUNNEL_ITEM[s] ?? 'other']);
     const tries = (wrongTries[s] ?? 0) + 1;
     setWrongTries((t) => ({ ...t, [s]: tries }));

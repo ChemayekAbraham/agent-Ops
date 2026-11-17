@@ -134,6 +134,9 @@ export interface FormFunnel {
  * The funnel for one form. `rpc` is only for tests. Every method is fire-and-forget and
  * swallows every error.
  */
+/** A blocked press for the same items and reason is logged at most once in this window. */
+export const BLOCKED_REPEAT_MS = 10_000;
+
 export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormFunnel {
   bindOnline();
   let session = safeUUID();
@@ -142,6 +145,8 @@ export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormF
   let closed = false;
   let lastStep: string | null = null;
   let done = new Set<FunnelItem>();
+  /** When each blocked item + reason was last logged: repeated taps within 10 s are not logged again. */
+  const lastBlocked = new Map<string, number>();
 
   const emit = (event: FunnelEvent, extra: Partial<FunnelRow> = {}) => {
     try {
@@ -180,7 +185,12 @@ export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormF
     },
     blocked(items, error) {
       if (!opened) return;
-      emit('blocked', { p_items: clean(items).length ? clean(items) : ['other'], p_error: error ?? null });
+      const list: FunnelItem[] = clean(items).length ? clean(items) : ['other'];
+      const key = `${[...list].sort().join(',')}|${error ?? ''}`;
+      const now = Date.now();
+      if (now - (lastBlocked.get(key) ?? -Infinity) < BLOCKED_REPEAT_MS) return;
+      lastBlocked.set(key, now);
+      emit('blocked', { p_items: list, p_error: error ?? null });
     },
     itemDone(item, meta, error) {
       if (!opened || done.has(item) || !(FUNNEL_ITEMS as readonly string[]).includes(item)) return;
