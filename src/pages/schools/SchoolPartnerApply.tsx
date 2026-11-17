@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import WelileSchoolsBrand from '@/components/welile-schools/WelileSchoolsBrand';
-import { UG_REGIONS, useUgDistricts } from '@/hooks/useUgLocations';
+import { UG_REGIONS, useUgDistricts, type UgLocationSelection } from '@/hooks/useUgLocations';
+import UgLocationPicker from '@/components/location/UgLocationPicker';
 import { captureSmartLocation } from '@/hooks/useSmartLocation';
 import { SCHOOL_LEVELS, SCHOOL_OWNERSHIP } from '@/lib/welileSchools';
 import { cn } from '@/lib/utils';
@@ -216,6 +217,7 @@ function ApplicationForm({ userId, onSent, onCancel }: { userId: string; onSent:
   const [tried, setTried] = useState(false);
   const [sending, setSending] = useState(false);
   const [gpsBusy, setGpsBusy] = useState(false);
+  const [villagePick, setVillagePick] = useState<UgLocationSelection | null>(null);
   const { data: allDistricts = [] } = useUgDistricts();
   const set = (patch: Partial<ApplicationDraft>) => setD((x) => ({ ...x, ...patch }));
   const errors = applicationErrors(d);
@@ -236,7 +238,10 @@ function ApplicationForm({ userId, onSent, onCancel }: { userId: string; onSent:
   }, [userId]);
 
   const districtOptions = allDistricts.filter((x) => !d.region || x.region === d.region).map((x) => x.name).sort((a, b) => a.localeCompare(b));
-  const chooseDistrict = (name: string) => set({ district: name, region: allDistricts.find((x) => x.name === name)?.region ?? d.region });
+  const chooseDistrict = (name: string) => {
+    setVillagePick(null);
+    set({ district: name, region: allDistricts.find((x) => x.name === name)?.region ?? d.region, village: '' });
+  };
 
   const pinMyLocation = async () => {
     setGpsBusy(true);
@@ -298,20 +303,27 @@ function ApplicationForm({ userId, onSent, onCancel }: { userId: string; onSent:
       <Section title="Where it is">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Region" htmlFor="wsa-region">
-            <Select id="wsa-region" value={d.region} onChange={(v) => set({ region: v, district: allDistricts.find((x) => x.name === d.district)?.region === v ? d.district : '' })} options={UG_REGIONS} placeholder="Region" />
+            <Select id="wsa-region" value={d.region} onChange={(v) => {
+              const keep = allDistricts.find((x) => x.name === d.district)?.region === v;
+              if (!keep) setVillagePick(null);
+              set({ region: v, district: keep ? d.district : '', village: keep ? d.village : '' });
+            }} options={UG_REGIONS} placeholder="Region" />
           </Field>
           <Field label="District" htmlFor="wsa-district" error={err('district')}>
             <Select id="wsa-district" value={d.district} onChange={chooseDistrict} options={districtOptions} placeholder="District" invalid={!!err('district')} />
           </Field>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Town or trading centre (optional)" htmlFor="wsa-town">
-            <Input id="wsa-town" className="h-12 rounded-2xl text-base" value={d.town} onChange={(e) => set({ town: e.target.value })} />
-          </Field>
-          <Field label="Village or cell (optional)" htmlFor="wsa-village">
-            <Input id="wsa-village" className="h-12 rounded-2xl text-base" value={d.village} onChange={(e) => set({ village: e.target.value })} />
-          </Field>
-        </div>
+        {d.district ? (
+          <UgLocationPicker
+            label="Village or cell (optional)"
+            districtName={d.district}
+            value={villagePick}
+            onChange={(sel) => { setVillagePick(sel); set({ village: sel?.village ?? '', town: d.town || sel?.county || '' }); }}
+          />
+        ) : null}
+        <Field label="Town or trading centre (optional)" htmlFor="wsa-town">
+          <Input id="wsa-town" className="h-12 rounded-2xl text-base" value={d.town} onChange={(e) => set({ town: e.target.value })} />
+        </Field>
         <Field label="Directions for the agent (optional)" htmlFor="wsa-directions">
           <Textarea id="wsa-directions" rows={2} className="rounded-2xl text-base" placeholder="e.g. Opposite the health centre, 200 m off the main road" value={d.directions} onChange={(e) => set({ directions: e.target.value })} />
         </Field>
