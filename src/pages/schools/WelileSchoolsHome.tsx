@@ -146,8 +146,10 @@ function RoleSwitcher({ role, onChange, onRestart }: { role: SchoolsRole; onChan
 // ─── School owner view ────────────────────────────────────────────────────────
 
 function SchoolOwnerHome() {
+  const navigate = useNavigate();
   const steps = [
-    { icon: MapPin, title: 'A Welile agent visits your school', body: 'They register the school and agree a partnership with you.' },
+    { icon: ClipboardCheck, title: 'You apply online', body: "Tell Welile about your school. Welile reviews your application." },
+    { icon: MapPin, title: 'A Welile agent visits your school', body: 'They inspect the school and agree a partnership with you.' },
     { icon: FileSignature, title: 'You share your terms and fees', body: 'Term dates, fee per class, and the account Welile pays into.' },
     { icon: ClipboardCheck, title: 'Welile approves the partnership', body: 'Families at your school can then apply for School Fees Plans.' },
     { icon: Banknote, title: 'Fees arrive at the start of term', body: 'For every student on a plan, paid straight to your account.' },
@@ -172,11 +174,9 @@ function SchoolOwnerHome() {
         <Timeline steps={steps} />
       </section>
 
-      <StickyCta note="Opens WhatsApp. A Welile agent will arrange a visit.">
-        <Button asChild className="min-h-[52px] w-full gap-2 rounded-2xl text-base">
-          <a href={whatsapp('Hello Welile, I run a school and would like to become a Welile Schools partner.')} target="_blank" rel="noopener noreferrer">
-            <MessageCircle className="h-5 w-5" aria-hidden />Partner with Welile
-          </a>
+      <StickyCta note="Takes about 5 minutes. A Welile agent then visits your school.">
+        <Button className="min-h-[52px] w-full gap-2 rounded-2xl text-base" onClick={() => navigate('/schools/apply')}>
+          <FileSignature className="h-5 w-5" aria-hidden />Partner with Welile
         </Button>
       </StickyCta>
     </div>
