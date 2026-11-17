@@ -186,6 +186,7 @@ import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
 import { AgentCompleteRequestsCard } from '@/components/agent/AgentCompleteRequestsCard';
+import { ReadyToRenewCard } from '@/components/agent/ReadyToRenewCard';
 import { useAgentNudges } from '@/hooks/useAgentNudges';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
@@ -1369,6 +1370,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
               />
               {/* Rent requests still missing intake details. Renders nothing when there are none. */}
               {!isMerchant && <AgentCompleteRequestsCard agentId={user.id} />}
+              {/* E128: completed Rent Plans to renew, tenant asked first. Renders nothing when there are none. */}
+              {!isMerchant && <ReadyToRenewCard />}
               {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
                   (2026-10-16). The signature card above is the entry point. */}
               {SHOW_LEGACY_RENT_REQUEST_CARD && (

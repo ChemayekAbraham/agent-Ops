@@ -31,7 +31,7 @@ import { toast as sonnerToast } from 'sonner';
 import { AgentTenantCollectDialog } from './AgentTenantCollectDialog';
 import { TenantBehaviorCard } from './TenantBehaviorCard';
 import { TenantProfileView } from './TenantProfileView';
-import { openT4RentRequest } from '@/lib/t4RentRequest';
+import { openT4RentRequest, useT4Request } from '@/lib/t4RentRequest';
 import { captureGps, isGpsRequiredError } from '@/lib/captureGps';
 import { TenantFieldCollectDialog } from './TenantFieldCollectDialog';
 import { AgentRequestPipelineView } from './AgentRequestPipelineView';
@@ -300,6 +300,8 @@ function Highlight({ text, query }: { text?: string | null; query: string }) {
 }
 
 export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipelineTab, initialHighlightId, initialProfileTenantId }: AgentTenantsSheetProps) {
+  // The rent request form is drawn at the app root, below this full-screen sheet; step aside while it is open.
+  const t4FormOpen = useT4Request() !== null;
   const { user } = useAuth();
   const { toast } = useToast();
   const [view, setView] = useState<'tenants' | 'pipeline'>(initialView ?? 'tenants');
@@ -1224,7 +1226,7 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
 
   return (
     <>
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open && !t4FormOpen} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         className="h-[100dvh] max-h-[100dvh] w-full max-w-none rounded-none border-0 flex flex-col p-0 gap-0 overflow-y-auto font-sans [&>button.absolute]:hidden"

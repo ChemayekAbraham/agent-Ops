@@ -9,7 +9,9 @@ import { CallLog } from './CallLog';
 import { asIs, isRecordOnly, needsNote, passMovesOnServer, rejectMovesOnServer, runMove, transferThenPass } from './deskActions';
 import { passBlock } from './passBlock';
 import { IdentityBanner, IdentityPanel } from './identityPhotos';
-import { DeskHistory } from './deskHistory';
+import { AUTO_PASSED_WORDS, DeskHistory, isAutoPassedRenewal } from './deskHistory';
+import { facePhotoFlag } from './photoFlag';
+import { allowedReasons } from './deskReasons';
 import { answeredCallOnFile, awarenessCallsKey, callTime, stageSince, useAwarenessCalls } from './callOnFile';
 import { toast } from 'sonner';
 import { afterServerPass } from './boardApi';
@@ -24,6 +26,7 @@ import { PaymentHealthPanel } from './paymentHealth';
 import { ConcernsSection, concernDeskFor } from './concerns';
 import { LandlordContextPanel, RENT_EXACT_HINT, ScriptPanel, rentOnRequestText, useLandlordContext } from './landlordOps';
 import { DecisionButton, atLeast, stackLayout, useBreakpoint } from './ui';
+import { CooOverrideLine } from '@/components/coo/CooOverrideLine';
 import type { DrawerContext, DrawerStart } from './ReadyBoard';
 import {
   lcLetterUrl,
@@ -293,6 +296,7 @@ export function ReviewDrawer({
   const proxies = useProxyAgents(decision === 'attach_funder');
 
   const items = useMemo(() => stageChecklist(sheet.data, stage), [sheet.data, stage]);
+  const photoFlag = stage === 'tenant_ops' ? facePhotoFlag(items) : null;
   const req = sheet.data?.request;
   const recommended = sheet.data?.recommendation?.recommended ?? null;
   const against = !!decision && !!recommended && decision !== recommended;
@@ -307,12 +311,8 @@ export function ReviewDrawer({
     return items.filter((c) => c.required && c.method !== 'system' && !entries[c.code]?.result).map((c) => c.label);
   }, [items, entries, decision]);
 
-  const reasonList = useMemo(() => {
-    const all = reasons.data ?? [];
-    const tag = DESK_TAG[stage];
-    const mine = all.filter((r) => (r.desks ?? []).some((d) => d === tag || d === 'all'));
-    return mine.length > 0 ? mine : all;
-  }, [reasons.data, stage]);
+  // The desk's own reasons with short labels (deskReasons.ts); never another desk's or a system code.
+  const reasonList = useMemo(() => allowedReasons(reasons.data ?? [], stage), [reasons.data, stage]);
 
   const chosenReason = reasonList.find((r) => r.code === reasonCode) ?? null;
   const noteRequired =
@@ -607,6 +607,14 @@ export function ReviewDrawer({
             // Hidden rather than unmounted on the Photos tab, so ticks and notes survive a tab switch.
             <div className={tab !== 'review' ? 'hidden' : 'space-y-5'}>
               {ctx?.facts}
+              {/* E131: pushed by the COO with items missing — what was missing and why. */}
+              <CooOverrideLine requestId={requestId} />
+              {/* E124: the system's face-photo FLAG, in red, above the photos (Tenant Ops). */}
+              {photoFlag && (
+                <p role="alert" className={`rounded-md border border-[hsl(var(--destructive)/0.6)] bg-[hsl(var(--destructive)/0.12)] p-3 text-sm font-semibold ${statusText.bad}`} style={{ margin: 0 }} data-photo-flag>
+                  {photoFlag}
+                </p>
+              )}
               {/* ── E77: who the tenant and the agent are, before anything else ── */}
               <IdentityPanel requestId={requestId} />
 
@@ -966,7 +974,7 @@ export function ReviewDrawer({
                       <option value="">Choose a reason code…</option>
                       {reasonList.map((r) => (
                         <option key={r.code} value={r.code}>
-                          {r.code} — {r.meaning ?? ''}
+                          {r.meaning}
                         </option>
                       ))}
                     </select>
@@ -1015,7 +1023,12 @@ export function ReviewDrawer({
                       // E64: a send-back names the office it went to and the reason in words.
                       const sent = h.decision === 'send_back' ? parseSendBackNote(h.note) : null;
                       const meaning = h.reason_code ? (reasons.data ?? []).find((r) => r.code === h.reason_code)?.meaning ?? null : null;
-                      return (
+                      // E128 R1: an unchanged renewal Landlord Ops passed by itself, in plain words.
+                      return isAutoPassedRenewal(h.stage, h.note) ? (
+                        <li key={`${h.stage}-${h.at}-${i}`} className={LABEL} data-history={h.decision} data-auto-passed>
+                          <span className="text-foreground">{AUTO_PASSED_WORDS}</span>
+                        </li>
+                      ) : (
                         <li key={`${h.stage}-${h.at}-${i}`} className={LABEL} data-history={h.decision}>
                           <span className="text-foreground">{STAGE_NAME[h.stage] ?? h.stage}</span>: {DECISION_LABEL[h.decision] ?? h.decision}
                           {sent && (

@@ -70,6 +70,12 @@ const DeskLandlordHarness = lazyWithRetry(
 const DeskReviewHarness = lazyWithRetry(
   () => import("@/pages/__e2e/DeskReviewHarness"),
 );
+const SendBackSheetHarness = lazyWithRetry(
+  () => import("@/pages/__e2e/SendBackSheetHarness"),
+);
+const BoardScreensHarness = lazyWithRetry(
+  () => import("@/pages/__e2e/BoardScreensHarness"),
+);
 
 // Language provider is imported statically: as a lazy chunk its module namespace
 // could resolve undefined under manual chunking, blanking the whole app.
@@ -152,6 +158,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const AgentDashboardNew = lazy(() => import("./pages/AgentDashboardNew"));
 // The T4 rent request form: the one place agents post, resubmit or renew a rent request.
 const T4RentRequestHost = lazy(() => import("./components/agent/rentRequestAssistant/T4RentRequestHost"));
+const PendingCollectionsSync = lazy(() => import("./components/agent/PendingCollectionsSync"));
 const FunderDashboardNew = lazy(() => import("./pages/FunderDashboardNew"));
 const FunderLandingPreview = lazy(() => import("./pages/FunderLandingPreview"));
 // Frozen snapshot of the funder dashboard — see SupporterDashboard.backup.tsx.
@@ -747,6 +754,26 @@ function AppRoutes() {
           )}
           {import.meta.env.DEV && (
             <Route
+              path="/__e2e/send-back"
+              element={
+                <Suspense fallback={null}>
+                  <SendBackSheetHarness />
+                </Suspense>
+              }
+            />
+          )}
+          {import.meta.env.DEV && (
+            <Route
+              path="/__e2e/board-screens"
+              element={
+                <Suspense fallback={null}>
+                  <BoardScreensHarness />
+                </Suspense>
+              }
+            />
+          )}
+          {import.meta.env.DEV && (
+            <Route
               path="/__e2e/promissory-note"
               element={
                 <Suspense fallback={null}>
@@ -1211,6 +1238,7 @@ const App = () => {
                           <DeferredExtras />
                           <GlobalFloatingWidgets />
                           <Suspense fallback={null}><T4RentRequestHost /></Suspense>
+                          <Suspense fallback={null}><PendingCollectionsSync /></Suspense>
                           <Toaster />
                           <SonnerToaster />
                           <BuildUpdateWatcher />

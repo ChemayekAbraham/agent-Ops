@@ -103,7 +103,7 @@ export interface AssistantSubmitInput {
   housePhotos: File[];
   tenantPhoto: File;
   faceCheckSha256?: string | null;
-  /** 'skipped_timeout' when the face check did not answer in time: the office checks the photo. */
+  /** 'skipped_timeout' when the face check did not answer in time (the chat records it with face_check_record). */
   faceCheck?: 'skipped_timeout' | null;
   lc1Name: string;
   lc1Phone: string;
@@ -549,16 +549,6 @@ async function submitTimed(input: AssistantSubmitInput, timer: ReturnType<typeof
         console.warn('[rentRequestAssistant] face fingerprint link failed', e);
       }
     };
-    /** The face check did not answer in time: marked on the request, so the office checks the photo. Best effort. */
-    const markFaceCheckSkipped = async () => {
-      if (input.faceCheck !== 'skipped_timeout') return;
-      try {
-        const { error } = await supabase.from('rent_requests').update({ face_check: 'skipped_timeout' } as Loose).eq('id', requestId);
-        if (error) console.warn('[rentRequestAssistant] face_check not recorded', error);
-      } catch (e) {
-        console.warn('[rentRequestAssistant] face_check not recorded', e);
-      }
-    };
     const [, letterOut, lc1NoteError, intake] = await timer.step('after insert', Promise.all([
       linkHouse(),
       letterAfterInsert(),
@@ -570,7 +560,6 @@ async function submitTimed(input: AssistantSubmitInput, timer: ReturnType<typeof
       }),
       linkFingerprint(),
       setTenantAvatar(tenantId, tenantPhotoUrl),
-      markFaceCheckSkipped(),
     ]));
     const intakeError = intake.ok ? null : intake.message;
 

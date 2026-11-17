@@ -22,6 +22,7 @@ import { ArrearsTile, BalanceMeter, CohortBoard, DemandAlarm } from './coo/cooSi
 import { PremortemTab } from './coo/PremortemTab';
 import { PostingFunnelCard } from './coo/PostingFunnel';
 import { PromisesCard } from './arrears/promises';
+import { PlanIssuesCard } from './coo/PlanIssues';
 
 /**
  * Search every desk from the Command Centre (E72, p_desk 'command'). A request
@@ -385,6 +386,8 @@ export function CommandCentre({
       </div>
       {/* E116: promises kept across Agent Ops and Tenant Ops. */}
       <PromisesCard board={false} />
+      {/* E126: plans whose terms are broken or whose closing does not add up; push each to the CFO. */}
+      <PlanIssuesCard board={false} canPush />
       {/* E105: how each month's plans are paying. */}
       <CohortBoard board={false} />
       {/* E108: where agents stop between opening the form and posting. */}

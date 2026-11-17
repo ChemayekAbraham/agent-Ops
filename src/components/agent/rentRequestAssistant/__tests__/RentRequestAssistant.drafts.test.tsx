@@ -3,7 +3,7 @@
  * Continue at the first missing item, and the post closing the draft.
  */
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mocks = vi.hoisted(() => ({
@@ -31,6 +31,7 @@ vi.mock('@/integrations/supabase/client', () => {
   return {
     supabase: {
       rpc: mocks.rpc,
+      auth: { getSession: async () => ({ data: { session: { user: { id: 'agent-1' }, access_token: 'test-token' } }, error: null }) },
       from: builder,
       storage: {
         from: () => ({
@@ -127,7 +128,7 @@ const logs = (event: string) => mocks.rpc.mock.calls
 describe('E109: save and finish later', () => {
   it('a blocked Next offers it; saving sends the payload and missing codes, says when we remind, and logs close', async () => {
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
-    answer('0783 123 456'); // the first screen is the tenant's phone number
+    await passStep1();
     fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
     answer('about three hundred'); // the rent question refuses it: a blocked Next
     const save = await screen.findByRole('button', { name: 'Save and finish later' });
@@ -155,7 +156,7 @@ describe('E109: save and finish later', () => {
   it('is hidden while the draft RPCs are not on the database', async () => {
     mocks.drafts = { data: null, error: PGRST202 };
     render(<RentRequestAssistant open onOpenChange={vi.fn()} />);
-    answer('0783 123 456'); // the first screen is the tenant's phone number
+    await passStep1();
     fireEvent.click(await screen.findByRole('button', { name: /Weekly earner/ }));
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('posting_drafts_mine', {}));
     answer('about three hundred');
@@ -194,6 +195,16 @@ describe('E109: save and finish later', () => {
   });
 });
 
+/** Step 1: the phone, the names, the language and the smartphone answer. */
+async function passStep1() {
+  answer('0783 123 456'); // the first screen is the tenant's phone number
+  fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'John' } });
+  fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Mukasa' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'English' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Yes, a smartphone/ }));
+}
+
 /** A saved request with everything but the family size. */
 function fullPayload(): PostingDraftPayload {
     const path = (b: string, n: string) => ({ bucket: b, path: `agent-1/draft-x/${n}.jpg` });
@@ -230,19 +241,15 @@ async function finishAndPost() {
     await waitFor(() => expect(mocks.submit).toHaveBeenCalled());
 }
 
-describe('Saved drafts: the face check runs again on Continue', () => {
-  it('a draft whose stored check says "passed" but whose photo fails now is caught: it opens at the face photo', async () => {
+describe('E124: the tenant’s photo never blocks', () => {
+  it('a photo the face check finds no face in still posts; the check runs in the background and is recorded', async () => {
     mocks.faceCheck.mockResolvedValue({ status: 'no_face', verdict: 'fail', isFace: false, isPassportPhoto: false, sha256: 'bad' });
-    // The saved payload claims a passed check (older drafts carried one).
-    const payload = fullPayload();
-    expect(payload.fields.faceCheck).toMatchObject({ status: 'ok', verdict: 'pass' });
-    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd2', payload } }} />);
-    expect((await screen.findAllByText(/Now the tenant’s face photo \(head and shoulders\) of John/, {}, { timeout: 3000 })).length).toBeGreaterThan(0);
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd2', payload: fullPayload() } }} />);
+    // It opens on the first incomplete step (Household), not on the photo.
+    await finishAndPost();
     expect(mocks.faceCheck).toHaveBeenCalledWith(expect.any(File), { source: 'agent_rent_request' });
-    // The photo comes first (ahead of the missing family size), with the reason, and nothing is posted.
-    expect(await screen.findByText('No face found. Tap the photo to retake it.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
-    expect(mocks.submit).not.toHaveBeenCalled();
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('face_check_record', { p_request_id: 'req-1', p_status: 'no_face' }));
+    expect(mocks.submit).toHaveBeenCalled();
   });
 });
 
@@ -289,8 +296,8 @@ describe('Agent chat fixes (16 Nov): first screen, face check timeout, photo ref
     await waitFor(() => expect(logs('open').length).toBeGreaterThan(0));
     expect(logs('step')).toHaveLength(0);
     answer('0783 123 456');
-    expect(await screen.findByRole('button', { name: /Weekly earner/ })).toBeInTheDocument();
-    await waitFor(() => expect(logs('step').map((r) => r.p_step)).toEqual(['start', 'repayment']));
+    expect(await screen.findByLabelText('First name')).toBeInTheDocument();
+    await waitFor(() => expect(logs('step').map((r) => r.p_step)).toEqual(['start', 'tenant']));
   });
 
   it('face check timeout: after 15 s the agent can continue, the post sends face_check skipped_timeout, and the funnel logs it', async () => {
@@ -316,6 +323,7 @@ describe('Agent chat fixes (16 Nov): first screen, face check timeout, photo ref
       fireEvent.click(post);
       await waitFor(() => expect(mocks.submit).toHaveBeenCalled());
       expect(mocks.submit.mock.calls[0][0]).toMatchObject({ faceCheck: 'skipped_timeout', faceCheckSha256: null });
+      await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('face_check_record', { p_request_id: 'req-1', p_status: 'skipped_timeout' }));
       expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['tenant_photo'], p_error: 'face_check_timeout' }));
     } finally {
       vi.useRealTimers();
@@ -329,5 +337,104 @@ describe('Agent chat fixes (16 Nov): first screen, face check timeout, photo ref
     expect(await screen.findByText('The tenant’s face photo is missing. Take it now: head and shoulders, face clear.')).toBeInTheDocument();
     expect(screen.getByTestId('face-check-status')).toBeInTheDocument();
     expect(screen.queryByText(/enforce_rent_request_tenant_photo/)).toBeNull();
+  });
+});
+
+describe('GPS on step 4: Capture location just captures the coordinates; no map anywhere', () => {
+  let onPos: PositionCallback = () => {};
+  let onErr: PositionErrorCallback = () => {};
+  const watchPosition = vi.fn((s: PositionCallback, e: PositionErrorCallback) => { onPos = s; onErr = e; return 3; });
+  const reading = (accuracy: number) => act(() => { onPos({ coords: { latitude: 0.347621, longitude: 32.582514, accuracy } } as GeolocationPosition); });
+  const noMap = () => {
+    expect(document.querySelector('[data-testid="pin-drop-map"], .leaflet-container')).toBeNull();
+    expect(screen.queryByText(/Drop a pin/i)).toBeNull();
+  };
+  const realUa = navigator.userAgent;
+  beforeEach(() => {
+    watchPosition.mockClear();
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { watchPosition, clearWatch: vi.fn(), getCurrentPosition: vi.fn() } });
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: undefined });
+    Object.defineProperty(navigator, 'userAgent', { configurable: true, value: realUa });
+  });
+  /** A saved request with everything up to the house but no GPS: it reopens on the GPS question. */
+  const openAtGps = () => {
+    const payload = fullPayload();
+    payload.fields.gps = null;
+    payload.fields.location = { district: 'Wakiso', subcounty: 'Kira', village: 'Kireka B', villageId: 'v1' };
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'g1', payload } }} />);
+  };
+  const capture = async () => fireEvent.click(await screen.findByRole('button', { name: 'Capture location' }, { timeout: 3000 }));
+
+  it('capture shows the coordinates at once, with no map rendered; the agent continues while it improves', async () => {
+    openAtGps();
+    await capture();
+    expect(watchPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), expect.objectContaining({ enableHighAccuracy: true, maximumAge: 60000 }));
+    reading(40);
+    expect(await screen.findByTestId('gps-captured')).toHaveTextContent('Location captured ✓ 0.34762, 32.58251 (±40 m)');
+    await waitFor(() => expect(logs('item_done')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_meta: expect.objectContaining({ accuracy_m: 40 }) })));
+    noMap();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByTestId('send-button')).toHaveTextContent('1 left: Household');
+    noMap();
+  });
+
+  it('permission denied shows the one lock line, logged; no map', async () => {
+    openAtGps();
+    await capture();
+    act(() => { onErr({ code: 1, message: 'denied' } as GeolocationPositionError); });
+    expect(await screen.findByTestId('gps-failure')).toHaveTextContent(
+      'Location is blocked for Welile in this browser. Tap the 🔒 in the address bar → Location → Allow, then tap Capture again.',
+    );
+    await waitFor(() => expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_permission_denied' })));
+    noMap();
+  });
+
+  it('a site the browser already blocks shows the lock line before any tap', async () => {
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: vi.fn(async () => ({ state: 'denied' })) } });
+    openAtGps();
+    expect(await screen.findByTestId('gps-failure')).toHaveTextContent('Location is blocked for Welile in this browser.');
+    expect(watchPosition).not.toHaveBeenCalled();
+  });
+
+  it('inside WhatsApp: "Open this page in Chrome" with a button that opens it in Chrome, logged', async () => {
+    Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Linux; Android 13; SM-A145F) AppleWebKit/537.36 Chrome/119.0 Mobile Safari/537.36 WhatsApp/2.23.24.82' });
+    openAtGps();
+    const box = await screen.findByTestId('gps-in-app');
+    expect(box).toHaveTextContent('Open this page in Chrome to capture location');
+    expect(within(box).getByRole('link', { name: 'Open in Chrome' }).getAttribute('href')).toMatch(/^intent:\/\/.*package=com\.android\.chrome/);
+    await waitFor(() => expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_in_app_browser' })));
+    noMap();
+  });
+
+  it('no reading in 15 s shows the signal line, logged; no map', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      openAtGps();
+      await capture();
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+      expect(await screen.findByTestId('gps-failure')).toHaveTextContent('No GPS signal here — step outside or near a window and tap Capture again.');
+      await waitFor(() => expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_timeout' })));
+      noMap();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('E99: an old draft with "No LC1 letter yet" ticked opens with it cleared', () => {
+  it('the tick and its reason are dropped; the LC1 step shows the photo button and the letter is still needed', async () => {
+    const payload = fullPayload();
+    payload.fields.noLc1Letter = true;
+    payload.fields.noLc1Reason = 'The LC1 is away until Friday';
+    payload.fields.familySize = '4';
+    payload.photos.lcLetter = null;
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd5', payload } }} />);
+    // It reopens on its first incomplete step: the LC1 letter, with the photo button.
+    expect(await screen.findByTestId('lc1-letter-step', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByLabelText('Take photo of LC1 letter')).toBeInTheDocument();
+    expect(screen.queryByText(/No LC1 letter yet/)).toBeNull();
+    expect(screen.queryByDisplayValue('The LC1 is away until Friday')).toBeNull();
+    expect(screen.getByTestId('lc1-no-letter-yet')).toHaveTextContent('Save and finish later');
+    expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
   });
 });

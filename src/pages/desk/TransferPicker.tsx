@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { fmt } from './format';
@@ -61,6 +61,7 @@ export function TransferPicker({
   onClose,
   onConfirm,
   mode = 'transfer',
+  preferAgentId,
 }: {
   requestId: string;
   tenant: string | null;
@@ -71,12 +72,17 @@ export function TransferPicker({
   onClose: () => void;
   /** Runs the same review + transfer as the suggested push, with this target and note. */
   onConfirm: (agentId: string, note: string, agentName: string | null) => Promise<string | null>;
+  /** E128: picked already when the server lists this agent (a renewal going back to its original agent). */
+  preferAgentId?: string | null;
 }) {
   // A bottom sheet on phones, a centred card from md.
   const sheetCentred = atLeast(useBreakpoint(), 'md');
   const q = useTransferOptions(requestId);
   const rows = useMemo(() => orderOptions(q.data ?? []), [q.data]);
   const [picked, setPicked] = useState<string | null>(null);
+  useEffect(() => {
+    if (preferAgentId && picked === null && rows.some((r) => r.agent_id === preferAgentId)) setPicked(preferAgentId);
+  }, [preferAgentId, rows, picked]);
   const [note, setNote] = useState(defaultNote);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -18,6 +18,7 @@ import {
 } from '@/lib/boardMap';
 import { OpsTopBar, StageStrip, useOpsFonts } from './OpsChrome';
 import { OpsMap, type Picked } from './OpsMap';
+import { useOpsTheme, type OpsTheme } from './opsTheme';
 
 /**
  * Boardroom screen 3, the OPS COMMAND MAP (E96), as in the approved preview:
@@ -186,9 +187,12 @@ export function OpsMapScreen({
   errorText,
   idle,
   switcher,
+  theme: themeProp,
 }: {
   /** E97: the screen switcher, when the link may switch. */
   switcher?: ReactNode;
+  /** Light unless the page's URL says ?theme=dark. */
+  theme?: OpsTheme;
   label: string;
   map: BoardMap;
   now: number;
@@ -197,6 +201,8 @@ export function OpsMapScreen({
   idle: boolean;
 }) {
   useOpsFonts();
+  const urlTheme = useOpsTheme();
+  const theme = themeProp ?? urlTheme;
   const [visible, setVisible] = useState<Record<LayerKey, boolean>>(LAYER_DEFAULTS);
   const [picked, setPicked] = useState<Picked | null>(null);
   const toggle = useCallback((k: LayerKey) => setVisible((v) => ({ ...v, [k]: !v[k] })), []);
@@ -204,13 +210,13 @@ export function OpsMapScreen({
   const tiles = useMemo(() => stageTiles(map.stages, map.kpis.soldToday), [map]);
 
   return (
-    <main className={`ops-board ${idle ? 'ops-idle' : ''}`} data-board-state="live" data-screen="map">
+    <main className={`ops-board ops-${theme} ${idle ? 'ops-idle' : ''}`} data-board-state="live" data-screen="map" data-ops-theme={theme}>
       <OpsTopBar switcher={switcher} label={label} readiness={map.readiness} readinessRule={map.readinessRule} stale={stale} errorText={errorText} now={now} officeOnly={map.names} />
       <Kpis map={map} />
       <div className="ops-main">
         <Layers map={map} visible={visible} onToggle={toggle} />
         <section className="ops-map" aria-label="Operations map">
-          <OpsMap data={map} visible={visible} onPick={setPicked} />
+          <OpsMap data={map} visible={visible} onPick={setPicked} theme={theme} />
           {picked && <NamesCard picked={picked} names={map.names} onClose={closeCard} />}
         </section>
         <aside className="ops-right" aria-label="Alerts and money in motion">

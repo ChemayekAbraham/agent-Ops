@@ -136,7 +136,7 @@ describe('COO "Send back…" sheet', () => {
     const sheet = await screen.findByRole('dialog', { name: 'Send back — Cara' });
     // E64: the field agent reads as the reject it is.
     await within(sheet).findByText('Field agent (to correct)');
-    await within(sheet).findByText('Landlord or payout number not verified');
+    await within(sheet).findByText('Landlord not verified');
     return sheet;
   };
 
@@ -189,8 +189,8 @@ describe('send-back form on another desk', () => {
     ];
     mockRpcs((fn) => (fn === 'pipeline_send_back_options' ? { data: OPTIONS.slice(0, 2), error: null } : undefined));
     wrap(<SendBackForm requestId="r9" stage="tenant_ops" onDone={() => {}} />);
-    await screen.findByText('Tenant has no smartphone');
-    expect(screen.queryByText('Landlord did not confirm')).toBeNull();
+    await screen.findByText('No smartphone');
+    expect(screen.queryByText("Landlord didn't confirm")).toBeNull();
     expect(rpcMock).not.toHaveBeenCalledWith('coo_reason_codes', expect.anything());
     expect(rpcMock).toHaveBeenCalledWith('pipeline_send_back_options', { p_from_stage: 'tenant_ops' });
   });
@@ -323,7 +323,7 @@ describe('board push: send-back goes through pipeline_send_back_to', () => {
     await screen.findByText('Tina');
     fireEvent.click(within(document.querySelector('[data-row="r1"]') as HTMLElement).getByRole('button', { name: 'Send back' }));
     const sheet = await screen.findByRole('dialog', { name: 'Send back — Tina' });
-    await within(sheet).findByText('Tenant ID not on file');
+    await within(sheet).findByText('Tenant ID missing');
     expect(sheet.querySelector('[data-office="agent"]')?.getAttribute('aria-checked')).toBe('true');
     expect(sheet.querySelector('[data-reason="TENANT_ID_MISSING"]')?.getAttribute('aria-checked')).toBe('true');
     expect((within(sheet).getByRole('textbox') as HTMLTextAreaElement).value).toBe('Tenant ID photo is missing from the request');

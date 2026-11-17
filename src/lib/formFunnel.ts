@@ -10,10 +10,21 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { safeUUID } from '@/lib/safeUUID';
+import { withUserSession } from '@/lib/authenticatedRequests';
 
-export type FunnelForm = 'agent_post' | 'tenant_self';
+export type FunnelForm = 'agent_post' | 'tenant_self' | 'renewal' | 'resubmit';
 export type FunnelEvent = 'open' | 'step' | 'blocked' | 'item_done' | 'submit_ok' | 'submit_fail' | 'close';
-export const FUNNEL_STEPS = ['start', 'repayment', 'tenant', 'house_landlord', 'gps', 'smartphone', 'lc1', 'documents', 'review'] as const;
+/**
+ * The 8 intake steps (intakeSteps.ts) — tenant, rent_plan, landlord, house, household,
+ * tenant_photo, id, lc1_post — plus 'start' (the first answer). The older names stay valid
+ * so rows already logged keep their meaning.
+ */
+export const FUNNEL_STEPS = [
+  'start', 'tenant', 'rent_plan', 'landlord', 'house', 'household', 'tenant_photo', 'id', 'lc1_post',
+  'repayment', 'house_landlord', 'gps', 'smartphone', 'lc1', 'documents', 'review',
+  // The renewal's 3 steps (form 'renewal').
+  'plan', 'changes', 'code',
+] as const;
 export type FunnelStep = typeof FUNNEL_STEPS[number];
 export const FUNNEL_ITEMS = [
   'house_photos', 'landlord', 'rent', 'gps', 'family_size', 'work', 'id_front', 'id_back', 'lc1_letter',
@@ -61,17 +72,21 @@ const enqueue = (row: FunnelRow) => writeQueue([...readQueue(), row]);
 
 /** Sends one row; queues it when the network is the problem. Never rejects. */
 async function sendRow(row: FunnelRow, rpc: Rpc): Promise<boolean> {
-  if (isOffline()) { enqueue(row); return false; }
   try {
-    const { error } = await rpc('request_form_log', row as unknown as Record<string, unknown>);
+    const { error } = await withUserSession(() => {
+      if (isOffline()) {
+        enqueue(row);
+        return Promise.resolve({ error: { message: 'Offline event queued' } });
+      }
+      return rpc('request_form_log', row as unknown as Record<string, unknown>);
+    });
     if (error) {
       if (isNetworkError(error.message)) enqueue(row);
       return false; // a server refusal is dropped: re-sending would refuse again
     }
     return true;
   } catch (e) {
-    enqueue(row);
-    void e;
+    if (isNetworkError(e instanceof Error ? e.message : undefined)) enqueue(row);
     return false;
   }
 }
@@ -106,8 +121,10 @@ export interface FormFunnel {
   open(meta?: Record<string, unknown>): void;
   step(step: FunnelStep): void;
   blocked(items: FunnelItem[], error?: string | null): void;
-  itemDone(item: FunnelItem): void;
-  submitOk(rentRequestId: string): void;
+  /** An item became valid; `meta` / `error` ride with it (e.g. gps { accuracy_m }). */
+  itemDone(item: FunnelItem, meta?: Record<string, unknown> | null, error?: string | null): void;
+  /** Posted; `meta` rides with the request id, e.g. { gps_note: 'Low GPS accuracy (120 m)' } for the Service Centre. */
+  submitOk(rentRequestId: string, meta?: Record<string, unknown>): void;
   submitFail(error: string, items?: FunnelItem[] | null): void;
   /** Closed without posting; `meta` e.g. { saved_draft: true }. */
   close(meta?: Record<string, unknown>): void;
@@ -165,14 +182,14 @@ export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormF
       if (!opened) return;
       emit('blocked', { p_items: clean(items).length ? clean(items) : ['other'], p_error: error ?? null });
     },
-    itemDone(item) {
+    itemDone(item, meta, error) {
       if (!opened || done.has(item) || !(FUNNEL_ITEMS as readonly string[]).includes(item)) return;
       done.add(item);
-      emit('item_done', { p_items: [item] });
+      emit('item_done', { p_items: [item], ...(meta ? { p_meta: meta } : {}), ...(error ? { p_error: error } : {}) });
     },
-    submitOk(rentRequestId) {
+    submitOk(rentRequestId, meta) {
       if (!opened) return;
-      emit('submit_ok', { p_rent_request_id: rentRequestId });
+      emit('submit_ok', { p_rent_request_id: rentRequestId, ...(meta ? { p_meta: meta } : {}) });
       posted = true;
     },
     submitFail(error, items) {
@@ -189,6 +206,15 @@ export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormF
 }
 
 /** The server's error code at the start of a message ("REQUIREMENTS_MISSING: …"), or the fallback. */
+/**
+ * A server refusal in plain words: the message after its code ("DOCS_LOCKED: Documents can only be
+ * added…" → "Documents can only be added…"), never a bare "failed".
+ */
+export function plainServerMessage(message: string | null | undefined, fallback = 'The server refused it. Please try again.'): string {
+  const m = (message ?? '').replace(/\b[A-Z][A-Z0-9_]{3,}:\s*/g, '').trim();
+  return m || fallback;
+}
+
 export function funnelErrorCode(message: string | null | undefined, fallback = 'unknown'): string {
   const m = /^\s*([A-Z][A-Z0-9_]{3,})\b/.exec(message || '');
   return m ? m[1] : fallback;

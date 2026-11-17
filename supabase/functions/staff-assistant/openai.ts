@@ -3,8 +3,8 @@
 // Model tiers: ZOE_MODEL_FAST and ZOE_MODEL_DEEP configured in `public.staff_assistant_config`.
 
 export const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1";
-export const DEFAULT_ZOE_MODEL_FAST = "google/gemini-2.5-flash";
-export const DEFAULT_ZOE_MODEL_DEEP = "google/gemini-2.5-pro";
+export const DEFAULT_ZOE_MODEL_FAST = "google/gemini-3.8-flash";
+export const DEFAULT_ZOE_MODEL_DEEP = "google/gemini-3.8-flash";
 export const DEFAULT_ZOE_MODEL = "google/gemini-3-flash-preview";
 
 export const DEFAULT_CHAT_TEMPERATURE = 0.2;

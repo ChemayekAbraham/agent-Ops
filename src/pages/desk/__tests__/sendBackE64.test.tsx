@@ -27,7 +27,8 @@ const wrap = (ui: ReactNode) =>
 beforeEach(() => {
   rpcMock.mockReset();
   catalogue = [
-    { code: 'ITEMS_MISSING', desks: ['Service Centre'], meaning: 'Items missing at intake', requires_text: false },
+    { code: 'DOC_MISSING', desks: ['SC', 'Agent Ops'], meaning: 'Required item missing', requires_text: false },
+    { code: 'PARTNER_OPS_RETIRED', desks: ['all'], meaning: 'Forwarded to the COO by the system', requires_text: false },
     { code: 'OTHER', desks: ['all'], meaning: 'Reviewed weekly to create new codes', requires_text: true },
     { code: 'TENANT_UNREACHABLE', desks: ['Tenant Ops'], meaning: 'Tenant could not be reached', requires_text: false },
   ];
@@ -91,9 +92,12 @@ describe('E64: Service Centre sends back through pipeline_send_back_to', () => {
 
     const send = screen.getByRole('button', { name: 'Send back to Field agent (to correct)' });
     expect(send).toHaveProperty('disabled', true); // a reason is required
-    const reasons = await screen.findAllByRole('radio', { name: /Items missing at intake|Reviewed weekly/ });
-    expect(reasons.map((r) => r.getAttribute('data-reason'))).toEqual(['ITEMS_MISSING', 'OTHER']); // the Service Centre's own plus the shared ones
-    fireEvent.click(within(document.body).getByRole('radio', { name: 'Items missing at intake' }));
+    // The Service Centre's allow-list with short labels: never a system code or an internal meaning.
+    const reasons = await screen.findAllByRole('radio', { name: /Document missing|Other \(explain\)/ });
+    expect(reasons.map((r) => r.getAttribute('data-reason'))).toEqual(['DOC_MISSING', 'OTHER']);
+    expect(document.querySelector('[data-reason="PARTNER_OPS_RETIRED"]')).toBeNull();
+    expect(screen.queryByText(/Reviewed weekly/)).toBeNull();
+    fireEvent.click(within(document.body).getByRole('radio', { name: 'Document missing' }));
     expect(send).toHaveProperty('disabled', true); // and what the agent must fix
     fireEvent.click(document.querySelector('[data-fix-item="LC1 letter"]') as HTMLElement);
     expect(send).toHaveProperty('disabled', false);
@@ -104,7 +108,7 @@ describe('E64: Service Centre sends back through pipeline_send_back_to', () => {
       p_request_id: 'rr-1',
       p_from_stage: 'service_centre',
       p_to: 'agent',
-      p_reason_code: 'ITEMS_MISSING',
+      p_reason_code: 'DOC_MISSING',
       p_note: '[LC1 letter]',
     });
     expect(onDone).toHaveBeenCalledWith('Sent back to the agent');

@@ -69,7 +69,7 @@ describe('every desk’s send-back form', () => {
   it('cannot send without an item; the note sent carries the item names first', async () => {
     wrap(<SendBackForm requestId="rr-1" stage="agent_ops" initial={{ to: 'agent' }} onDone={() => {}} />);
     await screen.findByText('Field agent (to correct)');
-    fireEvent.click(await screen.findByRole('radio', { name: 'Tenant ID not on file' }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'Tenant ID missing' }));
     const send = screen.getByRole('button', { name: 'Send back to Field agent (to correct)' }) as HTMLButtonElement;
     expect(send.disabled).toBe(true);
     expect(document.querySelector('[data-send-back-blocked]')?.textContent).toBe('Choose what the agent must fix.');
@@ -95,7 +95,7 @@ describe('every desk’s send-back form', () => {
   it('"Other" needs a note of its own', async () => {
     wrap(<SendBackForm requestId="rr-1" stage="agent_ops" initial={{ to: 'agent' }} onDone={() => {}} />);
     await screen.findByText('Field agent (to correct)');
-    fireEvent.click(await screen.findByRole('radio', { name: 'Tenant ID not on file' }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'Tenant ID missing' }));
     fireEvent.click(document.querySelector('[data-fix-item="Other"]') as HTMLElement);
     const send = screen.getByRole('button', { name: 'Send back to Field agent (to correct)' }) as HTMLButtonElement;
     expect(send.disabled).toBe(true);

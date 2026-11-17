@@ -7,7 +7,8 @@ import { fmt } from './format';
 import { DecisionButton, ErrorLine, LoadingRows, Sheet, stackLayout } from './ui';
 import { SEND_BACK_NOTE_MIN, noteNeeded, useSendBackOptions, type SendBackReason } from './sendBack';
 import { sendBackTo } from './sendBackApi';
-import { FixItemsPicker, itemsBlocked, itemsNote, type FixItem } from './sendBackItems';
+import { ChoiceRow, FixItemsPicker, itemsBlocked, itemsNote, type FixItem } from './sendBackItems';
+import { allowedReasons } from './deskReasons';
 
 /**
  * The COO sends back any request in the COO queue, frozen and held ones
@@ -52,7 +53,11 @@ export function CooSendBackSheet({ targets, onDone, onClose }: { targets: CooTar
   // The same offices and words as the one-row sheet; the fixed list if the server's has not come.
   const destinations: { code: CooDestination; label: string; hint?: string | null }[] =
     options.data && options.data.length > 0 ? options.data.map((o) => ({ code: o.code as CooDestination, label: o.label, hint: o.hint })) : COO_DESTINATIONS;
-  const reasons: SendBackReason[] = (codes.data ?? []).map((r) => ({ code: r.code, meaning: r.meaning ?? null, requires_text: r.requires_text === true }));
+  // The COO's own reasons, short labels (deskReasons.ts).
+  const reasons: SendBackReason[] = allowedReasons(
+    (codes.data ?? []).map((r) => ({ code: r.code, meaning: r.meaning ?? null, requires_text: r.requires_text === true })),
+    'coo',
+  );
   const [to, setTo] = useState<CooDestination | ''>('');
   const [reasonCode, setReasonCode] = useState('');
   const [note, setNote] = useState('');
@@ -62,24 +67,26 @@ export function CooSendBackSheet({ targets, onDone, onClose }: { targets: CooTar
   const [items, setItems] = useState<FixItem[]>([]);
   const many = targets.length > 1;
   const reason = reasons.find((r) => r.code === reasonCode) ?? null;
+  // The only destination is chosen already.
+  const chosenTo = (to || (destinations.length === 1 ? destinations[0].code : '')) as CooDestination | '';
   const needsNote = noteNeeded(reason);
   const blocked =
-    (!to ? 'Choose where to send it back.' : !reason ? 'Choose a reason.' : needsNote && note.trim().length < SEND_BACK_NOTE_MIN ? `Write at least ${SEND_BACK_NOTE_MIN} characters explaining the reason.` : null) ??
+    (!chosenTo ? 'Choose where to send it back.' : !reason ? 'Choose a reason.' : needsNote && note.trim().length < SEND_BACK_NOTE_MIN ? `Write at least ${SEND_BACK_NOTE_MIN} characters explaining the reason.` : null) ??
     itemsBlocked(items, note);
 
   const go = async () => {
     if (blocked) return setProblem(blocked);
     setSaving(true);
     setProblem(null);
-    const r = await sendBackMany(targets, { to: to as CooDestination, reasonCode, note: itemsNote(items, note) });
+    const r = await sendBackMany(targets, { to: chosenTo as CooDestination, reasonCode, note: itemsNote(items, note) });
     setSaving(false);
     void qc.invalidateQueries({ queryKey: ['desk-feed'] });
     if (r.done.length) onDone?.(r.done);
-    const label = destinations.find((d) => d.code === to)?.label ?? to;
+    const label = destinations.find((d) => d.code === chosenTo)?.label ?? chosenTo;
     if (!many) {
       // One request: the server's refusal stays on the form; a success closes it.
       if (r.skipped.length) return setProblem(r.skipped[0].error);
-      toast.success(to === 'agent' ? 'Sent back to the agent' : `Sent back to ${label}`);
+      toast.success(chosenTo === 'agent' ? 'Sent back to the agent' : `Sent back to ${label}`);
       onClose();
       return;
     }
@@ -121,7 +128,7 @@ export function CooSendBackSheet({ targets, onDone, onClose }: { targets: CooTar
       footer={
         <div style={stackLayout(8)}>
           {problem && <ErrorLine>{problem}</ErrorLine>}
-          <DecisionButton variant="warn" disabled={saving || !!blocked} title={blocked ?? undefined} onClick={() => void go()} data-coo-send-back-confirm>
+          <DecisionButton variant="warn" size="md" disabled={saving || !!blocked} title={blocked ?? undefined} onClick={() => void go()} style={{ minHeight: 44 }} data-coo-send-back-confirm>
             {saving ? 'Sending back…' : many ? `Send back ${fmt('int', targets.length)}` : 'Send back'}
           </DecisionButton>
         </div>
@@ -132,13 +139,10 @@ export function CooSendBackSheet({ targets, onDone, onClose }: { targets: CooTar
           <legend className={LABEL}>Send back to</legend>
           <div style={{ ...stackLayout(6), marginTop: 6 }}>
             {destinations.map((d) => (
-              <label key={d.code} className="flex items-center gap-2 text-sm text-foreground">
-                <input type="radio" name="coo-send-back-to" value={d.code} checked={to === d.code} onChange={() => setTo(d.code)} data-destination={d.code} />
-                <span>
-                  {d.label}
-                  {d.hint && <span className={`${LABEL} ml-2`}>{d.hint}</span>}
-                </span>
-              </label>
+              <ChoiceRow key={d.code} role="radio" on={chosenTo === d.code} onClick={() => setTo(d.code)} data-destination={d.code}>
+                <span className="block font-medium text-foreground">{d.label}</span>
+                {d.hint && <span className={`${LABEL} block`}>{d.hint}</span>}
+              </ChoiceRow>
             ))}
           </div>
         </fieldset>
@@ -150,11 +154,11 @@ export function CooSendBackSheet({ targets, onDone, onClose }: { targets: CooTar
           ) : codes.error ? (
             <ErrorLine>{String((codes.error as { message?: string }).message ?? codes.error)}</ErrorLine>
           ) : (
-            <select value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} className="rounded-md border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-2 py-1.5 text-sm text-foreground" data-coo-reason>
+            <select value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} className="w-full rounded-md border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-2 text-sm text-foreground" style={{ minHeight: 44 }} data-coo-reason>
               <option value="">Choose…</option>
               {reasons.map((r) => (
                 <option key={r.code} value={r.code}>
-                  {r.meaning ? `${r.code} — ${r.meaning}` : r.code}
+                  {r.meaning ?? r.code}
                 </option>
               ))}
             </select>

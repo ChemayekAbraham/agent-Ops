@@ -9,6 +9,7 @@ import {
   callWithRetry,
   listPendingCollections,
   removeQueuedCollection,
+  clearClientRef,
   QUEUE_EVENT,
 } from '@/lib/collectionSubmitRetry';
 
@@ -32,6 +33,7 @@ export async function replayPendingCollections(): Promise<void> {
         if (lastKind === 'permission' || lastKind === 'other') {
           // Definitive server refusal — stop resending and tell the agent.
           removeQueuedCollection(item.args.p_client_ref);
+          clearClientRef(item.args.p_tenant_id, item.args.p_rent_request_id, item.args.p_amount);
           const msg = (result.error as { message?: string })?.message ?? 'Collection was refused';
           toast.error('Saved collection was not recorded', { description: msg });
           logCollectionError({
@@ -46,6 +48,8 @@ export async function replayPendingCollections(): Promise<void> {
       }
       const res = result.data as { success?: boolean; error?: string } | null;
       removeQueuedCollection(item.args.p_client_ref);
+      // The next real collection of the same amount must get a fresh ref, not this sent one.
+      clearClientRef(item.args.p_tenant_id, item.args.p_rent_request_id, item.args.p_amount);
       if (res?.success) {
         toast.success('Saved collection sent', {
           description: `${formatUGX(item.args.p_amount)}${item.tenantName ? ` for ${item.tenantName}` : ''} is now recorded.`,

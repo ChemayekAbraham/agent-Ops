@@ -14815,6 +14815,33 @@ export type Database = {
         }
         Relationships: []
       }
+      coo_item_overrides: {
+        Row: {
+          missing: string[]
+          overridden_at: string
+          overridden_by: string
+          reason: string
+          rent_request_id: string
+          staff_ref: string | null
+        }
+        Insert: {
+          missing: string[]
+          overridden_at?: string
+          overridden_by: string
+          reason: string
+          rent_request_id: string
+          staff_ref?: string | null
+        }
+        Update: {
+          missing?: string[]
+          overridden_at?: string
+          overridden_by?: string
+          reason?: string
+          rent_request_id?: string
+          staff_ref?: string | null
+        }
+        Relationships: []
+      }
       credit_access_draws: {
         Row: {
           access_fee: number
@@ -33297,6 +33324,36 @@ export type Database = {
           },
         ]
       }
+      landlord_rent_payout_posting_exceptions: {
+        Row: {
+          amount: number | null
+          created_at: string
+          error: string | null
+          id: string
+          payout_id: string
+          resolved_at: string | null
+          status: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          payout_id: string
+          resolved_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          payout_id?: string
+          resolved_at?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       landlord_verification_events: {
         Row: {
           actor_id: string | null
@@ -35161,6 +35218,30 @@ export type Database = {
           source_table?: string | null
           transaction_group_id?: string | null
           transaction_id?: string
+        }
+        Relationships: []
+      }
+      legacy_plan_fee_schedule: {
+        Row: {
+          created_at: string
+          effective_fee: number
+          fee: number
+          rent_request_id: string
+          total_repayment: number
+        }
+        Insert: {
+          created_at?: string
+          effective_fee: number
+          fee: number
+          rent_request_id: string
+          total_repayment: number
+        }
+        Update: {
+          created_at?: string
+          effective_fee?: number
+          fee?: number
+          rent_request_id?: string
+          total_repayment?: number
         }
         Relationships: []
       }
@@ -46396,6 +46477,36 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_integrity_pushes: {
+        Row: {
+          id: number
+          kind: string
+          note: string | null
+          pushed_at: string
+          pushed_by: string
+          rent_request_id: string
+          staff_ref: string | null
+        }
+        Insert: {
+          id?: number
+          kind: string
+          note?: string | null
+          pushed_at?: string
+          pushed_by: string
+          rent_request_id: string
+          staff_ref?: string | null
+        }
+        Update: {
+          id?: number
+          kind?: string
+          note?: string | null
+          pushed_at?: string
+          pushed_by?: string
+          rent_request_id?: string
+          staff_ref?: string | null
+        }
+        Relationships: []
+      }
       platform_expense_transfers: {
         Row: {
           agent_id: string
@@ -52598,6 +52709,66 @@ export type Database = {
           skipped?: number
           triggered_by?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      renewal_agent_changes: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          new_agent_id: string
+          note: string | null
+          prev_agent_id: string | null
+          prev_request_id: string | null
+          rent_request_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          new_agent_id: string
+          note?: string | null
+          prev_agent_id?: string | null
+          prev_request_id?: string | null
+          rent_request_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          new_agent_id?: string
+          note?: string | null
+          prev_agent_id?: string | null
+          prev_request_id?: string | null
+          rent_request_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      renewal_interest: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          id: number
+          last_request_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          id?: number
+          last_request_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          id?: number
+          last_request_id?: string | null
+          tenant_id?: string
         }
         Relationships: []
       }
@@ -80394,6 +80565,7 @@ export type Database = {
         }[]
       }
       _draft_item_words: { Args: { p_items: string[] }; Returns: string }
+      _e128_send_agent_sms: { Args: never; Returns: undefined }
       _e28_phone9: { Args: { p: string }; Returns: string }
       _e84_queue_release_sms: {
         Args: { p_rent_request_id: string }
@@ -86393,6 +86565,11 @@ export type Database = {
       }
       coo_demand_alarm_run: { Args: { p_day?: string }; Returns: Json }
       coo_demoted_board: { Args: { p_days?: number }; Returns: Json }
+      coo_item_override_for: { Args: { p_request_id: string }; Returns: Json }
+      coo_push_override: {
+        Args: { p_ids: string[]; p_reason: string }
+        Returns: Json
+      }
       coo_push_selected: {
         Args: { p_comment?: string; p_ids: string[] }
         Returns: Json
@@ -98979,6 +99156,11 @@ export type Database = {
         Args: { p_portfolio_id: string; p_reason: string }
         Returns: string
       }
+      plan_integrity_issues: { Args: never; Returns: Json }
+      plan_integrity_push: {
+        Args: { p_note?: string; p_request_id: string }
+        Returns: Json
+      }
       plan_reversed_money_still_held: {
         Args: { p_since: string }
         Returns: {
@@ -99883,6 +100065,10 @@ export type Database = {
           read_ct: number
         }[]
       }
+      ready_to_renew: {
+        Args: { p_all?: boolean; p_limit?: number }
+        Returns: Json
+      }
       reassign_house_agent: {
         Args: { p_house_id: string; p_new_agent_id: string; p_reason: string }
         Returns: Json
@@ -99927,6 +100113,7 @@ export type Database = {
         Args: { p_subscription_id: string }
         Returns: Json
       }
+      recognise_legacy_plan_fees: { Args: { p_as_at?: string }; Returns: Json }
       recognise_partner_receivable: {
         Args: { p_note_id: string }
         Returns: Json
@@ -100505,6 +100692,11 @@ export type Database = {
         }
         Returns: string
       }
+      renewal_agent_change_decide: {
+        Args: { p_approve: boolean; p_note?: string; p_request_id: string }
+        Returns: Json
+      }
+      renewal_agent_changes_list: { Args: never; Returns: Json }
       rent_access_limit_server: { Args: { p_tenant: string }; Returns: Json }
       rent_allowed_days: { Args: never; Returns: number[] }
       rent_apply_collections_to_days: {
@@ -100594,6 +100786,10 @@ export type Database = {
         }[]
       }
       rent_plan_transition_notices_pending: {
+        Args: { p_lookback_hours: number }
+        Returns: Json
+      }
+      rent_plan_transition_notices_pending_base: {
         Args: { p_lookback_hours?: number }
         Returns: Json
       }
@@ -101160,6 +101356,7 @@ export type Database = {
         Returns: Json
       }
       restore_campaign_attribution: { Args: { p_token: string }; Returns: Json }
+      resubmit_needs: { Args: { p_request_id: string }; Returns: Json }
       resubmit_rejected_deposit: {
         Args: { p_id: string; p_payload: Json }
         Returns: string
@@ -103394,6 +103591,7 @@ export type Database = {
         Returns: Json
       }
       tenant_rent_plan_detail: { Args: never; Returns: Json }
+      tenant_request_renewal: { Args: never; Returns: Json }
       tenant_save_intake_details: {
         Args: {
           p_family_size: number

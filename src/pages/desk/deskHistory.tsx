@@ -118,7 +118,26 @@ export function answersText(a: Record<string, unknown> | null | undefined): stri
 
 const decisionWords = (d: string | null | undefined) => (d ? (DECISION_LABEL[d as Decision] ?? d.replace(/_/g, ' ')) : '—');
 
+/** E128 R1: Landlord Ops passes an unchanged renewal by itself; its note says so in plain words. */
+export const AUTO_PASSED_PREFIX = 'Auto-passed (E128 R1)';
+export const AUTO_PASSED_WORDS = 'Landlord Ops: auto-passed (unchanged renewal)';
+export function isAutoPassedRenewal(desk: string | null | undefined, note: string | null | undefined): boolean {
+  return (desk === 'landlord_ops' || desk === 'landlord-ops') && (note ?? '').trim().startsWith(AUTO_PASSED_PREFIX);
+}
+
 function ReviewBlock({ r }: { r: HistoryReview }) {
+  if (isAutoPassedRenewal(r.desk, r.note)) {
+    return (
+      <li data-review={r.desk} data-auto-passed style={{ ...stackLayout(4), listStyle: 'none' }}>
+        <p className="text-sm font-semibold text-foreground" style={{ margin: 0 }}>
+          {AUTO_PASSED_WORDS}
+        </p>
+        <p className={LABEL} style={{ margin: 0 }}>
+          {when(r.at)}
+        </p>
+      </li>
+    );
+  }
   return (
     <li data-review={r.desk} style={{ ...stackLayout(6), listStyle: 'none' }}>
       <p className="text-sm text-foreground" style={{ margin: 0 }}>

@@ -51,3 +51,6 @@ auto_commit_push.py
 
 # Test results
 test-results/
+
+# Playwright screenshots are local test output, not source
+e2e/*.screenshots/

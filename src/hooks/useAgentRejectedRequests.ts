@@ -109,13 +109,9 @@ function reviewerForStage(r: any): { id: string | null; at: string | null; label
   }
 }
 
-export function useAgentRejectedRequests() {
-  const { user } = useAuth();
-
-  return useQuery({
-    queryKey: ['agent-rejected-rent-requests', user?.id],
-    enabled: !!user,
-    queryFn: async (): Promise<AgentRejectedRequest[]> => {
+/** The agent's returned, recalled and cancelled requests (the Rejected list), newest first. */
+export async function fetchAgentRejectedRequests(agentId: string): Promise<AgentRejectedRequest[]> {
+  const user = { id: agentId };
       const { data, error } = await supabase
         .from('rent_requests')
         .select(
@@ -207,6 +203,14 @@ export function useAgentRejectedRequests() {
             : r.rejected_reason,
         } as AgentRejectedRequest;
       });
-    },
+}
+
+export function useAgentRejectedRequests() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['agent-rejected-rent-requests', user?.id],
+    enabled: !!user,
+    queryFn: (): Promise<AgentRejectedRequest[]> => fetchAgentRejectedRequests(user!.id),
   });
 }

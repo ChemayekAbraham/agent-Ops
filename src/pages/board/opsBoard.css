@@ -149,3 +149,59 @@
 .ops-board .screen-tab:focus-visible, .ops-board .screen-rotate:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) { .ops-dot { animation: none; } }
+
+/* ───────────── LIGHT (default for the PIPELINE and OPS MAP screens; ?theme=dark for the dark look) ─────────────
+   Read from across a room: #F6F5FB ground, white panels with a #E4E2EE border and a light shadow,
+   #1B1A2E text (#55546A secondary), Welile purple #6D28D9 for the funders board and the active tab,
+   status green #15803D, amber #B45309, red #B91C1C, blue #1D4ED8. Every text colour is >= 4.5:1 on
+   its background; the big numbers are ink (>= 7:1) and carry their status as a coloured bar. */
+.ops-board.ops-light {
+  --ground: #F6F5FB; --panel: #FFFFFF; --tile: #FFFFFF; --line: #E4E2EE; --line2: #E4E2EE;
+  --ink: #1B1A2E; --muted: #55546A; --dim: #55546A;
+  --cyan: #6D28D9; --amber: #B45309; --green: #15803D; --blue: #1D4ED8; --blue-ink: #1D4ED8; --red: #B91C1C;
+  --shadow: 0 1px 2px rgba(27, 26, 46, 0.06), 0 2px 8px rgba(27, 26, 46, 0.05);
+}
+.ops-light .ops-kpi, .ops-light .ops-rail, .ops-light .ops-panel, .ops-light .ops-stage, .ops-light .ops-alert, .ops-light .ops-map { box-shadow: var(--shadow); }
+.ops-light .ops-mark { border-color: var(--cyan); color: var(--cyan); }
+.ops-light .ops-pill { background: #FFFFFF; }
+.ops-light .ops-pill-red { border-color: var(--red); color: var(--red); background: #FFFFFF; }
+.ops-light .ops-pill-amber, .ops-light .ops-pill-stale { border-color: var(--amber); color: var(--amber); background: #FFFFFF; }
+.ops-light .ops-pill-green { border-color: var(--green); color: var(--green); background: #FFFFFF; }
+
+/* KPI tiles and stage tiles: white, ink numbers, the status as a 6-design-pixel bar on top. */
+.ops-light .ops-kpi, .ops-light .ops-stage { border-top-width: calc(var(--p) * 6); border-top-style: solid; }
+.ops-light .ops-kpi-value, .ops-light .ops-stage-value { color: var(--ink) !important; }
+.ops-light .ops-kpi-sold, .ops-light .ops-stage-sold { background: #FFFFFF; border-color: var(--line); border-top-color: var(--green); }
+.ops-light .ops-kpi-sold .ops-kpi-label, .ops-light .ops-stage-sold .ops-stage-label, .ops-light .ops-stage-sold .ops-stage-sub { color: var(--green); }
+.ops-light .ops-kpi-selected, .ops-light .ops-stage-selected { background: #FFFFFF; border-color: var(--line); border-top-color: var(--amber); }
+.ops-light .ops-kpi-selected .ops-kpi-label, .ops-light .ops-stage-selected .ops-stage-label, .ops-light .ops-stage-selected .ops-stage-sub { color: var(--amber); }
+.ops-light .ops-kpi-board, .ops-light .ops-stage-board { background: #FFFFFF; border-color: var(--line); border-top-color: var(--cyan); }
+.ops-light .ops-kpi-board .ops-kpi-label, .ops-light .ops-stage-board .ops-stage-label, .ops-light .ops-stage-board .ops-stage-sub { color: var(--cyan); }
+.ops-light .ops-kpi-desks { border-top-color: var(--blue); }
+.ops-light .ops-stage-red { background: #FFFFFF; border-color: var(--line); border-top-color: var(--red); }
+.ops-light .ops-stage-red .ops-stage-label, .ops-light .ops-stage-red .ops-stage-sub { color: var(--red); }
+.ops-light .ops-stage-amber { border-top-color: var(--amber); }
+.ops-light .ops-stage-clear { border-top-color: var(--green); }
+.ops-light .ops-stage:not(.ops-stage-red):not(.ops-stage-amber):not(.ops-stage-clear):not(.ops-stage-board):not(.ops-stage-selected):not(.ops-stage-sold) { border-top-color: var(--line); }
+.ops-light .ops-kpi:not(.ops-kpi-sold):not(.ops-kpi-selected):not(.ops-kpi-board):not(.ops-kpi-desks) { border-top-color: var(--line); }
+
+/* The legend (layers) and the map frame. */
+.ops-light .ops-layer { background: #FFFFFF; }
+.ops-light .ops-layer[aria-pressed="false"] { background: var(--ground); }
+.ops-light .ops-sw-sold, .ops-light .ops-sw-desks, .ops-light .ops-sw-arrearsToday, .ops-light .ops-sw-onBoard { box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 3px var(--line); }
+.ops-light .ops-sw-repaying { background: var(--muted); }
+.ops-light .ops-sw-emptyHouses { background: #D9D7E5; }
+.ops-light .ops-map { background: #FFFFFF; }
+.ops-light .ops-map-note { background: rgba(255, 255, 255, 0.94); }
+.ops-light .ops-card { background: #FFFFFF; box-shadow: var(--shadow); }
+.ops-light .ops-card-sold { border-color: var(--green); } .ops-light .ops-card-selected { border-color: var(--amber); }
+
+/* Alerts and money in motion. */
+.ops-light .ops-alert-critical { background: #FFFFFF; border-color: var(--line); border-left: calc(var(--p) * 6) solid var(--red); }
+.ops-light .ops-alert-high { background: #FFFFFF; border-color: var(--line); border-left: calc(var(--p) * 6) solid var(--amber); }
+.ops-light .ops-motion { border-bottom-color: var(--line); }
+
+/* The screen switcher: the active tab in purple with white text (7.1:1). */
+.ops-light .screen-tab[aria-pressed="true"] { background: var(--cyan); border-color: var(--cyan); color: #FFFFFF; }
+.ops-light .screen-tab, .ops-light .screen-rotate { background: #FFFFFF; }
+.ops-light .screen-rotate[aria-pressed="true"] { border-color: var(--green); color: var(--green); }

@@ -6,7 +6,8 @@ import { CALM, FOCUS, LABEL, statusText } from './deskTheme';
 import { fmt } from './format';
 import { DecisionButton, ErrorLine, Sheet, stackLayout } from './ui';
 import type { BoardRow } from './boardApi';
-import { FixItemsPicker, itemsBlocked, itemsNote, type FixItem } from './sendBackItems';
+import { ChoiceRow, FixItemsPicker, itemsBlocked, itemsNote, type FixItem } from './sendBackItems';
+import { reasonLabel } from './deskReasons';
 
 /**
  * E120: Service Centre bulk Discard / Send back, `sc_bulk_decide`. The
@@ -20,12 +21,8 @@ import { FixItemsPicker, itemsBlocked, itemsNote, type FixItem } from './sendBac
 export const BULK_MAX = 500;
 export type BulkDecision = 'reject' | 'send_back';
 export const BULK_WORDS: Record<BulkDecision, string> = { reject: 'Discard (fake)', send_back: 'Send back to agent' };
-export const SC_BULK_REASONS = [
-  { code: 'FAKE_REQUEST', label: 'Fake request' },
-  { code: 'STALE_REQUEST', label: 'Old / stale request' },
-  { code: 'DUPLICATE_REQUEST', label: 'Duplicate' },
-  { code: 'OTHER', label: 'Other' },
-] as const;
+/** The Service Centre's bulk reasons, with the desk's short labels (deskReasons.ts). */
+export const SC_BULK_REASONS = ['FAKE_REQUEST', 'STALE_REQUEST', 'DUPLICATE_REQUEST', 'OTHER'].map((code) => ({ code, label: reasonLabel('service_centre', code) }));
 export const NOTE_MIN = 10;
 
 export type BulkFilter = { older: 7 | 30 | null; agent: string | null; search: string };
@@ -233,7 +230,7 @@ export function BulkDialog({
       footer={
         <div style={stackLayout(8)}>
           {problem && <ErrorLine>{problem}</ErrorLine>}
-          <DecisionButton variant={decision === 'reject' ? 'danger' : 'warn'} disabled={saving || !reason || noteShort || !!itemsProblem} onClick={() => void go()} data-bulk-confirm>
+          <DecisionButton variant={decision === 'reject' ? 'danger' : 'warn'} size="md" disabled={saving || !reason || noteShort || !!itemsProblem} onClick={() => void go()} style={{ minHeight: 44 }} data-bulk-confirm>
             {saving ? 'Working…' : `${BULK_WORDS[decision]} · ${fmt('int', n)}`}
           </DecisionButton>
         </div>
@@ -245,10 +242,9 @@ export function BulkDialog({
           <legend className={LABEL}>Reason</legend>
           <div style={{ ...stackLayout(6), marginTop: 6 }}>
             {SC_BULK_REASONS.map((r) => (
-              <label key={r.code} className="flex items-center gap-2 text-sm text-foreground">
-                <input type="radio" name="bulk-reason" value={r.code} checked={reason === r.code} onChange={() => setReason(r.code)} data-reason={r.code} />
+              <ChoiceRow key={r.code} role="radio" on={reason === r.code} onClick={() => setReason(r.code)} data-reason={r.code}>
                 {r.label}
-              </label>
+              </ChoiceRow>
             ))}
           </div>
         </fieldset>

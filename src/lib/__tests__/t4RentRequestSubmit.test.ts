@@ -101,6 +101,24 @@ describe('resubmitT4Request: a resubmit goes back to the Service Centre', () => 
     expect(res).toEqual({ ok: false, message: 'FAMILY_SIZE_RANGE: 1-30' });
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
   });
+
+  it('links the face fingerprint even though supabase.rpc is a thenable without .catch', async () => {
+    // The real PostgREST builder has .then but no .catch; the fire-and-forget link must not throw.
+    mocks.rpc.mockImplementation((fn: string) => {
+      const value = { data: { ok: true }, error: null };
+      if (fn === 'link_identity_photo_fingerprint') return { then: (resolve: (v: unknown) => unknown) => Promise.resolve(value).then(resolve) };
+      return Promise.resolve(value);
+    });
+    const face = new File(['f'], 'face.jpg', { type: 'image/jpeg' });
+    const res = await resubmitT4Request({
+      agentId: 'agent-1', requestId: 'req-9', patch: {}, note: 'New face photo',
+      photos: ['https://cdn/a.jpg', 'https://cdn/b.jpg', 'https://cdn/c.jpg'], extraPhotoUrls: [],
+      lcLetter: null, noLc1Reason: null, details: null,
+      tenantPhoto: { file: face, sha256: 'sha-1', faceCheck: null },
+    });
+    expect(res).toMatchObject({ ok: true, requestId: 'req-9' });
+    expect(calls().map(([fn]) => fn)).toContain('link_identity_photo_fingerprint');
+  });
 });
 
 describe('E90: what the agent still has to add', () => {

@@ -17,6 +17,7 @@ import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
 import { LendingOffersCard } from '@/components/vouch/borrower/LendingOffersCard';
 import { MyLoanRequestsCard } from '@/components/vouch/borrower/MyLoanRequestsCard';
 import { TenantRentRequestCard } from '@/components/tenant/TenantRentRequestCard';
+import { TenantRenewRentPlanButton } from '@/components/tenant/TenantRenewRentPlanButton';
 import { WidgetErrorBoundary } from '@/components/shared/WidgetErrorBoundary';
 
 import { useToast } from '@/hooks/use-toast';
@@ -497,6 +498,10 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
               {/* Rent actions — request rent first, then browse available houses */}
               <div className="flex flex-col gap-3">
+                {/* E128: shown only when the latest Rent Plan is completed. */}
+                <WidgetErrorBoundary label="Renew my rent plan">
+                  <TenantRenewRentPlanButton />
+                </WidgetErrorBoundary>
                 <WidgetErrorBoundary label="Request rent as tenant">
                   <TenantRentRequestCard userId={uid} />
                 </WidgetErrorBoundary>
