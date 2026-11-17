@@ -14620,6 +14620,30 @@ export type Database = {
         }
         Relationships: []
       }
+      company_managed_funder_overrides: {
+        Row: {
+          active: boolean
+          created_at: string
+          reason: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          reason: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          reason?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       company_receipt_dismissals: {
         Row: {
           dismissed_at: string
@@ -71554,6 +71578,137 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_school_applications: {
+        Row: {
+          applicant_id: string
+          assigned_agent_id: string | null
+          assigned_at: string | null
+          assigned_by: string | null
+          bursar_name: string | null
+          bursar_phone: string | null
+          contact_email: string | null
+          contact_name: string
+          contact_phone: string
+          contact_role: string | null
+          country: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          directions: string | null
+          district: string
+          estimated_enrollment: number | null
+          gps_accuracy_m: number | null
+          head_name: string | null
+          head_phone: string | null
+          id: string
+          inspection_started_at: string | null
+          latitude: number | null
+          longitude: number | null
+          note: string | null
+          offers: string | null
+          ops_note: string | null
+          ownership: string | null
+          region: string | null
+          registration_number: string | null
+          school_id: string | null
+          school_level: string
+          school_name: string
+          status: string
+          town: string | null
+          updated_at: string
+          village: string | null
+          year_founded: number | null
+        }
+        Insert: {
+          applicant_id?: string
+          assigned_agent_id?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
+          bursar_name?: string | null
+          bursar_phone?: string | null
+          contact_email?: string | null
+          contact_name: string
+          contact_phone: string
+          contact_role?: string | null
+          country?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          directions?: string | null
+          district: string
+          estimated_enrollment?: number | null
+          gps_accuracy_m?: number | null
+          head_name?: string | null
+          head_phone?: string | null
+          id?: string
+          inspection_started_at?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          note?: string | null
+          offers?: string | null
+          ops_note?: string | null
+          ownership?: string | null
+          region?: string | null
+          registration_number?: string | null
+          school_id?: string | null
+          school_level: string
+          school_name: string
+          status?: string
+          town?: string | null
+          updated_at?: string
+          village?: string | null
+          year_founded?: number | null
+        }
+        Update: {
+          applicant_id?: string
+          assigned_agent_id?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
+          bursar_name?: string | null
+          bursar_phone?: string | null
+          contact_email?: string | null
+          contact_name?: string
+          contact_phone?: string
+          contact_role?: string | null
+          country?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          directions?: string | null
+          district?: string
+          estimated_enrollment?: number | null
+          gps_accuracy_m?: number | null
+          head_name?: string | null
+          head_phone?: string | null
+          id?: string
+          inspection_started_at?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          note?: string | null
+          offers?: string | null
+          ops_note?: string | null
+          ownership?: string | null
+          region?: string | null
+          registration_number?: string | null
+          school_id?: string | null
+          school_level?: string
+          school_name?: string
+          status?: string
+          town?: string | null
+          updated_at?: string
+          village?: string | null
+          year_founded?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_applications_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "welile_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_school_fee_requests: {
         Row: {
           class_grade: string | null
@@ -82172,6 +82327,18 @@ export type Database = {
         }[]
       }
       agent_league_week_start: { Args: { p_ts?: string }; Returns: string }
+      agent_legacy_rent_drafts: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          id: string
+          payload: Json
+          rent_amount: number
+          tenant_name: string
+          tenant_phone: string
+          total_count: number
+        }[]
+      }
       agent_list_empty_house_opportunities: {
         Args: {
           p_district?: string
@@ -101524,6 +101691,7 @@ export type Database = {
         Args: { p_unit: string; p_value: number }
         Returns: number
       }
+      sc_field_board: { Args: never; Returns: Json }
       sc_receivable_writer: { Args: { _user_id: string }; Returns: boolean }
       scan_and_quarantine_bot_referral_rings: { Args: never; Returns: Json }
       scan_critical_function_drift: { Args: never; Returns: Json }
@@ -106242,6 +106410,218 @@ export type Database = {
           src: string
           unit_id: string
         }[]
+      }
+      welile_school_application_agent_search: {
+        Args: { p_district?: string; p_query: string }
+        Returns: {
+          full_name: string
+          id: string
+          phone: string
+          schools_in_district: number
+          schools_total: number
+        }[]
+      }
+      welile_school_application_mine: {
+        Args: never
+        Returns: {
+          assigned_agent_name: string
+          assigned_agent_phone: string
+          created_at: string
+          district: string
+          id: string
+          ops_note: string
+          partnership_status: string
+          school_level: string
+          school_name: string
+          status: string
+          town: string
+          updated_at: string
+        }[]
+      }
+      welile_school_application_review: {
+        Args: {
+          p_agent_id?: string
+          p_decision: string
+          p_id: string
+          p_note?: string
+        }
+        Returns: {
+          applicant_id: string
+          assigned_agent_id: string | null
+          assigned_at: string | null
+          assigned_by: string | null
+          bursar_name: string | null
+          bursar_phone: string | null
+          contact_email: string | null
+          contact_name: string
+          contact_phone: string
+          contact_role: string | null
+          country: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          directions: string | null
+          district: string
+          estimated_enrollment: number | null
+          gps_accuracy_m: number | null
+          head_name: string | null
+          head_phone: string | null
+          id: string
+          inspection_started_at: string | null
+          latitude: number | null
+          longitude: number | null
+          note: string | null
+          offers: string | null
+          ops_note: string | null
+          ownership: string | null
+          region: string | null
+          registration_number: string | null
+          school_id: string | null
+          school_level: string
+          school_name: string
+          status: string
+          town: string | null
+          updated_at: string
+          village: string | null
+          year_founded: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_applications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      welile_school_application_start_inspection: {
+        Args: { p_id: string }
+        Returns: {
+          country: string
+          created_at: string
+          created_by: string
+          district: string | null
+          estimated_enrollment: number | null
+          gate_name: string | null
+          gps_accuracy_m: number | null
+          gps_source: string | null
+          head_name: string | null
+          head_phone: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          name: string
+          ownership: string | null
+          parish: string | null
+          region: string | null
+          school_level: string
+          sub_county: string | null
+          town: string | null
+          updated_at: string
+          village: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_schools"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      welile_school_application_submit: {
+        Args: { p: Json }
+        Returns: {
+          applicant_id: string
+          assigned_agent_id: string | null
+          assigned_at: string | null
+          assigned_by: string | null
+          bursar_name: string | null
+          bursar_phone: string | null
+          contact_email: string | null
+          contact_name: string
+          contact_phone: string
+          contact_role: string | null
+          country: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          directions: string | null
+          district: string
+          estimated_enrollment: number | null
+          gps_accuracy_m: number | null
+          head_name: string | null
+          head_phone: string | null
+          id: string
+          inspection_started_at: string | null
+          latitude: number | null
+          longitude: number | null
+          note: string | null
+          offers: string | null
+          ops_note: string | null
+          ownership: string | null
+          region: string | null
+          registration_number: string | null
+          school_id: string | null
+          school_level: string
+          school_name: string
+          status: string
+          town: string | null
+          updated_at: string
+          village: string | null
+          year_founded: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_applications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      welile_school_application_withdraw: {
+        Args: { p_id: string }
+        Returns: {
+          applicant_id: string
+          assigned_agent_id: string | null
+          assigned_at: string | null
+          assigned_by: string | null
+          bursar_name: string | null
+          bursar_phone: string | null
+          contact_email: string | null
+          contact_name: string
+          contact_phone: string
+          contact_role: string | null
+          country: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          directions: string | null
+          district: string
+          estimated_enrollment: number | null
+          gps_accuracy_m: number | null
+          head_name: string | null
+          head_phone: string | null
+          id: string
+          inspection_started_at: string | null
+          latitude: number | null
+          longitude: number | null
+          note: string | null
+          offers: string | null
+          ops_note: string | null
+          ownership: string | null
+          region: string | null
+          registration_number: string | null
+          school_id: string | null
+          school_level: string
+          school_name: string
+          status: string
+          town: string | null
+          updated_at: string
+          village: string | null
+          year_founded: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "welile_school_applications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       welile_school_fee_request_review: {
         Args: { p_decision: string; p_note: string; p_request_id: string }
