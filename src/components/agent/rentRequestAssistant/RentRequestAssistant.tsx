@@ -97,6 +97,8 @@ import {
 import { createUploadCounter, sendButtonLabel, type SendProgress } from '@/lib/sendProgress';
 import { landlordCodeFromSearch, normalizeLandlordCode, recordLandlordReferral } from '@/lib/landlordReferral';
 import { createFormFunnel, funnelErrorCode, plainServerMessage, type FunnelItem, type FunnelStep } from '@/lib/formFunnel';
+import { UPDATING_LINE, findNewerBuild, reloadToBuild } from '@/lib/appUpdate';
+import { clearT4Resume, loadT4ResumePhotos, readT4Resume, saveT4Resume } from '@/lib/t4Resume';
 import {
   DRAFT_SAVED_MESSAGE, closeDraft, downloadDraftPhoto, draftsAvailable, fetchMyDrafts, newDraftFolder, onDraftsAvailability,
   saveDraft, uploadDraftPhoto, type DraftPhoto, type DraftPhotoKind, type PostingDraftPayload,
@@ -418,19 +420,24 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
    * presses, items done, post and close. Fire-and-forget; never shown, never awaited.
    */
   // A renewal logs as its own form ('renewal'): open, its 3 steps, submit_ok / submit_fail.
-  const funnel = useMemo(() => createFormFunnel(mode === 'renewal' ? 'renewal' : mode === 'resubmit' ? 'resubmit' : 'agent_post'), []);
+  /** Reopened after an app update (t4Resume.ts): what the chat kept, read once. */
+  const resuming = !!request?.resume;
+  const resumeRec = useMemo(() => (resuming ? readT4Resume(user?.id) : null), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const funnelForm = mode === 'renewal' ? 'renewal' : mode === 'resubmit' ? 'resubmit' : 'agent_post';
+  const funnel = useMemo(() => createFormFunnel(funnelForm, undefined, { session: resumeRec?.session ?? null }), []); // eslint-disable-line react-hooks/exhaustive-deps
   const tracking = mode === 'new';
   const logRenewal = mode === 'renewal';
   /** A resubmit logs as form 'resubmit': open, each item done, blocked items, submit_ok / submit_fail. */
   const logResubmit = mode === 'resubmit';
+  // After an app update the same session goes on: no second 'open' ('app_updated' is logged on start).
   useEffect(() => {
     if (!tracking) return;
-    if (open) funnel.open(); else funnel.close();
-  }, [open, tracking, funnel]);
+    if (open) { if (resuming) funnel.resume(); else funnel.open(); } else funnel.close();
+  }, [open, tracking, funnel, resuming]);
   useEffect(() => {
     if (!logRenewal && !logResubmit) return;
-    if (open) funnel.open(); else funnel.close();
-  }, [open, logRenewal, logResubmit, funnel]);
+    if (open) { if (resuming) funnel.resume(); else funnel.open(); } else funnel.close();
+  }, [open, logRenewal, logResubmit, funnel, resuming]);
   useEffect(() => () => funnel.close(), [funnel]);
   /** Step 'start' is logged once the first answer is given; until then only 'open' (and 'close'). */
   const [funnelStarted, setFunnelStarted] = useState(false);
@@ -703,7 +710,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       let d: Record<string, any> | null = null;
       try { d = JSON.parse(localStorage.getItem(draftKey) ?? 'null'); } catch { d = null; }
       // A prefilled form (opened for one tenant) or a saved request (E109) starts from that, not the old draft.
-      const usable = !!d && !(request?.mode === 'new' && request.prefill) && !(request?.mode === 'new' && request.draft) && Date.now() - Number(d.savedAt ?? 0) < DRAFT_MAX_AGE_MS
+      const usable = !resuming && !!d && !(request?.mode === 'new' && request.prefill) && !(request?.mode === 'new' && request.draft) && Date.now() - Number(d.savedAt ?? 0) < DRAFT_MAX_AGE_MS
         && (ALL_STEPS as string[]).includes(d.current);
       if (usable && d) {
         const ph = await loadFormPhotos<{ house?: (File | null)[]; tenant?: File | null; idFront?: File | null; idBack?: File | null; lcLetter?: File | null }>(draftKey);
@@ -964,6 +971,108 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     // Runs once: the form is mounted per request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ----- app update before a send (appUpdate.ts, t4Resume.ts) -----
+     Before a Post / Resubmit / Renew the phone checks for a newer build. If there is one, the
+     chat is kept (every answer, the step, the photos), the page reloads to the new build, and
+     the chat reopens here with `resume`: once the request's own data is back, what was kept is
+     put on top and the send continues. */
+  const [updating, setUpdating] = useState(false);
+  const updateCheck = useRef(false);
+  const [resumeApplied, setResumeApplied] = useState(!resuming);
+  const [continueAfterResume, setContinueAfterResume] = useState(false);
+  /** Unmounted: a restore still loading its photos stops. */
+  const unmounted = useRef(false);
+  useEffect(() => () => { unmounted.current = true; }, []);
+  const chatSnapshot = (): Record<string, unknown> => ({
+    planType, rentText, duration, repaymentPeriod, tenantPhone, tenantNameParts, nationalId, language, noSmartphone,
+    familySize, work, workLocation, landlord, houses, house, houseChoiceMade, location, address, district, category, gps,
+    lc1Phone, lc1Match, lc1Mode, lc1NameParts, lc1Village, city, payoutDay, consent, landlordCode, resubmitDays, note,
+    renewChoice, extraSteps, fixedSteps, phoneCleared, draftId, current, furthest, funnelStarted,
+    // A check still running is run again after the reload; a finished one is kept.
+    faceCheck: faceCheck?.status === 'checking' ? null : faceCheck,
+  });
+  /** True when the page is reloading to a newer build (the send waits for the new build). */
+  const updateFirst = async (): Promise<boolean> => {
+    if (updateCheck.current) return true; // a second tap while checking
+    if (!user) return false;
+    updateCheck.current = true;
+    try {
+      const live = await findNewerBuild();
+      if (!live) return false;
+      setUpdating(true);
+      const kept = await saveT4Resume({
+        userId: user.id, request, form: funnelForm, session: funnel.session, state: chatSnapshot(),
+        photos: { house: housePhotos, tenantPhoto, idFront, idBack, lcLetter },
+      });
+      // Could not keep the chat on this phone: send on this build rather than lose the answers.
+      if (!kept) { setUpdating(false); return false; }
+      reloadToBuild(live, { reason: 'send', form: funnelForm, session: funnel.session });
+      return true;
+    } catch {
+      setUpdating(false);
+      return false;
+    } finally {
+      updateCheck.current = false;
+    }
+  };
+  const resumeReady = resuming && !resumeApplied && (
+    mode === 'new'
+    || (mode === 'renewal' && renewalLoaded)
+    || (mode === 'resubmit' && !!original && returnLoaded && sideLoaded)
+  );
+  useEffect(() => {
+    if (!resumeReady) return;
+    setResumeApplied(true);
+    const rec = resumeRec;
+    if (!rec || !user) return;
+    // Not cancelled when resumeApplied flips (that re-runs this effect); only on unmount.
+    const cancelled = () => unmounted.current;
+    void (async () => {
+      const files = await loadT4ResumePhotos(user.id);
+      if (cancelled()) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const s = rec.state as Record<string, any>;
+      const has = (k: string) => Object.prototype.hasOwnProperty.call(s, k);
+      const photo = (file: File | null | undefined, url: string | null | undefined): Photo | null =>
+        previewOf(file) ?? (url ? { file: null, preview: url } : null);
+      if (has('planType')) setPlanType(s.planType); if (has('rentText')) setRentText(s.rentText ?? '');
+      if (has('duration')) setDuration(s.duration); if (has('repaymentPeriod')) setRepaymentPeriod(s.repaymentPeriod);
+      if (has('tenantPhone')) setTenantPhone(s.tenantPhone ?? ''); if (s.tenantNameParts) setTenantNameParts(s.tenantNameParts);
+      if (has('nationalId')) setNationalId(s.nationalId ?? ''); if (has('language')) setLanguage(s.language ?? '');
+      if (has('noSmartphone')) setNoSmartphone(s.noSmartphone); if (has('familySize')) setFamilySize(s.familySize ?? '');
+      if (has('work')) setWork(s.work ?? ''); if (has('workLocation')) setWorkLocation(s.workLocation ?? '');
+      if (has('landlord')) setLandlord(s.landlord); if (has('houses')) setHouses(s.houses); if (has('house')) setHouse(s.house);
+      if (has('houseChoiceMade')) setHouseChoiceMade(!!s.houseChoiceMade); if (has('location')) setLocation(s.location);
+      if (has('address')) setAddress(s.address ?? ''); if (has('district')) setDistrict(s.district ?? '');
+      if (has('category')) setCategory(s.category ?? ''); if (has('gps')) setGps(s.gps);
+      if (has('lc1Phone')) setLc1Phone(s.lc1Phone ?? ''); if (has('lc1Match')) setLc1Match(s.lc1Match); if (has('lc1Mode')) setLc1Mode(s.lc1Mode);
+      if (s.lc1NameParts) setLc1NameParts(s.lc1NameParts); if (has('lc1Village')) setLc1Village(s.lc1Village ?? '');
+      if (has('city')) setCity(s.city ?? ''); if (has('payoutDay')) setPayoutDay(s.payoutDay ?? '');
+      if (has('consent')) setConsent(!!s.consent); if (has('landlordCode')) setLandlordCode(s.landlordCode ?? '');
+      if (has('resubmitDays')) setResubmitDays(s.resubmitDays ?? ''); if (has('note')) setNote(s.note ?? '');
+      if (has('renewChoice')) setRenewChoice(s.renewChoice); if (Array.isArray(s.extraSteps)) setExtraSteps(s.extraSteps);
+      if (Array.isArray(s.fixedSteps)) setFixedSteps(s.fixedSteps); if (has('phoneCleared')) setPhoneCleared(s.phoneCleared);
+      if (has('draftId')) setDraftId(s.draftId); if (s.funnelStarted) setFunnelStarted(true);
+      const urls = rec.photoUrls;
+      setHousePhotos([0, 1, 2, 3].map((i) => photo(files?.house?.[i], urls?.house?.[i])));
+      const face = photo(files?.tenantPhoto, urls?.tenantPhoto);
+      setTenantPhoto(face);
+      setIdFront(photo(files?.idFront, urls?.idFront));
+      setIdBack(photo(files?.idBack, urls?.idBack));
+      setLcLetter(photo(files?.lcLetter, urls?.lcLetter));
+      if (s.faceCheck) setFaceCheck(s.faceCheck);
+      else if (face?.file) {
+        setFaceCheck({ status: 'checking' });
+        void checkFace(face.file).then((r) => { if (!cancelled()) setFaceCheck(r); });
+      }
+      if ((ALL_STEPS as string[]).includes(s.furthest)) setFurthest(s.furthest);
+      if ((ALL_STEPS as string[]).includes(s.current)) setCurrent(s.current);
+      clearT4Resume(user.id);
+      setContinueAfterResume(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeReady]);
 
   useEffect(() => {
     if (!open) return;
@@ -1675,7 +1784,22 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     }
   };
 
+  /** Post / Resubmit / Renew: a newer build is loaded first (the chat is kept and continues there). */
   const post = async () => {
+    if (posting || updating) return;
+    if (await updateFirst()) return;
+    return postNow();
+  };
+  // Reopened after an update: once the checks that run on opening have answered, the send goes on.
+  useEffect(() => {
+    if (!continueAfterResume || posting) return;
+    if (openStatus === undefined || landlordStatus === 'checking' || faceCheck?.status === 'checking') return;
+    setContinueAfterResume(false);
+    void post();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [continueAfterResume, posting, openStatus, landlordStatus, faceCheck?.status]);
+
+  const postNow = async () => {
     if (mode === 'resubmit') return postResubmit();
     if (mode === 'renewal') return postRenewalPlan();
     if (gateBlocked) return;
@@ -2292,6 +2416,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   // z-[115]: full-screen, so it must cover the bottom role bar (100), the assistant launcher/bubble (105/106) and the WhatsApp button (60).
   return (
     <div className={cn('rent-request-assistant fixed inset-0 z-[115] flex flex-col bg-background text-foreground', renewing && 'invisible')} role="dialog" aria-modal="true" aria-label="Rent request assistant" data-t4-mode={mode}>
+      {updating && (
+        <div className="fixed inset-0 z-[130] flex flex-col items-center justify-center gap-3 bg-background/95 p-6 text-center" role="status" data-testid="app-updating">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <p className="text-base font-semibold">{UPDATING_LINE}</p>
+        </div>
+      )}
       {camera && (
         <SelfieCameraCapture
           open
@@ -2998,7 +3128,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             {mode === 'renewal' && renewOtpProblem && (
               <div className="flex flex-col gap-2 rounded-xl border border-warning/40 bg-warning/5 p-3 text-sm" role="alert" data-testid="renewal-otp-problem">
                 <p className="font-medium">{renewOtpProblem}</p>
-                <button type="button" onClick={() => { setRenewOtpProblem(null); void postRenewalPlan(); }}
+                <button type="button" onClick={() => { setRenewOtpProblem(null); void post(); }}
                   className="min-h-11 self-start rounded-full bg-primary px-4 font-semibold text-primary-foreground">
                   Send a new code
                 </button>

@@ -18,6 +18,7 @@ import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { lazyWithRetry, optionalLazyWithRetry, lazyNamed } from "@/lib/lazyWithRetry";
 import { BuildUpdateWatcher } from "@/components/BuildUpdateWatcher";
+import { AppUpdateOnStart } from "@/components/AppUpdateOnStart";
 // Route every page chunk through the concurrency-limited queue so slow
 // networks never see more than N parallel chunk requests at once.
 const lazy = lazyWithRetry;
@@ -1255,6 +1256,7 @@ const App = () => {
                           <Toaster />
                           <SonnerToaster />
                           <BuildUpdateWatcher />
+                          <AppUpdateOnStart />
                           <ForceResetPasswordGate />
                           <StaffAuthenticatorGate />
                           <DeviceStepUpGate />
