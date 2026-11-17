@@ -23,6 +23,7 @@ import SchoolFeesPlanCard from '@/components/welile-schools/SchoolFeesPlanCard';
 import ParentFeesRequest from '@/components/welile-schools/ParentFeesRequest';
 import AgentParentRequests from '@/components/welile-schools/AgentParentRequests';
 import AgentSchoolInspections from '@/components/welile-schools/AgentSchoolInspections';
+import SchoolsWalletSection from '@/components/welile-schools/SchoolsWalletSection';
 import {
   computeGateMovementSummary, readLockedSchool, readPendingGateLogs, readPendingProfiles, writeLockedSchool,
   type SchoolGateLogRow, type SchoolRow,
@@ -170,6 +171,8 @@ function SchoolOwnerHome() {
         { icon: Users, title: 'More students', body: 'Families can afford to enrol.' },
       ]} />
 
+      <SchoolsWalletSection role="school" />
+
       <section aria-labelledby="ws-owner-steps">
         <h2 id="ws-owner-steps" className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">How the partnership works</h2>
         <Timeline steps={steps} />
@@ -263,6 +266,7 @@ function AgentExplore({ signedIn }: { signedIn: boolean }) {
           </div>
         ))}
       </div>
+      <SchoolsWalletSection role="agent" />
       {signedIn ? (
         <StickyCta note="Your account is not a Welile agent account yet.">
           <Button asChild className="min-h-[52px] w-full gap-2 rounded-2xl text-base">
@@ -351,6 +355,7 @@ function AgentHome({ userId }: { userId: string }) {
         </TabsList>
 
         <TabsContent value="today" className="mt-3 space-y-4">
+          <SchoolsWalletSection role="agent" />
           {/* Current school, with today's numbers inside the same card. */}
           {school ? (
             <section className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
@@ -482,6 +487,8 @@ function ParentHome() {
         { icon: MessageSquareText, title: 'SMS receipt', body: 'Your new balance after every payment.' },
         { icon: Smartphone, title: 'Pay any day', body: 'MTN or Airtel, any amount.' },
       ]} />
+
+      <SchoolsWalletSection role="parent" />
 
       {/* Ask for a plan: goes first to the Welile agent at the child's (partner) school. */}
       <ParentFeesRequest />
