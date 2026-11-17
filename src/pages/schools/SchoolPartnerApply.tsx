@@ -238,7 +238,7 @@ function ApplicationForm({ userId, onSent, onCancel }: { userId: string; onSent:
   const districtOptions = allDistricts.filter((x) => !d.region || x.region === d.region).map((x) => x.name).sort((a, b) => a.localeCompare(b));
   const chooseDistrict = (name: string) => set({ district: name, region: allDistricts.find((x) => x.name === name)?.region ?? d.region });
 
-  const useMyLocation = async () => {
+  const pinMyLocation = async () => {
     setGpsBusy(true);
     const r = await captureSmartLocation();
     setGpsBusy(false);
@@ -322,7 +322,7 @@ function ApplicationForm({ userId, onSent, onCancel }: { userId: string; onSent:
             <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => set({ latitude: null, longitude: null, gps_accuracy_m: null })}>Remove</Button>
           </div>
         ) : (
-          <Button type="button" variant="outline" className="min-h-[48px] w-full gap-2 rounded-2xl" disabled={gpsBusy} onClick={() => void useMyLocation()}>
+          <Button type="button" variant="outline" className="min-h-[48px] w-full gap-2 rounded-2xl" disabled={gpsBusy} onClick={() => void pinMyLocation()}>
             {gpsBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
             I am at the school: use my location (optional)
           </Button>
