@@ -1,3 +1,4 @@
+import { ownRequestWords } from './ownRequest';
 import { rpc } from './reviewApi';
 import { STAGE_STATUS, type CheckEntry, type Decision, type Stage } from './reviewTypes';
 import { cooDecide, cooDecisionSummary, mergeApproveResults, type AskReason } from '@/lib/cooDecide';
@@ -57,9 +58,9 @@ export function passSentTo(stage: Stage): string {
   return 'Moved on';
 }
 
-/** The server's own words for a failed call, unchanged. */
+/** The server's own words for a failed call — the own-request refusal in the desks' words. */
 export function asIs(e: unknown): string {
-  return String((e as { message?: string } | null)?.message ?? e ?? 'Something went wrong.');
+  return ownRequestWords(String((e as { message?: string } | null)?.message ?? e ?? 'Something went wrong.'));
 }
 
 /* ───────────────────────── transfer, then pass ─────────────────────────

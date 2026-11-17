@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  GPS_DENIED_LINE, GPS_IMPROVE_MS, GPS_MAX_AGE_MS, GPS_NO_SIGNAL_LINE, gpsCapturedLine, gpsFailLine, gpsPermissionDenied,
+  GPS_DENIED_LINE, GPS_IMPROVE_MS, GPS_MAX_AGE_MS, GPS_NO_SIGNAL_LINE, NETWORK_FIX_OPTIONS, gpsCapturedLine, gpsFailLine, gpsFindingLine, gpsPermissionDenied,
   isInAppBrowser, systemBrowserUrl, watchHouseGps,
 } from '@/lib/gpsCapture';
 
@@ -8,23 +8,47 @@ import {
 function fakeGeo() {
   let onPos: PositionCallback = () => {};
   let onErr: PositionErrorCallback = () => {};
+  let onNet: PositionCallback = () => {};
   const raw = {
     watchPosition: vi.fn((s: PositionCallback, e: PositionErrorCallback) => { onPos = s; onErr = e; return 7; }),
     clearWatch: vi.fn(),
-    getCurrentPosition: vi.fn(),
+    getCurrentPosition: vi.fn((s: PositionCallback) => { onNet = s; }),
   };
   return {
     geo: raw as unknown as Geolocation,
     raw,
-    reading: (accuracy: number) => onPos({ coords: { latitude: 0.33, longitude: 32.58, accuracy } } as GeolocationPosition),
+    /** A reading from the GPS watch (high accuracy). */
+    reading: (accuracy: number, lat = 0.33) => onPos({ coords: { latitude: lat, longitude: 32.58, accuracy } } as GeolocationPosition),
+    /** A reading from the network / last-known request. */
+    network: (accuracy: number, lat = 0.31) => onNet({ coords: { latitude: lat, longitude: 32.58, accuracy } } as GeolocationPosition),
     error: (code: number) => onErr({ code, message: 'x' } as GeolocationPositionError),
   };
 }
 
 afterEach(() => vi.useRealTimers());
 
-describe('house GPS: the first reading at once, improved for 15 s', () => {
-  it('the first reading is taken at once, any accuracy; better ones follow; the watch ends after 15 s', async () => {
+describe('house GPS: network and GPS at once, the first reading kept, improved for 60 s', () => {
+  it('the network reading is accepted first, then the high-accuracy one replaces it', async () => {
+    vi.useFakeTimers();
+    const g = fakeGeo();
+    const onFix = vi.fn();
+    const onEnd = vi.fn();
+    watchHouseGps({ geolocation: g.geo, onFix, onEnd });
+    // Both requests start at once.
+    expect(g.raw.getCurrentPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), NETWORK_FIX_OPTIONS);
+    expect(NETWORK_FIX_OPTIONS).toEqual({ enableHighAccuracy: false, maximumAge: 600000, timeout: 20000 });
+    expect(g.raw.watchPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), { enableHighAccuracy: true, maximumAge: 0 });
+    g.network(350);
+    expect(onFix).toHaveBeenLastCalledWith({ lat: 0.31, lng: 32.58, accuracy: 350, source: 'gps' }, true);
+    await vi.advanceTimersByTimeAsync(40_000); // an old chip: the GPS fix comes late
+    g.reading(25, 0.34);
+    expect(onFix).toHaveBeenLastCalledWith({ lat: 0.34, lng: 32.58, accuracy: 25, source: 'gps' }, false);
+    expect(onEnd).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(onEnd).toHaveBeenCalledWith(null);
+  });
+
+  it('the first reading is taken at once, any accuracy; better ones follow; the watch ends after 60 s', async () => {
     vi.useFakeTimers();
     const g = fakeGeo();
     const onFix = vi.fn();
@@ -80,6 +104,9 @@ describe('house GPS: the first reading at once, improved for 15 s', () => {
   });
 
   it('in-app browsers, and the link that opens the page in Chrome', () => {
+    expect(gpsFindingLine(12)).toBe('Finding your location… 12 s');
+    expect(gpsCapturedLine({ lat: 0.347621, lng: 32.582514, accuracy: 350 }, true)).toBe('Location captured ✓ 0.34762, 32.58251 (±350 m) — it will sharpen if you stay here');
+    expect(GPS_NO_SIGNAL_LINE).toBe('No location yet — step outside under open sky, then tap Capture again.');
     expect(isInAppBrowser('Mozilla/5.0 (Linux; Android 13) Chrome/119 Mobile Safari/537.36 WhatsApp/2.23')).toBe(true);
     expect(isInAppBrowser('Mozilla/5.0 (iPhone) Mobile/15E148 [FBAN/FBIOS;FBAV/440.0]')).toBe(true);
     expect(isInAppBrowser('Mozilla/5.0 (Linux; Android 12) Instagram 300.0 Android')).toBe(true);

@@ -31,6 +31,7 @@ vi.mock('@/integrations/supabase/client', () => {
   return {
     supabase: {
       rpc: mocks.rpc,
+      auth: { getSession: async () => ({ data: { session: { user: { id: 'agent-1' }, access_token: 'test-token' } }, error: null }) },
       from: builder,
       storage: {
         from: () => ({
@@ -367,7 +368,7 @@ describe('GPS on step 4: Capture location just captures the coordinates; no map 
   it('capture shows the coordinates at once, with no map rendered; the agent continues while it improves', async () => {
     openAtGps();
     await capture();
-    expect(watchPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), expect.objectContaining({ enableHighAccuracy: true, maximumAge: 60000 }));
+    expect(watchPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), expect.objectContaining({ enableHighAccuracy: true, maximumAge: 0 }));
     reading(40);
     expect(await screen.findByTestId('gps-captured')).toHaveTextContent('Location captured ✓ 0.34762, 32.58251 (±40 m)');
     await waitFor(() => expect(logs('item_done')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_meta: expect.objectContaining({ accuracy_m: 40 }) })));
@@ -405,14 +406,24 @@ describe('GPS on step 4: Capture location just captures the coordinates; no map 
     noMap();
   });
 
-  it('no reading in 15 s shows the signal line, logged; no map', async () => {
+  it('no reading in 60 s shows the no-location line (never before), logged once per attempt; no map', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       openAtGps();
       await capture();
-      await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
-      expect(await screen.findByTestId('gps-failure')).toHaveTextContent('No GPS signal here — step outside or near a window and tap Capture again.');
+      // Never a failure before 60 s: the search line counts the seconds.
+      await act(async () => { await vi.advanceTimersByTimeAsync(59_000); });
+      expect(screen.queryByTestId('gps-failure')).toBeNull();
+      expect(screen.getByTestId('gps-finding')).toHaveTextContent(/Finding your location… 5\d s/);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+      expect(await screen.findByTestId('gps-failure')).toHaveTextContent('No location yet — step outside under open sky, then tap Capture again.');
       await waitFor(() => expect(logs('blocked')).toContainEqual(expect.objectContaining({ p_items: ['gps'], p_error: 'gps_timeout' })));
+      // Continue tapped again and again: gps_timeout stays logged once; the taps are gps_not_captured, once per 10 s.
+      for (let i = 0; i < 4; i += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+      await waitFor(() => expect(logs('blocked').filter((r) => r.p_error === 'gps_not_captured')).toHaveLength(1));
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+      expect(logs('blocked').filter((r) => r.p_error === 'gps_not_captured')).toHaveLength(1);
+      expect(logs('blocked').filter((r) => r.p_error === 'gps_timeout')).toHaveLength(1);
       noMap();
     } finally {
       vi.useRealTimers();
@@ -435,5 +446,33 @@ describe('E99: an old draft with "No LC1 letter yet" ticked opens with it cleare
     expect(screen.queryByDisplayValue('The LC1 is away until Friday')).toBeNull();
     expect(screen.getByTestId('lc1-no-letter-yet')).toHaveTextContent('Save and finish later');
     expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
+  });
+});
+
+describe('E134 (COO 17 Nov): no rent ceiling in the post', () => {
+  it('a rent of 8,000,000 posts as typed, with no cap line', async () => {
+    const payload = fullPayload();
+    payload.fields.rentText = '8000000';
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd8', payload } }} />);
+    await finishAndPost();
+    expect(mocks.submit.mock.calls[0][0]).toMatchObject({ fees: expect.objectContaining({ rentAmount: 8_000_000 }) });
+    expect((await screen.findAllByText('Sent to the Service Centre')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/post up to|per tenant|more than your cap/i)).toBeNull();
+  });
+
+  it('a tenant behind on rent posts when capacity says blocked: false; nothing on the client stops it', async () => {
+    const base = mocks.rpc.getMockImplementation()!;
+    mocks.rpc.mockImplementation(async (fn: string, args?: unknown) => {
+      if (fn === 'get_agent_rent_request_capacity') {
+        return { data: { blocked: false, tenant_max: 100_000_000, allowed_max: 100_000_000, tenant_arrears_ugx: 450_000 }, error: null };
+      }
+      return base(fn, args);
+    });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd7', payload: fullPayload() } }} />);
+    await finishAndPost();
+    expect((await screen.findAllByText('Sent to the Service Centre')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/behind on rent|post up to/i)).toBeNull();
+    // The client never asks for a cap before posting: Tenant Ops freezes defaulting tenants, the server refuses what it must.
+    expect(mocks.rpc.mock.calls.map(([fn]) => fn)).not.toContain('get_agent_rent_request_capacity');
   });
 });

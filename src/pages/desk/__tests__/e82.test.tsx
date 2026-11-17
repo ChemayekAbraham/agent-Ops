@@ -194,7 +194,8 @@ describe('COO board', () => {
     flags: null, auto_forwarded: false, waiting: null, rank: 1, pushable: true, frozen: null, ...over,
   });
 
-  it.each([375, 1280])('%i px: chip, the list, no push button; the shortcut opens Send back on Agent Ops', async (w) => {
+  // 17 Nov: the red chip is enough on the COO desk — no second "Missing: …" line and no second send-back.
+  it.each([375, 1280])('%i px: the red chip, no push button, no duplicate missing line; the one Send back opens the office sheet', async (w) => {
     setWidth(w);
     serve({
       pipeline_coo_board: { data: { counts: {}, can_push: true, rows: [coo({ id: 'inc', tenant: 'Ivy Incomplete', pushable: false, incomplete: MISSING }), coo({ id: 'ok', tenant: 'Olive' })] } },
@@ -206,9 +207,11 @@ describe('COO board', () => {
     expect(inc.querySelector('[data-tone="bad"]')?.textContent).toBe(MISSING_TEXT);
     expect(within(inc).queryByRole('button', { name: 'Push to funders' })).toBeNull();
     expect(within(document.querySelector('[data-row="ok"]') as HTMLElement).getByRole('button', { name: 'Push to funders' })).toBeTruthy();
-    fireEvent.click(within(inc).getByRole('button', { name: 'Send back…' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Send back Ivy Incomplete' });
-    expect(sheet.querySelector('[data-target="agent_ops"]')?.getAttribute('aria-checked')).toBe('true');
+    expect(inc.querySelector('[data-missing-line]')).toBeNull();
+    expect(within(inc).queryByRole('button', { name: 'Send back…' })).toBeNull();
+    expect(within(inc).getAllByRole('button', { name: 'Send back' })).toHaveLength(1);
+    fireEvent.click(within(inc).getByRole('button', { name: 'Send back' }));
+    expect(await screen.findByRole('dialog', { name: 'Send back — Ivy Incomplete' })).toBeTruthy();
   });
 });
 

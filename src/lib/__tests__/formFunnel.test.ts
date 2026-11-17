@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } }));
+const auth = vi.hoisted(() => ({ getSession: vi.fn() }));
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn(), auth } }));
 
 import { FUNNEL_QUEUE_KEY, createFormFunnel, flushFunnelQueue, funnelErrorCode, type FunnelRow } from '@/lib/formFunnel';
 
@@ -13,6 +14,8 @@ let rpc: ReturnType<typeof vi.fn>;
 const rows = () => rpc.mock.calls.map(([, row]) => row as FunnelRow);
 
 beforeEach(() => {
+  auth.getSession.mockReset();
+  auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'agent-1' }, access_token: 'test-token' } }, error: null });
   localStorage.clear();
   setOnline(true);
   rpc = vi.fn(async () => ({ error: null }));
@@ -125,6 +128,43 @@ describe('E108 form funnel: offline queue', () => {
 });
 
 describe('E108 form funnel: never throws', () => {
+  it('skips signed-out events, including queue replay, without retrying', async () => {
+    auth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+    const f = createFormFunnel('agent_post', rpc);
+    f.open();
+    f.step('start');
+    await settle();
+    await flushFunnelQueue(rpc);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(queued()).toEqual([]);
+  });
+
+  it('skips expired sessions and swallowed session failures', async () => {
+    auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'agent-1' }, access_token: 'expired', expires_at: 1 } }, error: null });
+    createFormFunnel('agent_post', rpc).open();
+    await settle();
+    auth.getSession.mockRejectedValue(new Error('session unavailable'));
+    createFormFunnel('agent_post', rpc).open();
+    await settle();
+    expect(rpc).not.toHaveBeenCalled();
+    expect(queued()).toEqual([]);
+  });
+
+  it('does not replay permission refusals or unexpected rejected calls', async () => {
+    rpc.mockResolvedValue({ error: { message: 'permission denied for function request_form_log' } });
+    createFormFunnel('agent_post', rpc).open();
+    await settle();
+    await flushFunnelQueue(rpc);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(queued()).toEqual([]);
+    rpc.mockRejectedValue(new Error('unexpected failure'));
+    createFormFunnel('agent_post', rpc).open();
+    await settle();
+    await flushFunnelQueue(rpc);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(queued()).toEqual([]);
+  });
+
   it('survives an rpc that throws, rejects, or returns nothing, and broken storage', async () => {
     const throwing = vi.fn(() => { throw new Error('boom'); });
     const rejecting = vi.fn(async () => { throw new Error('Failed to fetch'); });

@@ -77,6 +77,8 @@ interface T4Base {
   entry?: string;
   /** Called with the request id once the Service Centre has it. */
   onDone?: (requestId: string) => void;
+  /** Reopened after an app update: the chat restores what it kept (t4Resume.ts) and continues. */
+  resume?: boolean;
 }
 
 export type T4Request =

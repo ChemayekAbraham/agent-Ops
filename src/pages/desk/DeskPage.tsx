@@ -49,6 +49,8 @@ import { PartnerWatch } from './PartnerWatch';
 import { PartnerOpsBoard } from './partner/PartnerOpsBoard';
 import { desksFor, useMyScScope } from './scScope';
 import { accessLanding, desksByAccess, useMyDeskAccess, withTwin } from './deskAccess';
+import { isFieldAgent } from './scFieldApi';
+import { ScFieldView } from './scField';
 import { DeskRules } from './DeskRules';
 import { AccountabilityFold } from './accountability/AccountabilityFold';
 import { EditResponsibilitiesFold } from './ontology/ResponsibilitiesEditor';
@@ -840,6 +842,18 @@ function DeskShell() {
       <main className="desk-root min-h-screen px-4 py-16 text-center" data-desk-theme={rootTheme} aria-busy>
         <p className="text-sm text-muted-foreground">Opening your desk…</p>
       </main>
+    );
+  }
+
+  // E133: a field agent (an agent who is not Service Centre staff) gets the simple,
+  // read-only view of their team's requests instead of the full Service Centre desk.
+  if (deskId === 'service-centre' && isFieldAgent(mine, access.data)) {
+    return (
+      <div className="desk-root min-h-screen" data-desk-theme={rootTheme} data-sc-field-desk style={bannerInset ? { paddingBottom: bannerInset + 16 } : undefined}>
+        <main className="mx-auto w-full min-w-0 max-w-2xl px-4 py-4">
+          <ScFieldView />
+        </main>
+      </div>
     );
   }
 

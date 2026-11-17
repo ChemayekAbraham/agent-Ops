@@ -45,7 +45,6 @@ type AgentRow = {
   paid_yesterday: number;
   expected_daily: number;
   tier: AgentCapacity['tier'];
-  per_tenant_max: number;
   daily_rating: AgentCapacity['daily_rating'];
   daily_status: AgentCapacity['daily_status'];
 };
@@ -356,7 +355,7 @@ export function AgentRentCapacityPanel({
           expected_tenant_days > 0
             ? Math.min(1, responding_tenant_days / expected_tenant_days)
             : 0;
-        const { tier, per_tenant_max } = classifyAgent(exp.count, response_rate);
+        const { tier } = classifyAgent(exp.count, response_rate);
         const prof = profileMap.get(id) || { name: id.slice(0, 8), phone: null };
         const elig = eligByAgent.get(id);
         const expected_daily = eligibilityRpcSucceeded
@@ -388,7 +387,6 @@ export function AgentRentCapacityPanel({
           paid_yesterday,
           expected_daily,
           tier,
-          per_tenant_max,
           daily_rating,
           daily_status,
         };
@@ -644,7 +642,7 @@ function CapacityRow({
     'Very Bad': 'bg-destructive/15 text-destructive border-destructive/30',
     Starter:    'bg-violet-500/15 text-violet-700 border-violet-500/30',
   };
-  const tier = { label: row.tier, tone: tierTone[row.tier], max: row.per_tenant_max };
+  const tier = { label: row.tier, tone: tierTone[row.tier] };
 
   const dailyRatingTone: Record<AgentCapacity['daily_rating'], string> = {
     'Very Good': 'bg-emerald-600/20 text-emerald-800 border-emerald-600/40',
@@ -725,7 +723,6 @@ function CapacityRow({
         headroom,
         pct,
         tier: row.tier,
-        per_tenant_max: row.per_tenant_max,
       };
       const tenants = await fetchAgentCapacityTenants(row.agent_id, cap);
       const blob = generateAgentCapacityPdf(
@@ -943,8 +940,7 @@ function CapacityRow({
                 Headroom <strong className="text-foreground font-mono">{formatUGX(headroom)}</strong>
               </span>
               <span className="text-muted-foreground">
-                Response <strong className="text-foreground">{rateLabel}</strong> · Per-tenant max{' '}
-                <strong className="text-foreground font-mono">{formatUGX(tier.max)}</strong>
+                Response <strong className="text-foreground">{rateLabel}</strong>
               </span>
             </div>
             <div className="text-[10px] text-muted-foreground mt-1 tabular-nums">

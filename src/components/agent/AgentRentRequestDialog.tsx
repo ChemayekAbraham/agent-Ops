@@ -141,8 +141,7 @@ interface AgentRentRequestDialogProps {
   prefillTenantPhone?: string;
   prefillRentAmount?: string;
   /** Full snapshot saved from a previous draft. When provided, the dialog
-   *  repopulates form fields on open so the agent can push it through once
-   *  their per-tenant tier limit allows it. */
+   *  repopulates form fields on open so the agent can push it through. */
   prefillDraft?: Record<string, any> | null;
   /** Optional id of a saved draft this submission should resolve. On success
    *  the draft is marked `submitted` and linked to the new rent_request. */
@@ -290,7 +289,7 @@ function AgentCapacityBanner({ agentId }: { agentId?: string }) {
   const dailyBanner = (() => {
     if (!cap || cap.daily_status === 'starter') return null;
     // New agents are NOT exempt from the daily collection law — the database
-    // enforces it on everyone. They keep the smaller per-tenant cap only.
+    // enforces it on everyone. No rent ceiling per tenant (E134).
 
     const rating = cap.daily_rating;
     const tiers: Record<string, { tone: string; text: string }> = {
@@ -3620,7 +3619,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               <DialogDescription>Answer one question at a time to post a rent request</DialogDescription>
             </DialogHeader>
             <RentRequestChatHeader
-              onClose={retreatChat}
+              onClose={() => handleOpenChange(false)}
               onForm={openFieldFormPreview}
               formBusy={fieldFormGenerating}
               savedHint={savedHint}

@@ -89,8 +89,8 @@ export const TENANT_ITEM_LABELS: Record<TenantItemKey, string> = {
 
 export interface TenantRequestInput {
   rentAmount: number;
+  /** E134: a minimum only; there is no rent ceiling. */
   minRent: number;
-  maxRent: number;
   /** The repayment period is one the edge function accepts. */
   durationOk: boolean;
   firstName: string;
@@ -133,7 +133,7 @@ export function parseFamilySize(text: string): number | null {
 
 function itemsOk(i: TenantRequestInput): Record<TenantItemKey, boolean> {
   return {
-    rent: i.rentAmount >= i.minRent && i.rentAmount <= i.maxRent && i.durationOk,
+    rent: i.rentAmount >= i.minRent && i.durationOk,
     // Two names, each at least two letters (the edge function also needs two names).
     fullName: i.firstName.trim().length >= 2 && i.lastName.trim().length >= 2,
     phone: validPhone(i.phone),

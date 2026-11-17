@@ -34,6 +34,7 @@ import { MissingLine, SendBackIncompleteSheet, hasMissing, missingText } from '.
 import { DeskSearchBox, SearchResults, searchReady, type SearchDesk } from './deskSearch';
 import { BULK_MAX, BulkBar, BulkDialog, BulkFilters, NO_FILTER, agentsOf, filterRows, type BulkDecision, type BulkFilter } from './scBulk';
 import { asIs } from './deskActions';
+import { OwnRequestNote, isOwnRequest } from './ownRequest';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
 import { TransferPicker } from './TransferPicker';
@@ -148,6 +149,7 @@ function BoardRowLine({
   health,
   concerns,
   select,
+  own = false,
 }: {
   row: BoardRow;
   stage: Stage;
@@ -170,6 +172,8 @@ function BoardRowLine({
   concerns?: ConcernSummary;
   /** E120 Service Centre Select mode: the card's tick box. */
   select?: { checked: boolean; onToggle: () => void };
+  /** The viewer is this request's agent: read-only — no Pass / Send back / Push, a grey note says why. */
+  own?: boolean;
 }) {
   const chips = rowChips(row, stage, health, concerns);
   const short = shortPrimary(row, stage);
@@ -194,7 +198,10 @@ function BoardRowLine({
     />
   );
 
-  const menu = (close: () => void) => (
+  const menu = (close: () => void) =>
+    own ? (
+      <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
+    ) : (
     <>
       {/* Agent Ops transfer rows: a different receiving agent, same review and move. */}
       {row.decision === 'transfer' && row.push && onPick && note?.kind !== 'retry' && note?.kind !== 'ok' && (
@@ -212,11 +219,12 @@ function BoardRowLine({
         </MenuItem>
       ))}
     </>
-  );
+    );
 
-  // The main button: retry the move only, the row's decision, or nothing (waiting).
-  const primary =
-    note?.kind === 'retry'
+  // The main button: retry the move only, the row's decision, or nothing (waiting, or one's own request).
+  const primary = own
+    ? null
+    : note?.kind === 'retry'
       ? { label: busy ? 'Retrying…' : 'Retry the move only', onClick: onRetry, variant: 'warn' as const, disabled: busy || !canAct, title: note.text, detail: null }
       : short
         ? {
@@ -235,10 +243,12 @@ function BoardRowLine({
     </p>
   );
   // E82: the missing list (and the shortcut) under the row, above any status note.
-  const missingEl = hasMissing(row.incomplete) ? <MissingLine list={row.incomplete} onSendBack={onSendBackAgentOps} /> : null;
+  const missingEl = hasMissing(row.incomplete) ? <MissingLine list={row.incomplete} onSendBack={own ? undefined : onSendBackAgentOps} /> : null;
+  const ownEl = own ? <OwnRequestNote /> : null;
   const noteLine =
-    missingEl || statusLine ? (
+    missingEl || statusLine || ownEl ? (
       <>
+        {ownEl}
         {missingEl}
         {statusLine}
       </>
@@ -254,7 +264,7 @@ function BoardRowLine({
 
   const tenant = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-      {select && (
+      {select && !own && (
         <input
           type="checkbox"
           checked={select.checked}
@@ -294,13 +304,13 @@ function BoardRowLine({
       <LandlordOpsCard
         row={row}
         stage={stage}
-        canAct={canAct}
+        canAct={canAct && !own}
         board={board}
         primary={primary ? { label: primary.label, onClick: primary.onClick, variant: primary.variant, disabled: primary.disabled, title: primary.title } : null}
         health={health}
         onOpen={onOpen}
         extraMenu={(close) =>
-          others
+          (own ? [] : others)
             .filter((d) => d !== 'send_back')
             .map((d) => (
               <MenuItem key={d} disabled={!canAct} title={canAct ? 'Opens the review so you can give a reason' : NEEDS_ROLE} onClick={() => { close(); onOpen(row.id, d); }}>
@@ -800,7 +810,9 @@ function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onO
   const countOf = (d: BoardDecision) =>
     counts[d] ?? (data?.rows ?? []).filter((r) => r.decision === d).length;
   // E82: a row that misses something is refused by the server, so "Push all" leaves it out.
-  const pushable = (d: BoardDecision) => (data?.rows ?? []).filter((r) => r.decision === d && !!r.push && !hasMissing(r.incomplete));
+  // One's own requests are refused by the server too, so they never join a Push all or a selection.
+  const own = (r: BoardRow) => isOwnRequest(user?.id, r.agent_id);
+  const pushable = (d: BoardDecision) => (data?.rows ?? []).filter((r) => r.decision === d && !!r.push && !hasMissing(r.incomplete) && !own(r));
 
   return (
     <section className={`${PANEL} space-y-3 p-4 sm:p-5`}>
@@ -833,8 +845,8 @@ function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onO
           agents={agentsOf(data?.rows ?? [])}
           pageCount={visible.length}
           matchingCount={rows.length}
-          onSelectPage={() => selectIds(visible.map((r) => r.id))}
-          onSelectMatching={() => selectIds(rows.map((r) => r.id))}
+          onSelectPage={() => selectIds(visible.filter((r) => !own(r)).map((r) => r.id))}
+          onSelectMatching={() => selectIds(rows.filter((r) => !own(r)).map((r) => r.id))}
           loadedNote={
             limitNote(stage, scope, data?.rows.length ?? 0, data?.scope_counts ?? null)
               ? `Only the ${fmt('int', data?.rows.length ?? 0)} cards loaded can be selected; the rest load once these are done.`
@@ -896,9 +908,10 @@ function BoardList({ stage, board, onOpen }: { stage: Stage; board: boolean; onO
                     onRetry={() => void retry(r)}
                     onOpen={open}
                     onSendBackAgentOps={
-                      (stage === 'tenant_ops' || stage === 'landlord_ops') && hasMissing(r.incomplete) ? () => setIncompleteRow(r) : undefined
+                      (stage === 'tenant_ops' || stage === 'landlord_ops') && hasMissing(r.incomplete) && !own(r) ? () => setIncompleteRow(r) : undefined
                     }
-                    onPick={stage === 'agent_ops' ? () => setPicker({ row: r, mode: 'transfer' }) : undefined}
+                    onPick={stage === 'agent_ops' && !own(r) ? () => setPicker({ row: r, mode: 'transfer' }) : undefined}
+                    own={own(r)}
                     health={r.tenant_id ? health.data?.[r.tenant_id] : undefined}
                     concerns={concerns.data?.[r.id]}
                     select={bulkOn && selecting ? { checked: selected.has(r.id), onToggle: () => toggleSelected(r.id) } : undefined}

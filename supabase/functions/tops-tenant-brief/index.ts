@@ -48,7 +48,7 @@ const corsHeaders = {
 
 const OPS_ROLES = ["tenant_ops", "operations", "coo", "cfo", "ceo", "super_admin"] as const;
 const RATE_LIMIT_PER_HOUR = 30;
-const MODEL = "google/gemini-2.5-flash";
+const MODEL = "google/gemini-3.8-flash";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

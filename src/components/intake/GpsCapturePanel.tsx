@@ -1,6 +1,6 @@
 import { Loader2, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { GPS_IN_APP_LINE, gpsCapturedLine, gpsFailLine, systemBrowserUrl } from '@/lib/gpsCapture';
+import { GPS_IN_APP_LINE, gpsCapturedLine, gpsFailLine, gpsFindingLine, systemBrowserUrl } from '@/lib/gpsCapture';
 import type { GpsCaptureState } from '@/hooks/useGpsCapture';
 
 /**
@@ -36,8 +36,11 @@ export function GpsCapturePanel({ gps, value, className }: {
         {gps.phase === 'asking' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <MapPin className="h-4 w-4" aria-hidden />}
         {value ? 'Capture location again' : 'Capture location'}
       </button>
+      {gps.phase === 'asking' && !value && (
+        <p className="text-sm text-muted-foreground" role="status" data-testid="gps-finding">{gpsFindingLine(gps.seconds ?? 0)}</p>
+      )}
       {value && gps.phase !== 'asking' && (
-        <p className="text-sm font-medium text-success" role="status" data-testid="gps-captured">{gpsCapturedLine(value)}</p>
+        <p className="text-sm font-medium text-success" role="status" data-testid="gps-captured">{gpsCapturedLine(value, gps.phase === 'improving')}</p>
       )}
       {!value && gps.phase === 'failed' && gps.failure && (
         <p className="text-sm font-medium" role="alert" data-testid="gps-failure" data-code={gps.failure}>{gpsFailLine(gps.failure)}</p>

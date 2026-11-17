@@ -10,9 +10,12 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { safeUUID } from '@/lib/safeUUID';
+import { withUserSession } from '@/lib/authenticatedRequests';
 
 export type FunnelForm = 'agent_post' | 'tenant_self' | 'renewal' | 'resubmit';
-export type FunnelEvent = 'open' | 'step' | 'blocked' | 'item_done' | 'submit_ok' | 'submit_fail' | 'close';
+export type FunnelEvent = 'open' | 'step' | 'blocked' | 'item_done' | 'submit_ok' | 'submit_fail' | 'close'
+  /** The phone moved to a newer build ({ from_build, to_build }, appUpdate.ts). */
+  | 'app_updated';
 /**
  * The 8 intake steps (intakeSteps.ts) — tenant, rent_plan, landlord, house, household,
  * tenant_photo, id, lc1_post — plus 'start' (the first answer). The older names stay valid
@@ -71,17 +74,21 @@ const enqueue = (row: FunnelRow) => writeQueue([...readQueue(), row]);
 
 /** Sends one row; queues it when the network is the problem. Never rejects. */
 async function sendRow(row: FunnelRow, rpc: Rpc): Promise<boolean> {
-  if (isOffline()) { enqueue(row); return false; }
   try {
-    const { error } = await rpc('request_form_log', row as unknown as Record<string, unknown>);
+    const { error } = await withUserSession(() => {
+      if (isOffline()) {
+        enqueue(row);
+        return Promise.resolve({ error: { message: 'Offline event queued' } });
+      }
+      return rpc('request_form_log', row as unknown as Record<string, unknown>);
+    });
     if (error) {
       if (isNetworkError(error.message)) enqueue(row);
       return false; // a server refusal is dropped: re-sending would refuse again
     }
     return true;
   } catch (e) {
-    enqueue(row);
-    void e;
+    if (isNetworkError(e instanceof Error ? e.message : undefined)) enqueue(row);
     return false;
   }
 }
@@ -114,6 +121,11 @@ function bindOnline() {
 export interface FormFunnel {
   readonly session: string;
   open(meta?: Record<string, unknown>): void;
+  /**
+   * The same form reopened after an app update (the session it was created with goes on): no
+   * second 'open'; the update itself is logged as 'app_updated' when the new build starts.
+   */
+  resume(): void;
   step(step: FunnelStep): void;
   blocked(items: FunnelItem[], error?: string | null): void;
   /** An item became valid; `meta` / `error` ride with it (e.g. gps { accuracy_m }). */
@@ -129,14 +141,19 @@ export interface FormFunnel {
  * The funnel for one form. `rpc` is only for tests. Every method is fire-and-forget and
  * swallows every error.
  */
-export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormFunnel {
+/** A blocked press for the same items and reason is logged at most once in this window. */
+export const BLOCKED_REPEAT_MS = 10_000;
+
+export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc, opts: { session?: string | null } = {}): FormFunnel {
   bindOnline();
-  let session = safeUUID();
+  let session = opts.session || safeUUID();
   let opened = false;
   let posted = false;
   let closed = false;
   let lastStep: string | null = null;
   let done = new Set<FunnelItem>();
+  /** When each blocked item + reason was last logged: repeated taps within 10 s are not logged again. */
+  const lastBlocked = new Map<string, number>();
 
   const emit = (event: FunnelEvent, extra: Partial<FunnelRow> = {}) => {
     try {
@@ -168,6 +185,9 @@ export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormF
       opened = true; posted = false; closed = false;
       emit('open', { p_meta: meta, p_step: null });
     },
+    resume() {
+      opened = true; posted = false; closed = false;
+    },
     step(step) {
       if (!opened || step === lastStep) return;
       lastStep = step;
@@ -175,7 +195,12 @@ export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormF
     },
     blocked(items, error) {
       if (!opened) return;
-      emit('blocked', { p_items: clean(items).length ? clean(items) : ['other'], p_error: error ?? null });
+      const list: FunnelItem[] = clean(items).length ? clean(items) : ['other'];
+      const key = `${[...list].sort().join(',')}|${error ?? ''}`;
+      const now = Date.now();
+      if (now - (lastBlocked.get(key) ?? -Infinity) < BLOCKED_REPEAT_MS) return;
+      lastBlocked.set(key, now);
+      emit('blocked', { p_items: list, p_error: error ?? null });
     },
     itemDone(item, meta, error) {
       if (!opened || done.has(item) || !(FUNNEL_ITEMS as readonly string[]).includes(item)) return;
@@ -198,6 +223,33 @@ export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormF
       emit('close', meta ? { p_meta: meta } : {});
     },
   };
+}
+
+/**
+ * One event outside a form session (or into a known one): 'app_updated' after an update.
+ * Fire-and-forget, like every funnel event; queued offline.
+ */
+export function logFormEvent(
+  form: FunnelForm,
+  event: FunnelEvent,
+  meta: Record<string, unknown>,
+  session: string | null = null,
+  rpc: Rpc = defaultRpc,
+): void {
+  try {
+    bindOnline();
+    const row: FunnelRow = {
+      p_session: session || safeUUID(),
+      p_event: event,
+      p_step: null,
+      p_items: null,
+      p_error: null,
+      p_rent_request_id: null,
+      p_meta: { client_at: new Date().toISOString(), ...meta },
+      p_form: form,
+    };
+    void sendRow(row, rpc).then((ok) => { if (ok) void flushFunnelQueue(rpc); }).catch(() => {});
+  } catch { /* tracking never breaks anything */ }
 }
 
 /** The server's error code at the start of a message ("REQUIREMENTS_MISSING: …"), or the fallback. */

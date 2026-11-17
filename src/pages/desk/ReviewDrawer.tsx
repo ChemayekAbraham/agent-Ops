@@ -26,6 +26,7 @@ import { PaymentHealthPanel } from './paymentHealth';
 import { ConcernsSection, concernDeskFor } from './concerns';
 import { LandlordContextPanel, RENT_EXACT_HINT, ScriptPanel, rentOnRequestText, useLandlordContext } from './landlordOps';
 import { DecisionButton, atLeast, stackLayout, useBreakpoint } from './ui';
+import { OwnRequestNote, isOwnRequest } from './ownRequest';
 import { CooOverrideLine } from '@/components/coo/CooOverrideLine';
 import type { DrawerContext, DrawerStart } from './ReadyBoard';
 import {
@@ -298,6 +299,8 @@ export function ReviewDrawer({
   const items = useMemo(() => stageChecklist(sheet.data, stage), [sheet.data, stage]);
   const photoFlag = stage === 'tenant_ops' ? facePhotoFlag(items) : null;
   const req = sheet.data?.request;
+  // The viewer is this request's agent: read-only, another officer decides.
+  const own = isOwnRequest(user?.id, req?.agent?.id);
   const recommended = sheet.data?.recommendation?.recommended ?? null;
   const against = !!decision && !!recommended && decision !== recommended;
   // E63: these desks send back to a chosen office in one server call (pipeline_send_back_to).
@@ -532,7 +535,7 @@ export function ReviewDrawer({
       Retry the move only
     </button>
   );
-  const showActionBar = phone && !!req && !waitMode && !sendBackTo && tab === 'review';
+  const showActionBar = phone && !!req && !own && !waitMode && !sendBackTo && tab === 'review';
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Review this request">
@@ -808,7 +811,13 @@ export function ReviewDrawer({
                 )}
               </section>
 
-              {/* ── The decision ── */}
+              {/* ── The decision (none on one's own request) ── */}
+              {own ? (
+                <section className={`${PANEL} space-y-2 p-4`} data-own-review>
+                  <h3 className="text-sm font-semibold text-foreground">Your decision</h3>
+                  <OwnRequestNote />
+                </section>
+              ) : (
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">Your decision</h3>
                 {/* E77: the server's identity flags, red, above the buttons. */}
@@ -1013,6 +1022,7 @@ export function ReviewDrawer({
                 </>
                 )}
               </section>
+              )}
 
               {/* ── What the desks before this one decided ── */}
               {(sheet.data?.history ?? []).length > 0 && (

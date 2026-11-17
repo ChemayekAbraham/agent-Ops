@@ -1,7 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn(), from: vi.fn() } }));
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn(), from: vi.fn(), auth: {
+  getSession: async () => ({ data: { session: { user: { id: 'agent-1' }, access_token: 'test-token' } }, error: null }),
+} } }));
 // One stable user object, as the real hook gives: a fresh object per render re-runs the assistant's [open, user] effect forever.
 const auth = vi.hoisted(() => ({ user: { id: 'agent-1', user_metadata: { full_name: 'Agent One' } } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => auth }));

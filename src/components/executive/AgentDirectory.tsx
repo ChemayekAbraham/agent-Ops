@@ -268,7 +268,17 @@ export function AgentDirectory() {
     placeholderData: keepPreviousData,
   });
 
-  const areaList = areaData?.rows ?? [];
+  // In an area, the typed search still narrows the list (name, phone, email or territory).
+  const areaList = useMemo(() => {
+    const all = areaData?.rows ?? [];
+    const q = search.toLowerCase();
+    const qDigits = search.replace(/\D/g, '');
+    if (!q) return all;
+    return all.filter(r =>
+      [r.full_name, r.email, r.territory].some(v => v?.toLowerCase().includes(q)) ||
+      (qDigits.length >= 3 && (r.phone ?? '').replace(/\D/g, '').includes(qDigits)),
+    );
+  }, [areaData, search]);
   const rows = areaMode
     ? areaList.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
     : (data?.rows ?? []);

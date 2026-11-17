@@ -10,6 +10,8 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { isUnauthenticatedRpcError, requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 
 export type HeatLevel =
   | 'none'
@@ -211,11 +213,15 @@ export interface WeeklyChampion {
 
 /** Last completed week's #1 team plus its three best collectors. */
 export function useWeeklyChampionTeam(enabled = true) {
+  const { user } = useAuth();
+  const ready = useAuthenticatedAudience();
   return useQuery({
-    queryKey: ['agent-weekly-champion-team'],
-    enabled,
+    queryKey: ['agent-weekly-champion-team', user?.id],
+    enabled: enabled && ready,
+    retry: (failureCount, error) => !isUnauthenticatedRpcError(error) && failureCount < 3,
     staleTime: 30 * 60 * 1000,
     queryFn: async (): Promise<WeeklyChampion> => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('get_agent_weekly_champion_team', {});
       if (error) throw error;
       return data as unknown as WeeklyChampion;

@@ -7,10 +7,11 @@ interface ShareCardProps {
   paidToday: number;
   expectedDaily: number;
   paidYesterday: number;
-  perTenantMax: number;
-  headroom: number;
-  remainingSlots: number;
-  canPost: boolean;
+  /** The agent's total exposure and headroom (get_agent_rent_request_capacity). No limit per tenant (E134). */
+  exposure: number | null;
+  headroom: number | null;
+  /** The exposure limit is reached: the only case the card says new Rent Plans can't be posted. */
+  blocked: boolean;
   dateLabel: string;
   badges?: AgentBadge[];
   tenantCount?: number;
@@ -28,7 +29,7 @@ export const AgentCapacityShareCard = forwardRef<HTMLDivElement, ShareCardProps>
   (props, ref) => {
     const {
       agentName, paidToday, expectedDaily, paidYesterday,
-      perTenantMax, headroom, remainingSlots, canPost, dateLabel,
+      exposure, headroom, blocked, dateLabel,
       badges = [], tenantCount, preview = false, light = false,
     } = props;
 
@@ -171,10 +172,10 @@ export const AgentCapacityShareCard = forwardRef<HTMLDivElement, ShareCardProps>
             )}
           </div>
           <div style={{ flex: 1, background: c.tileBg, border: c.border, borderRadius: 16, padding: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: c.muted }}>Remaining slots</div>
-            <div style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{remainingSlots}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: c.muted }}>Headroom left</div>
+            <div style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{headroom === null ? '—' : formatUGX(headroom)}</div>
             <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4, color: c.statSub }}>
-              {canPost ? `${formatUGX(headroom)} headroom` : 'Locked'}
+              {exposure === null ? 'Exposure not loaded' : `Exposure ${formatUGX(exposure)}`}
             </div>
           </div>
         </div>
@@ -185,12 +186,12 @@ export const AgentCapacityShareCard = forwardRef<HTMLDivElement, ShareCardProps>
           padding: '14px 18px',
           fontSize: 14,
           fontWeight: 700,
-          background: canPost ? c.okBg : c.lockBg,
-          color: canPost ? c.okFg : c.lockFg,
+          background: blocked ? c.lockBg : c.okBg,
+          color: blocked ? c.lockFg : c.okFg,
         }}>
-          {canPost
-            ? `✓ Can allocate today · up to ${formatUGX(perTenantMax)} per tenant`
-            : '✗ Locked — reach your daily target to unlock allocations'}
+          {blocked
+            ? '✗ Exposure limit reached — new Rent Plans wait until balances come down'
+            : '✓ Can post new Rent Plans'}
         </div>
 
         <div style={{ textAlign: 'center', fontSize: 11, color: c.footer, marginTop: 20, letterSpacing: 0.5 }}>

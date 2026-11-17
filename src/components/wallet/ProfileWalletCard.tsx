@@ -18,8 +18,11 @@ const DepositFlow = lazyWithRetry(() => import('@/components/payments/DepositFlo
 const WithdrawFlow = lazyWithRetry(() => import('@/components/payments/WithdrawFlow'));
 const SendMoneyDialog = lazyNamed(() => import('@/components/wallet/SendMoneyDialog'), 'SendMoneyDialog');
 
-/** Wallet card shown on "Your Profile" (moved from tenant/agent/landlord dashboards). */
-export function ProfileWalletCard() {
+/**
+ * Wallet card shown on "Your Profile" (moved from tenant/agent/landlord dashboards).
+ * `expanded` shows it always open (no collapse toggle), for pages that are only about the wallet.
+ */
+export function ProfileWalletCard({ expanded = false }: { expanded?: boolean } = {}) {
   const { user, role } = useAuth();
   const { wallet, refreshWallet } = useWallet();
   const {
@@ -85,8 +88,8 @@ export function ProfileWalletCard() {
       <UnifiedWalletHeroCard
         balance={balance}
         role={walletRole}
-        defaultCollapsed={true}
-        collapsible={true}
+        defaultCollapsed={!expanded}
+        collapsible={!expanded}
         {...(isAgent
           ? {
               floatBalance: isMerchant ? undefined : visibleAgentFloatBalance,

@@ -286,6 +286,39 @@ Deno.serve(async (req) => {
     } catch (e) {
       console.error('[daily-cto-report] addendum threw', e);
     }
+    // Doc 274: who changed what in the backend, last 24h (best-effort: the report still ships if this fails).
+    let changesHtml = '';
+    try {
+      const { data: cd, error: cdErr } = await supabase.rpc('get_backend_change_digest', {});
+      if (cdErr) throw cdErr;
+      const d: any = cd || {};
+      const h: any = d.harvest || {};
+      const people: any[] = Array.isArray(d.per_person) ? d.per_person : [];
+      const dbRows: any[] = Array.isArray(d.db_changes) ? d.db_changes : [];
+      const noMig: any[] = Array.isArray(d.db_changes_without_migration) ? d.db_changes_without_migration : [];
+      const hhmm = (t: unknown) => esc(String(t ?? '').slice(11, 16));
+      changesHtml = `
+        ${h.broken ? `<div style="border:1px solid ${C.bad};border-left:4px solid ${C.bad};border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:${C.bad};">
+          <b>Commit tracking is broken.</b> Last good harvest ${esc(String(h.last_ok_at ?? 'never').slice(0, 10))} (${esc(h.days_since_ok ?? '?')} days ago). Error: ${esc(String(h.last_error ?? '').slice(0, 120))}. Fix: renew the ENGREP_GITHUB_TOKEN secret.</div>` : ''}
+        ${kpiRows([
+          kpi('Commits', String(d.commits_total ?? 0), 'harvested from GitHub', h.broken ? 'bad' : 'neutral'),
+          kpi('People', String(people.length), 'who committed'),
+          kpi('Database changes', String(d.db_changes_total ?? 0), 'create / alter / drop / grant'),
+          kpi('No migration in git', String(noMig.length), 'changed in the database only', noMig.length ? 'warn' : 'good'),
+        ])}
+        ${subLabel('Commits by person')}
+        ${table(['Who', 'Commits', 'Backend', 'Migrations', 'Edge functions', 'Latest commit messages'],
+          people.map((p) => [esc(p.who), esc(p.commits), esc(p.backend_commits), esc(p.migration_commits), esc(p.edge_function_commits),
+            esc((p.latest_subjects || []).filter((s: string) => s && s !== 'Changes').slice(0, 3).join(' | ') || '(no message)')]))}
+        ${subLabel('Database changes with no migration in git — check these first')}
+        ${table(['Time (UTC)', 'Change', 'Object', 'Came from'], noMig.slice(0, 30).map((r) => [hhmm(r.at), esc(r.command), esc(r.object), esc(`${r.role} / ${r.app ?? '-'}`)]))}
+        ${subLabel('All database changes (public schema)')}
+        ${table(['Time (UTC)', 'Change', 'Object', 'Came from'], dbRows.slice(0, 40).map((r) => [hhmm(r.at), esc(r.command), esc(r.object ?? r.type), esc(`${r.role} / ${r.app ?? '-'}`)]))}`;
+    } catch (e) {
+      console.error('[daily-cto-report] backend change digest failed', e);
+      changesHtml = `<div style="font-size:12px;color:${C.bad};">Backend change digest could not be loaded.</div>`;
+    }
+
     const adFailedJobs: any[] = Array.isArray(addendum.failed_jobs) ? addendum.failed_jobs : [];
     const adJobsSummary: any = addendum.jobs_summary || {};
     const adUserErrors: any[] = Array.isArray(addendum.user_errors) ? addendum.user_errors : [];
@@ -1229,6 +1262,10 @@ Deno.serve(async (req) => {
       <div style="font-size:12px;color:${C.muted};margin-top:4px;">Reporting day ${esc(dateStr)} (East Africa Time) · Prepared for the Chief Executive Officer and Board of Directors</div>
     </div>
 
+    <div style="margin-top:26px;">
+      <div style="font-size:13px;font-weight:800;color:${C.ink};letter-spacing:.04em;text-transform:uppercase;border-bottom:2px solid ${C.ink};padding-bottom:6px;">Backend changes — last 24 hours (who changed what)</div>
+      <div style="margin-top:12px;">${changesHtml}</div>
+    </div>
     ${section('Executive Summary', 1, execSummary)}
     ${section('Top 10 Issues Requiring Immediate Engineering Attention', 2, top10Table)}
     ${section('CTO Engineering Action Plan', 3, actionPlan)}

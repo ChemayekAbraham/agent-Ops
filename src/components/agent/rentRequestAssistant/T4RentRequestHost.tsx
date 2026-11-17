@@ -5,6 +5,7 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useAuth } from '@/hooks/useAuth';
 import { AGENT_RENT_REQUEST_REOPEN_FLAG } from '@/lib/formPhotoDraft';
 import { closeT4RentRequest, openT4RentRequest, useT4Request, type T4Request } from '@/lib/t4RentRequest';
+import { resumeRequestFor } from '@/lib/t4Resume';
 
 const RentRequestAssistant = lazyWithRetry(() => import('./RentRequestAssistant'));
 
@@ -39,6 +40,9 @@ export default function T4RentRequestHost() {
   // return from the camera app): open it again; the form restores its draft (doc 276).
   useEffect(() => {
     if (!user?.id) return;
+    // The app just updated in the middle of a Post / Resubmit / Renew: reopen that same chat.
+    const resumed = resumeRequestFor(user.id);
+    if (resumed) { openT4RentRequest(resumed); return; }
     let mine = false;
     try { mine = localStorage.getItem(AGENT_RENT_REQUEST_REOPEN_FLAG) === user.id; } catch { /* ignore */ }
     if (mine) openT4RentRequest({ mode: 'new', entry: 'reload' });

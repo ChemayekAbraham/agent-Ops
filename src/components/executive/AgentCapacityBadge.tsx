@@ -58,7 +58,7 @@ export function AgentCapacityBadge({
   if (!capacity) return null;
 
   const {
-    tier, used, pct, headroom, per_tenant_max, response_rate,
+    tier, used, pct, headroom, response_rate,
     responding_tenant_days, expected_tenant_days,
     paying_tenants_last_week, active_tenant_count,
     unfunded_tenant_count,
@@ -92,8 +92,7 @@ export function AgentCapacityBadge({
     `Active exposure: UGX ${formatUGX(used)} / ${formatUGX(AGENT_RENT_CAP_UGX)} (${pct}%)\n` +
     `Headroom: UGX ${formatUGX(headroom)}\n` +
     `Last 7d tenant response: ${Math.round(response_rate * 100)}% ` +
-    `(${responding_tenant_days}/${expected_tenant_days} tenant-day responses)\n` +
-    `Per-tenant rent limit: UGX ${formatUGX(per_tenant_max)}`;
+    `(${responding_tenant_days}/${expected_tenant_days} tenant-day responses)`;
 
   if (variant === 'stack') {
     return (

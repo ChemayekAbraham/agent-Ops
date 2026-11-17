@@ -10,7 +10,7 @@
  * (iOS only opens the share sheet inside a fresh user gesture); elsewhere it
  * downloads straight away.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   fetchTlbTenantsMulti, logTlbLocationPdfExport, type TlbSelectedPlace, type TlbStatus,
 } from '@/hooks/useTenantLocationsBrowser';
@@ -27,10 +27,14 @@ export type TlbPdfState =
 export function useTlbPdfExport() {
   const [state, setState] = useState<TlbPdfState>({ phase: 'idle' });
 
-  const reset = useCallback(() => setState({ phase: 'idle' }), []);
+  // Bumped by reset so a PDF still being built for an older selection is thrown away.
+  const runRef = useRef(0);
+  const reset = useCallback(() => { runRef.current += 1; setState({ phase: 'idle' }); }, []);
 
   const generate = useCallback(async (places: readonly TlbSelectedPlace[], status: TlbStatus, generatedBy: string) => {
     if (places.length === 0) return;
+    const run = ++runRef.current;
+    const stale = () => run !== runRef.current;
     setState({ phase: 'generating' });
     try {
       const full = await fetchTlbTenantsMulti(places, status);
@@ -39,6 +43,7 @@ export function useTlbPdfExport() {
         throw new Error('The export could not be recorded in the audit log, so the PDF was not created. Please try again.');
       });
       const built = buildTenantLocationPdf({ places, rows: full.rows, total: full.total, status, generatedBy });
+      if (stale()) return;
       if (isTouchDevice()) {
         setState({ phase: 'ready', blob: built.blob, filename: built.filename, tenants: full.total });
         return;
@@ -46,6 +51,7 @@ export function useTlbPdfExport() {
       await deliverPdf(built.blob, built.filename);
       setState({ phase: 'done', message: `${built.filename} is ready.` });
     } catch (err) {
+      if (stale()) return;
       const message = err instanceof TlbTooManyTenantsError
         ? err.message
         : err instanceof Error && err.message ? err.message : 'The PDF could not be created. Please try again.';

@@ -1,3 +1,4 @@
+import { ownRequestWords } from './ownRequest';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -145,7 +146,7 @@ export function BulkBar({ count, onDecide, onClear, disabled }: { count: number;
   );
 }
 
-const asIs = (e: unknown) => String((e as { message?: string } | null)?.message ?? e ?? 'Something went wrong.');
+const asIs = (e: unknown) => ownRequestWords(String((e as { message?: string } | null)?.message ?? e ?? 'Something went wrong.'));
 
 /**
  * The reason, the note (10 characters at least) and, for Discard, the red

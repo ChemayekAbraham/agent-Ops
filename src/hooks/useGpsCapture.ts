@@ -3,7 +3,8 @@ import { gpsPermissionDenied, isInAppBrowser, watchHouseGps, type GpsFailCode, t
 
 /**
  * The house GPS for the intake forms (gpsCapture.ts). One tap: the browser's Allow (first time
- * only), then the first reading is taken at once and improved silently for up to 15 s.
+ * only); the network and the GPS are asked at once, the first reading is taken and improved
+ * silently for up to 60 s. `seconds` counts while there is no reading yet.
  *
  *   asking    waiting for the first reading
  *   improving a reading is in; better ones may still come
@@ -24,6 +25,15 @@ export function useGpsCapture(handlers: {
   const [location, setLocation] = useState<GpsFix | null>(null);
   const [failure, setFailure] = useState<GpsFailCode | null>(null);
   const [inAppBrowser] = useState(() => isInAppBrowser());
+  /** Seconds since Capture, while waiting for the first reading. */
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (phase !== 'asking') return;
+    setSeconds(0);
+    const started = Date.now();
+    const t = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
   const stop = useRef<(() => void) | null>(null);
   const h = useRef(handlers);
   h.current = handlers;
@@ -64,6 +74,6 @@ export function useGpsCapture(handlers: {
     });
   }, []);
 
-  return { phase, location, failure, inAppBrowser, capture };
+  return { phase, location, failure, inAppBrowser, seconds, capture };
 }
 export type GpsCaptureState = ReturnType<typeof useGpsCapture>;

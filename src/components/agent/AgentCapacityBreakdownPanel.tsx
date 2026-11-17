@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD } from '@/hooks/useAgentCapacityMap';
+import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
+import { exposureBlockedLine, useAgentExposure } from '@/hooks/useAgentExposure';
 import { formatUGX } from '@/lib/rentCalculations';
 import { TrendingUp, TrendingDown, Minus, Layers, Target, CheckCircle2, Lock, Loader2, ChevronRight, Share2, Send, Download, ImageDown } from 'lucide-react';
 import { AgentCollectionsDrilldownDialog } from './AgentCollectionsDrilldownDialog';
@@ -19,17 +20,19 @@ import {
 
 /**
  * Plain-English breakdown panel shown directly under "My Rent-Request Capacity".
- * Answers the three questions agents ask before allocating:
+ * Answers the three questions agents ask:
  *   1. How much have I collected today vs my target?
  *   2. How does that compare to yesterday?
- *   3. How many more allocations (slots) can I still make?
- * Ends with a clear can / can't allocate verdict and the reason.
+ *   3. What exposure and headroom do I have (get_agent_rent_request_capacity)?
+ * The verdict says "can't post" only when the database says the exposure limit is reached
+ * (blocked). E134: no rent ceiling per tenant.
  */
 export function AgentCapacityBreakdownPanel() {
   const { user } = useAuth();
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
   const { data, isLoading } = useAgentCapacityMap(ids);
   const cap = user?.id ? data?.get(user.id) : undefined;
+  const { data: exposure } = useAgentExposure(user?.id);
   const [drilldownOpen, setDrilldownOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -64,14 +67,8 @@ export function AgentCapacityBreakdownPanel() {
       ? `${formatUGX(Math.abs(diff))} less than yesterday`
       : 'Same as yesterday';
 
-  // Remaining slots = how many more per-tenant allocations the headroom allows
-  const canPost = cap.can_post_rent_today;
-  const remainingSlots = canPost && cap.per_tenant_max > 0
-    ? Math.floor(cap.headroom / cap.per_tenant_max)
-    : 0;
-
-  const threshold = Math.round(DAILY_ELIGIBILITY_THRESHOLD * 100);
-  const unlockNeeded = Math.max(0, Math.round(cap.expected_daily * DAILY_ELIGIBILITY_THRESHOLD) - cap.paid_today);
+  // Only the exposure limit stops a new Rent Plan (E100, E134).
+  const blocked = exposure?.blocked === true;
 
   // Honour badges derived live from the capacity snapshot (no extra queries).
   const badges = deriveAgentBadges(cap);
@@ -160,7 +157,7 @@ export function AgentCapacityBreakdownPanel() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-primary" />
-          <h4 className="text-sm font-bold text-foreground">Why you can / can&apos;t allocate</h4>
+          <h4 className="text-sm font-bold text-foreground">Your collections and headroom</h4>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -225,7 +222,7 @@ export function AgentCapacityBreakdownPanel() {
         </p>
       </button>
 
-      {/* 2. Yesterday comparison + 3. Remaining slots */}
+      {/* 2. Yesterday comparison + 3. Exposure and headroom */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           type="button"
@@ -245,15 +242,14 @@ export function AgentCapacityBreakdownPanel() {
           </div>
         </button>
         <div className="rounded-xl border border-border bg-background/70 p-3">
-          <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Remaining slots</div>
+          <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Headroom left</div>
           <div className="mt-1 text-base font-extrabold tabular-nums text-foreground">
-            {remainingSlots}
-            <span className="text-muted-foreground font-semibold"> {remainingSlots === 1 ? 'allocation' : 'allocations'}</span>
+            {exposure ? formatUGX(exposure.headroom) : '—'}
           </div>
-          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-            {canPost
-              ? <>Up to {formatUGX(cap.per_tenant_max)} per tenant · {formatUGX(cap.headroom)} headroom left</>
-              : <>Unlock allocations first to use your headroom</>}
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed" data-testid="exposure-line">
+            {exposure
+              ? <>Exposure {formatUGX(exposure.exposure)} of {formatUGX(exposure.cap)}</>
+              : <>Exposure is loading…</>}
           </p>
         </div>
       </div>
@@ -261,24 +257,19 @@ export function AgentCapacityBreakdownPanel() {
       {/* Verdict */}
       <div
         className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold ${
-          canPost ? 'bg-emerald-500/10 text-emerald-700' : 'bg-destructive/10 text-destructive'
+          blocked ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-700'
         }`}
+        role="status"
       >
-        {canPost ? (
+        {blocked && exposure ? (
           <>
-            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-            <span>
-              You can allocate today — you have met the {threshold}% daily target and have{' '}
-              {remainingSlots > 0 ? `${remainingSlots} ${remainingSlots === 1 ? 'slot' : 'slots'} of` : ''} headroom available.
-            </span>
+            <Lock className="h-4 w-4 shrink-0 mt-0.5" />
+            <span data-testid="exposure-blocked">{exposureBlockedLine(exposure)}</span>
           </>
         ) : (
           <>
-            <Lock className="h-4 w-4 shrink-0 mt-0.5" />
-            <span>
-              You can&apos;t allocate yet — collect{' '}
-              <strong>{formatUGX(unlockNeeded)}</strong> more today to reach the {threshold}% daily target and unlock new allocations.
-            </span>
+            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>You can post new Rent Plans.</span>
           </>
         )}
       </div>
@@ -288,8 +279,6 @@ export function AgentCapacityBreakdownPanel() {
         onOpenChange={setDrilldownOpen}
         agentId={user.id}
         expectedDaily={cap.expected_daily}
-        headroom={cap.headroom}
-        perTenantMax={cap.per_tenant_max}
       />
 
       <AgentCapacityShareCard
@@ -298,10 +287,9 @@ export function AgentCapacityBreakdownPanel() {
         paidToday={cap.paid_today}
         expectedDaily={cap.expected_daily}
         paidYesterday={cap.paid_yesterday}
-        perTenantMax={cap.per_tenant_max}
-        headroom={cap.headroom}
-        remainingSlots={remainingSlots}
-        canPost={canPost}
+        exposure={exposure?.exposure ?? null}
+        headroom={exposure?.headroom ?? null}
+        blocked={blocked}
         dateLabel={dateLabel}
         badges={badges}
         tenantCount={cap.active_tenant_count}
@@ -326,10 +314,9 @@ export function AgentCapacityBreakdownPanel() {
                 paidToday={cap.paid_today}
                 expectedDaily={cap.expected_daily}
                 paidYesterday={cap.paid_yesterday}
-                perTenantMax={cap.per_tenant_max}
-                headroom={cap.headroom}
-                remainingSlots={remainingSlots}
-                canPost={canPost}
+                exposure={exposure?.exposure ?? null}
+                headroom={exposure?.headroom ?? null}
+                blocked={blocked}
                 dateLabel={dateLabel}
                 badges={badges}
                 tenantCount={cap.active_tenant_count}
