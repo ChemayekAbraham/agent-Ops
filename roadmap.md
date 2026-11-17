@@ -1,3 +1,9 @@
+# Session-only RPC error watch (17 November)
+- [x] Guard request_form_log, weekly champion, elite rank and bonus pending at the call boundary; keep logging fire-and-forget and stop authentication-error retries.
+- [x] Run focused signed-out/expired/signed-in regression tests and project guards; database, storage and edge deployments untouched.
+- [ ] Verify production signed-in flows/error reduction; external unmanaged authentication prevents live authenticated checks here.
+- [ ] Address the two Calling Center security alerts; any server/permission fix needs separate approval and is outside the frontend-only request.
+
 # Frontend error watcher (15 November)
 - [x] Sweep 403 literal client reads across wallets/statements, tenant/agent requests and drafts, staff administration, landlord reports/calling and Neexa inbox; generated-column audit finds no remaining targeted literal mismatch. Fix CFO Impact tenant drilldown, Agent Ops recent preview/list (including realtime) and legacy rejected-request property restoration; 24 focused tests and all guards pass, automatic build OK.
 - [x] Review centralized automatic/manual/voice error reporting and role-writer callsites; anonymous reporting uses the shared session guard, no literal partner app_role writer found. Background jobs, edge functions and database functions remain outside the requested client-only scope and were not changed or verified.

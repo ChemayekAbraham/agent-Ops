@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { withUserSession } from '@/lib/authenticatedRequests';
 
 async function call<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
   const { data, error } = await (supabase.rpc as any)(fn, args ?? {});
@@ -29,7 +30,12 @@ export interface BonusPending {
 export const listPools = () => call<BonusPool[]>('hr_pay_bonus_list').then((r) => r ?? []);
 export const poolDetail = (id: string) => call<BonusDetailRow[]>('hr_pay_bonus_detail', { _pool_id: id }).then((r) => r ?? []);
 export const staffOptions = () => call<StaffOption[]>('hr_pay_bonus_staff_options').then((r) => r ?? []);
-export const pendingForMe = () => call<BonusPending[]>('hr_pay_bonus_pending_for_me').then((r) => r ?? []);
+export async function pendingForMe(): Promise<BonusPending[]> {
+  const { data, error } = await withUserSession(() => supabase.rpc('hr_pay_bonus_pending_for_me'));
+  if (error?.code === 'AUTH_REQUIRED') return [];
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as BonusPending[];
+}
 export const ackNotice = (id: string) => call<void>('hr_pay_bonus_ack', { _notice_id: id });
 
 export const savePool = (a: {

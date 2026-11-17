@@ -20,7 +20,9 @@ vi.mock('@/integrations/supabase/client', () => {
     b.single = async () => ({ data: null, error: null });
     return b;
   };
-  return { supabase: { functions: { invoke: mocks.invoke }, rpc: mocks.rpc, from: builder } };
+  return { supabase: { functions: { invoke: mocks.invoke }, rpc: mocks.rpc, from: builder, auth: {
+    getSession: async () => ({ data: { session: { user: { id: 'tenant-1' }, access_token: 'test-token' } }, error: null }),
+  } } };
 });
 // One stable user object, as the real hook gives.
 const auth = vi.hoisted(() => ({ user: { id: 'tenant-1', email: null, phone: null, user_metadata: {} }, loading: false }));
@@ -409,6 +411,7 @@ describe('E108 funnel: steps use the intake step keys; a blocked press sends the
     expect(continueBtn()).toBeDisabled();
     // A tap on the disabled button lands on its wrapper.
     fireEvent.click(screen.getByTestId('continue-wrap'));
+    await waitFor(() => expect(funnelLogs().at(-1)?.p_event).toBe('blocked'));
     const logs = funnelLogs();
     expect(logs[0]).toMatchObject({ p_event: 'open', p_form: 'tenant_self' });
     expect(logs.filter((r) => r.p_event === 'step').map((r) => r.p_step)).toEqual(['tenant', 'rent_plan', 'landlord', 'house']);
@@ -419,7 +422,7 @@ describe('E108 funnel: steps use the intake step keys; a blocked press sends the
   it('the "N left" button on step 8 is a blocked press on what is missing', async () => {
     await fillTo(8, { lcLetter: false });
     fireEvent.click(leftBtn());
-    expect(funnelLogs().at(-1)).toMatchObject({ p_event: 'blocked', p_items: ['lc1_letter', 'agreement'], p_step: 'lc1_post' });
+    await waitFor(() => expect(funnelLogs().at(-1)).toMatchObject({ p_event: 'blocked', p_items: ['lc1_letter', 'agreement'], p_step: 'lc1_post' }));
   });
 
   it('a successful submit logs submit_ok with the request id', async () => {

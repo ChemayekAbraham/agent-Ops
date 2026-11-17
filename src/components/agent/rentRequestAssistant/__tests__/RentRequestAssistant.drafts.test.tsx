@@ -31,6 +31,7 @@ vi.mock('@/integrations/supabase/client', () => {
   return {
     supabase: {
       rpc: mocks.rpc,
+      auth: { getSession: async () => ({ data: { session: { user: { id: 'agent-1' }, access_token: 'test-token' } }, error: null }) },
       from: builder,
       storage: {
         from: () => ({

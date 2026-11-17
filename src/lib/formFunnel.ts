@@ -10,6 +10,7 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { safeUUID } from '@/lib/safeUUID';
+import { withUserSession } from '@/lib/authenticatedRequests';
 
 export type FunnelForm = 'agent_post' | 'tenant_self' | 'renewal' | 'resubmit';
 export type FunnelEvent = 'open' | 'step' | 'blocked' | 'item_done' | 'submit_ok' | 'submit_fail' | 'close';
@@ -71,17 +72,21 @@ const enqueue = (row: FunnelRow) => writeQueue([...readQueue(), row]);
 
 /** Sends one row; queues it when the network is the problem. Never rejects. */
 async function sendRow(row: FunnelRow, rpc: Rpc): Promise<boolean> {
-  if (isOffline()) { enqueue(row); return false; }
   try {
-    const { error } = await rpc('request_form_log', row as unknown as Record<string, unknown>);
+    const { error } = await withUserSession(() => {
+      if (isOffline()) {
+        enqueue(row);
+        return Promise.resolve({ error: { message: 'Offline event queued' } });
+      }
+      return rpc('request_form_log', row as unknown as Record<string, unknown>);
+    });
     if (error) {
       if (isNetworkError(error.message)) enqueue(row);
       return false; // a server refusal is dropped: re-sending would refuse again
     }
     return true;
   } catch (e) {
-    enqueue(row);
-    void e;
+    if (isNetworkError(e instanceof Error ? e.message : undefined)) enqueue(row);
     return false;
   }
 }
