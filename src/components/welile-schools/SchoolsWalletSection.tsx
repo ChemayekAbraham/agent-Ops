@@ -2,8 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Wallet } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
-/** Where the Welile wallet lives: the same card as the main dashboards, at the top of "Your Profile". */
-const WALLET_PATH = '/your-profile';
+/** The Welile Schools wallet page (the same wallet as the main dashboards, opened out). */
+const WALLET_PATH = '/schools/wallet';
 
 /**
  * "Your wallet" on the Welile Schools role homes: one button that opens the Welile wallet
@@ -13,10 +13,10 @@ export default function SchoolsWalletSection() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // The wallet page signs visitors in itself, then shows the wallet.
   const open = () => {
-    // The wallet is the first card on the profile page: start it at the top, not at this page's scroll.
     window.scrollTo({ top: 0 });
-    navigate(user ? WALLET_PATH : `/auth?redirect=${encodeURIComponent(WALLET_PATH)}`);
+    navigate(WALLET_PATH);
   };
 
   return (

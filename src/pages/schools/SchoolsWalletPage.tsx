@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Loader2, LogIn, Wallet } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,6 +23,9 @@ const WALLET_PATH = '/schools/wallet';
 export default function SchoolsWalletPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+
+  // Open at the top (the wallet card), whatever the previous page's scroll was.
+  useEffect(() => { window.scrollTo({ top: 0 }); }, []);
 
   return (
     <div className="min-h-screen bg-background pb-10">
@@ -68,12 +72,9 @@ function SignedInWallet() {
       {/* National ID: required before any payout can be released (renders nothing once on file). */}
       <NationalIdPrompt withdrawableBalance={Math.max(0, withdrawableBalance)} />
 
-      <section aria-labelledby="ws-wallet-statement" className="space-y-3 rounded-3xl border border-border/60 bg-card p-4 shadow-sm">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h2 id="ws-wallet-statement" className="text-base font-bold">Wallet statement</h2>
-            <PaymentMethodIcons className="mt-2" />
-          </div>
+      <section aria-label="Wallet statement" className="space-y-3">
+        <div className="flex items-center justify-between gap-2 px-1">
+          <PaymentMethodIcons />
           <Button variant="ghost" size="sm" className="h-9 shrink-0 gap-1 rounded-full text-primary" onClick={() => navigate('/transactions')}>
             All transactions<ArrowRight className="h-4 w-4" aria-hidden />
           </Button>
