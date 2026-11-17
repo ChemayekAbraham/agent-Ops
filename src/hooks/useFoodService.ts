@@ -322,17 +322,24 @@ export async function signFoodMealPhotos(
   if (toSign.length === 0) return out;
   for (const n of toSign) out.set(n, null);
   try {
-    const signPromise = supabase.storage.from(FOOD_MEAL_IMAGE_BUCKET)
-      .createSignedUrls(toSign, FOOD_MEAL_PHOTO_URL_TTL_SECONDS);
+    const expiresAt = now + FOOD_MEAL_PHOTO_URL_TTL_SECONDS * 1000;
+    // Cache whatever comes back, even after the wait below gives up, so the next load has the photos.
+    const signPromise = Promise.resolve(supabase.storage.from(FOOD_MEAL_IMAGE_BUCKET)
+      .createSignedUrls(toSign, FOOD_MEAL_PHOTO_URL_TTL_SECONDS))
+      .then((res) => {
+        for (const item of res.data ?? []) {
+          if (item.path && !item.error && item.signedUrl) signedPhotoCache.set(item.path, { url: item.signedUrl, expiresAt });
+        }
+        return res;
+      });
+    // Generous wait: slow mobile links plus a session refresh can take several seconds.
     const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
-      setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 700)
+      setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 8000)
     );
     const { data, error } = await Promise.race([signPromise, timeoutPromise]);
     if (error || !data) return out;
-    const expiresAt = now + FOOD_MEAL_PHOTO_URL_TTL_SECONDS * 1000;
     for (const item of data) {
       if (!item.path || item.error || !item.signedUrl) continue;
-      signedPhotoCache.set(item.path, { url: item.signedUrl, expiresAt });
       out.set(item.path, item.signedUrl);
     }
   } catch {

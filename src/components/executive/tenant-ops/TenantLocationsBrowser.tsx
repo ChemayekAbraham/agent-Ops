@@ -5,7 +5,7 @@
  * entirely by the approved Uganda dataset ids already stored on each profile.
  * Nothing on this page writes, edits or infers a location.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -80,6 +80,15 @@ export function TenantLocationsBrowser({ onSelectTenant }: TenantLocationsBrowse
   const { user } = useAuth();
   const { selection, places, toggle, addMany, remove, removeMany, clear } = useTlbSelection();
   const pdf = useTlbPdfExport();
+  // A prepared PDF belongs to the places and status it was built from; drop it when either changes.
+  const pdfInputs = `${status}|${places.map((p) => p.key).join(',')}`;
+  const pdfInputsRef = useRef(pdfInputs);
+  const resetPdf = pdf.reset;
+  useEffect(() => {
+    if (pdfInputsRef.current === pdfInputs) return;
+    pdfInputsRef.current = pdfInputs;
+    resetPdf();
+  }, [pdfInputs, resetPdf]);
 
   const { data: generatedBy } = useQuery({
     enabled: !!user?.id,

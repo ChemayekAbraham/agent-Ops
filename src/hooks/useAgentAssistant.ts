@@ -177,7 +177,8 @@ export function useAgentAssistant() {
           escalationOffered: res.escalation_offered ?? false,
         }); return; }
         }
-        const turns = [...publicHistoryRef.current, { role: 'user' as const, content: message }];
+        // Send a sliding window (last 9 exchanges + this question) so long chats stay under the 20-message limit.
+        const turns = [...publicHistoryRef.current.slice(-18), { role: 'user' as const, content: message }];
         const replyId = safeUUID();
         const reply = await requestAssistantPublicReply(turns, controller.signal, (content) => {
           if (generation !== generationRef.current) return;

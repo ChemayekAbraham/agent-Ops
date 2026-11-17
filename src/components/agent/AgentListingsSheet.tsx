@@ -26,7 +26,7 @@ import { HouseBonusTimeline } from './HouseBonusTimeline';
 import { HighlightText } from '@/components/shared/HighlightText';
 import { useFilterKeyboardShortcuts } from '@/hooks/useFilterKeyboardShortcuts';
 import { HouseDetailSheet } from './HouseDetailSheet';
-import { openT4RentRequest } from '@/lib/t4RentRequest';
+import { openT4RentRequest, useT4Request } from '@/lib/t4RentRequest';
 import { MoveInOfferBadge } from '@/components/house/MoveInOfferBadge';
 import RegisterLandlordDialog from './RegisterLandlordDialog';
 
@@ -40,6 +40,8 @@ interface AgentListingsSheetProps {
 }
 
 export function AgentListingsSheet({ open, onOpenChange, onListHouse, vacantOnly = false }: AgentListingsSheetProps) {
+  // The rent request form is drawn at the app root, below this full-screen sheet; step aside while it is open.
+  const t4FormOpen = useT4Request() !== null;
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -443,7 +445,7 @@ export function AgentListingsSheet({ open, onOpenChange, onListHouse, vacantOnly
 
   return (
     <>
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open && !t4FormOpen} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         className="h-[90vh] rounded-t-3xl p-0 flex flex-col"

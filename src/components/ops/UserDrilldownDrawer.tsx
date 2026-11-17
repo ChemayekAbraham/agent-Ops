@@ -248,7 +248,7 @@ export function UserDrilldownDrawer({
                 <TabsTrigger value="tenant" disabled={!effectiveTenantId} className="text-xs font-semibold">
                   <User className="h-3.5 w-3.5 mr-1.5" /> Tenant
                 </TabsTrigger>
-                <TabsTrigger value="agent" disabled={!agentId} className="text-xs font-semibold">
+                <TabsTrigger value="agent" disabled={!effectiveAgentId} className="text-xs font-semibold">
                   <UserCheck className="h-3.5 w-3.5 mr-1.5" /> Agent
                 </TabsTrigger>
                 <TabsTrigger value="landlord" disabled={!effectiveLandlordId} className="text-xs font-semibold">
@@ -264,7 +264,7 @@ export function UserDrilldownDrawer({
                 <TenantPane
                   tenantId={effectiveTenantId}
                   isOps={isOps}
-                  onBackToAgent={cameFromAgent && agentId ? () => { setTab('agent'); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); } : undefined}
+                  onBackToAgent={cameFromAgent && navHistory[navHistory.length - 1]?.tab === 'agent' ? handleStepBack : undefined}
                   onSelectLandlord={handleSelectLandlord}
                   onSelectAgent={handleSelectAgent}
                   onSelectUser={handleSelectUser}
@@ -272,9 +272,9 @@ export function UserDrilldownDrawer({
               )}
             </TabsContent>
             <TabsContent value="agent" className="mt-0 focus-visible:outline-none">
-              {agentId && (
+              {effectiveAgentId && (
                 <AgentPane
-                  agentId={agentId}
+                  agentId={effectiveAgentId}
                   isOps={isOps}
                   onSelectTenant={handleSelectTenant}
                   onSelectLandlord={handleSelectLandlord}

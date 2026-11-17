@@ -3620,7 +3620,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               <DialogDescription>Answer one question at a time to post a rent request</DialogDescription>
             </DialogHeader>
             <RentRequestChatHeader
-              onClose={retreatChat}
+              onClose={() => handleOpenChange(false)}
               onForm={openFieldFormPreview}
               formBusy={fieldFormGenerating}
               savedHint={savedHint}
