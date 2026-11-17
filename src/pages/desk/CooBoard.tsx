@@ -16,7 +16,6 @@ import { SendBackSheet } from './sendBack';
 import { CooSendBackSheet, type CooTarget } from './cooSendBack';
 import { KindChip, type RequestKind } from './KindChip';
 import { AT_COO, DeskSearchBox, SearchResults } from './deskSearch';
-import { MissingLine, SendBackIncompleteSheet } from './incomplete';
 import { missingChip } from './boardRowModel';
 import { awaitingRentRequestIds } from '@/lib/fundersBoard';
 import { useCooDemoted } from './fundersBoard/DemotedPanel';
@@ -301,10 +300,22 @@ export function cooLine(row: CooRow): string | null {
 /** "AO 80 · TO 70 · LO —". */
 export const ratingsText = (r: CooRow['ratings']) => `AO ${rating(r?.agent_ops)} · TO ${rating(r?.tenant_ops)} · LO ${rating(r?.landlord_ops)}`;
 
-/** lg: rank+grade+tenant | agent | chips | ratings | UGX | days | action — the action never wraps. */
-const COO_GRID = 'minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.4fr) 9rem 6.5rem 3.5rem max-content';
-/** md: people | ratings | UGX | days | action, chips on a line of their own. */
-const COO_GRID_MD = 'minmax(0, 1fr) 8.5rem 5.5rem 3rem max-content';
+/**
+ * A row is two parts that wrap: the facts (a grid) and the actions. When the
+ * actions do not fit beside the facts they drop to a line of their own under
+ * the row; they never squeeze the names (17 Nov: names rendered one letter per
+ * line once "Push anyway" made the action column wider).
+ *
+ * lg facts: rank+grade+tenant | agent | chips | ratings | UGX | days.
+ * md facts: people | ratings | UGX | days, chips on a line of their own.
+ */
+export const NAME_MIN_PX = 200;
+const COO_GRID = `minmax(${NAME_MIN_PX}px, 1.4fr) minmax(160px, 1fr) minmax(0, 1.4fr) 9rem 6.5rem 3.5rem`;
+const COO_GRID_MD = `minmax(${NAME_MIN_PX}px, 1fr) 8.5rem 5.5rem 3rem`;
+/** The facts' narrowest width: the columns' minimums and the gaps between them. */
+const COO_FACTS_MIN = { lg: NAME_MIN_PX + 160 + 144 + 104 + 56 + 5 * 12, md: NAME_MIN_PX + 136 + 88 + 48 + 3 * 12 } as const;
+/** One line, an ellipsis when long, the full text on hover. */
+const ONE_LINE = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
 
 function CooRowLine({
   row,
@@ -314,7 +325,6 @@ function CooRowLine({
   onPush,
   onAgent,
   onSendBack,
-  onSendBackAgentOps,
   onPushAnyway,
   concerns,
   select,
@@ -329,8 +339,6 @@ function CooRowLine({
   onAgent: (row: CooRow) => void;
   /** Opens "Send back…" to a chosen office (E63). */
   onSendBack: (row: CooRow) => void;
-  /** E82 / E89: "Send back…" for a row that misses something (Agent Ops, Service Centre or agent). */
-  onSendBackAgentOps?: (row: CooRow) => void;
   /** E131 (COO only): push a row held only for missing items, with a reason. */
   onPushAnyway?: (row: CooRow) => void;
   /** Concerns any desk logged on this request. */
@@ -408,7 +416,7 @@ function CooRowLine({
     </>
   );
   const title = (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}>
       {/* Rank and grade never shrink or wrap beside a long name. */}
       {select && (
         <input
@@ -426,37 +434,40 @@ function CooRowLine({
           <GradeBody grade={row.grade} avg={row.avg} ratings={row.ratings} />
         </Explain>
       </span>
-      <span style={{ overflowWrap: 'anywhere' }}>{row.tenant ?? '—'}</span>
+      <span style={ONE_LINE} title={row.tenant ?? undefined} data-coo-tenant>
+        {row.tenant ?? '—'}
+      </span>
     </span>
   );
   const agent = (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}>
       {row.agent && row.agent !== '—' ? (
         <button
           type="button"
           onClick={() => onAgent(row)}
           aria-label={`Open ${row.agent}'s rent plans`}
           className={`rounded text-left underline decoration-dotted underline-offset-2 hover:decoration-solid ${CALM} ${FOCUS}`}
-          style={{ overflowWrap: 'anywhere', padding: 0, border: 0, background: 'none', color: 'inherit', font: 'inherit', cursor: 'pointer' }}
+          title={row.agent}
+          style={{ ...ONE_LINE, padding: 0, border: 0, background: 'none', color: 'inherit', font: 'inherit', cursor: 'pointer' }}
           data-agent-link
         >
           {row.agent}
         </button>
       ) : (
-        <span style={{ overflowWrap: 'anywhere' }}>{row.agent ?? 'No agent'}</span>
+        <span style={ONE_LINE} title={row.agent ?? undefined}>{row.agent ?? 'No agent'}</span>
       )}
       {row.agent_grade && (
+        <span style={{ flexShrink: 0, display: 'inline-flex' }}>
         <Explain label={`Agent grade ${agentGradeText(row.agent_grade)}: what it means`} badge={<AgentGradeBadge grade={row.agent_grade} />}>
           <AgentGradeBody grade={row.agent_grade} pct={row.agent_pct} flags={row.agent_red_flags ?? []} />
         </Explain>
+        </span>
       )}
     </span>
   );
 
+  // What is missing is the red chip in the row; the row's one "Send back" handles it.
   const lines = cooLines(row, concerns);
-  // E82: what is missing, with the shortcut back to Agent Ops (the server already keeps the row from the push).
-  const missingEl = <MissingLine list={row.incomplete} onSendBack={onSendBackAgentOps ? () => onSendBackAgentOps(row) : undefined} />;
-  const missing = (row.incomplete ?? []).filter(Boolean).length > 0;
   // E131: held only for missing items, the agent not frozen: the COO may push anyway.
   const anyway = !!onPushAnyway && isHeldForMissing(row);
 
@@ -469,9 +480,8 @@ function CooRowLine({
           subtitle={agent}
           chips={chips}
           why={
-            lines.length || missing ? (
+            lines.length ? (
               <>
-                {missing && missingEl}
                 {lines.map((l) => (
                   <span key={l} style={{ display: 'block' }} data-row-line={l === CONCERN_BLOCK_LINE ? 'concern' : undefined}>
                     {l}
@@ -502,6 +512,21 @@ function CooRowLine({
     );
   }
 
+  const facts =
+    layout === 'lg' ? (
+      <>
+        <span className="font-medium text-foreground" style={{ minWidth: 0 }} data-coo-name-cell>{title}</span>
+        <span className="text-foreground" style={{ minWidth: 0 }} data-coo-agent-cell>{agent}</span>
+        <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6, minWidth: 0 }}>{chips}</span>
+      </>
+    ) : (
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }} data-coo-name-cell>
+        <span className="font-medium text-foreground" style={{ minWidth: 0 }}>{title}</span>
+        <span className="text-muted-foreground" style={{ minWidth: 0 }}>{agent}</span>
+      </span>
+    );
+  const factsMin = COO_FACTS_MIN[layout];
+
   return (
     <li
       data-row={row.id}
@@ -509,28 +534,30 @@ function CooRowLine({
       data-frozen={frozen ? 'true' : undefined}
       className={`border-t border-[var(--desk-line-color)] first:border-t-0 ${board ? 'text-base' : 'text-sm'} ${frozen ? 'opacity-60' : ''}`}
       data-layout={layout}
-      style={{ display: 'grid', gridTemplateColumns: layout === 'lg' ? COO_GRID : COO_GRID_MD, columnGap: 12, rowGap: 4, alignItems: 'center', paddingTop: 8, paddingBottom: 8, listStyle: 'none' }}
+      style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 6, paddingTop: 8, paddingBottom: 8, listStyle: 'none' }}
     >
-      {layout === 'lg' ? (
-        <>
-          <span className="font-medium text-foreground" style={{ minWidth: 0 }}>{title}</span>
-          <span className="text-foreground" style={{ minWidth: 0 }}>{agent}</span>
-          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6, minWidth: 0 }}>{chips}</span>
-        </>
-      ) : (
-        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-          <span className="font-medium text-foreground">{title}</span>
-          <span className="text-muted-foreground">{agent}</span>
+      <div
+        data-coo-facts-row
+        style={{
+          flex: `1 1 ${factsMin}px`,
+          minWidth: `min(100%, ${factsMin}px)`,
+          display: 'grid',
+          gridTemplateColumns: layout === 'lg' ? COO_GRID : COO_GRID_MD,
+          columnGap: 12,
+          alignItems: 'center',
+        }}
+      >
+        {facts}
+        <span className="tabular-nums text-foreground" style={{ whiteSpace: 'nowrap' }}>
+          {ratingsBadge}
         </span>
-      )}
-      <span className="tabular-nums text-foreground" style={{ whiteSpace: 'nowrap' }}>
-        {ratingsBadge}
-      </span>
-      <span className="tabular-nums text-foreground" style={{ textAlign: 'right', whiteSpace: 'nowrap' }} title={moneyFull(row.rent)}>
-        {moneyCard(row.rent)}
-      </span>
-      <span className="tabular-nums text-muted-foreground" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{daysShort(row.days_here)}</span>
-      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, whiteSpace: 'nowrap' }}>
+        <span className="tabular-nums text-foreground" style={{ textAlign: 'right', whiteSpace: 'nowrap' }} title={moneyFull(row.rent)}>
+          {moneyCard(row.rent)}
+        </span>
+        <span className="tabular-nums text-muted-foreground" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{daysShort(row.days_here)}</span>
+      </div>
+      {/* The actions: beside the facts when they fit, else on a line of their own under the row. */}
+      <div data-coo-actions style={{ flex: '0 1 auto', marginLeft: 'auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
         {isPushable(row) && (
           <DecisionButton variant="primary" onClick={() => onPush(row)}>
             Push to funders
@@ -543,11 +570,10 @@ function CooRowLine({
         )}
         {rowActions}
         <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>{menu}</MoreMenu>
-      </span>
-      {layout === 'md' && chips.length > 0 && <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 6 }}>{chips}</div>}
-      {missing && <div style={{ gridColumn: '1 / -1', minWidth: 0 }}>{missingEl}</div>}
+      </div>
+      {layout === 'md' && chips.length > 0 && <div style={{ flexBasis: '100%', display: 'flex', flexWrap: 'wrap', gap: 6 }}>{chips}</div>}
       {lines.map((l) => (
-        <div key={l} className={LABEL} style={{ gridColumn: '1 / -1', minWidth: 0 }} data-row-line={l === CONCERN_BLOCK_LINE ? 'concern' : undefined}>
+        <div key={l} className={LABEL} style={{ flexBasis: '100%', minWidth: 0 }} data-row-line={l === CONCERN_BLOCK_LINE ? 'concern' : undefined}>
           {l}
         </div>
       ))}
@@ -752,9 +778,6 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
       return next;
     });
   const selectIds = (ids: string[]) => setSelected((cur) => new Set([...cur, ...ids]));
-  // E89: a row that misses something goes back to Agent Ops, the Service Centre or the agent.
-  const [agentOpsRow, setAgentOpsRow] = useState<CooRow | null>(null);
-  const closeAgentOps = useCallback(() => setAgentOpsRow(null), []);
   // Requests demoted from the funders board wait for a level on the panel above; mark them so they are never pushed.
   const demoted = useCooDemoted();
   const rows = useMemo(() => {
@@ -865,7 +888,6 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
               onPush={setPushRow}
               onAgent={setAgentRow}
               onSendBack={setSendBackRow}
-              onSendBackAgentOps={setAgentOpsRow}
               onPushAnyway={canPush ? (row) => setAnywayRows([row]) : undefined}
               concerns={concerns.data?.[r.id]}
               select={selecting ? { checked: selected.has(r.id), onToggle: () => toggleSelected(r.id) } : undefined}
@@ -920,9 +942,6 @@ function CooList({ board, onOpen }: { board: boolean; onOpen: OpenDrawer }) {
           onDone={(done) => setSelected((cur) => new Set(Array.from(cur).filter((id) => !done.includes(id))))}
           onClose={() => setBulkTargets(null)}
         />
-      )}
-      {agentOpsRow && (
-        <SendBackIncompleteSheet requestId={agentOpsRow.id} tenant={agentOpsRow.tenant} missing={agentOpsRow.incomplete} onClose={closeAgentOps} />
       )}
       {agentRow && (
         <AgentSheet target={{ kind: 'request', requestId: agentRow.id, name: agentRow.agent, grade: agentRow.agent_grade }} onClose={closeAgent} />

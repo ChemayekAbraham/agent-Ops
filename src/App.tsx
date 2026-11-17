@@ -73,6 +73,9 @@ const DeskReviewHarness = lazyWithRetry(
 const SendBackSheetHarness = lazyWithRetry(
   () => import("@/pages/__e2e/SendBackSheetHarness"),
 );
+const CooBoardHarness = lazyWithRetry(
+  () => import("@/pages/__e2e/CooBoardHarness"),
+);
 const BoardScreensHarness = lazyWithRetry(
   () => import("@/pages/__e2e/BoardScreensHarness"),
 );
@@ -758,6 +761,16 @@ function AppRoutes() {
               element={
                 <Suspense fallback={null}>
                   <SendBackSheetHarness />
+                </Suspense>
+              }
+            />
+          )}
+          {import.meta.env.DEV && (
+            <Route
+              path="/__e2e/coo-board"
+              element={
+                <Suspense fallback={null}>
+                  <CooBoardHarness />
                 </Suspense>
               }
             />

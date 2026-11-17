@@ -186,7 +186,8 @@ describe('desk and COO rows: "Send back…" opens the same three-target sheet', 
     expect(calls('pipeline_send_back_to')).toHaveLength(0);
   });
 
-  it('COO row: the same sheet, the server call is pipeline_send_back_incomplete', async () => {
+  // 17 Nov: the COO row keeps one send-back (the office sheet); the missing-items shortcut is gone there.
+  it('COO row: no second "Send back…" — its one Send back opens the office sheet', async () => {
     const coo: CooRow = {
       id: 'c1', req: 'c1', tenant: 'Cara Coo', agent: 'Andy', agent_grade: 'B', landlord: 'L', landlord_verified: true, rent: 300000, days_here: 4.4,
       ratings: { agent_ops: 80, tenant_ops: null, landlord_ops: 60, average: 70, grade: 'B', partly_rated: false }, grade: 'A', avg: 80,
@@ -195,11 +196,9 @@ describe('desk and COO rows: "Send back…" opens the same three-target sheet', 
     serve({ pipeline_coo_board: { data: { counts: {}, can_push: true, rows: [coo] } }, pipeline_send_back_incomplete: { data: { ok: true, sent_to: 'the Service Centre' } } });
     wrap(<CooBoard board={false} onOpen={() => {}} />);
     await screen.findByText('Cara Coo');
-    fireEvent.click(screen.getByRole('button', { name: 'Send back…' }));
-    const sheet = screen.getByRole('dialog', { name: 'Send back Cara Coo' });
-    fireEvent.click(within(sheet).getByRole('radio', { name: 'Service Centre' }));
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Send back to Service Centre' }));
-    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith('Sent back to the Service Centre'));
-    expect(calls('pipeline_send_back_incomplete')[0][1]).toMatchObject({ p_request_id: 'c1', p_to: 'service_centre' });
+    expect(screen.queryByRole('button', { name: 'Send back…' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Send back' }));
+    expect(await screen.findByRole('dialog', { name: 'Send back — Cara Coo' })).toBeTruthy();
+    expect(calls('pipeline_send_back_incomplete')).toHaveLength(0);
   });
 });
