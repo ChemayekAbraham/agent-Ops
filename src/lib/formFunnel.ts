@@ -11,7 +11,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { safeUUID } from '@/lib/safeUUID';
 
-export type FunnelForm = 'agent_post' | 'tenant_self';
+export type FunnelForm = 'agent_post' | 'tenant_self' | 'renewal' | 'resubmit';
 export type FunnelEvent = 'open' | 'step' | 'blocked' | 'item_done' | 'submit_ok' | 'submit_fail' | 'close';
 /**
  * The 8 intake steps (intakeSteps.ts) — tenant, rent_plan, landlord, house, household,
@@ -21,6 +21,8 @@ export type FunnelEvent = 'open' | 'step' | 'blocked' | 'item_done' | 'submit_ok
 export const FUNNEL_STEPS = [
   'start', 'tenant', 'rent_plan', 'landlord', 'house', 'household', 'tenant_photo', 'id', 'lc1_post',
   'repayment', 'house_landlord', 'gps', 'smartphone', 'lc1', 'documents', 'review',
+  // The renewal's 3 steps (form 'renewal').
+  'plan', 'changes', 'code',
 ] as const;
 export type FunnelStep = typeof FUNNEL_STEPS[number];
 export const FUNNEL_ITEMS = [
@@ -114,7 +116,7 @@ export interface FormFunnel {
   open(meta?: Record<string, unknown>): void;
   step(step: FunnelStep): void;
   blocked(items: FunnelItem[], error?: string | null): void;
-  /** An item became valid; `meta` / `error` ride with it (e.g. gps { accuracy_m }, or gps_pin_used). */
+  /** An item became valid; `meta` / `error` ride with it (e.g. gps { accuracy_m }). */
   itemDone(item: FunnelItem, meta?: Record<string, unknown> | null, error?: string | null): void;
   /** Posted; `meta` rides with the request id, e.g. { gps_note: 'Low GPS accuracy (120 m)' } for the Service Centre. */
   submitOk(rentRequestId: string, meta?: Record<string, unknown>): void;
@@ -199,6 +201,15 @@ export function createFormFunnel(form: FunnelForm, rpc: Rpc = defaultRpc): FormF
 }
 
 /** The server's error code at the start of a message ("REQUIREMENTS_MISSING: …"), or the fallback. */
+/**
+ * A server refusal in plain words: the message after its code ("DOCS_LOCKED: Documents can only be
+ * added…" → "Documents can only be added…"), never a bare "failed".
+ */
+export function plainServerMessage(message: string | null | undefined, fallback = 'The server refused it. Please try again.'): string {
+  const m = (message ?? '').replace(/\b[A-Z][A-Z0-9_]{3,}:\s*/g, '').trim();
+  return m || fallback;
+}
+
 export function funnelErrorCode(message: string | null | undefined, fallback = 'unknown'): string {
   const m = /^\s*([A-Z][A-Z0-9_]{3,})\b/.exec(message || '');
   return m ? m[1] : fallback;

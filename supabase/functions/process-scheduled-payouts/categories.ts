@@ -8,12 +8,12 @@ export const SCHEDULED_PAYOUT_CATEGORIES: Record<string, { walletCat: string; pl
   // nightly `reconcile_wallet_cache_to_ledger` reconciliation, which
   // wipes it back out of withdrawable_balance every night at 02:15
   // UTC. `system_balance_correction` is reserved for one-off admin
-  // corrections/write-offs, not recurring operational payouts. The
-  // platform leg keeps `system_balance_correction` — it's the
-  // company's own ledger, not a user wallet, and isn't affected.
-  marketing_expenses: { walletCat: 'wallet_deposit', platformCat: 'system_balance_correction', impact: 'expense' },
-  research_development: { walletCat: 'wallet_deposit', platformCat: 'system_balance_correction', impact: 'expense' },
-  operational_expense: { walletCat: 'wallet_deposit', platformCat: 'system_balance_correction', impact: 'expense' },
+  // corrections/write-offs, not recurring operational payouts.
+  // 2026-11-16 (CFO): the platform leg is the real expense (X1), not a balance correction (which the statements put
+  // in Legacy Opening Balance Adjustments E3).
+  marketing_expenses: { walletCat: 'wallet_deposit', platformCat: 'marketing_expense', impact: 'expense' },
+  research_development: { walletCat: 'wallet_deposit', platformCat: 'research_development_expense', impact: 'expense' },
+  operational_expense: { walletCat: 'wallet_deposit', platformCat: 'general_admin_expense', impact: 'expense' },
   // Staff lunch allowance is a payroll cost (Operational Expenses, X1),
   // matching manually posted lunch payments; the wallet leg is unchanged.
   lunch_allowance: { walletCat: 'wallet_deposit', platformCat: 'payroll_expense', impact: 'expense' },

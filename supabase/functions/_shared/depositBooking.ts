@@ -83,3 +83,22 @@ export function reverseCustomerMoneyLegs(legs: Record<string, unknown>[], revers
     description: `Reversal${reversalRef ? ` (${reversalRef})` : ''}: ${String(l.description)}`,
   }));
 }
+
+/**
+ * Company-side category for a CFO direct credit to a user's WITHDRAWABLE balance (CFO, 16 Nov 2026).
+ * An incoming email/SMS receipt credited to the payer's withdrawable balance is money received on the company's line:
+ * book it as cash (`wallet_deposit`, DR A1), not as a balance correction (`system_balance_correction`, which the
+ * statements put in Legacy Opening Balance Adjustments E3). Only when the operator left the default correction
+ * category; manual credits, float credits and proxy credits keep their booking.
+ */
+export function withdrawableReceiptPlatformCategory(i: {
+  platformCategory: string;
+  walletBucket: string | null;
+  isManualCredit: boolean;
+  managedProxy: boolean;
+  inboundReceiptMatches: boolean;
+}): string {
+  if (i.platformCategory !== 'system_balance_correction') return i.platformCategory;
+  if (i.walletBucket === 'float' || i.isManualCredit || i.managedProxy || !i.inboundReceiptMatches) return i.platformCategory;
+  return 'wallet_deposit';
+}

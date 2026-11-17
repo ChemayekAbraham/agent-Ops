@@ -556,7 +556,7 @@ describe('rent field', () => {
 describe('T4 renewal', () => {
   const renewal = { prevId: 'prev-1', tenantId: 'tenant-1', tenantName: 'John Mukasa', tenantPhone: '0783123456', currentRent: 300000, currentDays: 30, landlordName: 'Peter Okello' };
 
-  it('needs the LC1 letter; attaches it to the previous plan BEFORE renewing, so the renewal reuses it', async () => {
+  it('needs the LC1 letter; renews first, then attaches the letter to the NEW request (never the previous one)', async () => {
     mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), lc_letter_path: null };
     mocks.renewalStart.mockResolvedValue({ newRent: 320000, newDays: 30, dailyRepayment: 14000, totalRepayment: 420000, changed: false, reasonCode: null, explanation: '', evidenceUrl: null });
     mocks.rpc.mockImplementation(async (fn: string) => (fn === 'renew_rent_request' ? { data: 'new-req', error: null } : { data: { ok: true }, error: null }));
@@ -570,6 +570,7 @@ describe('T4 renewal', () => {
     fix(/LC1 letter/);
     const letter = new File(['l'], 'letter.jpg', { type: 'image/jpeg' });
     fireEvent.change(screen.getByLabelText('LC1 letter photo'), { target: { files: [letter] } });
+    await screen.findByRole('img', { name: 'LC1 letter' });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await screen.findByTestId('t4-ready');
@@ -579,35 +580,35 @@ describe('T4 renewal', () => {
     expect(mocks.renewalStart).toHaveBeenCalledWith({ prevId: 'prev-1', tenantName: 'John Mukasa', currentRent: 300000, currentDays: 30 });
     // GPS is on file, so the renewal sends none of its own.
     expect(mocks.rpc).toHaveBeenCalledWith('renew_rent_request', { p_prev_request_id: 'prev-1', p_new_rent_amount: 320000, p_new_days: 30 });
-    // DOCS-1: only the new letter, on the previous plan, and before renew_rent_request (which reuses it).
-    // The ID photos are already on the previous plan, so nothing else is attached; nothing goes on the new request.
+    // The renewal first; then only the new letter, on the NEW request. Nothing goes on the previous
+    // (completed) plan: the server refuses documents there.
     const calls = mocks.rpc.mock.calls.map(([fn, a]) => [fn, a]);
     const attachAt = calls.findIndex(([fn]) => fn === 'request_attach_document');
     const renewAt = calls.findIndex(([fn]) => fn === 'renew_rent_request');
     expect(calls.filter(([fn]) => fn === 'request_attach_document')).toEqual([
-      ['request_attach_document', { p_request_id: 'prev-1', p_kind: 'lc1_letter', p_bucket: 'lc-letters', p_path: expect.stringMatching(/^agent-1\/prev-1\/lc_letter_\d+\.jpg$/) }],
+      ['request_attach_document', { p_request_id: 'new-req', p_kind: 'lc1_letter', p_bucket: 'lc-letters', p_path: expect.stringMatching(/^agent-1\/new-req\/lc_letter_\d+\.jpg$/) }],
     ]);
-    expect(attachAt).toBeLessThan(renewAt);
+    expect(renewAt).toBeLessThan(attachAt);
     expect(mocks.rpc).not.toHaveBeenCalledWith('agent_attach_lc1_letter', expect.anything());
     expect(onDone).toHaveBeenCalledWith('new-req');
   });
 
-  it('DOCS-1: a "no LC1 letter yet" reason does not get past the letter step; Renew stays out of reach', async () => {
+  it('E99: the LC1 step has the photo buttons and no "No LC1 letter yet"; without a photo it stays put', async () => {
     mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), lc_letter_path: null };
     render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
     await toRenewalStep3();
     await waitFor(() => expect(listed('gate')).toEqual(['LC1 letter photo']));
     expect(sendButton()).toBeDisabled();
     fix(/LC1 letter/);
-    fireEvent.click(screen.getByLabelText(/No LC1 letter yet/));
-    fireEvent.change(screen.getByLabelText('Why there is no LC1 letter yet'), { target: { value: 'LC1 is away until Friday' } });
+    expect(screen.getByLabelText('Take photo of LC1 letter')).toBeInTheDocument();
+    expect(screen.queryByText(/No LC1 letter yet/)).toBeNull();
+    expect(screen.queryByText(/confirmed by phone/i)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText(/Add a photo of the stamped LC1 letter/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Send the tenant’s code and renew/ })).toBeNull();
     expect(mocks.renewalStart).not.toHaveBeenCalled();
   });
 
-  it('DOCS-1: no ID back photo on the plan or the profile: listed; once taken it goes on the profile BEFORE renewing', async () => {
+  it('DOCS-1: no ID back photo on the plan or the profile: listed; once taken it is attached to the NEW request after renewing', async () => {
     mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), nin_photo_back_path: null };
     mocks.renewalStart.mockResolvedValue({ newRent: 300000, newDays: 30, dailyRepayment: 14000, totalRepayment: 420000, changed: false, reasonCode: null, explanation: '', evidenceUrl: null });
     mocks.rpc.mockImplementation(async (fn: string) => (fn === 'renew_rent_request' ? { data: 'new-req', error: null } : { data: { ok: true }, error: null }));
@@ -620,10 +621,12 @@ describe('T4 renewal', () => {
     await screen.findByTestId('t4-ready');
     fireEvent.click(sendButton());
     expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
-    const profileUpdate = mocks.update.mock.calls.findIndex(([table]) => table === 'profiles');
-    expect(mocks.update.mock.calls[profileUpdate]).toEqual(['profiles', { national_id_photo_back_path: expect.stringMatching(/^agent-1\/profile-tenant-1\/national_id_back_\d+\.jpg$/) }]);
-    const renewOrder = mocks.rpc.mock.invocationCallOrder[mocks.rpc.mock.calls.findIndex(([fn]) => fn === 'renew_rent_request')];
-    expect(mocks.update.mock.invocationCallOrder[profileUpdate]).toBeLessThan(renewOrder);
+    const calls = mocks.rpc.mock.calls.map(([fn, a]) => [fn, a]);
+    const renewAt = calls.findIndex(([fn]) => fn === 'renew_rent_request');
+    const backAt = calls.findIndex(([fn, a]) => fn === 'request_attach_document' && (a as { p_kind: string }).p_kind === 'id_back');
+    expect(calls[backAt][1]).toMatchObject({ p_request_id: 'new-req', p_kind: 'id_back' });
+    expect(renewAt).toBeLessThan(backAt);
+    expect(calls.some(([fn, a]) => fn === 'request_attach_document' && (a as { p_request_id: string }).p_request_id === 'prev-1')).toBe(false);
   });
 
   it('DOCS-1: an ID back photo on the tenant’s profile counts for a renewal and shows "On file ✓"', async () => {
@@ -975,5 +978,153 @@ describe('E130: a resubmit shows only what resubmit_needs lists', () => {
     const summary = await screen.findByTestId('resubmit-summary');
     fireEvent.click(within(summary).getByRole('button', { name: 'Redo: House GPS' }));
     expect(await screen.findAllByText(/capture its GPS location/)).not.toHaveLength(0);
+  });
+});
+
+describe('Renewal post (live bug 16 Nov 20:55): renew first, then the documents on the new request', () => {
+  const renewal = { prevId: 'prev-1', tenantId: 'tenant-1', tenantName: 'Nalubega Penina', tenantPhone: '0783123456', currentRent: 300000, currentDays: 30 };
+  const choice = { newRent: 300000, newDays: 30, dailyRepayment: 14000, totalRepayment: 420000, changed: false, reasonCode: null, explanation: '', evidenceUrl: null };
+  const formLogs = (event: string) => mocks.rpc.mock.calls
+    .filter(([fn, row]) => fn === 'request_form_log' && (row as { p_event: string }).p_event === event)
+    .map(([, row]) => row as Record<string, unknown>);
+  /** No ID photos on the plan or the profile: both are taken in step 2. */
+  const takeIdPhotos = async () => {
+    await waitFor(() => expect(listed('gate')).toEqual(['National ID photo — front', 'National ID photo — back']));
+    fix(/National ID photo — front/);
+    fireEvent.change(await screen.findByLabelText('National ID front photo'), { target: { files: [new File(['f'], 'front.jpg', { type: 'image/jpeg' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+    // Continue goes straight on to the back.
+    fireEvent.change(await screen.findByLabelText('National ID back photo'), { target: { files: [new File(['b'], 'back.jpg', { type: 'image/jpeg' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+    await screen.findByTestId('t4-ready');
+  };
+  beforeEach(() => {
+    mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), nin_photo_path: null, nin_photo_back_path: null };
+    mocks.renewalStart.mockResolvedValue(choice);
+  });
+
+  it('with ID photos captured: renew_rent_request first, then request_attach_document on the NEW id, never the previous one', async () => {
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'renew_rent_request' ? { data: 'new-req', error: null } : { data: { ok: true }, error: null }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    await toRenewalStep3();
+    await takeIdPhotos();
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    const calls = mocks.rpc.mock.calls.map(([fn, a]) => [fn, a] as [string, Record<string, unknown>]);
+    const renewAt = calls.findIndex(([fn]) => fn === 'renew_rent_request');
+    const attaches = calls.map((c, i) => [c, i] as const).filter(([[fn]]) => fn === 'request_attach_document');
+    expect(attaches.map(([[, a]]) => [a.p_request_id, a.p_kind]).sort()).toEqual([['new-req', 'id_back'], ['new-req', 'id_front']]);
+    for (const [, i] of attaches) expect(i).toBeGreaterThan(renewAt);
+    await waitFor(() => expect(formLogs('submit_ok')).toContainEqual(expect.objectContaining({ p_form: 'renewal', p_rent_request_id: 'new-req' })));
+    expect(formLogs('open')[0]).toMatchObject({ p_form: 'renewal' });
+  });
+
+  it('a document that fails to attach keeps the renewal: "Renewal posted. 1 document didn’t upload — tap to retry", in plain words', async () => {
+    let refuse = true;
+    mocks.rpc.mockImplementation(async (fn: string, a: { p_kind?: string }) => {
+      if (fn === 'renew_rent_request') return { data: 'new-req', error: null };
+      if (fn === 'request_attach_document' && a?.p_kind === 'id_back' && refuse) {
+        return { data: null, error: { message: 'DOCS_LOCKED: Documents can only be added before the request reaches funders (status now: completed)' } };
+      }
+      return { data: { ok: true }, error: null };
+    });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    await toRenewalStep3();
+    await takeIdPhotos();
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    const retry = await screen.findByTestId('renewal-doc-retry');
+    expect(retry).toHaveTextContent('Renewal posted. 1 document didn’t upload — tap to retry.');
+    expect(screen.getByText(/Documents can only be added before the request reaches funders/)).toBeInTheDocument();
+    expect(screen.queryByText(/DOCS_LOCKED/)).toBeNull();
+    // Retry goes to the new request, and the line goes once it is in.
+    refuse = false;
+    fireEvent.click(screen.getByRole('button', { name: /Retry upload/ }));
+    await waitFor(() => expect(screen.queryByTestId('renewal-doc-retry')).toBeNull());
+    const backs = mocks.rpc.mock.calls.filter(([fn, a]) => fn === 'request_attach_document' && (a as { p_kind: string }).p_kind === 'id_back');
+    expect(backs).toHaveLength(2);
+    expect(backs.every(([, a]) => (a as { p_request_id: string }).p_request_id === 'new-req')).toBe(true);
+  });
+
+  it('RENEWAL_OTP_MISMATCH offers "Send a new code" in place; the failure is logged under form renewal', async () => {
+    // The ID photos are on file here: only the code matters.
+    mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), nin_photo_path: 'tenant-1/old/national_id.jpg', nin_photo_back_path: 'tenant-1/old/national_id_back.jpg' };
+    let otpFails = true;
+    mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'renew_rent_request') {
+        return otpFails ? { data: null, error: { message: 'RENEWAL_OTP_MISMATCH: the code does not match' } } : { data: 'new-req', error: null };
+      }
+      return { data: { ok: true }, error: null };
+    });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    await toRenewalStep3();
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    const box = await screen.findByTestId('renewal-otp-problem');
+    expect(box).toHaveTextContent('The tenant’s code didn’t match.');
+    await waitFor(() => expect(formLogs('submit_fail')).toContainEqual(expect.objectContaining({ p_form: 'renewal', p_error: 'RENEWAL_OTP_MISMATCH' })));
+    otpFails = false;
+    fireEvent.click(within(box).getByRole('button', { name: 'Send a new code' }));
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    expect(mocks.renewalConfirm).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('E99 (live bug 16 Nov 21:24): the LC1 letter is a photo, always', () => {
+  const ready = { family_size: 4, work_business: 'Tailor', work_location: null, lc1_phone_confirmation: null };
+  const lc1Needs = {
+    items: [{ code: 'lc1_letter', label: 'LC1 letter', why: 'missing' }], count: 1,
+    desk: 'Tenant Ops', desk_note: 'No LC1 letter', auto_note: 'Fixed: LC1 letter',
+  };
+  const formLogs = (event: string) => mocks.rpc.mock.calls
+    .filter(([fn, row]) => fn === 'request_form_log' && (row as { p_event: string }).p_event === event)
+    .map(([, row]) => row as Record<string, unknown>);
+  beforeEach(() => {
+    mocks.tables.pipeline_intake_details = ready;
+    mocks.tables.rent_requests = { ...(mocks.tables.rent_requests as object), lc_letter_path: null };
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'resubmit_needs' ? { data: lc1Needs, error: null } : { data: { ok: true }, error: null }));
+  });
+
+  it('the resubmit LC1 step shows "Take photo of LC1 letter" and gallery, and no "No LC1 letter yet"', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ lc_letter_path: null }) }} />);
+    expect(await screen.findByTestId('lc1-letter-step')).toBeInTheDocument();
+    expect(screen.getByLabelText('Take photo of LC1 letter')).toBeInTheDocument();
+    expect(screen.getByLabelText('LC1 letter photo')).toBeInTheDocument();
+    expect(screen.getByText('Choose from gallery')).toBeInTheDocument();
+    expect(screen.queryByText(/No LC1 letter yet/)).toBeNull();
+    expect(screen.queryByLabelText('Why there is no LC1 letter yet')).toBeNull();
+    expect(screen.getByTestId('lc1-no-letter-yet')).toHaveTextContent('No letter yet? Come back when you have it');
+  });
+
+  it('after a photo: the thumbnail with Retake, then Resubmit is on; events are logged under form resubmit', async () => {
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ lc_letter_path: null }) }} />);
+    fireEvent.change(await screen.findByLabelText('LC1 letter photo'), { target: { files: [new File(['l'], 'letter.heic', { type: 'image/heic' })] } });
+    expect(await screen.findByRole('img', { name: 'LC1 letter' })).toBeInTheDocument();
+    expect(screen.getByText('Retake')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    expect(formLogs('open')[0]).toMatchObject({ p_form: 'resubmit' });
+    expect(formLogs('item_done')).toContainEqual(expect.objectContaining({ p_form: 'resubmit', p_items: ['lc1_letter'] }));
+    await waitFor(() => expect(formLogs('submit_ok')).toContainEqual(expect.objectContaining({ p_form: 'resubmit', p_rent_request_id: 'req-9' })));
+  });
+
+  it('a resubmit that is pressed with items missing, or refused, is logged (blocked, submit_fail)', async () => {
+    mocks.rpc.mockImplementation(async (fn: string) => (
+      fn === 'resubmit_needs' ? { data: lc1Needs, error: null }
+        : fn === 'agent_resubmit_rent_request' ? { data: null, error: { message: 'RESUBMIT_INCOMPLETE: LC1 letter missing' } }
+          : { data: { ok: true }, error: null }
+    ));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'resubmit', rejected: rejectedRequest({ lc_letter_path: null }) }} />);
+    // Continue without the photo: a blocked item.
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(formLogs('blocked')).toContainEqual(expect.objectContaining({ p_form: 'resubmit', p_items: ['lc1_letter'] })));
+    fireEvent.change(screen.getByLabelText('LC1 letter photo'), { target: { files: [new File(['l'], 'letter.jpg', { type: 'image/jpeg' })] } });
+    await screen.findByRole('img', { name: 'LC1 letter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    fireEvent.click(sendButton());
+    await waitFor(() => expect(formLogs('submit_fail')).toContainEqual(expect.objectContaining({ p_form: 'resubmit', p_error: 'RESUBMIT_INCOMPLETE' })));
   });
 });

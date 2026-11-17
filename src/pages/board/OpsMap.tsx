@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { loadGoogleMapsWith } from '@/lib/googleMapsScript';
 import { boardMapsKey } from '@/lib/boardDisplayClient';
 import { LAYER_ORDER, cellScale, type BoardMap, type Cell, type LayerKey, type MoneyPoint } from '@/lib/boardMap';
+import { LIGHT_MAP_STYLE, MAP_COLORS, type OpsTheme } from './opsTheme';
 
 /**
  * The ops map (screen 3, E96): Google Maps through the app's shared loader,
@@ -35,7 +36,6 @@ export function _resetOpsMapViewForTests() {
   lastView = null;
 }
 
-const C = { green: '#3DD68C', amber: '#F5A524', cyan: '#38D0E8', blue: '#3D5A86', blueLine: '#5B7DB0', red: '#F0524F', white: '#D7E3EC', ground: '#05080C' };
 
 export const NIGHT_STYLE: google.maps.MapTypeStyle[] = [
   { elementType: 'geometry', stylers: [{ color: '#0B131B' }] },
@@ -67,49 +67,54 @@ const reducedMotion = () => {
   }
 };
 
-/** The selected ring: a steady ring and, unless motion is reduced, one that grows and fades. */
-export function selectedRingSvg(animate: boolean): string {
+/** The selected ring: a steady ring and, unless motion is reduced, one that grows and fades. Light: amber on white. */
+export function selectedRingSvg(animate: boolean, theme: OpsTheme = 'dark'): string {
+  const amber = MAP_COLORS[theme].selected;
   const pulse = animate
-    ? "<circle cx='32' cy='32' r='9' fill='none' stroke='#F5A524' stroke-width='2'><animate attributeName='r' from='9' to='28' dur='2.4s' repeatCount='indefinite'/><animate attributeName='opacity' from='0.9' to='0' dur='2.4s' repeatCount='indefinite'/></circle>"
+    ? `<circle cx='32' cy='32' r='9' fill='none' stroke='${amber}' stroke-width='2'><animate attributeName='r' from='9' to='28' dur='2.4s' repeatCount='indefinite'/><animate attributeName='opacity' from='0.9' to='0' dur='2.4s' repeatCount='indefinite'/></circle>`
     : '';
-  return `<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><circle cx='32' cy='32' r='9' fill='#140E04' fill-opacity='0.6' stroke='#F5A524' stroke-width='3'/>${pulse}</svg>`;
+  const fill = theme === 'light' ? "fill='#FFFFFF' fill-opacity='0.95'" : "fill='#140E04' fill-opacity='0.6'";
+  return `<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><circle cx='32' cy='32' r='9' ${fill} stroke='${amber}' stroke-width='3'/>${pulse}</svg>`;
 }
 
-function build(maps: typeof google.maps, data: BoardMap, onPick: (p: Picked) => void): Record<LayerKey, Overlay[]> {
+function build(maps: typeof google.maps, data: BoardMap, onPick: (p: Picked) => void, theme: OpsTheme): Record<LayerKey, Overlay[]> {
   const out = Object.fromEntries(LAYER_ORDER.map((k) => [k, [] as Overlay[]])) as Record<LayerKey, Overlay[]>;
+  const C = MAP_COLORS[theme];
+  const light = theme === 'light';
+  // Light: every marker carries a white outline so it reads on a white map.
   const circle = (fill: string, opacity: number, scale: number, stroke?: string): google.maps.Symbol => ({
     path: maps.SymbolPath.CIRCLE, fillColor: fill, fillOpacity: opacity, scale,
-    strokeColor: stroke ?? fill, strokeOpacity: stroke ? 0.9 : 0, strokeWeight: stroke ? 1 : 0,
+    strokeColor: light ? C.outline : (stroke ?? fill), strokeOpacity: light || stroke ? 0.95 : 0, strokeWeight: light ? 1.5 : stroke ? 1 : 0,
   });
   const cellsTo = (key: LayerKey, cells: Cell[], icon: (n: number) => google.maps.Symbol, z: number) => {
     for (const c of cells) out[key].push(new maps.Marker({ position: at(c), icon: icon(c.n), zIndex: z, clickable: false }));
   };
 
   // Back to front.
-  cellsTo('emptyHouses', data.layers.emptyHouses, (n) => circle('#8FA3B3', 0.08, cellScale(n, 8, 2.2, 40)), 1);
-  cellsTo('repaying', data.layers.repaying, (n) => circle('#7F96AA', 0.28, cellScale(n), '#7F96AA'), 2);
-  cellsTo('desks', data.layers.desks, (n) => circle(C.blue, 0.55, cellScale(n), C.blueLine), 3);
-  cellsTo('arrearsToday', data.layers.arrearsToday, (n) => circle(C.red, 0.65, cellScale(n, 4, 2, 20), C.red), 4);
+  cellsTo('emptyHouses', data.layers.emptyHouses, (n) => ({ ...circle(C.empty, light ? 0.12 : 0.08, cellScale(n, 8, 2.2, 40)), strokeWeight: 0 }), 1);
+  cellsTo('repaying', data.layers.repaying, (n) => circle(C.repaying, light ? 0.45 : 0.28, cellScale(n), C.repaying), 2);
+  cellsTo('desks', data.layers.desks, (n) => circle(C.desks, light ? 0.7 : 0.55, cellScale(n), C.desksLine), 3);
+  cellsTo('arrearsToday', data.layers.arrearsToday, (n) => circle(C.arrears, light ? 0.8 : 0.65, cellScale(n, 4, 2, 20), C.arrears), 4);
 
   for (const p of data.layers.onBoard) {
     out.onBoard.push(new maps.Marker({
       position: at(p), zIndex: 5, clickable: false,
-      icon: { path: 'M -1 -1 L 1 -1 L 1 1 L -1 1 Z', fillColor: C.cyan, fillOpacity: 0.95, strokeWeight: 0, scale: 4 },
+      icon: { path: 'M -1 -1 L 1 -1 L 1 1 L -1 1 Z', fillColor: C.onBoard, fillOpacity: 0.95, strokeColor: C.outline, strokeWeight: light ? 1.5 : 0, scale: 4 },
     }));
   }
   for (const a of data.layers.agents) {
     out.agents.push(new maps.Marker({
       position: at(a), zIndex: 6, clickable: false, title: a.name ?? undefined,
-      icon: { path: 'M 0 -1 L 1 0 L 0 1 L -1 0 Z', fillColor: C.ground, fillOpacity: 0.9, strokeColor: a.frozen ? C.amber : C.white, strokeWeight: 2, scale: 7 },
+      icon: { path: 'M 0 -1 L 1 0 L 0 1 L -1 0 Z', fillColor: C.agentFill, fillOpacity: 0.95, strokeColor: a.frozen ? C.selected : C.agentLine, strokeWeight: 2, scale: 7 },
     }));
   }
   for (const p of data.layers.sold) {
-    const m = new maps.Marker({ position: at(p), zIndex: 7, icon: circle(C.green, 0.95, 7, C.ground) });
+    const m = new maps.Marker({ position: at(p), zIndex: 7, icon: circle(C.sold, 0.95, 7, C.outline) });
     m.addListener('click', () => onPick({ kind: 'sold', point: p }));
     out.sold.push(m);
   }
   const ring = {
-    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(selectedRingSvg(!reducedMotion()))}`,
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(selectedRingSvg(!reducedMotion(), theme))}`,
     scaledSize: new maps.Size(64, 64),
     anchor: new maps.Point(32, 32),
   };
@@ -117,7 +122,7 @@ function build(maps: typeof google.maps, data: BoardMap, onPick: (p: Picked) => 
     if (p.agentLat !== null && p.agentLng !== null) {
       out.selected.push(new maps.Polyline({
         path: [at(p), { lat: p.agentLat, lng: p.agentLng }], strokeOpacity: 0, zIndex: 7, clickable: false,
-        icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 0.9, strokeColor: C.amber, strokeWeight: 2, scale: 3 }, offset: '0', repeat: '12px' }],
+        icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 0.9, strokeColor: C.selected, strokeWeight: 2, scale: 3 }, offset: '0', repeat: '12px' }],
       }));
     }
     // Animated SVG needs an unoptimised marker to keep moving.
@@ -128,7 +133,7 @@ function build(maps: typeof google.maps, data: BoardMap, onPick: (p: Picked) => 
   return out;
 }
 
-export function OpsMap({ data, visible, onPick }: { data: BoardMap; visible: Record<LayerKey, boolean>; onPick: (p: Picked) => void }) {
+export function OpsMap({ data, visible, onPick, theme = 'dark' }: { data: BoardMap; visible: Record<LayerKey, boolean>; onPick: (p: Picked) => void; theme?: OpsTheme }) {
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const mapsRef = useRef<typeof google.maps | null>(null);
@@ -146,7 +151,8 @@ export function OpsMap({ data, visible, onPick }: { data: BoardMap; visible: Rec
         if (!live || !box.current) return;
         mapsRef.current = maps;
         mapRef.current = new maps.Map(box.current, {
-          center: lastView?.center ?? UGANDA, zoom: lastView?.zoom ?? UGANDA_ZOOM, styles: NIGHT_STYLE, backgroundColor: '#05080C',
+          center: lastView?.center ?? UGANDA, zoom: lastView?.zoom ?? UGANDA_ZOOM,
+          styles: theme === 'light' ? LIGHT_MAP_STYLE : NIGHT_STYLE, backgroundColor: MAP_COLORS[theme].ground,
           disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false, keyboardShortcuts: false,
         });
         if (!lastView) mapRef.current.fitBounds(UGANDA_BOUNDS, 0);
@@ -167,7 +173,7 @@ export function OpsMap({ data, visible, onPick }: { data: BoardMap; visible: Rec
     const maps = mapsRef.current;
     const map = mapRef.current;
     if (state !== 'ready' || !maps || !map) return;
-    const next = build(maps, data, (p) => pick.current(p));
+    const next = build(maps, data, (p) => pick.current(p), theme);
     for (const k of LAYER_ORDER) for (const o of next[k]) o.setMap(visible[k] ? map : null);
     const old = layers.current;
     layers.current = next;

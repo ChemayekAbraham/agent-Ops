@@ -28,7 +28,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => auth }));
 vi.mock('@/hooks/useGpsCapture', () => ({
   useGpsCapture: () => ({
     location: mocks.gps && { lat: mocks.gps.latitude, lng: mocks.gps.longitude, accuracy: mocks.gps.accuracy, source: 'gps' },
-    phase: mocks.gps ? 'done' : 'idle', failure: null, capture: vi.fn(), showPin: vi.fn(), dropPin: vi.fn(),
+    phase: mocks.gps ? 'done' : 'idle', failure: null, inAppBrowser: false, capture: vi.fn(),
   }),
 }));
 vi.mock('@/lib/invokeEdgeFunction', () => ({

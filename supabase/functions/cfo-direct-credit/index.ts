@@ -9,7 +9,7 @@ import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 import { learnDepositNumber, toLast9, learnDepositName } from "../_shared/depositNumberLearning.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
 import { isPartnerReturnCredit } from "../_shared/returnCycleGuard.ts";
-import { customerMoneyFloatPlatformLegs, isCustomerMoneyFloatDeposit, reverseCustomerMoneyLegs } from "../_shared/depositBooking.ts";
+import { customerMoneyFloatPlatformLegs, isCustomerMoneyFloatDeposit, reverseCustomerMoneyLegs, withdrawableReceiptPlatformCategory } from "../_shared/depositBooking.ts";
 import { bearerHasSub, noUserResult } from "../_shared/bearerHasSub.ts";
 
 const corsHeaders = {
@@ -852,6 +852,18 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── Inbound payment credited to a WITHDRAWABLE balance (CFO, 16 Nov 2026) ──
+      // The money was received on the company's line: book the platform leg as cash (wallet_deposit, DR A1) instead
+      // of a balance correction (E3). See withdrawableReceiptPlatformCategory in ../_shared/depositBooking.ts.
+      let creditPlatformCat = platformCat;
+      if (walletBucket !== 'float' && !isManualCredit && gmailTxId && !managedProxy && platformCat === 'system_balance_correction') {
+        const { data: inboundW } = await adminClient.from("gmail_transactions").select("amount, direction").eq("id", gmailTxId).maybeSingle();
+        creditPlatformCat = withdrawableReceiptPlatformCategory({
+          platformCategory: platformCat, walletBucket, isManualCredit, managedProxy: !!managedProxy,
+          inboundReceiptMatches: !!inboundW && inboundW.direction === 'in' && Math.abs(Number(inboundW.amount) - amount) <= 1,
+        });
+      }
+
       const creditEntries: Record<string, unknown>[] = [
           {
             user_id: walletUserId,
@@ -875,14 +887,14 @@ Deno.serve(async (req) => {
             user_id: userId,
             direction: 'cash_out',
             amount,
-            category: platformCat,
+            category: creditPlatformCat,
             ledger_scope: 'platform',
             source_table: 'cfo_direct_credit',
             reference_id: refId,
             description: `Welile Technologies Finance → ${targetProfile.full_name} [${impact}]: ${reason}`,
             currency: 'UGX',
             transaction_date: new Date().toISOString(),
-            ...(platformCashOutNeedsSolvencyBypassReason
+            ...(platformCashOutNeedsSolvencyBypassReason && creditPlatformCat === platformCat
               ? { solvency_bypass_reason: solvencyBypassReason }
               : {}),
           },

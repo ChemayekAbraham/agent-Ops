@@ -1,4 +1,5 @@
 import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
+import { openT4RentRequest } from '@/lib/t4RentRequest';
 import { agentNotVettedReason } from '@/lib/agentVetting';
 import { safeUUID } from '@/lib/safeUUID';
 import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, Suspense } from 'react';
@@ -124,7 +125,6 @@ import {
 const RegisterLandlordDialog = lazyWithRetry(() => import('@/components/agent/RegisterLandlordDialog'));
 const ListEmptyHouseDialog = lazyNamed(() => import('@/components/agent/ListEmptyHouseDialog'), 'ListEmptyHouseDialog');
 const EntityDetailSheet = lazyNamed(() => import('@/components/executive/EntityDetailSheet'), 'EntityDetailSheet');
-const AgentEditRentRequestDialog = lazyNamed(() => import('@/components/agent/AgentEditRentRequestDialog'), 'AgentEditRentRequestDialog');
 
 function useMountedOnce(flag: boolean): boolean {
   const [seen, setSeen] = useState(flag);
@@ -1049,7 +1049,14 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   const mountRegisterLandlord = useMountedOnce(showRegisterLandlord);
   const mountListHouse = useMountedOnce(showListHouse);
   const mountLandlordProfile = useMountedOnce(!!landlordProfile);
-  const mountResubmit = useMountedOnce(!!resubmitTarget);
+  // A blocked duplicate resubmits the existing request in the T4 chat (the old edit form is gone).
+  useEffect(() => {
+    if (!resubmitTarget) return;
+    openT4RentRequest({ mode: 'resubmit', rejected: resubmitTarget, entry: 'duplicate-blocked', onDone: () => onSuccess?.() });
+    setResubmitTarget(null);
+    onOpenChange(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resubmitTarget]);
   const [landlordPickerKey, setLandlordPickerKey] = useState(0);
   const [landlordSearchOpenSignal, setLandlordSearchOpenSignal] = useState(0);
   const [showLinkedBanner, setShowLinkedBanner] = useState(false);
@@ -6097,21 +6104,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     </Suspense>
     )}
 
-    {/* Duplicate blocked → resubmit the existing rejected request instead */}
-    {mountResubmit && (
-    <Suspense fallback={null}>
-    <AgentEditRentRequestDialog
-      request={resubmitTarget}
-      open={!!resubmitTarget}
-      onOpenChange={(o) => { if (!o) setResubmitTarget(null); }}
-      onResubmitted={() => {
-        setResubmitTarget(null);
-        onSuccess?.();
-        onOpenChange(false);
-      }}
-    />
-    </Suspense>
-    )}
     </>
   );
 }

@@ -78,7 +78,6 @@ import {
   attachT4Documents,
   docPreviewUrl,
   loadTenantDocsOnFile,
-  saveProfileIdBack,
   uploadNewRequestDocs,
   findOpenRequest,
   finishRenewalIntake,
@@ -95,9 +94,9 @@ import {
   type StoredDoc,
   type TenantRecord,
 } from '@/lib/t4RentRequestSubmit';
-import { counted, createUploadCounter, sendButtonLabel, type SendProgress } from '@/lib/sendProgress';
+import { createUploadCounter, sendButtonLabel, type SendProgress } from '@/lib/sendProgress';
 import { landlordCodeFromSearch, normalizeLandlordCode, recordLandlordReferral } from '@/lib/landlordReferral';
-import { createFormFunnel, funnelErrorCode, type FunnelItem, type FunnelStep } from '@/lib/formFunnel';
+import { createFormFunnel, funnelErrorCode, plainServerMessage, type FunnelItem, type FunnelStep } from '@/lib/formFunnel';
 import {
   DRAFT_SAVED_MESSAGE, closeDraft, downloadDraftPhoto, draftsAvailable, fetchMyDrafts, newDraftFolder, onDraftsAvailability,
   saveDraft, uploadDraftPhoto, type DraftPhoto, type DraftPhotoKind, type PostingDraftPayload,
@@ -127,7 +126,6 @@ import {
   familySizeProblem,
   isFullName,
   lc1LetterProblem,
-  NO_LC1_REASON_MIN_CHARS,
   parseFamilySize,
   workProblem,
 } from '@/lib/agentIntakeDetails';
@@ -396,7 +394,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [housePhotos, setHousePhotos] = useState<(Photo | null)[]>([null, null, null, null]);
   const [tenantPhoto, setTenantPhoto] = useState<Photo | null>(null);
   const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
-  /** The house GPS. accuracy null = unknown (a dropped pin); source 'pin' when the agent dropped it. */
+  /** The house GPS. source 'gps' when captured here; accuracy 0 = from the house listing or on file. */
   const [gps, setGps] = useState<{ lat: number; lng: number; accuracy: number | null; source?: GpsSource } | null>(null);
   const [lc1Phone, setLc1Phone] = useState('');
   const [lc1Match, setLc1Match] = useState<Lc1Match>(null);
@@ -407,21 +405,32 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [lc1Village, setLc1Village] = useState('');
   const [city, setCity] = useState('');
   const [lcLetter, setLcLetter] = useState<Photo | null>(null);
-  /** No LC1 letter yet: the request still posts and the Service Centre calls the LC1. */
-  const [noLc1Letter, setNoLc1Letter] = useState(false);
-  const [noLc1Reason, setNoLc1Reason] = useState('');
+  /*
+   * The one standard (E99) needs the LC1 letter PHOTO; "No LC1 letter yet" and an LC1 confirmed
+   * by phone are gone. Kept as constants so older drafts that carried them open with them cleared.
+   */
+  const noLc1Letter = false;
+  const noLc1Reason = '';
   const [payoutDay, setPayoutDay] = useState('');
   const [consent, setConsent] = useState(false);
   /**
    * E108 demand funnel for new requests ("Open rent request form"): open, steps, blocked
    * presses, items done, post and close. Fire-and-forget; never shown, never awaited.
    */
-  const funnel = useMemo(() => createFormFunnel('agent_post'), []);
+  // A renewal logs as its own form ('renewal'): open, its 3 steps, submit_ok / submit_fail.
+  const funnel = useMemo(() => createFormFunnel(mode === 'renewal' ? 'renewal' : mode === 'resubmit' ? 'resubmit' : 'agent_post'), []);
   const tracking = mode === 'new';
+  const logRenewal = mode === 'renewal';
+  /** A resubmit logs as form 'resubmit': open, each item done, blocked items, submit_ok / submit_fail. */
+  const logResubmit = mode === 'resubmit';
   useEffect(() => {
     if (!tracking) return;
     if (open) funnel.open(); else funnel.close();
   }, [open, tracking, funnel]);
+  useEffect(() => {
+    if (!logRenewal && !logResubmit) return;
+    if (open) funnel.open(); else funnel.close();
+  }, [open, logRenewal, logResubmit, funnel]);
   useEffect(() => () => funnel.close(), [funnel]);
   /** Step 'start' is logged once the first answer is given; until then only 'open' (and 'close'). */
   const [funnelStarted, setFunnelStarted] = useState(false);
@@ -473,8 +482,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const [original, setOriginal] = useState<ResubmitValues | null>(null);
   /** An LC letter is already on the request (resubmit) or the plan being renewed. */
   const [lcOnFile, setLcOnFile] = useState(false);
-  /** The Service Centre confirmed the LC1 by phone (pipeline_intake_details.lc1_phone_confirmation). */
-  const [lc1PhoneConfirmed, setLc1PhoneConfirmed] = useState(false);
   /** The tenant's profile (name, the four ID fields, occupation) for an existing tenant. */
   const [tenantOnFile, setTenantOnFile] = useState<TenantRecord | null>(null);
   /** The tenant's other open request: its status, null when there is none, undefined while checking. */
@@ -554,6 +561,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   const renewalFlow = useRenewalFlow();
   /** E128 renewal step 1: the new rent and days (with a reason when they change). */
   const [renewChoice, setRenewChoice] = useState<RenewalChoice | null>(null);
+  /** Documents that didn't attach to the new renewal: tap to retry against the new id. */
+  const [renewRetry, setRenewRetry] = useState<{ newId: string; failed: { kind: DocKind; file: File; message: string }[] } | null>(null);
+  const [retryingDocs, setRetryingDocs] = useState(false);
+  /** renew_rent_request said the tenant's code is missing or wrong: offer a new one in place. */
+  const [renewOtpProblem, setRenewOtpProblem] = useState<string | null>(null);
   /** E128 renewal step 2: what changed since the last plan. */
   const [renewChange, setRenewChange] = useState<'same' | 'moved' | 'landlord' | null>(null);
   /** Standard items missing when the renewal opened (they become extra steps in step 2). */
@@ -652,6 +664,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   useEffect(() => {
     if (open && tracking && funnelStarted) funnel.step(FUNNEL_STEP[current]);
   }, [current, open, tracking, funnel, funnelStarted]);
+  useEffect(() => {
+    if (open && logRenewal) funnel.step(RENEWAL_SECTION_OF[current] ?? 'code');
+  }, [current, open, logRenewal, funnel]);
 
   const reset = useCallback(() => {
     setPlanType(null); setRentText(''); setDuration('30'); setRepaymentPeriod('7');
@@ -661,7 +676,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     setVerifyReq('idle'); setHouses(null); setHouse(null); setHouseChoiceMade(false); setLocation(null); setAddress('');
     setDistrict(''); setCategory(''); setHousePhotos([null, null, null, null]); setTenantPhoto(null); setFaceCheck(null);
     setGps(null); setLc1Phone(''); setLc1Match(null); setLc1Mode(null); setLc1NameParts({ firstName: '', otherNames: '', lastName: '' });
-    setLc1Village(''); setCity(''); setLcLetter(null); setNoLc1Letter(false); setNoLc1Reason(''); setPayoutDay(''); setConsent(false);
+    setLc1Village(''); setCity(''); setLcLetter(null); setPayoutDay(''); setConsent(false);
     setLandlordCode(typeof window === 'undefined' ? '' : landlordCodeFromSearch(window.location.search));
     setCurrent('tenantPhone'); setFurthest('tenantPhone'); setFunnelStarted(false); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
     setFixOffer(null); setWrongTries({});
@@ -700,7 +715,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         setLocation(d.location ?? null); setAddress(d.address ?? ''); setDistrict(d.district ?? ''); setCategory(d.category ?? '');
         setGps(d.gps ?? null); setLc1Phone(d.lc1Phone ?? ''); setLc1Match(d.lc1Match ?? null); setLc1Mode(d.lc1Mode ?? null);
         if (d.lc1NameParts) setLc1NameParts(d.lc1NameParts);
-        setLc1Village(d.lc1Village ?? ''); setCity(d.city ?? ''); setNoLc1Letter(!!d.noLc1Letter); setNoLc1Reason(d.noLc1Reason ?? ''); setPayoutDay(d.payoutDay ?? '');
+        setLc1Village(d.lc1Village ?? ''); setCity(d.city ?? ''); setPayoutDay(d.payoutDay ?? ''); // an old "No LC1 letter yet" tick is not restored
         setCurrent(d.current); setFurthest(d.furthest ?? d.current);
         if (d.current !== 'tenantPhone') setFunnelStarted(true);
         if (d.tenantPhone && d.current !== 'tenantPhone') setPhoneCleared(clean(d.tenantPhone));
@@ -799,8 +814,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       if (f.lc1NameParts) setLc1NameParts(f.lc1NameParts);
       setLc1Village(str(f.lc1Village));
       setCity(str(f.city));
-      if (typeof f.noLc1Letter === 'boolean') setNoLc1Letter(f.noLc1Letter);
-      setNoLc1Reason(str(f.noLc1Reason));
+      // An old "No LC1 letter yet" tick is not restored: the letter photo is needed.
       setPayoutDay(str(f.payoutDay));
       if (str(f.landlordCode)) setLandlordCode(str(f.landlordCode));
       const ph = request.draft.payload?.photos;
@@ -878,7 +892,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
           setHousePhotos([0, 1, 2, 3].map((i) => (plan.photos[i] ? { file: null, preview: plan.photos[i] } : null)));
           if (plan.gps) { setGps({ ...plan.gps, accuracy: 0 }); setGpsOnFile(true); }
           setLcOnFile(plan.lcLetter);
-          setLc1PhoneConfirmed(plan.lc1PhoneConfirmed);
         }
         if (tenant) {
           setTenantOnFile(tenant);
@@ -931,7 +944,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       const [t, onFile] = await Promise.all([loadTenantRecord(r.tenant_id), loadRequestOnFile(r.id)]);
       if (cancelled) return;
       if (t) setTenantOnFile(t);
-      if (onFile?.lc1PhoneConfirmed) setLc1PhoneConfirmed(true);
       // DOCS-1: this request's documents first, then what the tenant has on file elsewhere.
       const tenantDocs = await loadTenantDocsOnFile(r.tenant_id);
       if (cancelled) return;
@@ -1117,21 +1129,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     const res = await checkFace(p.file);
     setFaceCheck(res);
   };
-  const onLcLetter = (file: File | undefined) => {
+  /** The LC1 letter photo: camera or gallery, turned into a JPEG (an iPhone's HEIC included). */
+  const onLcLetter = async (file: File | undefined) => {
     if (!file) return;
-    if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type.toLowerCase())) { toast.error('The LC letter must be a JPG or PNG photo'); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error('The LC letter must be 10 MB or smaller'); return; }
-    setLcLetter((prev) => { if (prev) URL.revokeObjectURL(prev.preview); return { file, preview: URL.createObjectURL(file) }; });
-    setNoLc1Letter(false);
+    const p = await readPhoto(file, FACE_PHOTO_ENCODING);
+    if (!p) return;
+    setLcLetter((prev) => { if (prev) URL.revokeObjectURL(prev.preview); return p; });
     setError(null);
   };
 
   /*
-   * The house GPS (gpsCapture.ts): the first reading is taken at once, any accuracy, and
-   * improved for up to 15 s; no reading means a pin dropped on a map. Never a trip to the
-   * phone's settings, never a dead end. request_form_log: item_done gps { accuracy_m }, or the
-   * reason there was no reading (gps_permission_denied / gps_timeout / gps_unavailable), and
-   * gps_pin_used for a pin.
+   * The house GPS (gpsCapture.ts): "Capture location" just captures and stores the coordinates.
+   * The first reading is taken at once and improved silently for up to 15 s. No map.
+   * request_form_log: item_done gps { accuracy_m }, or why there was no reading
+   * (gps_permission_denied / gps_timeout / gps_unavailable), and gps_in_app_browser.
    */
   const lastGpsFail = useRef<GpsFailCode | null>(null);
   const gpsWatch = useGpsCapture({
@@ -1145,11 +1156,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       lastGpsFail.current = code;
       if (tracking) blockedNow(['gps'], code);
     },
-    onPin: (fix) => {
-      setGps({ lat: fix.lat, lng: fix.lng, accuracy: null, source: 'pin' });
-      setError(null);
-      if (tracking) funnel.itemDone('gps', { accuracy_m: null, gps_source: 'pin' }, 'gps_pin_used');
-    },
+    onInAppBrowser: () => { if (tracking) blockedNow(['gps'], 'gps_in_app_browser'); },
   });
 
   // ----- LC1 lookup -----
@@ -1247,7 +1254,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'idBack':
         return idBack ? null : 'Take a photo of the BACK of the National ID first 🪪';
       case 'gps':
-        return gps ? null : 'Tap “Capture location” at the house, or drop a pin on the map 📍';
+        return gps ? null : 'Tap “Capture location” while you’re at the house 📍';
       case 'lc1':
         return lc1Mode ? null : 'Search for the chairperson above, or tap “Register a new LC1” 👆';
       case 'lc1Phone': {
@@ -1299,6 +1306,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   /** Rejects a wrong answer: says what is wrong, offers a fix if there is one, adds a tip on the third try. */
   const reject = (s: StepId, problem: string, text = draft) => {
     if (tracking) blockedNow([STEP_FUNNEL_ITEM[s] ?? 'other'], s === 'gps' ? (lastGpsFail.current ?? 'gps_not_captured') : undefined);
+    else if (logResubmit) funnel.blocked([STEP_FUNNEL_ITEM[s] ?? 'other']);
     const tries = (wrongTries[s] ?? 0) + 1;
     setWrongTries((t) => ({ ...t, [s]: tries }));
     const tip = tries >= 3 ? tipFor(s) : null;
@@ -1403,7 +1411,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
   }
 
   function advance(from: StepId) {
-    if (mode === 'resubmit' && returnSteps?.includes(from)) setFixedSteps((x) => (x.includes(from) ? x : [...x, from]));
+    if (mode === 'resubmit' && returnSteps?.includes(from)) {
+      setFixedSteps((x) => (x.includes(from) ? x : [...x, from]));
+      funnel.itemDone(STEP_FUNNEL_ITEM[from] ?? 'other');
+    }
     if (mode === 'resubmit' && redoQueue.current.length) {
       setCurrent(redoQueue.current.shift()!);
       return;
@@ -1547,6 +1558,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     if ('message' in res) {
       setPosting(false);
       setSendProgress(null);
+      funnel.submitFail(funnelErrorCode(res.message, plainServerMessage(res.message).slice(0, 120)), t4FunnelItems(missing.map((m) => m.key)));
       const photoProblem = facePhotoRefusal(res.message);
       if (photoProblem) {
         redoQueue.current = [];
@@ -1562,6 +1574,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     }
     setPosting(false);
     setSendProgress({ phase: 'sent' });
+    funnel.submitOk(res.requestId);
     // A retaken face photo: what the background check found, on the request (E124).
     if (tenantPhoto?.file && faceCheck && faceCheck.status !== 'checking') void recordFaceCheck(res.requestId, faceCheck.status);
     showSent(res.requestId, res);
@@ -1585,6 +1598,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
     const consented = await renewalFlow.confirm(target, choice);
     setRenewing(false);
     if (!consented) return;
+    setRenewOtpProblem(null);
     setPosting(true);
     setSendProgress(null);
     let sent = false;
@@ -1593,43 +1607,72 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       // A changed name, or a NIN for a tenant with no ID on file, goes on the tenant's profile first.
       const nameChanged = tenantName.trim() !== (tenantOnFile?.full_name ?? renewal.tenantName).trim();
       const ninNew = !hasTenantId(tenantOnFile) && !!nationalId.trim();
-      // DOCS-1: renew_rent_request reuses the previous plan's LC1 letter and carries the ID photos over,
-      // so what is missing is filled in first: a new ID back on the tenant's profile, a new ID front
-      // or LC1 letter attached to the previous plan (request_attach_document). All side by side.
-      const newBack = idBack?.file && renewal.tenantId ? idBack.file : null;
-      if (newBack) counter.add(1);
-      const [saved, backError, prevErrors] = await Promise.all([
-        renewal.tenantId && (nameChanged || ninNew)
-          ? saveTenantProfile(renewal.tenantId, { fullName: nameChanged ? tenantName : null, nationalId: ninNew ? nationalId : null })
-          : Promise.resolve(null),
-        newBack && renewal.tenantId ? counted(counter, saveProfileIdBack(user.id, renewal.tenantId, newBack)) : Promise.resolve(null),
-        attachT4Documents(user.id, renewal.prevId, {
-          id_front: idFront?.file ?? null, lc1_letter: lcLetter?.file ?? null,
-        }, counter),
-      ]);
-      if (saved && !saved.ok) { setError(saved.message); return; }
-      if (backError) { setError(backError); return; }
-      if (prevErrors.length) { setError(prevErrors.join(' · ')); return; }
+      if (renewal.tenantId && (nameChanged || ninNew)) {
+        const saved = await saveTenantProfile(renewal.tenantId, { fullName: nameChanged ? tenantName : null, nationalId: ninNew ? nationalId : null });
+        if (!saved.ok) { setError(plainServerMessage(saved.message)); return; }
+      }
       counter.saving();
-      const newId = await postRenewal(
-        renewal.prevId,
-        choice,
-        () => toast.info('Capturing the property GPS at the house…'),
-        !gpsOnFile && gps ? { latitude: gps.lat, longitude: gps.lng } : null,
-      );
+      // 1. The renewal itself. Nothing is ever attached to the previous (completed) request.
+      let newId: string;
+      try {
+        newId = await postRenewal(
+          renewal.prevId,
+          choice,
+          () => toast.info('Capturing the property GPS at the house…'),
+          !gpsOnFile && gps ? { latitude: gps.lat, longitude: gps.lng } : null,
+        );
+      } catch (e) {
+        const raw = e instanceof Error ? e.message : String(e);
+        funnel.submitFail(funnelErrorCode(raw, plainServerMessage(raw).slice(0, 120)), ['other']);
+        if (/RENEWAL_OTP_(REQUIRED|MISMATCH)/.test(raw)) {
+          setRenewOtpProblem(/MISMATCH/.test(raw)
+            ? 'The tenant’s code didn’t match. Send a new code and ask them for it again.'
+            : 'The tenant’s code is needed again. Send a new code.');
+          return;
+        }
+        setError(plainServerMessage(raw));
+        return;
+      }
       setRentText(String(choice.newRent));
-      const [photoError, o] = await Promise.all([
+      funnel.submitOk(newId);
+      // 2. The documents captured in step 2 go on the NEW request, each on its own; one that fails
+      // doesn't undo or hide the renewal (resubmit_needs will ask for it too).
+      const docFiles = ([['id_front', idFront?.file], ['id_back', idBack?.file], ['lc1_letter', lcLetter?.file]] as const)
+        .filter((d): d is readonly [DocKind, File] => !!d[1]);
+      const [docResults, photoError, o] = await Promise.all([
+        Promise.all(docFiles.map(async ([kind, file]) => {
+          const problems = await attachT4Documents(user.id, newId, { [kind]: file }, counter);
+          return problems.length ? { kind, file, message: plainServerMessage(problems[0]) } : null;
+        })),
         attachRenewalPhotos(user.id, newId, housePhotos.map((p) => (p ? (p.file ?? p.preview) : null)), counter),
         finishRenewalIntake(user.id, newId, null, null),
       ]);
+      const failed = docResults.filter((x): x is { kind: DocKind; file: File; message: string } => !!x);
+      setRenewRetry(failed.length ? { newId, failed } : null);
       sent = true;
       setSendProgress({ phase: 'sent' });
-      showSent(newId, { ...o, lc1AttachError: o.lc1AttachError ?? (photoError ? `House photos not saved: ${photoError}` : null) });
+      showSent(newId, { ...o, lc1AttachError: o.lc1AttachError ?? (photoError ? `House photos not saved: ${plainServerMessage(photoError)}` : null) });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(plainServerMessage(e instanceof Error ? e.message : String(e)));
     } finally {
       setPosting(false);
       if (!sent) setSendProgress(null);
+    }
+  };
+
+  /** Retry the renewal's documents that didn't attach, against the new request. */
+  const retryRenewalDocs = async () => {
+    if (!user || !renewRetry || retryingDocs) return;
+    setRetryingDocs(true);
+    try {
+      const still = (await Promise.all(renewRetry.failed.map(async (f) => {
+        const problems = await attachT4Documents(user.id, renewRetry.newId, { [f.kind]: f.file });
+        return problems.length ? { ...f, message: plainServerMessage(problems[0]) } : null;
+      }))).filter((x): x is { kind: DocKind; file: File; message: string } => !!x);
+      setRenewRetry(still.length ? { newId: renewRetry.newId, failed: still } : null);
+      if (!still.length) toast.success('Documents uploaded ✓');
+    } finally {
+      setRetryingDocs(false);
     }
   };
 
@@ -2116,7 +2159,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'lc1Name': return 'And the chairperson’s name, please? 🙂';
       case 'lc1Village': return 'Which village is the LC1 for? 🏡';
       case 'city': return 'Which town or city is the house in? 🌆';
-      case 'lcLetter': return 'Now a photo of the stamped LC1 letter 📄 JPG or PNG, up to 10 MB. No letter yet? Tick the box and tell me why.';
+      case 'lcLetter': return 'Now a photo of the stamped LC1 letter 📄';
       case 'payoutDay': return `Which day of the month should Welile pay ${landlordFirst}? 🗓️ Most agents pick the day the rent falls due.`;
       case 'days': return 'How many days should the Rent Plan run? From 7 to 120 📅';
       case 'renewPlan': return `Renewing ${first}’s Rent Plan 🔁 Here’s how the last one went. Choose the new rent and days.`;
@@ -2157,14 +2200,14 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'idFront': return idFront ? (idFront.file ? 'ID front photo taken' : 'On file ✓') : '';
       case 'idBack': return idBack ? (idBack.file ? 'ID back photo taken' : 'On file ✓') : '';
       case 'gps': return gps
-        ? (gps.source === 'pin' ? 'Pin dropped on the house' : gps.accuracy ? `Location found (±${Math.round(gps.accuracy)} m)` : gpsOnFile ? 'GPS on file' : 'GPS from the house listing')
+        ? (gps.source === 'gps' ? `Location captured (${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)})` : gpsOnFile ? 'GPS on file' : 'GPS from the house listing')
         : '';
       case 'lc1': return lc1Mode === 'existing' ? lc1Name : lc1Mode === 'new' ? 'Register a new LC1' : '';
       case 'lc1Phone': return lc1Phone;
       case 'lc1Name': return lc1Name;
       case 'lc1Village': return lc1Village;
       case 'city': return city;
-      case 'lcLetter': return lcLetter ? 'LC letter added' : lcOnFile ? 'On file ✓' : lc1PhoneConfirmed ? 'LC1 confirmed by phone' : noLc1Letter ? 'No LC1 letter yet' : '';
+      case 'lcLetter': return lcLetter ? 'LC letter added' : lcOnFile ? 'On file ✓' : '';
       case 'payoutDay': return `The ${ordinal(payoutDay)}`;
       case 'days': return resubmitDays ? `${resubmitDays} days` : '';
       case 'renewPlan': return renewChoice ? `${formatUGX(renewChoice.newRent)} · ${renewChoice.newDays} days` : '';
@@ -2490,6 +2533,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
                 </div>
                   )}
                   {result.lcLetterFailed && <Bot><Bubble tone="warn">The LC letter didn’t upload. Add it later from My rent requests.</Bubble></Bot>}
+                  {mode === 'renewal' && renewRetry && renewRetry.failed.length > 0 && (
+                    <Bot>
+                      <Bubble tone="warn">
+                        <span data-testid="renewal-doc-retry">
+                          Renewal posted. {renewRetry.failed.length} document{renewRetry.failed.length === 1 ? '' : 's'} didn’t upload — tap to retry.
+                        </span>
+                        {renewRetry.failed.map((f) => <span key={f.kind} className="mt-1 block text-sm">{f.message}</span>)}
+                        <button type="button" onClick={() => void retryRenewalDocs()} disabled={retryingDocs}
+                          className="mt-2 flex min-h-11 items-center gap-1.5 font-semibold text-primary underline underline-offset-4 disabled:opacity-60">
+                          {retryingDocs && <Loader2 className="h-4 w-4 animate-spin" />} Retry upload
+                        </button>
+                      </Bubble>
+                    </Bot>
+                  )}
                   {result.docErrors.map((e) => (
                     <Bot key={e}><Bubble tone="warn"><b>Not saved:</b> {e}</Bubble></Bot>
                   ))}
@@ -2845,7 +2902,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
       case 'gps':
         return (
           <div className="flex flex-wrap items-center gap-2">
-            <GpsCapturePanel gps={gpsWatch} value={gps} className="basis-full" />
+            <GpsCapturePanel gps={gpsWatch} value={gps?.source === 'gps' ? gps : null} className="basis-full" />
             {gps && !gps.source && gps.accuracy === 0 && <span className="text-sm text-muted-foreground">{gpsOnFile ? 'GPS on file' : 'From the house listing'}</span>}
           </div>
         );
@@ -2855,40 +2912,30 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
         return <Chip onClick={() => { setWorkLocation(''); setDraft(''); setError(null); advance('workLocation'); }}>Skip</Chip>;
       case 'lcLetter':
         return (
-          <div className="flex max-w-xs flex-col gap-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3.5 text-sm font-semibold text-primary">
-                <ImagePlus className="h-3.5 w-3.5" /> {lcLetter ? 'Replace letter' : 'Add the letter'}
-                <input type="file" accept="image/jpeg,image/png" aria-label="LC1 letter photo" className="sr-only" onChange={(e) => { onLcLetter(e.target.files?.[0]); e.target.value = ''; }} />
-              </label>
-              {lcLetter && <img src={lcLetter.preview} alt="LC1 letter" className="h-12 w-12 rounded-lg object-cover" />}
-            </div>
-            {!lcLetter && (
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="checkbox"
-                  checked={noLc1Letter}
-                  onChange={(e) => { setNoLc1Letter(e.target.checked); setError(null); }}
-                  className="h-4 w-4 accent-primary"
-                />
-                No LC1 letter yet
-              </label>
+          <div className="flex max-w-xs flex-col gap-2.5" data-testid="lc1-letter-step">
+            {lcLetter && (
+              <img src={lcLetter.preview} alt="LC1 letter" className="h-32 w-full rounded-xl border border-border object-cover" />
             )}
-            {!lcLetter && noLc1Letter && (
-              <div className="flex flex-col gap-1">
-                <textarea
-                  aria-label="Why there is no LC1 letter yet"
-                  value={noLc1Reason}
-                  onChange={(e) => { setNoLc1Reason(e.target.value); setError(null); }}
-                  rows={3}
-                  placeholder="e.g. The LC1 is away until Friday"
-                  className="rounded-xl border border-border bg-background px-3 py-2 text-base outline-none focus:border-primary"
-                />
-                <p className="text-xs text-muted-foreground">
-                  At least {NO_LC1_REASON_MIN_CHARS} characters. Agent Ops only takes a request with the LC1 letter, or with the LC1
-                  confirmed by phone, so Send stays off until one of them is in.
-                </p>
-              </div>
+            <label
+              className="flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-base font-semibold text-primary-foreground"
+              onClick={(e) => openCamera(e, { title: 'LC1 letter', hint: 'Fill the frame with the stamped letter; all the writing readable.', facing: 'environment', oval: false, onPick: (f) => { void onLcLetter(f); } })}
+            >
+              <Camera className="h-5 w-5" aria-hidden /> {lcLetter ? 'Retake' : 'Take photo of LC1 letter'}
+              <input type="file" accept="image/*" capture="environment" aria-label="Take photo of LC1 letter" className="sr-only"
+                onChange={(e) => { void onLcLetter(e.target.files?.[0]); e.target.value = ''; }} />
+            </label>
+            <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-primary/30 bg-card px-3.5 text-sm font-semibold text-primary">
+              <ImagePlus className="h-4 w-4" aria-hidden /> Choose from gallery
+              <input type="file" accept="image/*" aria-label="LC1 letter photo" className="sr-only" onChange={(e) => { void onLcLetter(e.target.files?.[0]); e.target.value = ''; }} />
+            </label>
+            {!lcLetter && !lcOnFile && (
+              <p className="text-sm text-muted-foreground" data-testid="lc1-no-letter-yet">
+                {mode === 'new'
+                  ? 'No letter yet? Tap “Save and finish later” — we remind you at 8 am.'
+                  : mode === 'resubmit'
+                    ? 'No letter yet? Come back when you have it; the request waits in To fix.'
+                    : 'No letter yet? Come back when you have it.'}
+              </p>
             )}
           </div>
         );
@@ -2949,6 +2996,15 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
               </p>
             )}
             {renewingOthersTenant && <p className="text-sm font-medium" data-testid="renew-other-agent">Agent Ops will confirm you as this tenant’s agent.</p>}
+            {mode === 'renewal' && renewOtpProblem && (
+              <div className="flex flex-col gap-2 rounded-xl border border-warning/40 bg-warning/5 p-3 text-sm" role="alert" data-testid="renewal-otp-problem">
+                <p className="font-medium">{renewOtpProblem}</p>
+                <button type="button" onClick={() => { setRenewOtpProblem(null); void postRenewalPlan(); }}
+                  className="min-h-11 self-start rounded-full bg-primary px-4 font-semibold text-primary-foreground">
+                  Send a new code
+                </button>
+              </div>
+            )}
             {mode === 'new' && (
               <label className="flex flex-col gap-1 text-sm">
                 <span className="font-semibold">Landlord referral code <span className="font-normal text-muted-foreground">(optional)</span></span>
@@ -2971,7 +3027,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess, re
             {/* A tap on the disabled button lands on this wrapper: still a blocked press (E108). */}
             <div
               className="flex flex-col"
-              onClick={() => { if (tracking && !posting && missing.length > 0) blockedNow(t4FunnelItems(missing.map((m) => m.key))); }}
+              onClick={() => {
+                if (posting || missing.length === 0) return;
+                if (tracking) blockedNow(t4FunnelItems(missing.map((m) => m.key)));
+                else if (logResubmit) funnel.blocked(t4FunnelItems(missing.map((m) => m.key)));
+              }}
               data-testid="send-button-wrap"
             >
             <button
