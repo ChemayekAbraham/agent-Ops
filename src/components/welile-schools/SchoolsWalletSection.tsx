@@ -13,7 +13,11 @@ export default function SchoolsWalletSection() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const open = () => navigate(user ? WALLET_PATH : `/auth?redirect=${encodeURIComponent(WALLET_PATH)}`);
+  const open = () => {
+    // The wallet is the first card on the profile page: start it at the top, not at this page's scroll.
+    window.scrollTo({ top: 0 });
+    navigate(user ? WALLET_PATH : `/auth?redirect=${encodeURIComponent(WALLET_PATH)}`);
+  };
 
   return (
     <button
