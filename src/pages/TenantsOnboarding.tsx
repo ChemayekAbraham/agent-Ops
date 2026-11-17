@@ -146,8 +146,8 @@ const LANGUAGES = ['English', 'Luganda', 'Runyankole', 'Lusoga', 'Acholi', 'Lugb
 const DAILY_PERIODS = [30, 60, 90, 120];
 const WEEKLY_PERIODS = [28, 56, 84, 112];
 
+// E134 (COO 17 Nov): no rent ceiling. Any monthly rent from UGX 50,000 up can be typed and sent.
 const MIN_RENT = 50000;
-const MAX_RENT = 10000000;
 
 const cleanNin = (v: string) => v.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 
@@ -479,7 +479,7 @@ export default function TenantsOnboarding() {
 
   const activeEarner = EARNERS.find((e) => e.key === earner) ?? EARNERS[0];
   /* Only complain once they have typed something — an empty field is not an error yet. */
-  const rentInvalid = rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT);
+  const rentInvalid = rentAmount > 0 && rentAmount < MIN_RENT;
   const periodLabel = earner === 'weekly' ? 'Weekly' : 'Daily';
   const perCycle = useMemo(() => {
     if (!calc) return 0;
@@ -649,7 +649,7 @@ export default function TenantsOnboarding() {
   // Everything the request still needs. Submit stays locked until this is empty.
   const durationOk = DAILY_PERIODS.includes(durationDays) || (durationDays >= 7 && durationDays <= 364 && durationDays % 7 === 0);
   const requestInput: TenantRequestInput = {
-    rentAmount, minRent: MIN_RENT, maxRent: MAX_RENT, durationOk,
+    rentAmount, minRent: MIN_RENT, durationOk,
     firstName, lastName, phone, nin,
     hasIdFront: !!idPhoto, hasIdBack: !!idPhotoBack, hasPassportPhoto: !!tenantPhoto,
     familySize, work: occupation,
@@ -694,8 +694,8 @@ export default function TenantsOnboarding() {
         ? 'This phone number is already registered to another account'
         : 'This phone number already has a Welile account. Sign in with it to continue.';
     }
-    if (s === 2 && rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT)) {
-      return `Enter a rent between ${formatUGX(MIN_RENT)} and ${formatUGX(MAX_RENT)}`;
+    if (s === 2 && rentAmount > 0 && rentAmount < MIN_RENT) {
+      return `Enter a rent of at least ${formatUGX(MIN_RENT)}`;
     }
     // The tenant's photo blocks only while it is missing; the face check is advice, never a block.
     return missingOn(s)[0]?.label ?? null;
@@ -710,7 +710,7 @@ export default function TenantsOnboarding() {
 
   /** The items a step is blocked on, for the funnel. */
   const stepBlockItems = (s: number): FunnelItem[] => {
-    if (s === 2 && rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT)) return ['rent'];
+    if (s === 2 && rentAmount > 0 && rentAmount < MIN_RENT) return ['rent'];
     return funnelItemsFor(missingOn(s).map((m) => m.key));
   };
 
@@ -1518,11 +1518,11 @@ export default function TenantsOnboarding() {
                     {rentInvalid ? (
                       <p className="flex items-center gap-1.5 text-[12.5px] font-bold text-destructive">
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                        Enter a rent between {formatUGX(MIN_RENT)} and {formatUGX(MAX_RENT)}.
+                        Enter a rent of at least {formatUGX(MIN_RENT)}.
                       </p>
                     ) : (
                       <p className="text-xs text-muted-foreground">
-                        Allowed range: {formatUGX(MIN_RENT)} to {formatUGX(MAX_RENT)}
+                        Minimum {formatUGX(MIN_RENT)}
                       </p>
                     )}
                   </div>

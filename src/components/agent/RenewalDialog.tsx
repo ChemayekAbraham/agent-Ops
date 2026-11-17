@@ -326,7 +326,9 @@ export function RenewalChoiceDialog({ target, onDone }: DialogProps) {
 
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="outline" className="h-11 flex-1" disabled={busy} onClick={() => onDone(null)}>Cancel</Button>
-            <Button type="button" className="h-11 flex-1" disabled={busy || !!preview.error} onClick={() => void submit()}>
+            {/* E134: only a send in progress turns Continue off. The suggestion is advice, and a preview
+                that failed is fetched again on Continue, its words shown under the form. */}
+            <Button type="button" className="h-11 flex-1" disabled={busy} onClick={() => void submit()}>
               {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {submitting ? 'Checking…' : 'Continue'}
             </Button>

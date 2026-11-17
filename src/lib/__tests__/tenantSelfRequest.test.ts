@@ -14,7 +14,7 @@ import {
 
 /** A request with everything in. */
 const COMPLETE: TenantRequestInput = {
-  rentAmount: 300000, minRent: 50000, maxRent: 10000000, durationOk: true,
+  rentAmount: 300000, minRent: 50000, durationOk: true,
   firstName: 'Robert', lastName: 'Mugisha', phone: '0771234567', nin: 'CM9001234567AB',
   hasIdFront: true, hasIdBack: true, hasPassportPhoto: true,
   familySize: '4', work: 'Boda rider',
@@ -30,6 +30,12 @@ beforeEach(() => vi.clearAllMocks());
 describe('tenantRequestMissing: Submit stays locked until every item is in', () => {
   it('happy path: a complete request is missing nothing', () => {
     expect(tenantRequestMissing(COMPLETE)).toEqual([]);
+  });
+
+  it('E134: no rent ceiling: 8,000,000 and 100,000,000 are fine; under 50,000 is not', () => {
+    expect(keys({ rentAmount: 8_000_000 })).toEqual([]);
+    expect(keys({ rentAmount: 100_000_000 })).toEqual([]);
+    expect(keys({ rentAmount: 49_999 })).toEqual(['rent']);
   });
 
   it('an empty form lists every item, each with the intake step (1-8) that fixes it', () => {
@@ -87,9 +93,9 @@ describe('tenantRequestMissing: Submit stays locked until every item is in', () 
     expect(samePhone('0771234567', '0772000111')).toBe(false);
   });
 
-  it('rent and duration: within the limits, on an accepted period', () => {
+  it('rent and duration: at least the minimum (no ceiling, E134), on an accepted period', () => {
     expect(keys({ rentAmount: 40000 })).toEqual(['rent']);
-    expect(keys({ rentAmount: 20000000 })).toEqual(['rent']);
+    expect(keys({ rentAmount: 20000000 })).toEqual([]);
     expect(keys({ durationOk: false })).toEqual(['rent']);
   });
 

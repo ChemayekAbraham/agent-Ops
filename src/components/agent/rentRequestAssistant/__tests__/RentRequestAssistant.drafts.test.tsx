@@ -448,3 +448,31 @@ describe('E99: an old draft with "No LC1 letter yet" ticked opens with it cleare
     expect(screen.queryByRole('button', { name: /Post rent request/ })).toBeNull();
   });
 });
+
+describe('E134 (COO 17 Nov): no rent ceiling in the post', () => {
+  it('a rent of 8,000,000 posts as typed, with no cap line', async () => {
+    const payload = fullPayload();
+    payload.fields.rentText = '8000000';
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd8', payload } }} />);
+    await finishAndPost();
+    expect(mocks.submit.mock.calls[0][0]).toMatchObject({ fees: expect.objectContaining({ rentAmount: 8_000_000 }) });
+    expect((await screen.findAllByText('Sent to the Service Centre')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/post up to|per tenant|more than your cap/i)).toBeNull();
+  });
+
+  it('a tenant behind on rent posts when capacity says blocked: false; nothing on the client stops it', async () => {
+    const base = mocks.rpc.getMockImplementation()!;
+    mocks.rpc.mockImplementation(async (fn: string, args?: unknown) => {
+      if (fn === 'get_agent_rent_request_capacity') {
+        return { data: { blocked: false, tenant_max: 100_000_000, allowed_max: 100_000_000, tenant_arrears_ugx: 450_000 }, error: null };
+      }
+      return base(fn, args);
+    });
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'new', draft: { id: 'd7', payload: fullPayload() } }} />);
+    await finishAndPost();
+    expect((await screen.findAllByText('Sent to the Service Centre')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/behind on rent|post up to/i)).toBeNull();
+    // The client never asks for a cap before posting: Tenant Ops freezes defaulting tenants, the server refuses what it must.
+    expect(mocks.rpc.mock.calls.map(([fn]) => fn)).not.toContain('get_agent_rent_request_capacity');
+  });
+});

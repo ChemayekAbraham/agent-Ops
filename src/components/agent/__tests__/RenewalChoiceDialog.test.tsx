@@ -187,3 +187,39 @@ describe('RenewalChoiceDialog', () => {
     expect(container).toBeTruthy();
   });
 });
+
+describe('E134 (COO 17 Nov): no rent ceiling on a renewal; the suggestion is advice only', () => {
+  it('8,000,000 is accepted: the amber line shows, Continue stays on, and the choice goes through', async () => {
+    const onDone = setup();
+    await text(/Within suggestion/);
+    typeRent('8000000');
+    expect(rentBox().value).toBe('8,000,000');
+    expect(await text(/Above suggestion by UGX\s7,640,000 \(2122%\)\. Reviewers will see this\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+    expect(screen.queryByText(/post up to|can't renew|cannot renew|too high/i)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Landlord raised rent' }));
+    await userEvent.type(screen.getByLabelText('Explain the change'), 'Landlord raised it for a bigger house.');
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(onDone.mock.calls[0][0]).toMatchObject({ newRent: 8000000, changed: true, reasonCode: 'landlord_raised' });
+  });
+
+  it('a preview the server could not give never turns Continue off; Continue fetches it again', async () => {
+    let fail = true;
+    rpcMock.mockImplementation(async (name: string, args: any) => {
+      if (name === 'get_renewal_advice') return { data: adviceFor(args.p_new_days ?? 30), error: null };
+      if (name === 'preview_renewal_amount') {
+        return fail ? { data: null, error: { message: 'Network request failed' } } : { data: previewFor(args.p_new_rent, args.p_new_days ?? 30), error: null };
+      }
+      return { data: null, error: { message: 'unexpected ' + name } };
+    });
+    const onDone = setup();
+    expect(await text(/Network request failed/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+    fail = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(onDone.mock.calls[0][0]).toMatchObject({ newRent: 300000, changed: false });
+  });
+});

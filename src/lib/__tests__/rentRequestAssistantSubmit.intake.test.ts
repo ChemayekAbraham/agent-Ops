@@ -184,3 +184,19 @@ describe('E63: no rent cap', () => {
     expect(res).toMatchObject({ ok: false, message: refusal });
   });
 });
+
+describe('E134: no rent ceiling', () => {
+  it('posts 8,000,000 as it is', async () => {
+    serveRpcs();
+    const inserts: unknown[] = [];
+    mocks.from.mockImplementation((table: string) => {
+      const b = builder(table === 'rent_requests' ? { data: { id: 'req-1' }, error: null } : { data: [], error: null });
+      if (table === 'rent_requests') b.insert = vi.fn((row: unknown) => { inserts.push(row); return b; });
+      return b;
+    });
+    const fees8m = { rentAmount: 8_000_000, durationDays: 30, accessFee: 1, requestFee: 1, totalRepayment: 8_000_002, dailyRepayment: 266_667 };
+    const res = await submitAssistantRentRequest(input({ fees: fees8m }));
+    expect(res.ok).toBe(true);
+    expect(inserts[0]).toMatchObject({ rent_amount: 8_000_000 });
+  });
+});

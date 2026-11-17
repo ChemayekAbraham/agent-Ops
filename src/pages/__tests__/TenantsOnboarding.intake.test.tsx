@@ -116,7 +116,7 @@ function renderPage(path = '/tenants-onboarding') {
   );
 }
 
-interface FillOpts { housePhotos?: number; nin?: string; idFront?: boolean; idBack?: boolean; lcLetter?: boolean }
+interface FillOpts { housePhotos?: number; nin?: string; idFront?: boolean; idBack?: boolean; lcLetter?: boolean; rent?: string }
 
 /** What each of the 8 steps needs, filled the way a tenant would. */
 const FILL: Record<number, (o: FillOpts) => Promise<void>> = {
@@ -125,9 +125,9 @@ const FILL: Record<number, (o: FillOpts) => Promise<void>> = {
     type('e.g. Robert', 'Robert');
     type('e.g. Mugisha', 'Mugisha');
   },
-  2: async () => {
+  2: async ({ rent = '300000' }) => {
     fireEvent.click(screen.getByRole('button', { name: /Daily income earner/ }));
-    type('500,000', '300000');
+    type('500,000', rent);
   },
   3: async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pick landlord' }));
@@ -430,5 +430,28 @@ describe('E108 funnel: steps use the intake step keys; a blocked press sends the
     await tickAndSubmit();
     expect(await screen.findByText(/Sent to Welile\. An agent near you/)).toBeInTheDocument();
     expect(mocks.rpc).toHaveBeenCalledWith('request_form_log', expect.objectContaining({ p_event: 'submit_ok', p_rent_request_id: 'req-1', p_form: 'tenant_self' }));
+  });
+});
+
+describe('E134 (COO 17 Nov): no rent ceiling', () => {
+  it.each([['8000000', 8_000_000], ['25000000', 25_000_000]])('a rent of %s is accepted and sent as typed', async (typed, amount) => {
+    await fillTo(2, { rent: typed });
+    expect(screen.queryByText(/Enter a rent between|Allowed range/)).toBeNull();
+    expect(screen.getByText('Minimum UGX 50,000')).toBeInTheDocument();
+    await next();
+    for (let s = 3; s <= 8; s++) {
+      await FILL[s]({});
+      if (s < 8) await next();
+    }
+    await tickAndSubmit();
+    expect(await screen.findByText('Sent to Welile. An agent near you will be assigned to visit and confirm your house.')).toBeInTheDocument();
+    const submitCall = mocks.invoke.mock.calls.find(([, a]) => (a as { body: { action: string } }).body.action === 'submit');
+    expect((submitCall![1] as { body: Record<string, unknown> }).body).toMatchObject({ rent_amount: amount });
+  });
+
+  it('below UGX 50,000 is still refused, in words', async () => {
+    await fillTo(2, { rent: '40000' });
+    expect(screen.getByText('Enter a rent of at least UGX 50,000.')).toBeInTheDocument();
+    expect(continueBtn()).toBeDisabled();
   });
 });

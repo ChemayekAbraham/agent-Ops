@@ -1129,3 +1129,24 @@ describe('E99 (live bug 16 Nov 21:24): the LC1 letter is a photo, always', () =>
     await waitFor(() => expect(formLogs('submit_fail')).toContainEqual(expect.objectContaining({ p_form: 'resubmit', p_error: 'RESUBMIT_INCOMPLETE' })));
   });
 });
+
+describe('E134: a renewal at 8,000,000 goes through', () => {
+  it('the chosen 8,000,000 is shown, Renew is on, and renew_rent_request gets it', async () => {
+    const renewal = { prevId: 'prev-1', tenantId: 'tenant-1', tenantName: 'John Mukasa', tenantPhone: '0783123456', currentRent: 300000, currentDays: 30, landlordName: 'Peter Okello' };
+    mocks.renewalStart.mockResolvedValue({
+      newRent: 8_000_000, newDays: 30, dailyRepayment: 300000, totalRepayment: 9_000_000, changed: true,
+      reasonCode: 'landlord_raised', explanation: 'Landlord raised it for a bigger house.', evidenceUrl: null,
+    });
+    mocks.rpc.mockImplementation(async (fn: string) => (fn === 'renew_rent_request' ? { data: 'new-req', error: null } : { data: { ok: true }, error: null }));
+    render(<RentRequestAssistant open onOpenChange={vi.fn()} request={{ mode: 'renewal', renewal }} />);
+    await toRenewalStep3();
+    await screen.findByTestId('t4-ready');
+    expect(sendButton()).toBeEnabled();
+    fireEvent.click(sendButton());
+    expect(await screen.findAllByText('Sent to the Service Centre')).not.toHaveLength(0);
+    expect(mocks.rpc).toHaveBeenCalledWith('renew_rent_request', expect.objectContaining({
+      p_prev_request_id: 'prev-1', p_new_rent_amount: 8_000_000, p_change_reason_code: 'landlord_raised',
+    }));
+    expect(screen.queryByText(/post up to|behind on rent/i)).toBeNull();
+  });
+});
