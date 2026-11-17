@@ -74,6 +74,9 @@ const DeskReviewHarness = lazyWithRetry(
 const SendBackSheetHarness = lazyWithRetry(
   () => import("@/pages/__e2e/SendBackSheetHarness"),
 );
+const ScFieldHarness = lazyWithRetry(
+  () => import("@/pages/__e2e/ScFieldHarness"),
+);
 const CooBoardHarness = lazyWithRetry(
   () => import("@/pages/__e2e/CooBoardHarness"),
 );
@@ -763,6 +766,16 @@ function AppRoutes() {
               element={
                 <Suspense fallback={null}>
                   <SendBackSheetHarness />
+                </Suspense>
+              }
+            />
+          )}
+          {import.meta.env.DEV && (
+            <Route
+              path="/__e2e/sc-field"
+              element={
+                <Suspense fallback={null}>
+                  <ScFieldHarness />
                 </Suspense>
               }
             />

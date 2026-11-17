@@ -43,7 +43,9 @@ export function readScFieldBoard(v: unknown): ScFieldBoard {
   };
 }
 
-const callRpc = supabase.rpc as unknown as (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+// Called on the client itself: `rpc` needs its `this` (a detached `supabase.rpc` fails with "reading 'rest'").
+const callRpc = (fn: string, args?: Record<string, unknown>) =>
+  (supabase as unknown as { rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> }).rpc(fn, args);
 
 export function useScFieldBoard(enabled = true) {
   return useQuery({
