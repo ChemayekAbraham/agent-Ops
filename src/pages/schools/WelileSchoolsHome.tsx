@@ -22,6 +22,7 @@ import SchoolsPhotoCarousel from '@/components/welile-schools/SchoolsPhotoCarous
 import SchoolFeesPlanCard from '@/components/welile-schools/SchoolFeesPlanCard';
 import ParentFeesRequest from '@/components/welile-schools/ParentFeesRequest';
 import AgentParentRequests from '@/components/welile-schools/AgentParentRequests';
+import AgentSchoolInspections from '@/components/welile-schools/AgentSchoolInspections';
 import {
   computeGateMovementSummary, readLockedSchool, readPendingGateLogs, readPendingProfiles, writeLockedSchool,
   type SchoolGateLogRow, type SchoolRow,
@@ -385,6 +386,7 @@ function AgentHome({ userId }: { userId: string }) {
           </section>
 
           {/* Parents' School Fees Plan requests routed to this agent (hidden when there are none). */}
+          <AgentSchoolInspections agentId={userId} />
           <AgentParentRequests agentId={userId} />
 
           <section aria-labelledby="ws-attention">
