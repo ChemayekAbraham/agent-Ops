@@ -28,22 +28,23 @@ beforeEach(() => {
   photos.clear();
 });
 
-describe('the start-up reload: a build more than 12 hours behind reloads at once', () => {
-  it('13 hours behind: reloads, noting from and to for the log', async () => {
+describe('the start-up reload: a build more than 1 hour behind reloads at once', () => {
+  it('2 hours behind: reloads, noting from and to for the log', async () => {
     const reload = vi.fn();
-    const live = at(13);
+    const live = at(2);
     const did = await startupUpdate({ anyMode: true, running: RUNNING, fetchLive: async () => live, reload, now: () => NOW });
     expect(did).toBe(true);
     expect(reload).toHaveBeenCalledTimes(1);
     expect(readUpdateMarker()).toMatchObject({
       reason: 'startup', from: buildLabel(RUNNING), to: buildLabel(live), fromSource: 'old-src', toSource: 'new-src', at: NOW,
     });
-    expect(STARTUP_MAX_LAG_MS).toBe(12 * HOUR);
+    expect(STARTUP_MAX_LAG_MS).toBe(1 * HOUR);
   });
 
-  it('2 hours behind, the same build, or no answer: no reload', async () => {
+  it('30 minutes behind, exactly 1 hour, the same build, or no answer: no reload', async () => {
     const reload = vi.fn();
-    expect(await startupUpdate({ anyMode: true, running: RUNNING, fetchLive: async () => at(2), reload })).toBe(false);
+    expect(await startupUpdate({ anyMode: true, running: RUNNING, fetchLive: async () => at(0.5), reload })).toBe(false);
+    expect(await startupUpdate({ anyMode: true, running: RUNNING, fetchLive: async () => at(1), reload })).toBe(false);
     expect(await startupUpdate({ anyMode: true, running: RUNNING, fetchLive: async () => RUNNING, reload })).toBe(false);
     expect(await startupUpdate({ anyMode: true, running: RUNNING, fetchLive: async () => null, reload })).toBe(false);
     // A check that never answers gives up.

@@ -9,7 +9,7 @@ import { logFormEvent, type FunnelForm } from '@/lib/formFunnel';
  *   - Before a Post / Resubmit / Renew the chat asks findNewerBuild() (the same /build-info.json
  *     check as the "A new version of Welile is ready" banner). A newer build: the chat is kept
  *     (t4Resume.ts) and reloadToBuild() reloads; the new build reopens it and continues.
- *   - On start, a build more than 12 hours behind the live one reloads at once (startupUpdate).
+ *   - On start, a build more than 1 hour behind the live one reloads at once (startupUpdate).
  *   - Once the new build is running, 'app_updated' { from_build, to_build } goes to
  *     request_form_log (settleAppUpdate).
  *
@@ -19,7 +19,7 @@ import { logFormEvent, type FunnelForm } from '@/lib/formFunnel';
 
 export const UPDATE_MARKER_KEY = 'welile_app_update';
 /** On start, a build this far behind the live one reloads at once. */
-export const STARTUP_MAX_LAG_MS = 12 * 60 * 60 * 1000;
+export const STARTUP_MAX_LAG_MS = 60 * 60 * 1000;
 /** After a reload for a build, the same build is not reloaded for again within this time. */
 export const RELOAD_RETRY_MS = 10 * 60 * 1000;
 /** The check before a send gives up after this (slow network: send on this build). */
@@ -120,7 +120,7 @@ export function reloadToBuild(
 }
 
 /**
- * On start: a build more than 12 hours behind the live one reloads at once. Returns true when it
+ * On start: a build more than 1 hour behind the live one reloads at once. Returns true when it
  * reloads.
  */
 export async function startupUpdate(deps: CheckDeps & { reload?: () => void } = {}): Promise<boolean> {
