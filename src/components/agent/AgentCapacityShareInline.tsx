@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
+import { useAgentExposure } from '@/hooks/useAgentExposure';
 import { formatUGX } from '@/lib/rentCalculations';
 import { deriveAgentBadges } from '@/lib/agentBadges';
 import { AgentCapacityShareCard } from './AgentCapacityShareCard';
@@ -33,6 +34,8 @@ export function AgentCapacityShareInline() {
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
   const { data, isLoading } = useAgentCapacityMap(ids);
   const cap = user?.id ? data?.get(user.id) : undefined;
+  // Exposure and headroom as the database works them out; no limit per tenant (E134).
+  const { data: exposure } = useAgentExposure(user?.id);
   const cardRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
@@ -65,10 +68,6 @@ export function AgentCapacityShareInline() {
     return null;
   }
 
-  const canPost = cap.can_post_rent_today;
-  const remainingSlots = canPost && cap.per_tenant_max > 0
-    ? Math.floor(cap.headroom / cap.per_tenant_max)
-    : 0;
   const badges = deriveAgentBadges(cap);
 
   const agentName = (user.user_metadata as any)?.full_name
@@ -165,10 +164,9 @@ export function AgentCapacityShareInline() {
       paidToday={cap.paid_today}
       expectedDaily={cap.expected_daily}
       paidYesterday={cap.paid_yesterday}
-      perTenantMax={cap.per_tenant_max}
-      headroom={cap.headroom}
-      remainingSlots={remainingSlots}
-      canPost={canPost}
+      exposure={exposure?.exposure ?? null}
+      headroom={exposure?.headroom ?? null}
+      blocked={exposure?.blocked === true}
       dateLabel={dateLabel}
       badges={badges}
       tenantCount={cap.active_tenant_count}
@@ -253,10 +251,9 @@ export function AgentCapacityShareInline() {
                 paidToday={cap.paid_today}
                 expectedDaily={cap.expected_daily}
                 paidYesterday={cap.paid_yesterday}
-                perTenantMax={cap.per_tenant_max}
-                headroom={cap.headroom}
-                remainingSlots={remainingSlots}
-                canPost={canPost}
+                exposure={exposure?.exposure ?? null}
+                headroom={exposure?.headroom ?? null}
+                blocked={exposure?.blocked === true}
                 dateLabel={dateLabel}
                 badges={badges}
                 tenantCount={cap.active_tenant_count}

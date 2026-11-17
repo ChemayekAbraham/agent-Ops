@@ -27,30 +27,17 @@ export const AGENT_RENT_CAP_UGX = 100_000_000;
 export const DAILY_ELIGIBILITY_THRESHOLD = 0.50;
 
 /**
- * New-agent onboarding rule:
- *   A brand-new agent who has not yet reached NEW_AGENT_TENANT_THRESHOLD
- *   active tenants is in the "new agent" phase. During this phase they may
- *   post rent requests up to NEW_AGENT_RENT_CAP_UGX per tenant and are NOT
- *   regulated by daily collection performance — we want to give new agents
- *   room to build their book. The moment they reach the tenant threshold
- *   they "graduate" and the Daily Eligibility Law (above) takes over,
- *   gating new posts on their daily collection performance.
+ * New-agent phase: fewer than NEW_AGENT_TENANT_THRESHOLD active tenants (`is_new_agent`).
+ * E134 (COO 17 Nov): there is no rent ceiling per tenant, for new agents or anyone else.
  */
 export const NEW_AGENT_TENANT_THRESHOLD = 10;
-export const NEW_AGENT_RENT_CAP_UGX = 2_000_000;
 
 /**
- * Weekly "Good Standing" unlock:
- *   If, looking at the last 7 days of saved daily eligibility history, an
- *   agent was rated "Good" (green) or better on at least
- *   GOOD_DAYS_UNLOCK_THRESHOLD distinct days, they earn UNLIMITED posting for
- *   the current week: they may post any new rent request, for any amount,
- *   with no per-tenant cap and no daily block. This rewards agents who proved
- *   strong collection behaviour last week. Applies to EVERY agent.
+ * Weekly "Good Standing": 2+ days rated "Good" or better in the last 7 days of saved daily
+ * eligibility history (`unlimited_posting`). Information only since E100; there is no rent
+ * ceiling per tenant to lift (E134).
  */
 export const GOOD_DAYS_UNLOCK_THRESHOLD = 2;
-/** Sentinel per-tenant max used to represent "no cap" (unlimited posting). */
-export const UNLIMITED_PER_TENANT_MAX = Number.MAX_SAFE_INTEGER;
 
 /**
  * Daily rating tiers based on the BEST of yesterday's and today's
@@ -124,11 +111,13 @@ export function classifyDailyRating(
  *          tenant made at least one repayment)
  *         ÷ (active tenants × 7)
  *
- *   ≥ 70%   → Positive  (per-tenant max  UGX 6,000,000)
- *   40–69%  → Fair      (per-tenant max  UGX 3,000,000)
- *   10–39%  → Bad       (per-tenant max  UGX 1,000,000)
- *   < 10%   → Very Bad  (blocked from new rent requests)
- *   no active rents → Starter (per-tenant max UGX 500,000)
+ *   ≥ 70%   → Positive
+ *   40–69%  → Fair
+ *   10–39%  → Bad
+ *   < 10%   → Very Bad
+ *   no active rents → Starter
+ *
+ * The tier is a rating only. E134 (COO 17 Nov): it sets no rent ceiling per tenant.
  */
 export const AGENT_TIER_THRESHOLDS = {
   positive: 0.70,
@@ -213,18 +202,9 @@ export type AgentCapacity = {
    * unlimited-posting unlock.
    */
   good_days_last_week: number;
-  /**
-   * True when the agent qualified for unlimited posting this week
-   * (>= GOOD_DAYS_UNLOCK_THRESHOLD good days last week). When true the
-   * per-tenant cap and daily block are lifted entirely.
-   */
+  /** 2+ "Good" days last week (GOOD_DAYS_UNLOCK_THRESHOLD). Information only. */
   unlimited_posting: boolean;
-  /**
-   * True while the agent is still in the new-agent onboarding phase
-   * (fewer than NEW_AGENT_TENANT_THRESHOLD active tenants). New agents are
-   * capped at NEW_AGENT_RENT_CAP_UGX per tenant and are exempt from daily
-   * performance regulation until they graduate.
-   */
+  /** Fewer than NEW_AGENT_TENANT_THRESHOLD active tenants. */
   is_new_agent: boolean;
   /** Sum of daily_repayment across active (non-unfunded) rent_requests. */
   expected_daily: number;
@@ -247,7 +227,6 @@ export type AgentCapacity = {
   headroom: number;
   pct: number;
   tier: 'Positive' | 'Fair' | 'Bad' | 'Very Bad' | 'Starter';
-  per_tenant_max: number;
   /**
    * Which posting rule decided `can_post_rent_today`: 'weekly' once
    * agent_posting_rule_settings.enforce_weekly is on, else 'daily'.
@@ -299,18 +278,16 @@ export function daysIntoRuleWeek(judgedWeekStart: string, now: Date = new Date()
   return Math.min(7, Math.max(1, days));
 }
 
+/** The 7-day rating label. A rating only: no rent ceiling per tenant (E134). */
 export function classifyAgent(
   active_count: number,
   response_rate: number,
-): { tier: AgentCapacity['tier']; per_tenant_max: number } {
-  if (active_count <= 0) return { tier: 'Starter', per_tenant_max: 500_000 };
-  if (response_rate >= AGENT_TIER_THRESHOLDS.positive)
-    return { tier: 'Positive', per_tenant_max: 6_000_000 };
-  if (response_rate >= AGENT_TIER_THRESHOLDS.fair)
-    return { tier: 'Fair', per_tenant_max: 3_000_000 };
-  if (response_rate >= AGENT_TIER_THRESHOLDS.bad)
-    return { tier: 'Bad', per_tenant_max: 1_000_000 };
-  return { tier: 'Very Bad', per_tenant_max: 0 };
+): { tier: AgentCapacity['tier'] } {
+  if (active_count <= 0) return { tier: 'Starter' };
+  if (response_rate >= AGENT_TIER_THRESHOLDS.positive) return { tier: 'Positive' };
+  if (response_rate >= AGENT_TIER_THRESHOLDS.fair) return { tier: 'Fair' };
+  if (response_rate >= AGENT_TIER_THRESHOLDS.bad) return { tier: 'Bad' };
+  return { tier: 'Very Bad' };
 }
 
 /**
@@ -694,47 +671,12 @@ export function useAgentCapacityMap(agentIds: string[]) {
             ? Math.min(1, responding_tenant_days / expected_tenant_days)
             : 0;
         const active_tenant_count = activeTenantsByAgent.get(id)?.size || 0;
-        const { tier, per_tenant_max: tier_per_tenant_max } =
-          classifyAgent(exp.count, response_rate);
-        // New-agent phase: under the tenant threshold the agent may post up
-        // to UGX 2,000,000 per tenant regardless of the response-rate tier.
+        const { tier } = classifyAgent(exp.count, response_rate);
         const is_new_agent = active_tenant_count < NEW_AGENT_TENANT_THRESHOLD;
-        const base_per_tenant_max = is_new_agent
-          ? NEW_AGENT_RENT_CAP_UGX
-          : tier_per_tenant_max;
-        // Weekly Good-Standing unlock: 2+ "Good" days last week → unlimited.
+        // Weekly Good Standing: 2+ "Good" days last week.
         const good_days_last_week = goodDaysByAgent.get(id) || 0;
         const unlimited_posting =
           good_days_last_week >= GOOD_DAYS_UNLOCK_THRESHOLD;
-        // Daily "Good" floor: any agent who is currently allowed to post
-        // today (green banner) is guaranteed at least the new-agent
-        // per-tenant floor. We key this off the SAME conditions that drive
-        // `can_post_rent_today` below — today's OR yesterday's OR the
-        // blended `effective_pct` clearing the daily threshold — so the
-        // banner and the per-tenant cap can never disagree. Previously the
-        // floor only tracked `effective_pct`, so agents rated Very Bad on
-        // the 7-day tier (→ UGX 0 cap) but visibly productive today (e.g.
-        // 68% collected) would see the green banner AND a "UGX 0 posting
-        // cap" error at the same time.
-        const daily_pct_for_floor = Math.max(
-          elig?.today_pct ?? 0,
-          elig?.yesterday_pct ?? 0,
-          elig?.effective_pct ?? 0,
-          // Agent-performance basis (tenants reached), same as the rating.
-          elig?.coverage_today ?? 0,
-          elig?.coverage_yesterday ?? 0,
-        );
-        // An agent collecting at or above 50% (today, yesterday or blended)
-        // is never held back by the 7-day tier cap.
-        const above_daily_threshold = daily_pct_for_floor >= DAILY_ELIGIBILITY_THRESHOLD;
-        // Under the weekly rule, passing last week lifts the per-tenant cap
-        // (decided 2026-10-23); the daily threshold and the unlock no longer do.
-        const weekly_passes = weeklyByAgent.get(id)?.passes ?? true;
-        const per_tenant_max = weeklyEnforced
-          ? (weekly_passes ? UNLIMITED_PER_TENANT_MAX : base_per_tenant_max)
-          : (unlimited_posting || above_daily_threshold
-            ? UNLIMITED_PER_TENANT_MAX
-            : base_per_tenant_max);
         const headroom = Math.max(AGENT_RENT_CAP_UGX - exp.used, 0);
         const pct = Math.min(100, Math.round((exp.used / AGENT_RENT_CAP_UGX) * 100));
         // Server-side eligibility values (Africa/Kampala TZ, from
@@ -818,7 +760,6 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // gate population, new or not. The database trigger
         // (enforce_agent_daily_eligibility) has no new-agent exemption, so
         // exempting them here made the app promise a post the server refused.
-        // New agents remain governed by the smaller per-tenant cap above.
         // Never block posting on figures we failed to load. The authoritative
         // gate is the database trigger `enforce_agent_daily_eligibility`, which
         // reads the view directly and raises DAILY_ELIGIBILITY_BLOCKED (handled
@@ -885,7 +826,6 @@ export function useAgentCapacityMap(agentIds: string[]) {
           headroom,
           pct,
           tier,
-          per_tenant_max,
         });
       });
       return out;

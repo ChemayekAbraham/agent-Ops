@@ -8,6 +8,7 @@ import {
   AGENT_RENT_CAP_UGX,
   type AgentCapacity,
 } from '@/hooks/useAgentCapacityMap';
+import type { AgentExposure } from '@/hooks/useAgentExposure';
 
 export interface CapacityTenantRow {
   tenant_name: string;
@@ -17,8 +18,6 @@ export interface CapacityTenantRow {
   total_repayment: number;
   amount_repaid: number;
   outstanding: number;
-  per_tenant_max: number;     // hard cap for this tier
-  remaining_eligibility: number; // min(per_tenant_max, fleet headroom snapshot)
 }
 
 export interface CapacityAgentInfo {
@@ -27,14 +26,13 @@ export interface CapacityAgentInfo {
 }
 
 /**
- * Loads every active rent-request tenant for an agent and computes the
- * per-tenant capacity figures used in the printable report. Headroom is
- * shared across all tenants — we snapshot it at fetch time so each row's
- * `remaining_eligibility` reflects what could still be funded today.
+ * Loads every active rent-request tenant for an agent, with what each still owes, for the
+ * printable report. E134: there is no rent ceiling per tenant, so no per-tenant limit is shown.
  */
 export async function fetchAgentCapacityTenants(
   agentId: string,
-  capacity: AgentCapacity,
+  // Kept for callers; the rows need nothing from it.
+  _capacity?: AgentCapacity,
 ): Promise<CapacityTenantRow[]> {
   const { data: rents } = await supabase
     .from('rent_requests')
@@ -53,8 +51,6 @@ export async function fetchAgentCapacityTenants(
     (profs || []).map((p: any) => [p.id, { full_name: p.full_name || 'Unknown', phone: p.phone }]),
   );
 
-  const sharedEligibility = Math.min(capacity.per_tenant_max, capacity.headroom);
-
   return (rents || []).map((r: any) => {
     const prof = profileMap.get(r.tenant_id) || { full_name: 'Unknown', phone: null };
     const outstanding = Math.max(
@@ -69,8 +65,6 @@ export async function fetchAgentCapacityTenants(
       total_repayment: Number(r.total_repayment) || 0,
       amount_repaid: Number(r.amount_repaid) || 0,
       outstanding,
-      per_tenant_max: capacity.per_tenant_max,
-      remaining_eligibility: Math.max(sharedEligibility, 0),
     };
   });
 }
@@ -79,7 +73,12 @@ export function generateAgentCapacityPdf(
   agent: CapacityAgentInfo,
   capacity: AgentCapacity,
   tenants: CapacityTenantRow[],
+  /** The database's figures (get_agent_rent_request_capacity), when read; else the snapshot's. */
+  exposure?: AgentExposure | null,
 ): Blob {
+  const exposureUsed = exposure?.exposure ?? capacity.used;
+  const exposureCap = exposure?.cap ?? AGENT_RENT_CAP_UGX;
+  const headroomLeft = exposure?.headroom ?? capacity.headroom;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 12;
@@ -99,7 +98,7 @@ export function generateAgentCapacityPdf(
 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('Agent Rent-Request Capacity — Per Tenant', margin, y);
+  doc.text('Agent Rent-Request Capacity', margin, y);
   y += 6;
 
   // Agent block
@@ -125,7 +124,7 @@ export function generateAgentCapacityPdf(
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text(`Tier: ${capacity.tier}  ·  Daily response ${ratePct}%`, margin + 3, y + 6);
-  doc.text(`Per-tenant max ${ugx(capacity.per_tenant_max)}`, pageWidth - margin - 3, y + 6, { align: 'right' });
+  doc.text(`Exposure ${ugx(exposureUsed)} of ${ugx(exposureCap)}`, pageWidth - margin - 3, y + 6, { align: 'right' });
   doc.setTextColor(0, 0, 0);
   y += 13;
 
@@ -134,9 +133,9 @@ export function generateAgentCapacityPdf(
   const kpis: [string, string][] = [
     ['Active tenants', String(capacity.active_count)],
     ['Not Funded', String(capacity.unfunded_tenant_count)],
-    ['Active exposure', ugx(capacity.used)],
-    ['Fleet headroom', ugx(capacity.headroom)],
-    ['Hard cap', ugx(AGENT_RENT_CAP_UGX)],
+    ['Active exposure', ugx(exposureUsed)],
+    ['Headroom', ugx(headroomLeft)],
+    ['Exposure limit', ugx(exposureCap)],
     ['Responses · 7d', `${capacity.responding_tenant_days}/${capacity.expected_tenant_days}`],
   ];
   const kpiW = contentWidth / kpis.length;
@@ -158,10 +157,9 @@ export function generateAgentCapacityPdf(
     { label: '#',          x: margin,        w: 7 },
     { label: 'Tenant',     x: margin + 7,    w: 38 },
     { label: 'Phone',      x: margin + 45,   w: 26 },
-    { label: 'Daily',      x: margin + 71,   w: 22 },
-    { label: 'Outstanding', x: margin + 93,  w: 28 },
-    { label: 'Per-Tenant Cap', x: margin + 121, w: 30 },
-    { label: 'Can Request Today', x: margin + 151, w: 35 },
+    { label: 'Status',     x: margin + 71,   w: 40 },
+    { label: 'Daily',      x: margin + 111,  w: 30 },
+    { label: 'Outstanding', x: margin + 141, w: 45 },
   ];
   const drawHeader = () => {
     doc.setFillColor(146, 52, 234);
@@ -196,21 +194,11 @@ export function generateAgentCapacityPdf(
       doc.text(`${i + 1}`, cols[0].x + 1, y);
       doc.text(t.tenant_name.slice(0, 24), cols[1].x + 1, y);
       doc.text(t.tenant_phone.slice(0, 16), cols[2].x + 1, y);
-      doc.text(ugx(t.daily_repayment), cols[3].x + 1, y);
+      doc.text(t.status.slice(0, 22), cols[3].x + 1, y);
+      doc.text(ugx(t.daily_repayment), cols[4].x + 1, y);
       doc.setTextColor(t.outstanding > 0 ? 200 : 0, t.outstanding > 0 ? 30 : 130, t.outstanding > 0 ? 30 : 50);
       doc.setFont('helvetica', 'bold');
-      doc.text(ugx(t.outstanding), cols[4].x + 1, y);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'normal');
-      doc.text(ugx(t.per_tenant_max), cols[5].x + 1, y);
-      if (t.remaining_eligibility <= 0) {
-        doc.setTextColor(200, 30, 30);
-        doc.setFont('helvetica', 'bold');
-        doc.text('BLOCKED', cols[6].x + 1, y);
-      } else {
-        doc.setFont('helvetica', 'bold');
-        doc.text(ugx(t.remaining_eligibility), cols[6].x + 1, y);
-      }
+      doc.text(ugx(t.outstanding), cols[5].x + 1, y);
       doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'normal');
       totalOutstanding += t.outstanding;
@@ -225,8 +213,7 @@ export function generateAgentCapacityPdf(
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text(`${tenants.length} tenants`, cols[1].x + 1, y);
-    doc.text(ugx(totalOutstanding), cols[4].x + 1, y);
-    doc.text(ugx(capacity.headroom), cols[6].x + 1, y);
+    doc.text(ugx(totalOutstanding), cols[5].x + 1, y);
     doc.setTextColor(0, 0, 0);
     y += 8;
   }
@@ -236,14 +223,14 @@ export function generateAgentCapacityPdf(
   y += 4;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('How "Can Request Today" is calculated', margin, y);
+  doc.text('How exposure and headroom are calculated', margin, y);
   y += 4;
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(60, 60, 70);
   const note =
-    'Each tenant rent request is capped at the agent\u2019s tier limit (Per-Tenant Cap). The amount the agent can still request today is the lower of (a) the per-tenant cap, and (b) the agent\u2019s remaining fleet headroom — the UGX ' +
-    AGENT_RENT_CAP_UGX.toLocaleString() +
-    ' aggregate active-exposure ceiling minus current outstanding rent. Tier is set by the Daily Tenant Response Rate over the last 7 days: \u226570% Positive, 40\u201369% Fair, 10\u201339% Bad, <10% Very Bad (blocked). New agents start at Starter (UGX 500,000 / tenant).';
+    'There is no rent limit per tenant. Exposure is what the agent\u2019s tenants still owe on their active Rent Plans; it counts against the UGX ' +
+    exposureCap.toLocaleString() +
+    ' exposure limit, and headroom is what is left of it. The tier is a rating from the Daily Tenant Response Rate over the last 7 days: \u226570% Positive, 40\u201369% Fair, 10\u201339% Bad, <10% Very Bad. New agents start at Starter.';
   const lines = doc.splitTextToSize(note, contentWidth);
   doc.text(lines, margin, y);
   y += lines.length * 3.5;

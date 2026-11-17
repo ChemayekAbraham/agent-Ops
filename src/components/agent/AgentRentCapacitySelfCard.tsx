@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useAgentCapacityMap,
-  AGENT_RENT_CAP_UGX,
   AGENT_TIER_THRESHOLDS,
   DAILY_ELIGIBILITY_THRESHOLD,
   type AgentCapacity,
@@ -19,6 +18,18 @@ import {
 } from '@/lib/generateAgentCapacityPdf';
 import { supabase } from '@/integrations/supabase/client';
 import { DailyRatingThresholdPopover } from '@/components/shared/DailyRatingThresholdPopover';
+import { exposureBlockedLine, exposurePct, useAgentExposure, type AgentExposure } from '@/hooks/useAgentExposure';
+
+/** Shown only when the database says the exposure limit is reached (capacity.blocked). */
+function ExposureBlockedNote({ exposure }: { exposure: AgentExposure | null | undefined }) {
+  if (!exposure?.blocked) return null;
+  return (
+    <p className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-sm font-semibold text-destructive" role="status" data-testid="exposure-blocked">
+      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+      <span>{exposureBlockedLine(exposure)}</span>
+    </p>
+  );
+}
 
 const TIER_TONE: Record<AgentCapacity['tier'], string> = {
   Positive:   'bg-emerald-500/15 text-emerald-700 border-emerald-500/30',
@@ -29,14 +40,16 @@ const TIER_TONE: Record<AgentCapacity['tier'], string> = {
 };
 
 /**
- * Agent-facing capacity & tier card. Shows the same numbers Ops sees,
- * plus a plain-English explanation of how the tier was computed.
+ * Agent-facing capacity & tier card: the agent's total exposure and headroom (from
+ * get_agent_rent_request_capacity), the daily and 7-day ratings, and how the tier is worked out.
+ * E134 (COO 17 Nov): no rent ceiling per tenant is shown anywhere.
  */
 export function AgentRentCapacitySelfCard() {
   const { user } = useAuth();
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
   const { data, isLoading } = useAgentCapacityMap(ids);
   const cap = user?.id ? data?.get(user.id) : undefined;
+  const { data: exposure } = useAgentExposure(user?.id);
   const [printing, setPrinting] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -49,11 +62,12 @@ export function AgentRentCapacitySelfCard() {
         .select('full_name, phone')
         .eq('id', user.id)
         .maybeSingle();
-      const tenants = await fetchAgentCapacityTenants(user.id, cap);
+      const tenants = await fetchAgentCapacityTenants(user.id);
       const blob = generateAgentCapacityPdf(
         { full_name: prof?.full_name || 'Agent', phone: prof?.phone || null },
         cap,
         tenants,
+        exposure,
       );
       downloadCapacityPdf(blob, prof?.full_name || 'agent');
       toast.success('Capacity report downloaded');
@@ -67,7 +81,7 @@ export function AgentRentCapacitySelfCard() {
   if (!user?.id) return null;
 
   const ratePct = cap ? Math.round(cap.response_rate * 100) : 0;
-  const pct = cap ? cap.pct : 0;
+  const pct = exposure ? exposurePct(exposure) : 0;
   const bar = pct >= 95 ? 'bg-destructive' : pct >= 75 ? 'bg-amber-500' : 'bg-emerald-500';
 
   return (
@@ -86,7 +100,7 @@ export function AgentRentCapacitySelfCard() {
           <div className="min-w-0 flex-1">
             <h3 className="text-base font-bold text-foreground">My Rent-Request Capacity</h3>
             <p className="text-xs text-muted-foreground">
-              {open ? 'Tap to hide details' : 'Tap to see how much rent you can post'}
+              {open ? 'Tap to hide details' : 'Tap to see your exposure and rating'}
             </p>
           </div>
           {cap && (
@@ -100,16 +114,19 @@ export function AgentRentCapacitySelfCard() {
             ? <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
             : <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />}
         </div>
-        {!open && cap && (
-          <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-            <div className="rounded-lg bg-background/70 border border-border p-2.5">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Headroom left</div>
-              <div className="mt-0.5 font-extrabold tabular-nums text-foreground">{formatUGX(cap.headroom)}</div>
+        {!open && exposure && (
+          <div className="mt-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-lg bg-background/70 border border-border p-2.5">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Exposure</div>
+                <div className="mt-0.5 font-extrabold tabular-nums text-foreground" data-testid="exposure-used">{formatUGX(exposure.exposure)}</div>
+              </div>
+              <div className="rounded-lg bg-background/70 border border-border p-2.5">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Headroom left</div>
+                <div className="mt-0.5 font-extrabold tabular-nums text-foreground">{formatUGX(exposure.headroom)}</div>
+              </div>
             </div>
-            <div className="rounded-lg bg-background/70 border border-border p-2.5">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Per-tenant max</div>
-              <div className="mt-0.5 font-extrabold tabular-nums text-foreground">{formatUGX(cap.per_tenant_max)}</div>
-            </div>
+            <ExposureBlockedNote exposure={exposure} />
           </div>
         )}
       </button>
@@ -124,7 +141,7 @@ export function AgentRentCapacitySelfCard() {
               className="h-8 gap-1.5 px-3"
               onClick={handlePrint}
               disabled={printing}
-              title="Download per-tenant capacity PDF"
+              title="Download capacity PDF"
             >
               {printing
                 ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -137,8 +154,8 @@ export function AgentRentCapacitySelfCard() {
           <p className="text-sm text-muted-foreground">Loading capacity…</p>
         ) : !cap ? (
           <p className="text-sm text-muted-foreground leading-relaxed">
-            You have no active rent requests yet. Once you post one, your tier will start at{' '}
-            <strong>Starter</strong> with a UGX 500,000 per-tenant limit.
+            You have no active rent requests yet. Once you post one, your tier starts at{' '}
+            <strong>Starter</strong> until there are collections to measure.
           </p>
         ) : (
           <>
@@ -327,28 +344,25 @@ export function AgentRentCapacitySelfCard() {
               })()}
             </div>
 
-            <div>
-              <div className="flex items-center justify-between text-sm font-semibold tabular-nums mb-1.5">
-                <span className="text-muted-foreground">
-                  Exposure{' '}
-                  <span className="text-foreground">{formatUGX(cap.used)}</span> /{' '}
-                  {formatUGX(AGENT_RENT_CAP_UGX)}
-                </span>
-                <span className="text-muted-foreground">{pct}%</span>
+            {exposure && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm font-semibold tabular-nums">
+                  <span className="text-muted-foreground" data-testid="exposure-line">
+                    Exposure{' '}
+                    <span className="text-foreground">{formatUGX(exposure.exposure)}</span> /{' '}
+                    {formatUGX(exposure.cap)}
+                  </span>
+                  <span className="text-muted-foreground">{pct}%</span>
+                </div>
+                <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+                  <div className={`h-full ${bar} transition-all`} style={{ width: `${pct}%` }} />
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Headroom <strong className="text-foreground font-mono">{formatUGX(exposure.headroom)}</strong>
+                </div>
+                <ExposureBlockedNote exposure={exposure} />
               </div>
-              <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
-                <div className={`h-full ${bar} transition-all`} style={{ width: `${pct}%` }} />
-              </div>
-              <div className="flex items-center justify-between text-sm mt-2 text-muted-foreground">
-                <span>
-                  Headroom <strong className="text-foreground font-mono">{formatUGX(cap.headroom)}</strong>
-                </span>
-                <span>
-                  Per-tenant max{' '}
-                  <strong className="text-foreground font-mono">{formatUGX(cap.per_tenant_max)}</strong>
-                </span>
-              </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="rounded-xl border border-border bg-background/70 p-3">
@@ -399,7 +413,6 @@ export function AgentRentCapacitySelfCard() {
                   ≥ {Math.round(AGENT_TIER_THRESHOLDS.positive * 100)}% daily response
                 </span>
               </span>
-              <span className="font-mono text-foreground">UGX 6,000,000 / tenant</span>
             </li>
             <li className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-2">
@@ -410,7 +423,6 @@ export function AgentRentCapacitySelfCard() {
                   {Math.round(AGENT_TIER_THRESHOLDS.positive * 100) - 1}%
                 </span>
               </span>
-              <span className="font-mono text-foreground">UGX 3,000,000 / tenant</span>
             </li>
             <li className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-2">
@@ -421,7 +433,6 @@ export function AgentRentCapacitySelfCard() {
                   {Math.round(AGENT_TIER_THRESHOLDS.fair * 100) - 1}%
                 </span>
               </span>
-              <span className="font-mono text-foreground">UGX 1,000,000 / tenant</span>
             </li>
             <li className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-2">
@@ -435,8 +446,8 @@ export function AgentRentCapacitySelfCard() {
             </li>
           </ul>
           <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-            New agents start at <strong>Starter</strong> (UGX 500,000 / tenant) until they have
-            active rent collections to measure. Your tier refreshes daily based on the most recent
+            New agents start at <strong>Starter</strong> until they have active rent collections
+            to measure. The tier is a rating only: it never limits a tenant’s rent. Your tier refreshes daily based on the most recent
             7-day window — so a strong week immediately moves you up.
           </p>
         </div>

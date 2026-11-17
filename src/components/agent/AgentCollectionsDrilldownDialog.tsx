@@ -84,21 +84,13 @@ function groupByTenant(
 function SummaryBar({
   total,
   expectedDaily,
-  headroom,
-  perTenantMax,
   label,
 }: {
   total: number;
   expectedDaily: number;
-  headroom: number;
-  perTenantMax: number;
   label: string;
 }) {
   const remainingTarget = Math.max(0, expectedDaily - total);
-  const remainingSlots =
-    perTenantMax > 0 && headroom > 0
-      ? Math.floor(Math.min(headroom, remainingTarget) / perTenantMax)
-      : 0;
   const pct = expectedDaily > 0 ? Math.min(100, Math.round((total / expectedDaily) * 100)) : 0;
   const barColor = pct >= 50 ? 'bg-emerald-500' : pct >= 20 ? 'bg-amber-500' : 'bg-destructive';
 
@@ -121,11 +113,6 @@ function SummaryBar({
               <Target className="h-3 w-3 inline-block mr-1 -mt-0.5 text-primary" />
               {formatUGX(remainingTarget)} remaining to target
             </span>
-            {remainingSlots > 0 && (
-              <span className="font-semibold text-foreground">
-                {remainingSlots} {remainingSlots === 1 ? 'slot' : 'slots'} left
-              </span>
-            )}
           </div>
         </>
       )}
@@ -225,15 +212,11 @@ export function AgentCollectionsDrilldownDialog({
   onOpenChange,
   agentId,
   expectedDaily = 0,
-  headroom = 0,
-  perTenantMax = 0,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   agentId: string;
   expectedDaily?: number;
-  headroom?: number;
-  perTenantMax?: number;
 }) {
   // ----- Filters -----
   const [methodFilter, setMethodFilter] = useState<string>('all');
@@ -456,17 +439,17 @@ export function AgentCollectionsDrilldownDialog({
             <ScrollArea className="max-h-[55vh]">
               <div className="p-4">
                 <TabsContent value="today" className="mt-0 space-y-3">
-                  <SummaryBar total={todayTotal} expectedDaily={expectedDaily} headroom={headroom} perTenantMax={perTenantMax} label="Today" />
+                  <SummaryBar total={todayTotal} expectedDaily={expectedDaily} label="Today" />
                   <MethodSummary rows={todayRows} />
                   <CollectionList groups={groupByTenant(todayRows, nameById)} />
                 </TabsContent>
                 <TabsContent value="yesterday" className="mt-0 space-y-3">
-                  <SummaryBar total={yesterdayTotal} expectedDaily={expectedDaily} headroom={headroom} perTenantMax={perTenantMax} label="Yesterday" />
+                  <SummaryBar total={yesterdayTotal} expectedDaily={expectedDaily} label="Yesterday" />
                   <MethodSummary rows={yesterdayRows} />
                   <CollectionList groups={groupByTenant(yesterdayRows, nameById)} />
                 </TabsContent>
                 <TabsContent value="range" className="mt-0 space-y-3">
-                  <SummaryBar total={rangeTotal} expectedDaily={expectedDaily} headroom={headroom} perTenantMax={perTenantMax} label="Range" />
+                  <SummaryBar total={rangeTotal} expectedDaily={expectedDaily} label="Range" />
                   <MethodSummary rows={filteredRows} />
                   <CollectionList groups={groupByTenant(filteredRows, nameById)} />
                 </TabsContent>
