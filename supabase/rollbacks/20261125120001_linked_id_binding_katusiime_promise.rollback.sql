@@ -1,4 +1,4 @@
--- Rolls back 20261125120000_linked_id_binding_katusiime_promise.sql
+-- Rolls back 20261125120001_linked_id_binding_katusiime_promise.sql
 -- Puts Katusiime Promise's identity binding back to 'user_capture'. The withdrawal ID gate
 -- will then ignore her active link again and block her withdrawals.
 UPDATE public.user_identity_bindings

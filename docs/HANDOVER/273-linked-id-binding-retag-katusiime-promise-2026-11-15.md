@@ -10,12 +10,12 @@
 - Daisy Liz Nakiboneka (doc 269) passed because her binding was already `linked_id_owner`.
 
 ## Change
-Migration `20261125120000_linked_id_binding_katusiime_promise.sql` sets that one binding to `linked_id_owner`. It only runs while link `c554ec95` is still active and the binding still carries CF0001010FQEAA. It writes one `audit_logs` row (`identity_binding_retagged_linked_id_owner`).
+Migration `20261125120001_linked_id_binding_katusiime_promise.sql` sets that one binding to `linked_id_owner`. It only runs while link `c554ec95` is still active and the binding still carries CF0001010FQEAA. It writes one `audit_logs` row (`identity_binding_retagged_linked_id_owner`).
 - `capture_source` is not protected by `identity_binding_immutable_guard`.
 - No ID number, photo or payout number changes, and no money moves.
 - The file version sorts after the cloud branch's link migration, so a rebuild applies them in the right order.
 
-Rollback: `supabase/rollbacks/20261125120000_linked_id_binding_katusiime_promise.rollback.sql`.
+Rollback: `supabase/rollbacks/20261125120001_linked_id_binding_katusiime_promise.rollback.sql`.
 
 ## Verified after applying
 - `withdrawal_user_id_verified('1eaa4087-…')` = **true** (was false).
