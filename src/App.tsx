@@ -357,6 +357,7 @@ const OperationsDashboardPage = lazy(() => import('./pages/operations/Dashboard'
 const AgentAdvances = lazy(() => import('./pages/AgentAdvances'));
 const AgentAdvanceDetail = lazy(() => import('./pages/AgentAdvanceDetail'));
 const AgentCashPayoutsPage = lazy(() => import('./pages/agent/CashPayouts'));
+const ScFieldPage = lazy(() => import('./pages/desk/scField'));
 const PayoutReceiptHistory = lazy(() => import('./pages/agent/PayoutReceiptHistory'));
 const MerchantTransactionHistory = lazy(() => import('./pages/agent/MerchantTransactionHistory'));
 const AgentFloatBreakdownPage = lazy(() => import('./pages/agent/FloatBreakdown'));
@@ -1017,6 +1018,7 @@ function AppRoutes() {
            <Route path="/agent-advances" element={<AgentAdvances />} />
            <Route path="/agent-advances/:id" element={<AgentAdvanceDetail />} />
            <Route path="/agent/cash-payouts" element={<AgentCashPayoutsPage />} />
+          <Route path="/agent/service-centre" element={<RoleGuard allowedRoles={['agent']}><ScFieldPage /></RoleGuard>} />
           <Route path="/agent/payout-receipts" element={<PayoutReceiptHistory />} />
           <Route path="/agent/transaction-history" element={<MerchantTransactionHistory />} />
            <Route path="/agent/float-breakdown" element={<AgentFloatBreakdownPage />} />

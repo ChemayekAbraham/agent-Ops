@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useBackGestureClose } from '@/hooks/useBackGestureClose';
+import { SC_FIELD_MENU_LABEL, SC_FIELD_PATH, useScFieldMenuVisible } from '@/pages/desk/scFieldApi';
 import {
   X,
   ArrowLeft,
@@ -174,6 +175,9 @@ export function AgentMenuDrawer({
   // Hardware back / edge-swipe closes the full-page menu instead of leaving the route.
   useBackGestureClose(open, handleClose);
 
+  // E133: every agent's team at the Service Centre, unless the server says it is not for them.
+  const showScField = useScFieldMenuVisible(open);
+
   const handleItemClick = (item: MenuItem) => {
     hapticSuccess();
     onOpenChange(false);
@@ -237,6 +241,7 @@ export function AgentMenuDrawer({
         { icon: HandCoins, label: 'My Funders', description: 'No-smartphone partners', onClick: onManageFunders, accent: 'primary', badge: '📱' },
         { icon: Handshake, label: 'Register Sub-Agent', description: 'Add to your team', onClick: onInviteSubAgent, accent: 'amber-500', badge: '500' },
         { icon: Users, label: 'My Sub-Agents', description: 'View your team', onClick: onViewSubAgents, accent: 'orange-500' },
+        ...(showScField ? [{ icon: ClipboardList, label: SC_FIELD_MENU_LABEL, description: "Your team's requests at the desks", path: SC_FIELD_PATH, accent: 'indigo-500' }] : []),
       ].filter(i => i.onClick !== undefined || i.path !== undefined),
     },
     {
