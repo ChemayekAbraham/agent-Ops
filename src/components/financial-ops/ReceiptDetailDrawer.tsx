@@ -66,10 +66,20 @@ export function ReceiptDetailDrawer({ row, onClose, canIssue }: { row: ArchiveRo
     enabled: !!row && !isIn,
     queryFn: async () => {
       const { data, error } = await supabase.from('withdrawal_requests')
-        .select('id,amount,payout_proof,payout_proof_type,payout_proof_path,payout_proof_bucket,payout_proof_uploaded_at')
+        .select('id,user_id,amount,payout_proof,payout_proof_type,payout_proof_path,payout_proof_bucket,payout_proof_uploaded_at,payout_proof_uploaded_by,dispatch_claimed_by,assigned_cashout_agent_id')
         .eq('id', row!.id).maybeSingle();
       if (error) throw new Error(error.message);
-      return data;
+      if (!data) return null;
+      // dispatch_claimed_by is a profile id; assigned_cashout_agent_id is a cashout_agents id that maps to a profile via agent_id.
+      let agentId: string | null = data.dispatch_claimed_by ?? null;
+      if (!agentId && data.assigned_cashout_agent_id) {
+        const { data: ca } = await supabase.from('cashout_agents').select('agent_id').eq('id', data.assigned_cashout_agent_id).maybeSingle();
+        agentId = ca?.agent_id ?? null;
+      }
+      const ids = [data.user_id, data.payout_proof_uploaded_by, agentId].filter((x): x is string => !!x);
+      const { data: profs } = ids.length ? await supabase.from('profiles').select('id,full_name').in('id', ids) : { data: [] };
+      const nameOf = (id: string | null) => (id ? profs?.find((p) => p.id === id)?.full_name ?? null : null);
+      return { ...data, user_name: nameOf(data.user_id), agent_name: nameOf(agentId), uploaded_by_name: nameOf(data.payout_proof_uploaded_by) };
     },
   });
   const proofState = proof.data ? classifyProof(proof.data) : 'missing';
